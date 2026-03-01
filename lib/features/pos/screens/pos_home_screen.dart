@@ -6,6 +6,7 @@ import '../../../core/theme/theme_notifier.dart';
 import '../../../core/utils/number_format.dart';
 import '../../../shared/widgets/app_drawer.dart';
 import '../data/products_data.dart';
+import 'checkout_page.dart';
 
 class PosHomeScreen extends StatefulWidget {
   const PosHomeScreen({super.key});
@@ -18,6 +19,10 @@ class _PosHomeScreenState extends State<PosHomeScreen>
   String _filter = 'All';
   bool _isWholesale = false;
   final double _customerBalance = -1500.00;
+  String _searchQuery = '';
+  bool _isSearching = false;
+  final TextEditingController _searchController = TextEditingController();
+  double _crateDeposit = 1500.0;
   late AnimationController _fabAnim;
 
   final List<Map<String, dynamic>> _cart = [
@@ -54,6 +59,7 @@ class _PosHomeScreenState extends State<PosHomeScreen>
   @override
   void dispose() {
     _fabAnim.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -76,6 +82,7 @@ class _PosHomeScreenState extends State<PosHomeScreen>
         body: Column(
           children: [
             _buildHeader(),
+            if (_isSearching) _buildSearchField(),
             _buildFilterBar(),
             Expanded(child: _buildGrid()),
           ],
@@ -177,7 +184,17 @@ class _PosHomeScreenState extends State<PosHomeScreen>
         ],
       ),
       actions: [
-        _iconBtn(FontAwesomeIcons.magnifyingGlass, () {}, size: 17),
+        _iconBtn(
+          _isSearching ? FontAwesomeIcons.xmark : FontAwesomeIcons.magnifyingGlass,
+          () => setState(() {
+            _isSearching = !_isSearching;
+            if (!_isSearching) {
+              _searchQuery = '';
+              _searchController.clear();
+            }
+          }),
+          size: 17,
+        ),
         Stack(
           alignment: Alignment.center,
           children: [
@@ -373,9 +390,38 @@ class _PosHomeScreenState extends State<PosHomeScreen>
 
   // ── PRODUCT GRID ─────────────────────────────────────────────────────────────
   Widget _buildGrid() {
-    final shown = _filter == 'All'
-        ? kProducts
+    var shown = _filter == 'All'
+        ? List<Map<String, dynamic>>.from(kProducts)
         : kProducts.where((p) => p['category'] == _filter).toList();
+
+    if (_searchQuery.isNotEmpty) {
+      final q = _searchQuery.toLowerCase();
+      shown = shown
+          .where((p) =>
+              (p['name'] as String).toLowerCase().contains(q) ||
+              (p['subtitle'] as String).toLowerCase().contains(q))
+          .toList();
+    }
+
+    if (shown.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(FontAwesomeIcons.magnifyingGlass, size: 48, color: _border),
+            const SizedBox(height: 16),
+            Text('No products found',
+                style: TextStyle(
+                    color: _subtext,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16)),
+            const SizedBox(height: 6),
+            Text('Try a different search term',
+                style: TextStyle(color: _subtext, fontSize: 13)),
+          ],
+        ),
+      );
+    }
 
     return GridView.builder(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
@@ -629,7 +675,7 @@ class _PosHomeScreenState extends State<PosHomeScreen>
             0,
             (s, i) => s + (i['price'] * i['qty']),
           );
-          const dep = 1500.0;
+          final dep = _crateDeposit;
           final tot = sub + dep;
           final bg = _isDark ? dSurface : lSurface;
           final card = _isDark ? dCard : lCard;
@@ -854,91 +900,65 @@ class _PosHomeScreenState extends State<PosHomeScreen>
                           itemBuilder: (_, i) {
                             final item = _cart[i];
                             final Color c = item['color'] as Color;
-                            return Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: card,
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                              child: Row(
-                                children: [
-                                  Container(
-                                    width: 48,
-                                    height: 48,
-                                    decoration: BoxDecoration(
-                                      color: c.withOpacity(0.15),
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: Icon(
-                                      item['icon'] as IconData,
-                                      color: c,
-                                      size: 22,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 14),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          item['name'],
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 15,
-                                            color: _text,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          '${item['qty'].toStringAsFixed(1)} × ₦${fmtNumber(item['price'])}',
-                                          style: TextStyle(
-                                            fontSize: 13,
-                                            color: _subtext,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  Column(
-                                    crossAxisAlignment: CrossAxisAlignment.end,
-                                    children: [
-                                      Text(
-                                        '₦${fmtNumber((item['price'] * item['qty']).toInt())}',
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 15,
-                                          color: _text,
-                                        ),
+                            return InkWell(
+                              borderRadius: BorderRadius.circular(14),
+                              onTap: () => _editItem(ctx, item, setModal),
+                              child: Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: card,
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      width: 48,
+                                      height: 48,
+                                      decoration: BoxDecoration(
+                                        color: c.withOpacity(0.15),
+                                        borderRadius: BorderRadius.circular(12),
                                       ),
-                                      const SizedBox(height: 6),
-                                      GestureDetector(
-                                        onTap: () =>
-                                            _editItem(ctx, item, setModal),
-                                        child: Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 10,
-                                            vertical: 4,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: blueMain.withOpacity(0.1),
-                                            borderRadius: BorderRadius.circular(
-                                              6,
-                                            ),
-                                          ),
-                                          child: const Text(
-                                            'Edit',
+                                      child: Icon(
+                                        item['icon'] as IconData,
+                                        color: c,
+                                        size: 22,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 14),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            item['name'],
                                             style: TextStyle(
-                                              color: blueMain,
-                                              fontSize: 11,
                                               fontWeight: FontWeight.bold,
+                                              fontSize: 15,
+                                              color: _text,
                                             ),
                                           ),
-                                        ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            '${item['qty'].toStringAsFixed(1)} × ₦${fmtNumber(item['price'])}',
+                                            style: TextStyle(
+                                              fontSize: 13,
+                                              color: _subtext,
+                                            ),
+                                          ),
+                                        ],
                                       ),
-                                    ],
-                                  ),
-                                ],
+                                    ),
+                                    Text(
+                                      '₦${fmtNumber((item['price'] * item['qty']).toInt())}',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 15,
+                                        color: _text,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             );
                           },
@@ -954,14 +974,108 @@ class _PosHomeScreenState extends State<PosHomeScreen>
                     children: [
                       _totalRow('Subtotal', sub, small: true),
                       const SizedBox(height: 8),
-                      _totalRow('Crate Deposit', dep, small: true),
+                      GestureDetector(
+                        onTap: () => _showEditCrateDeposit(setModal),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Row(
+                              children: [
+                                Text('Crate Deposit',
+                                    style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
+                                        color: _subtext)),
+                                const SizedBox(width: 6),
+                                Icon(FontAwesomeIcons.penToSquare,
+                                    size: 12, color: blueMain),
+                              ],
+                            ),
+                            Text('₦${fmtNumber(dep.toInt())}',
+                                style: TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w800,
+                                    color: _text)),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      // ── Empty Crates Received (disabled / coming soon) ──
+                      Opacity(
+                        opacity: 0.45,
+                        child: IgnorePointer(
+                          child: Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: _isDark ? dCard : lCard,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: _border),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(FontAwesomeIcons.beerMugEmpty,
+                                    size: 16, color: _subtext),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text('Empty Crates Received',
+                                          style: TextStyle(
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.bold,
+                                              color: _text)),
+                                      Text('Coming soon',
+                                          style: TextStyle(
+                                              fontSize: 11,
+                                              color: _subtext)),
+                                    ],
+                                  ),
+                                ),
+                                Icon(FontAwesomeIcons.lock,
+                                    size: 14, color: _subtext),
+                                const SizedBox(width: 8),
+                                Container(
+                                  width: 48,
+                                  height: 36,
+                                  alignment: Alignment.center,
+                                  decoration: BoxDecoration(
+                                    color: _isDark ? dBg : lBg,
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(color: _border),
+                                  ),
+                                  child: Text('0',
+                                      style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                          color: _subtext)),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
                       const SizedBox(height: 16),
                       Container(height: 1, color: _border),
                       const SizedBox(height: 16),
                       _totalRow('Total', tot, large: true),
                       const SizedBox(height: 24),
                       GestureDetector(
-                        onTap: () => Navigator.pop(ctx),
+                        onTap: () {
+                          Navigator.pop(ctx);
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => CheckoutPage(
+                                cart: List<Map<String, dynamic>>.from(_cart),
+                                subtotal: sub,
+                                crateDeposit: dep,
+                                total: tot,
+                              ),
+                            ),
+                          );
+                        },
                         child: Container(
                           width: double.infinity,
                           padding: const EdgeInsets.symmetric(vertical: 18),
@@ -1083,8 +1197,9 @@ class _PosHomeScreenState extends State<PosHomeScreen>
             children: [
               _qtyBtn(FontAwesomeIcons.minus, () {
                 final v = double.tryParse(qtyCtrl.text) ?? 1.0;
-                if (v > 0.5)
+                if (v > 0.5) {
                   setD(() => qtyCtrl.text = (v - 0.5).toStringAsFixed(1));
+                }
               }),
               Expanded(
                 child: TextField(
@@ -1179,6 +1294,100 @@ class _PosHomeScreenState extends State<PosHomeScreen>
           border: Border.all(color: blueMain.withOpacity(0.3)),
         ),
         child: Icon(icon, size: 16, color: blueMain),
+      ),
+    );
+  }
+
+  // ── SEARCH FIELD ──────────────────────────────────────────────────────────
+  Widget _buildSearchField() {
+    return Container(
+      color: _surface,
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      child: TextField(
+        controller: _searchController,
+        autofocus: true,
+        onChanged: (v) => setState(() => _searchQuery = v),
+        style: TextStyle(fontSize: 14, color: _text),
+        decoration: InputDecoration(
+          hintText: 'Search products by name...',
+          hintStyle: TextStyle(color: _subtext),
+          prefixIcon: Icon(FontAwesomeIcons.magnifyingGlass,
+              size: 16, color: _subtext),
+          filled: true,
+          fillColor: _isDark ? dCard : lCard,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: BorderSide.none,
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: const BorderSide(color: blueMain, width: 2),
+          ),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        ),
+      ),
+    );
+  }
+
+  // ── EDIT CRATE DEPOSIT ────────────────────────────────────────────────────
+  void _showEditCrateDeposit(StateSetter setModal) {
+    final ctrl =
+        TextEditingController(text: _crateDeposit.toInt().toString());
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: _isDark ? dSurface : lSurface,
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: Text('Edit Crate Deposit',
+            style:
+                TextStyle(fontWeight: FontWeight.bold, color: _text)),
+        content: TextField(
+          controller: ctrl,
+          keyboardType: TextInputType.number,
+          autofocus: true,
+          style: TextStyle(
+              fontSize: 18, fontWeight: FontWeight.bold, color: _text),
+          decoration: InputDecoration(
+            prefixText: '₦ ',
+            prefixStyle: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: _text),
+            filled: true,
+            fillColor: _isDark ? dCard : lCard,
+            border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide.none),
+            focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide:
+                    const BorderSide(color: blueMain, width: 2)),
+          ),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text('Cancel',
+                  style: TextStyle(color: _subtext))),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+                backgroundColor: blueMain,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12))),
+            onPressed: () {
+              final val =
+                  double.tryParse(ctrl.text) ?? _crateDeposit;
+              setState(() => _crateDeposit = val);
+              setModal(() {});
+              Navigator.pop(context);
+            },
+            child: const Text('Save',
+                style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
       ),
     );
   }

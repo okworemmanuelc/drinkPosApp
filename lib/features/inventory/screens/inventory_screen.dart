@@ -3,7 +3,6 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/theme_notifier.dart';
-import '../../../core/utils/number_format.dart';
 import '../../../shared/widgets/app_drawer.dart';
 import '../data/models/crate_group.dart';
 import '../data/models/supplier.dart';
@@ -508,7 +507,7 @@ class _InventoryScreenState extends State<InventoryScreen>
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
-                  '${item.stock.toStringAsFixed(item.stock % 1 == 0 ? 0 : 1)}',
+                  item.stock.toStringAsFixed(item.stock % 1 == 0 ? 0 : 1),
                   style: TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.w800,
