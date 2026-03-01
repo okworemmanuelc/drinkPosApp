@@ -13,6 +13,7 @@ import '../../../core/theme/colors.dart';
 import '../../../core/theme/theme_notifier.dart';
 import '../../../core/utils/number_format.dart';
 import '../services/receipt_builder.dart';
+import '../../inventory/data/inventory_data.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CheckoutPage — shown after "Proceed to Checkout" in the cart.
@@ -248,6 +249,24 @@ class _CheckoutPageState extends State<CheckoutPage> {
       );
       return;
     }
+
+    // Process Inventory Deduction
+    for (var item in widget.cart) {
+      final name = item['name'] as String;
+      final qty = item['qty'] as double;
+
+      final inventoryIndex = kInventoryItems.indexWhere(
+        (inv) => inv.productName == name,
+      );
+
+      if (inventoryIndex != -1) {
+        kInventoryItems[inventoryIndex].stock -= qty;
+        if (kInventoryItems[inventoryIndex].stock < 0) {
+          kInventoryItems[inventoryIndex].stock = 0; // Safeguard
+        }
+      }
+    }
+
     setState(() => _paymentConfirmed = true);
   }
 

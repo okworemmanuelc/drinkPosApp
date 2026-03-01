@@ -7,6 +7,8 @@ import '../../../core/utils/number_format.dart';
 import '../../../core/utils/responsive.dart';
 import '../../../shared/widgets/app_drawer.dart';
 import '../data/products_data.dart';
+import '../../inventory/data/inventory_data.dart';
+import '../../inventory/data/models/inventory_item.dart';
 import 'checkout_page.dart';
 
 class PosHomeScreen extends StatefulWidget {
@@ -393,10 +395,37 @@ class _PosHomeScreenState extends State<PosHomeScreen>
   }
 
   // ── PRODUCT GRID ─────────────────────────────────────────────────────────────
+  Map<String, dynamic> _inventoryItemToProduct(InventoryItem item) {
+    // Match against kProducts by name to get price info
+    final existing = kProducts.firstWhere(
+      (p) => p['name'] == item.productName,
+      orElse: () => {
+        'price': 0,
+        'wholesale_price': 0,
+        'category': 'Other',
+      },
+    );
+    return {
+      'name': item.productName,
+      'subtitle': item.subtitle,
+      'price': existing['price'] ?? 0,
+      'wholesale_price': existing['wholesale_price'] ?? 0,
+      'category': existing['category'] ?? 'Other',
+      'icon': item.icon,
+      'color': item.color,
+      'stock': item.stock,
+    };
+  }
+
   Widget _buildGrid() {
+    final allProducts = kInventoryItems
+        .where((i) => i.stock > 0) // only show in-stock items on POS
+        .map(_inventoryItemToProduct)
+        .toList();
+
     var shown = _filter == 'All'
-        ? List<Map<String, dynamic>>.from(kProducts)
-        : kProducts.where((p) => p['category'] == _filter).toList();
+        ? allProducts
+        : allProducts.where((p) => p['category'] == _filter).toList();
 
     if (_searchQuery.isNotEmpty) {
       final q = _searchQuery.toLowerCase();

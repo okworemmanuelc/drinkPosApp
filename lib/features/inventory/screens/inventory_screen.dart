@@ -10,6 +10,7 @@ import '../data/models/inventory_item.dart';
 import '../data/models/crate_stock.dart';
 import '../data/models/inventory_log.dart';
 import '../data/inventory_data.dart';
+import '../../pos/data/products_data.dart';
 
 class InventoryScreen extends StatefulWidget {
   const InventoryScreen({super.key});
@@ -21,6 +22,7 @@ class _InventoryScreenState extends State<InventoryScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   String _selectedSupplierId = 'all';
+  String _stockFilter = 'all'; // 'all' | 'low' | 'out' | 'empty_crates'
 
   bool get _isDark => themeNotifier.value == ThemeMode.dark;
   Color get _bg => _isDark ? dBg : lBg;
@@ -207,7 +209,7 @@ class _InventoryScreenState extends State<InventoryScreen>
         .where((i) => i.stock <= i.lowStockThreshold)
         .length;
     final outOfStock = kInventoryItems.where((i) => i.stock == 0).length;
-    final totalCrates = kCrateStocks.fold<double>(0, (s, c) => s + c.available);
+    final totalCrates = _activeCrateGroups.fold<double>(0, (s, c) => s + c.available);
 
     return Container(
       color: _surface,
@@ -219,6 +221,11 @@ class _InventoryScreenState extends State<InventoryScreen>
             '$totalItems',
             FontAwesomeIcons.layerGroup,
             blueMain,
+            isActive: _stockFilter == 'all',
+            onTap: () => setState(() {
+              _stockFilter = 'all';
+              _tabController.animateTo(0);
+            }),
           ),
           const SizedBox(width: 10),
           _summaryCard(
@@ -226,6 +233,11 @@ class _InventoryScreenState extends State<InventoryScreen>
             '$lowStock',
             FontAwesomeIcons.triangleExclamation,
             const Color(0xFFF59E0B),
+            isActive: _stockFilter == 'low',
+            onTap: () => setState(() {
+              _stockFilter = 'low';
+              _tabController.animateTo(0);
+            }),
           ),
           const SizedBox(width: 10),
           _summaryCard(
@@ -233,6 +245,11 @@ class _InventoryScreenState extends State<InventoryScreen>
             '$outOfStock',
             FontAwesomeIcons.ban,
             danger,
+            isActive: _stockFilter == 'out',
+            onTap: () => setState(() {
+              _stockFilter = 'out';
+              _tabController.animateTo(0);
+            }),
           ),
           const SizedBox(width: 10),
           _summaryCard(
@@ -240,46 +257,56 @@ class _InventoryScreenState extends State<InventoryScreen>
             '${totalCrates.toInt()}',
             FontAwesomeIcons.beerMugEmpty,
             success,
+            isActive: _tabController.index == 1,
+            onTap: () => setState(() {
+              _tabController.animateTo(1);
+            }),
           ),
         ],
       ),
     );
   }
 
-  Widget _summaryCard(String label, String value, IconData icon, Color color) {
+  Widget _summaryCard(String label, String value, IconData icon, Color color,
+      {bool isActive = false, VoidCallback? onTap}) {
     return Expanded(
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: _isDark ? dCard : lCard,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: color.withValues(alpha: 0.2)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(icon, size: 16, color: color),
-            const SizedBox(height: 8),
-            Text(
-              value,
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w800,
-                color: _text,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: _isDark ? dCard : lCard,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+                color: isActive ? color : color.withValues(alpha: 0.2),
+                width: isActive ? 2 : 1),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(icon, size: 16, color: color),
+              const SizedBox(height: 8),
+              Text(
+                value,
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                  color: _text,
+                ),
               ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 10,
-                color: _subtext,
-                fontWeight: FontWeight.w600,
+              const SizedBox(height: 2),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 10,
+                  color: _subtext,
+                  fontWeight: FontWeight.w600,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -334,10 +361,37 @@ class _InventoryScreenState extends State<InventoryScreen>
   }
 
   List<InventoryItem> get _filteredItems {
-    if (_selectedSupplierId == 'all') return kInventoryItems;
-    return kInventoryItems
-        .where((i) => i.supplierId == _selectedSupplierId)
-        .toList();
+    var list = _selectedSupplierId == 'all'
+        ? kInventoryItems
+        : kInventoryItems
+            .where((i) => i.supplierId == _selectedSupplierId)
+            .toList();
+
+    if (_stockFilter == 'low') {
+      return list
+          .where((i) => i.stock > 0 && i.stock <= i.lowStockThreshold)
+          .toList();
+    } else if (_stockFilter == 'out') {
+      return list.where((i) => i.stock == 0).toList();
+    }
+    return list;
+  }
+
+  List<CrateStock> get _activeCrateGroups {
+    return kCrateStocks.where((cs) {
+      return kInventoryItems.any((item) {
+        final supplier = kSuppliers.firstWhere(
+          (s) => s.id == item.supplierId,
+          orElse: () =>
+              Supplier(id: '', name: '', crateGroup: CrateGroup.nbPlc),
+        );
+        final isGlass = item.subtitle.toLowerCase() == 'crate' ||
+            kProducts.any((p) =>
+                p['name'] == item.productName &&
+                p['category'] == 'Glass Crates');
+        return supplier.crateGroup == cs.group && isGlass;
+      });
+    }).toList();
   }
 
   Widget _buildSupplierFilter() {
@@ -414,143 +468,133 @@ class _InventoryScreenState extends State<InventoryScreen>
       statusLabel = 'Low Stock';
     }
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      decoration: BoxDecoration(
-        color: _cardBg,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: isOut
-              ? danger.withValues(alpha: 0.3)
-              : isLow
-              ? const Color(0xFFF59E0B).withValues(alpha: 0.3)
-              : _border,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+    return GestureDetector(
+      onTap: () => _showUpdateStockDialog(item),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        decoration: BoxDecoration(
+          color: _cardBg,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isOut
+                ? danger.withValues(alpha: 0.3)
+                : isLow
+                ? const Color(0xFFF59E0B).withValues(alpha: 0.3)
+                : _border,
           ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Row(
-          children: [
-            Container(
-              width: 52,
-              height: 52,
-              decoration: BoxDecoration(
-                color: item.color.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Icon(item.icon, color: item.color, size: 24),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Text(
-                        item.productName,
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 15,
-                          color: _text,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: statusColor.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          statusLabel,
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                            color: statusColor,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    supplier.name,
-                    style: TextStyle(fontSize: 12, color: _subtext),
-                  ),
-                  const SizedBox(height: 6),
-                  Row(
-                    children: [
-                      Icon(
-                        FontAwesomeIcons.beerMugEmpty,
-                        size: 10,
-                        color: supplier.crateGroup.color,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        'Empty crates (${supplier.crateGroup.label}): ${crateStock.available.toInt()} available',
-                        style: TextStyle(fontSize: 11, color: _subtext),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  item.stock.toStringAsFixed(item.stock % 1 == 0 ? 0 : 1),
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w800,
-                    color: isOut
-                        ? danger
-                        : isLow
-                        ? const Color(0xFFF59E0B)
-                        : _text,
-                  ),
-                ),
-                Text(
-                  item.subtitle,
-                  style: TextStyle(fontSize: 11, color: _subtext),
-                ),
-                const SizedBox(height: 6),
-                GestureDetector(
-                  onTap: () => _showUpdateStockDialog(item),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 5,
-                    ),
-                    decoration: BoxDecoration(
-                      color: blueMain.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: blueMain.withValues(alpha: 0.2)),
-                    ),
-                    child: const Text(
-                      'Update',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        color: blueMain,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.02),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
             ),
           ],
+        ),
+        child: Padding(
+          padding: EdgeInsets.all(MediaQuery.of(context).size.width < 360 ? 10 : 14),
+          child: Row(
+            children: [
+              Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  color: item.color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(item.icon, color: item.color, size: 24),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            item.productName,
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15,
+                              color: _text,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: statusColor.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            statusLabel,
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: statusColor,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      supplier.name,
+                      style: TextStyle(fontSize: 12, color: _subtext),
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Icon(
+                          FontAwesomeIcons.beerMugEmpty,
+                          size: 10,
+                          color: supplier.crateGroup.color,
+                        ),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            'Empty crates (${supplier.crateGroup.label}): ${crateStock.available.toInt()} available',
+                            style: TextStyle(fontSize: 11, color: _subtext),
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    item.stock.toStringAsFixed(item.stock % 1 == 0 ? 0 : 1),
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w800,
+                      color: isOut
+                          ? danger
+                          : isLow
+                          ? const Color(0xFFF59E0B)
+                          : _text,
+                    ),
+                  ),
+                  Text(
+                    item.subtitle,
+                    style: TextStyle(fontSize: 11, color: _subtext),
+                  ),
+                  const SizedBox(height: 4),
+                  const Icon(FontAwesomeIcons.penToSquare, size: 12, color: blueMain),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -598,16 +642,46 @@ class _InventoryScreenState extends State<InventoryScreen>
           ),
         ),
         const SizedBox(height: 16),
-        Text(
-          'Crate Groups',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: _text,
-          ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Crate Groups',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: _text,
+              ),
+            ),
+            GestureDetector(
+              onTap: _showAddSupplierDialog,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: blueMain.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(FontAwesomeIcons.plus, size: 12, color: blueMain),
+                    const SizedBox(width: 6),
+                    Text(
+                      'New Group',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: blueMain,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 12),
-        ...kCrateStocks.map((cs) => _buildCrateGroupCard(cs)),
+        ..._activeCrateGroups.map((cs) => _buildCrateGroupCard(cs)),
       ],
     );
   }
@@ -937,9 +1011,7 @@ class _InventoryScreenState extends State<InventoryScreen>
 
   // ── UPDATE STOCK DIALOG ───────────────────────────────────────────────────────
   void _showUpdateStockDialog(InventoryItem item) {
-    final ctrl = TextEditingController(
-      text: item.stock.toStringAsFixed(item.stock % 1 == 0 ? 0 : 1),
-    );
+    final ctrl = TextEditingController(text: '');
     final noteCtrl = TextEditingController();
     String action = 'restock';
 
@@ -953,184 +1025,453 @@ class _InventoryScreenState extends State<InventoryScreen>
             bottom: MediaQuery.of(ctx).viewInsets.bottom,
           ),
           child: Container(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(ctx).size.height * 0.85,
+            ),
             decoration: BoxDecoration(
               color: _isDark ? dSurface : lSurface,
               borderRadius: const BorderRadius.vertical(
                 top: Radius.circular(28),
               ),
             ),
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Center(
-                  child: Container(
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: _border,
-                      borderRadius: BorderRadius.circular(2),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+                  child: Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: _border,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
                     ),
                   ),
                 ),
                 const SizedBox(height: 20),
-                Row(
-                  children: [
-                    Container(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        color: item.color.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Icon(item.icon, color: item.color, size: 20),
-                    ),
-                    const SizedBox(width: 14),
-                    Column(
+                Flexible(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        Row(
+                          children: [
+                            Container(
+                              width: 44,
+                              height: 44,
+                              decoration: BoxDecoration(
+                                color: item.color.withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Icon(item.icon, color: item.color, size: 20),
+                            ),
+                            const SizedBox(width: 14),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Update Stock',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w800,
+                                    color: _text,
+                                  ),
+                                ),
+                                Text(
+                                  item.productName,
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    color: blueMain,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 20),
                         Text(
-                          'Update Stock',
+                          'Action',
                           style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w800,
-                            color: _text,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: _subtext,
                           ),
                         ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            _actionChip(
+                              'restock',
+                              'Restock',
+                              action,
+                              (v) => setB(() => action = v),
+                            ),
+                            const SizedBox(width: 8),
+                            _actionChip(
+                              'adjustment',
+                              'Adjust',
+                              action,
+                              (v) => setB(() => action = v),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
                         Text(
-                          item.productName,
-                          style: const TextStyle(
-                            fontSize: 13,
-                            color: blueMain,
+                          action == 'restock' ? 'Quantity to Add' : 'Set Stock To',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: _subtext,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        TextField(
+                          controller: ctrl,
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
+                          style: TextStyle(
+                            fontSize: 18,
                             fontWeight: FontWeight.bold,
+                            color: _text,
+                          ),
+                          decoration: InputDecoration(
+                            hintText: action == 'restock'
+                                ? 'e.g. 10 (will be added to current stock)'
+                                : 'e.g. 18 (replaces current stock)',
+                            hintStyle: TextStyle(color: _subtext),
+                            filled: true,
+                            fillColor: _isDark ? dCard : lCard,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: BorderSide.none,
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: const BorderSide(color: blueMain, width: 2),
+                            ),
+                            contentPadding: const EdgeInsets.all(16),
+                            suffixText: item.subtitle,
+                            suffixStyle: TextStyle(color: _subtext, fontSize: 14),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: noteCtrl,
+                          style: TextStyle(fontSize: 14, color: _text),
+                          decoration: InputDecoration(
+                            hintText: 'Note (optional)',
+                            hintStyle: TextStyle(color: _subtext),
+                            filled: true,
+                            fillColor: _isDark ? dCard : lCard,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: BorderSide.none,
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: const BorderSide(color: blueMain, width: 2),
+                            ),
+                            contentPadding: const EdgeInsets.all(16),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        GestureDetector(
+                          onTap: () {
+                            Navigator.pop(ctx);
+                            _showUpdatePriceDialog(item);
+                          },
+                          child: Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            decoration: BoxDecoration(
+                              color: success.withValues(alpha: 0.08),
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(color: success.withValues(alpha: 0.3)),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(FontAwesomeIcons.tag, size: 14, color: success),
+                                const SizedBox(width: 10),
+                                Text(
+                                  'Update Price',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                    color: success,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        // Pad the bottom of the scroll view
+                        const SizedBox(height: 32),
+                      ],
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: blueMain,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        elevation: 0,
+                      ),
+                      onPressed: () {
+                        final entered = double.tryParse(ctrl.text) ?? 0;
+                        final newQty = action == 'restock'
+                            ? item.stock + entered
+                            : entered;
+                        final diff = newQty - item.stock;
+
+                        final log = InventoryLog(
+                          timestamp: DateTime.now(),
+                          user: 'John Cashier',
+                          itemId: item.id,
+                          itemName: item.productName,
+                          action: action,
+                          previousValue: item.stock,
+                          newValue: newQty,
+                          note: noteCtrl.text.isEmpty ? null : noteCtrl.text,
+                        );
+
+                        // Adjust crate stock if it's a "Glass Crates" product
+                        // 1. Check product category
+                        final productData = kProducts.firstWhere(
+                          (p) => p['name'] == item.productName,
+                          orElse: () => <String, dynamic>{},
+                        );
+
+                        setState(() {
+                          item.stock = newQty;
+                          kInventoryLogs.add(log);
+
+                          if (productData.isNotEmpty &&
+                              productData['category'] == 'Glass Crates') {
+                            final supplier = kSuppliers.firstWhere(
+                              (s) => s.id == item.supplierId,
+                              orElse: () => Supplier(
+                                  id: '', name: '', crateGroup: CrateGroup.premium),
+                            );
+
+                            final cStockIndex = kCrateStocks.indexWhere(
+                                (c) => c.group == supplier.crateGroup);
+
+                            if (cStockIndex != -1) {
+                              kCrateStocks[cStockIndex].available += diff;
+                            }
+                          }
+                        });
+                        Navigator.pop(ctx);
+                      },
+                      child: const Text(
+                        'Save Update',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── UPDATE PRICE DIALOG ───────────────────────────────────────────────────────
+  void _showUpdatePriceDialog(InventoryItem item) {
+    final existingParams = kProducts.firstWhere(
+      (p) => p['name'] == item.productName,
+      orElse: () => {
+        'price': 0,
+        'wholesale_price': 0,
+        'category': 'Other',
+      },
+    );
+    final priceCtrl = TextEditingController(
+      text: (existingParams['price'] ?? 0).toString(),
+    );
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => StatefulBuilder(
+        builder: (ctx, setB) => Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(ctx).viewInsets.bottom,
+          ),
+          child: Container(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(ctx).size.height * 0.9,
+            ),
+            decoration: BoxDecoration(
+              color: _isDark ? dSurface : lSurface,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(28),
+              ),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+                  child: Column(
+                    children: [
+                      Center(
+                        child: Container(
+                          width: 40,
+                          height: 4,
+                          decoration: BoxDecoration(
+                            color: _border,
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                    ],
+                  ),
+                ),
+                Flexible(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              width: 44,
+                              height: 44,
+                              decoration: BoxDecoration(
+                                color: success.withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Icon(FontAwesomeIcons.tag, color: success, size: 20),
+                            ),
+                            const SizedBox(width: 14),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Update Price',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w800,
+                                    color: _text,
+                                  ),
+                                ),
+                                Text(
+                                  item.productName,
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    color: blueMain,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 20),
+                        Text(
+                          'Retail Selling Price (₦)',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: _subtext,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        TextField(
+                          controller: priceCtrl,
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: _text,
+                          ),
+                          decoration: InputDecoration(
+                            hintText: 'Enter price (e.g. 5000)',
+                            hintStyle: TextStyle(color: _subtext),
+                            filled: true,
+                            fillColor: _isDark ? dCard : lCard,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: BorderSide.none,
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: const BorderSide(color: blueMain, width: 2),
+                            ),
+                            contentPadding: const EdgeInsets.all(16),
                           ),
                         ),
                       ],
                     ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-                Text(
-                  'Action',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: _subtext,
                   ),
                 ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    _actionChip(
-                      'restock',
-                      'Restock',
-                      action,
-                      (v) => setB(() => action = v),
-                    ),
-                    const SizedBox(width: 8),
-                    _actionChip(
-                      'adjustment',
-                      'Adjust',
-                      action,
-                      (v) => setB(() => action = v),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'New Quantity',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: _subtext,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: ctrl,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: _text,
-                  ),
-                  decoration: InputDecoration(
-                    hintText: 'Enter quantity',
-                    hintStyle: TextStyle(color: _subtext),
-                    filled: true,
-                    fillColor: _isDark ? dCard : lCard,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
-                      borderSide: BorderSide.none,
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
-                      borderSide: const BorderSide(color: blueMain, width: 2),
-                    ),
-                    contentPadding: const EdgeInsets.all(16),
-                    suffixText: item.subtitle,
-                    suffixStyle: TextStyle(color: _subtext, fontSize: 14),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: noteCtrl,
-                  style: TextStyle(fontSize: 14, color: _text),
-                  decoration: InputDecoration(
-                    hintText: 'Note (optional)',
-                    hintStyle: TextStyle(color: _subtext),
-                    filled: true,
-                    fillColor: _isDark ? dCard : lCard,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
-                      borderSide: BorderSide.none,
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
-                      borderSide: const BorderSide(color: blueMain, width: 2),
-                    ),
-                    contentPadding: const EdgeInsets.all(16),
-                  ),
-                ),
-                const SizedBox(height: 24),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: blueMain,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: success,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        elevation: 0,
                       ),
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      elevation: 0,
-                    ),
-                    onPressed: () {
-                      final newQty = double.tryParse(ctrl.text) ?? item.stock;
-                      final log = InventoryLog(
-                        timestamp: DateTime.now(),
-                        user: 'John Cashier',
-                        itemId: item.id,
-                        itemName: item.productName,
-                        action: action,
-                        previousValue: item.stock,
-                        newValue: newQty,
-                        note: noteCtrl.text.isEmpty ? null : noteCtrl.text,
-                      );
-                      setState(() {
-                        item.stock = newQty;
-                        kInventoryLogs.add(log);
-                      });
-                      Navigator.pop(ctx);
-                    },
-                    child: const Text(
-                      'Save Update',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 15,
+                      onPressed: () {
+                        final newPrice = int.tryParse(priceCtrl.text) ?? existingParams['price'];
+                        setState(() {
+                          final idx = kProducts.indexWhere((p) => p['name'] == item.productName);
+                          if (idx != -1) {
+                            kProducts[idx]['price'] = newPrice;
+                          } else {
+                            kProducts.add({
+                              'name': item.productName,
+                              'subtitle': item.subtitle,
+                              'price': newPrice,
+                              'wholesale_price': newPrice, // fallback
+                              'category': 'Other', // fallback
+                              'icon': item.icon,
+                              'color': item.color,
+                            });
+                          }
+                        });
+                        Navigator.pop(ctx);
+                      },
+                      child: const Text(
+                        'Save Price',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                        ),
                       ),
                     ),
                   ),
@@ -1186,27 +1527,42 @@ class _InventoryScreenState extends State<InventoryScreen>
           bottom: MediaQuery.of(context).viewInsets.bottom,
         ),
         child: Container(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.9,
+          ),
           decoration: BoxDecoration(
             color: _isDark ? dSurface : lSurface,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
           ),
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: _border,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+                child: Column(
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: _border,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                  ],
                 ),
               ),
-              const SizedBox(height: 20),
-              Row(
+              Flexible(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
                 children: [
                   Container(
                     width: 44,
@@ -1301,40 +1657,46 @@ class _InventoryScreenState extends State<InventoryScreen>
                   contentPadding: const EdgeInsets.all(16),
                 ),
               ),
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: cs.group.color,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    elevation: 0,
+                    ],
                   ),
-                  onPressed: () {
-                    final newQty = double.tryParse(ctrl.text) ?? cs.available;
-                    final log = InventoryLog(
-                      timestamp: DateTime.now(),
-                      user: 'John Cashier',
-                      itemId: 'crate_${cs.group.name}',
-                      itemName: '${cs.group.label} Crates',
-                      action: 'crate_update',
-                      previousValue: cs.available,
-                      newValue: newQty,
-                      note: noteCtrl.text.isEmpty ? null : noteCtrl.text,
-                    );
-                    setState(() {
-                      cs.available = newQty;
-                      kInventoryLogs.add(log);
-                    });
-                    Navigator.pop(context);
-                  },
-                  child: const Text(
-                    'Save Update',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: cs.group.color,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      elevation: 0,
+                    ),
+                    onPressed: () {
+                      final newQty = double.tryParse(ctrl.text) ?? cs.available;
+                      final log = InventoryLog(
+                        timestamp: DateTime.now(),
+                        user: 'John Cashier',
+                        itemId: 'crate_${cs.group.name}',
+                        itemName: '${cs.group.label} Crates',
+                        action: 'crate_update',
+                        previousValue: cs.available,
+                        newValue: newQty,
+                        note: noteCtrl.text.isEmpty ? null : noteCtrl.text,
+                      );
+                      setState(() {
+                        cs.available = newQty;
+                        kInventoryLogs.add(log);
+                      });
+                      Navigator.pop(context);
+                    },
+                    child: const Text(
+                      'Save Update',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                    ),
                   ),
                 ),
               ),
@@ -1351,6 +1713,9 @@ class _InventoryScreenState extends State<InventoryScreen>
     final subtitleCtrl = TextEditingController();
     String selectedSupplierId = kSuppliers.first.id;
     final stockCtrl = TextEditingController(text: '0');
+    final retailPriceCtrl = TextEditingController();
+    final wholesalePriceCtrl = TextEditingController();
+    final buyingPriceCtrl = TextEditingController();
 
     showModalBottomSheet(
       context: context,
@@ -1362,43 +1727,59 @@ class _InventoryScreenState extends State<InventoryScreen>
             bottom: MediaQuery.of(ctx).viewInsets.bottom,
           ),
           child: Container(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(ctx).size.height * 0.9,
+            ),
             decoration: BoxDecoration(
               color: _isDark ? dSurface : lSurface,
               borderRadius: const BorderRadius.vertical(
                 top: Radius.circular(28),
               ),
             ),
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Center(
-                  child: Container(
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: _border,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Center(
+                        child: Container(
+                          width: 40,
+                          height: 4,
+                          decoration: BoxDecoration(
+                            color: _border,
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      Text(
+                        'Add New Product',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w800,
+                          color: _text,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Product will be added to inventory tracking',
+                        style: TextStyle(fontSize: 13, color: _subtext),
+                      ),
+                      const SizedBox(height: 20),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 20),
-                Text(
-                  'Add New Product',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w800,
-                    color: _text,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Product will be added to inventory tracking',
-                  style: TextStyle(fontSize: 13, color: _subtext),
-                ),
-                const SizedBox(height: 20),
-                _inputField('Product Name', nameCtrl, 'e.g. Trophy Lager'),
+                Flexible(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _inputField('Product Name', nameCtrl, 'e.g. Trophy Lager'),
                 const SizedBox(height: 12),
                 _inputField(
                   'Type / Packaging',
@@ -1443,55 +1824,71 @@ class _InventoryScreenState extends State<InventoryScreen>
                     ),
                   ),
                 ),
-                const SizedBox(height: 12),
-                _inputField('Opening Stock', stockCtrl, '0', isNumber: true),
-                const SizedBox(height: 24),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: blueMain,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      elevation: 0,
+                      ],
                     ),
-                    onPressed: () {
-                      if (nameCtrl.text.trim().isEmpty) return;
-                      final newItem = InventoryItem(
-                        id: 'i${DateTime.now().millisecondsSinceEpoch}',
-                        productName: nameCtrl.text.trim(),
-                        subtitle: subtitleCtrl.text.trim().isEmpty
-                            ? 'Unit'
-                            : subtitleCtrl.text.trim(),
-                        supplierId: selectedSupplierId,
-                        icon: FontAwesomeIcons.wineBottle,
-                        color: blueMain,
-                        stock: double.tryParse(stockCtrl.text) ?? 0,
-                      );
-                      final log = InventoryLog(
-                        timestamp: DateTime.now(),
-                        user: 'John Cashier',
-                        itemId: newItem.id,
-                        itemName: newItem.productName,
-                        action: 'restock',
-                        previousValue: 0,
-                        newValue: newItem.stock,
-                        note: 'New product added to inventory',
-                      );
-                      setState(() {
-                        kInventoryItems.add(newItem);
-                        kInventoryLogs.add(log);
-                      });
-                      Navigator.pop(ctx);
-                    },
-                    child: const Text(
-                      'Add to Inventory',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 15,
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: blueMain,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        elevation: 0,
+                      ),
+                      onPressed: () {
+                        if (nameCtrl.text.trim().isEmpty) return;
+                        final newItem = InventoryItem(
+                          id: 'i${DateTime.now().millisecondsSinceEpoch}',
+                          productName: nameCtrl.text.trim(),
+                          subtitle: subtitleCtrl.text.trim().isEmpty
+                              ? 'Unit'
+                              : subtitleCtrl.text.trim(),
+                          supplierId: selectedSupplierId,
+                          icon: FontAwesomeIcons.wineBottle,
+                          color: blueMain,
+                          stock: double.tryParse(stockCtrl.text) ?? 0,
+                        );
+                        final log = InventoryLog(
+                          timestamp: DateTime.now(),
+                          user: 'John Cashier',
+                          itemId: newItem.id,
+                          itemName: newItem.productName,
+                          action: 'restock',
+                          previousValue: 0,
+                          newValue: newItem.stock,
+                          note: 'New product added to inventory',
+                        );
+                        setState(() {
+                          kInventoryItems.add(newItem);
+                          kInventoryLogs.add(log);
+                          
+                          // Also add to POS products data
+                          kProducts.add({
+                            'name': newItem.productName,
+                            'subtitle': newItem.subtitle,
+                            'price': int.tryParse(retailPriceCtrl.text) ?? 0,
+                            'wholesale_price': int.tryParse(wholesalePriceCtrl.text) ?? 0,
+                            'buying_price': int.tryParse(buyingPriceCtrl.text) ?? 0,
+                            'category': 'Other',
+                            'icon': newItem.icon,
+                            'color': newItem.color,
+                          });
+                        });
+                        Navigator.pop(ctx);
+                      },
+                      child: const Text(
+                        'Add to Inventory & POS',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                        ),
                       ),
                     ),
                   ),
