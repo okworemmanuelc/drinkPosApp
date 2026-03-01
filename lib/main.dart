@@ -26,7 +26,7 @@ class BrewFlowApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return ValueListenableBuilder<ThemeMode>(
       valueListenable: themeNotifier,
-      builder: (_, mode, __) => MaterialApp(
+      builder: (_, mode, _) => MaterialApp(
         title: 'BrewFlow POS',
         debugShowCheckedModeBanner: false,
         themeMode: mode,

@@ -4,6 +4,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/theme_notifier.dart';
 import '../../../core/utils/number_format.dart';
+import '../../../core/utils/responsive.dart';
 import '../../../shared/widgets/app_drawer.dart';
 import '../data/products_data.dart';
 import 'checkout_page.dart';
@@ -75,17 +76,20 @@ class _PosHomeScreenState extends State<PosHomeScreen>
   Widget build(BuildContext context) {
     return ValueListenableBuilder<ThemeMode>(
       valueListenable: themeNotifier,
-      builder: (_, __, ___) => Scaffold(
+      builder: (_, _, _) => Scaffold(
         backgroundColor: _bg,
         appBar: _buildAppBar(),
         drawer: const AppDrawer(activeRoute: 'pos'),
-        body: Column(
-          children: [
-            _buildHeader(),
-            if (_isSearching) _buildSearchField(),
-            _buildFilterBar(),
-            Expanded(child: _buildGrid()),
-          ],
+        body: SafeArea(
+          top: false,
+          child: Column(
+            children: [
+              _buildHeader(),
+              if (_isSearching) _buildSearchField(),
+              _buildFilterBar(),
+              Expanded(child: _buildGrid()),
+            ],
+          ),
         ),
         floatingActionButton: _buildFab(),
         floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
@@ -146,7 +150,7 @@ class _PosHomeScreenState extends State<PosHomeScreen>
               borderRadius: BorderRadius.circular(12),
               boxShadow: [
                 BoxShadow(
-                  color: blueMain.withOpacity(0.3),
+                  color: blueMain.withValues(alpha: 0.3),
                   blurRadius: 8,
                   offset: const Offset(0, 2),
                 ),
@@ -258,9 +262,9 @@ class _PosHomeScreenState extends State<PosHomeScreen>
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               decoration: BoxDecoration(
-                color: blueMain.withOpacity(0.1),
+                color: blueMain.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: blueMain.withOpacity(0.2)),
+                border: Border.all(color: blueMain.withValues(alpha: 0.2)),
               ),
               child: Row(
                 children: [
@@ -312,7 +316,7 @@ class _PosHomeScreenState extends State<PosHomeScreen>
           boxShadow: active
               ? [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
+                    color: Colors.black.withValues(alpha: 0.05),
                     blurRadius: 4,
                     offset: const Offset(0, 2),
                   ),
@@ -423,13 +427,17 @@ class _PosHomeScreenState extends State<PosHomeScreen>
       );
     }
 
+    final screenWidth = MediaQuery.of(context).size.width;
+    final crossAxisCount = screenWidth < 360 ? 2 : (screenWidth > 500 ? 4 : 3);
+    final aspect = screenWidth < 360 ? 0.85 : (screenWidth > 500 ? 0.80 : 0.80);
+
     return GridView.builder(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
-        childAspectRatio: 0.80,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: crossAxisCount,
+        childAspectRatio: aspect,
+        crossAxisSpacing: rSize(context, 12),
+        mainAxisSpacing: rSize(context, 12),
       ),
       itemCount: shown.length,
       itemBuilder: (_, i) => _buildProductCard(shown[i]),
@@ -474,8 +482,8 @@ class _PosHomeScreenState extends State<PosHomeScreen>
           boxShadow: [
             BoxShadow(
               color: inCart
-                  ? blueMain.withOpacity(0.15)
-                  : Colors.black.withOpacity(0.02),
+                  ? blueMain.withValues(alpha: 0.15)
+                  : Colors.black.withValues(alpha: 0.02),
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),
@@ -491,7 +499,7 @@ class _PosHomeScreenState extends State<PosHomeScreen>
                     child: Container(
                       width: double.infinity,
                       decoration: BoxDecoration(
-                        color: accent.withOpacity(0.1),
+                        color: accent.withValues(alpha: 0.1),
                         shape: BoxShape.circle,
                       ),
                       child: Icon(
@@ -596,7 +604,7 @@ class _PosHomeScreenState extends State<PosHomeScreen>
             borderRadius: BorderRadius.circular(24),
             boxShadow: [
               BoxShadow(
-                color: blueMain.withOpacity(0.4),
+                color: blueMain.withValues(alpha: 0.4),
                 blurRadius: 16,
                 offset: const Offset(0, 6),
               ),
@@ -642,7 +650,7 @@ class _PosHomeScreenState extends State<PosHomeScreen>
                     vertical: 4,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
+                    color: Colors.white.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
@@ -739,10 +747,10 @@ class _PosHomeScreenState extends State<PosHomeScreen>
                               vertical: 8,
                             ),
                             decoration: BoxDecoration(
-                              color: danger.withOpacity(0.1),
+                              color: danger.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(10),
                               border: Border.all(
-                                color: danger.withOpacity(0.2),
+                                color: danger.withValues(alpha: 0.2),
                               ),
                             ),
                             child: Row(
@@ -796,7 +804,7 @@ class _PosHomeScreenState extends State<PosHomeScreen>
                         Container(
                           padding: const EdgeInsets.all(10),
                           decoration: BoxDecoration(
-                            color: blueMain.withOpacity(0.15),
+                            color: blueMain.withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: const Icon(
@@ -895,7 +903,7 @@ class _PosHomeScreenState extends State<PosHomeScreen>
                             vertical: 16,
                           ),
                           itemCount: _cart.length,
-                          separatorBuilder: (_, __) =>
+                          separatorBuilder: (_, _) =>
                               const SizedBox(height: 12),
                           itemBuilder: (_, i) {
                             final item = _cart[i];
@@ -915,7 +923,7 @@ class _PosHomeScreenState extends State<PosHomeScreen>
                                       width: 48,
                                       height: 48,
                                       decoration: BoxDecoration(
-                                        color: c.withOpacity(0.15),
+                                        color: c.withValues(alpha: 0.15),
                                         borderRadius: BorderRadius.circular(12),
                                       ),
                                       child: Icon(
@@ -1088,7 +1096,7 @@ class _PosHomeScreenState extends State<PosHomeScreen>
                             borderRadius: BorderRadius.circular(16),
                             boxShadow: [
                               BoxShadow(
-                                color: blueMain.withOpacity(0.3),
+                                color: blueMain.withValues(alpha: 0.3),
                                 blurRadius: 14,
                                 offset: const Offset(0, 6),
                               ),
@@ -1289,9 +1297,9 @@ class _PosHomeScreenState extends State<PosHomeScreen>
         height: 46,
         margin: const EdgeInsets.symmetric(horizontal: 10),
         decoration: BoxDecoration(
-          color: blueMain.withOpacity(0.1),
+          color: blueMain.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: blueMain.withOpacity(0.3)),
+          border: Border.all(color: blueMain.withValues(alpha: 0.3)),
         ),
         child: Icon(icon, size: 16, color: blueMain),
       ),

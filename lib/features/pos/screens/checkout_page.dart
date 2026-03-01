@@ -3,9 +3,8 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:pdf/pdf.dart';
-import 'package:pdf/widgets.dart' as pw;
-import 'package:printing/printing.dart';
+import 'package:print_bluetooth_thermal/print_bluetooth_thermal.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:screenshot/screenshot.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:path_provider/path_provider.dart';
@@ -13,6 +12,7 @@ import 'package:path_provider/path_provider.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/theme_notifier.dart';
 import '../../../core/utils/number_format.dart';
+import '../services/receipt_builder.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CheckoutPage — shown after "Proceed to Checkout" in the cart.
@@ -42,9 +42,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
   PaymentType _paymentType = PaymentType.fullCash;
   final TextEditingController _cashReceivedCtrl = TextEditingController();
   final TextEditingController _customerNameCtrl = TextEditingController();
+  final ScreenshotController _screenshotCtrl = ScreenshotController();
   bool _paymentConfirmed = false;
 
-  final ScreenshotController _screenshotCtrl = ScreenshotController();
 
   bool get _isDark => themeNotifier.value == ThemeMode.dark;
   Color get _bg => _isDark ? dBg : lBg;
@@ -80,7 +80,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
   Widget build(BuildContext context) {
     return ValueListenableBuilder<ThemeMode>(
       valueListenable: themeNotifier,
-      builder: (_, __, ___) => Scaffold(
+      builder: (_, _, _) => Scaffold(
         backgroundColor: _bg,
         appBar: AppBar(
           backgroundColor: _surface,
@@ -99,7 +99,10 @@ class _CheckoutPageState extends State<CheckoutPage> {
           ),
           centerTitle: true,
         ),
-        body: _paymentConfirmed ? _buildReceiptView() : _buildCheckoutForm(),
+        body: SafeArea(
+          top: false,
+          child: _paymentConfirmed ? _buildReceiptView() : _buildCheckoutForm(),
+        ),
       ),
     );
   }
@@ -271,7 +274,6 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 cashReceived: _paymentType == PaymentType.partialCash
                     ? double.tryParse(_cashReceivedCtrl.text)
                     : null,
-                isDark: _isDark,
               ),
             ),
           ),
@@ -303,28 +305,19 @@ class _CheckoutPageState extends State<CheckoutPage> {
             children: [
               Expanded(
                 child: _receiptButton(
-                  'Print',
+                  'Print Receipt',
                   FontAwesomeIcons.print,
                   blueMain,
                   _printReceipt,
                 ),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 12),
               Expanded(
                 child: _receiptButton(
-                  'Share Image',
-                  FontAwesomeIcons.image,
+                  'Share Receipt',
+                  FontAwesomeIcons.shareNodes,
                   success,
-                  _shareAsImage,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _receiptButton(
-                  'Share PDF',
-                  FontAwesomeIcons.filePdf,
-                  danger,
-                  _shareAsPdf,
+                  _shareReceipt,
                 ),
               ),
             ],
@@ -363,9 +356,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 14),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
+          color: color.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: color.withOpacity(0.25)),
+          border: Border.all(color: color.withValues(alpha: 0.25)),
         ),
         child: Column(
           children: [
@@ -387,192 +380,167 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
   // ── Receipt actions ────────────────────────────────────────────────────────
 
-  Future<void> _printReceipt() async {
-    // Uses the `printing` package which supports Bluetooth ePOS printers
-    // and network printers. The user will pick a printer from the system
-    // dialog. For direct Bluetooth ePOS printing, integrate esc_pos_bluetooth
-    // as a future enhancement.
-    await Printing.layoutPdf(
-      onLayout: (format) => _generatePdfBytes(),
-      name: 'BrewFlow_Receipt',
-    );
-  }
-
-  Future<void> _shareAsImage() async {
+  Future<void> _shareReceipt() async {
     try {
-      final image = await _screenshotCtrl.capture(
-        delay: const Duration(milliseconds: 100),
+      final Uint8List? imageBytes = await _screenshotCtrl.capture(
+        delay: const Duration(milliseconds: 50),
         pixelRatio: 3.0,
       );
-      if (image == null) return;
+      if (imageBytes == null) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to capture receipt image')),
+        );
+        return;
+      }
 
       final dir = await getTemporaryDirectory();
       final file = File(
         '${dir.path}/brewflow_receipt_${DateTime.now().millisecondsSinceEpoch}.png',
       );
-      await file.writeAsBytes(image);
+      await file.writeAsBytes(imageBytes);
 
-      await Share.shareXFiles([XFile(file.path)], text: 'BrewFlow POS Receipt');
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Could not share image: $e')));
-      }
-    }
-  }
-
-  Future<void> _shareAsPdf() async {
-    try {
-      final bytes = await _generatePdfBytes();
-      final dir = await getTemporaryDirectory();
-      final file = File(
-        '${dir.path}/brewflow_receipt_${DateTime.now().millisecondsSinceEpoch}.pdf',
+      await Share.shareXFiles(
+        [XFile(file.path)],
+        text: 'BrewFlow POS Receipt',
       );
-      await file.writeAsBytes(bytes);
-
-      await Share.shareXFiles([XFile(file.path)], text: 'BrewFlow POS Receipt');
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Could not share PDF: $e')));
-      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error sharing receipt: $e')),
+      );
     }
   }
 
-  Future<Uint8List> _generatePdfBytes() async {
-    final doc = pw.Document();
+  Future<void> _printReceipt() async {
+    // 1. Request Bluetooth permissions first (required on modern Android)
+    if (Platform.isAndroid) {
+      await [
+        Permission.bluetoothScan,
+        Permission.bluetoothConnect,
+        Permission.location,
+      ].request();
+    }
 
-    doc.addPage(
-      pw.Page(
-        pageFormat: PdfPageFormat.roll80,
-        build: (ctx) {
-          return pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.start,
-            children: [
-              pw.Center(
-                child: pw.Text(
-                  'BrewFlow POS',
-                  style: pw.TextStyle(
-                    fontSize: 18,
-                    fontWeight: pw.FontWeight.bold,
-                  ),
-                ),
-              ),
-              pw.Center(
-                child: pw.Text(
-                  'Receipt',
-                  style: const pw.TextStyle(fontSize: 12),
-                ),
-              ),
-              pw.SizedBox(height: 6),
-              pw.Center(
-                child: pw.Text(
-                  DateTime.now().toString().substring(0, 19),
-                  style: const pw.TextStyle(fontSize: 10),
-                ),
-              ),
-              pw.Divider(),
-              // line items
-              ...widget.cart.map((item) {
-                final lineTotal =
-                    ((item['price'] as int) * (item['qty'] as double)).toInt();
-                return pw.Padding(
-                  padding: const pw.EdgeInsets.symmetric(vertical: 2),
-                  child: pw.Row(
-                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                    children: [
-                      pw.Expanded(
-                        child: pw.Text(
-                          '${item['name']} x${(item['qty'] as double).toStringAsFixed(1)}',
-                          style: const pw.TextStyle(fontSize: 10),
-                        ),
-                      ),
-                      pw.Text(
-                        'N${fmtNumber(lineTotal)}',
-                        style: const pw.TextStyle(fontSize: 10),
-                      ),
-                    ],
-                  ),
-                );
-              }),
-              pw.Divider(),
-              _pdfRow('Subtotal', widget.subtotal),
-              _pdfRow('Crate Deposit', widget.crateDeposit),
-              pw.Divider(),
-              pw.Row(
-                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                children: [
-                  pw.Text(
-                    'TOTAL',
-                    style: pw.TextStyle(
-                      fontSize: 14,
-                      fontWeight: pw.FontWeight.bold,
-                    ),
-                  ),
-                  pw.Text(
-                    'N${fmtNumber(widget.total.toInt())}',
-                    style: pw.TextStyle(
-                      fontSize: 14,
-                      fontWeight: pw.FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-              pw.SizedBox(height: 8),
-              pw.Text(
-                'Payment: $_paymentLabel',
-                style: const pw.TextStyle(fontSize: 10),
-              ),
-              if (_paymentType == PaymentType.credit)
-                pw.Text(
-                  'Customer: ${_customerNameCtrl.text}',
-                  style: const pw.TextStyle(fontSize: 10),
-                ),
-              if (_paymentType == PaymentType.partialCash) ...[
-                pw.Text(
-                  'Cash: N${fmtNumber((double.tryParse(_cashReceivedCtrl.text) ?? 0).toInt())}',
-                  style: const pw.TextStyle(fontSize: 10),
-                ),
-                pw.Text(
-                  'Remainder: N${fmtNumber((widget.total - (double.tryParse(_cashReceivedCtrl.text) ?? 0)).clamp(0, widget.total).toInt())}',
-                  style: const pw.TextStyle(fontSize: 10),
-                ),
-              ],
-              pw.SizedBox(height: 12),
-              pw.Center(
-                child: pw.Text(
-                  'Thank you for your patronage!',
-                  style: pw.TextStyle(
-                    fontSize: 11,
-                    fontWeight: pw.FontWeight.bold,
-                    fontStyle: pw.FontStyle.italic,
-                  ),
-                ),
-              ),
-            ],
-          );
-        },
-      ),
+    // 2. Generate the raw ESC/POS bytes from our new builder
+    final List<int> receiptBytes = await ThermalReceiptService.buildReceipt(
+      cart: widget.cart,
+      subtotal: widget.subtotal,
+      crateDeposit: widget.crateDeposit,
+      total: widget.total,
+      paymentMethod: _paymentLabel,
+      customerName: _paymentType == PaymentType.credit
+          ? _customerNameCtrl.text.trim()
+          : null,
+      cashReceived: _paymentType == PaymentType.partialCash
+          ? double.tryParse(_cashReceivedCtrl.text)
+          : null,
     );
 
-    return doc.save();
-  }
+    // 3. Show bottom sheet to pick the paired Bluetooth Printer
+    if (!mounted) return;
 
-  pw.Widget _pdfRow(String label, double value) {
-    return pw.Padding(
-      padding: const pw.EdgeInsets.symmetric(vertical: 1),
-      child: pw.Row(
-        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-        children: [
-          pw.Text(label, style: const pw.TextStyle(fontSize: 10)),
-          pw.Text(
-            'N${fmtNumber(value.toInt())}',
-            style: const pw.TextStyle(fontSize: 10),
-          ),
-        ],
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: _surface,
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.5,
       ),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (_) {
+        return FutureBuilder<List<BluetoothInfo>>(
+          future: PrintBluetoothThermal.pairedBluetooths,
+          builder: (c, snapshot) {
+            final devices = snapshot.data ?? [];
+            return Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Text(
+                    'Select Receipt Printer',
+                    style: TextStyle(
+                      color: _text,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                ),
+                Divider(height: 1, color: _border),
+                if (snapshot.connectionState == ConnectionState.waiting)
+                  const Expanded(
+                    child: Center(child: CircularProgressIndicator()),
+                  )
+                else if (devices.isEmpty)
+                  Expanded(
+                    child: Center(
+                      child: Text(
+                        'No paired printers found',
+                        style: TextStyle(color: _subtext),
+                      ),
+                    ),
+                  )
+                else
+                  Expanded(
+                    child: ListView.builder(
+                      physics: const ClampingScrollPhysics(),
+                      itemCount: devices.length,
+                      itemBuilder: (_, i) {
+                        final device = devices[i];
+                        return ListTile(
+                          leading: const Icon(Icons.print),
+                          title: Text(
+                            device.name.isEmpty
+                                ? 'Unknown Device'
+                                : device.name,
+                          ),
+                          subtitle: Text(device.macAdress),
+                          onTap: () async {
+                            Navigator.pop(context);
+
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Connecting to printer...'),
+                              ),
+                            );
+
+                            bool isConnected =
+                                await PrintBluetoothThermal.connect(
+                              macPrinterAddress: device.macAdress,
+                            );
+                            if (isConnected) {
+                              await PrintBluetoothThermal.writeBytes(
+                                receiptBytes,
+                              );
+                              await PrintBluetoothThermal.disconnect;
+
+                              if (!mounted) return;
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Print successful'),
+                                ),
+                              );
+                            } else {
+                              if (!mounted) return;
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'Failed to connect to printer.',
+                                  ),
+                                ),
+                              );
+                            }
+                          },
+                        );
+                      },
+                    ),
+                  ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 
@@ -596,7 +564,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
             width: 38,
             height: 38,
             decoration: BoxDecoration(
-              color: (item['color'] as Color).withOpacity(0.12),
+              color: (item['color'] as Color).withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(
@@ -679,7 +647,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
         margin: const EdgeInsets.only(bottom: 10),
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: active ? blueMain.withOpacity(0.08) : _surface,
+          color: active ? blueMain.withValues(alpha: 0.08) : _surface,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: active ? blueMain : _border,
@@ -692,7 +660,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
               width: 42,
               height: 42,
               decoration: BoxDecoration(
-                color: (active ? blueMain : _subtext).withOpacity(0.12),
+                color: (active ? blueMain : _subtext).withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(icon, size: 18, color: active ? blueMain : _subtext),
@@ -775,8 +743,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
-// _ReceiptWidget — a pure widget that renders a receipt card.
-// Captured as an image by ScreenshotController.
+// _ReceiptWidget — visually represents the receipt on screen to the user
 // ═════════════════════════════════════════════════════════════════════════════
 
 class _ReceiptWidget extends StatelessWidget {
@@ -787,7 +754,6 @@ class _ReceiptWidget extends StatelessWidget {
   final String paymentMethod;
   final String? customerName;
   final double? cashReceived;
-  final bool isDark;
 
   const _ReceiptWidget({
     required this.cart,
@@ -797,12 +763,10 @@ class _ReceiptWidget extends StatelessWidget {
     required this.paymentMethod,
     this.customerName,
     this.cashReceived,
-    required this.isDark,
   });
 
   @override
   Widget build(BuildContext context) {
-    // Always render receipt on a white background for readability
     const bg = Colors.white;
     const textCol = Color(0xFF0F172A);
     const sub = Color(0xFF64748B);
@@ -817,7 +781,7 @@ class _ReceiptWidget extends StatelessWidget {
         border: Border.all(color: divCol),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -877,13 +841,16 @@ class _ReceiptWidget extends StatelessWidget {
 
           const SizedBox(height: 12),
           Container(height: 1, color: divCol),
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
 
-          _row('Subtotal', subtotal, sub),
-          _row('Crate Deposit', crateDeposit, sub),
-          const SizedBox(height: 8),
-          Container(height: 2, color: textCol.withOpacity(0.15)),
-          const SizedBox(height: 8),
+          // Totals
+          _infoRow('Subtotal', subtotal, sub),
+          if (crateDeposit > 0) ...[
+            const SizedBox(height: 4),
+            _infoRow('Crate Deposit', crateDeposit, sub),
+          ],
+          
+          const SizedBox(height: 12),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -906,9 +873,9 @@ class _ReceiptWidget extends StatelessWidget {
             ],
           ),
 
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
           Container(height: 1, color: divCol),
-          const SizedBox(height: 10),
+          const SizedBox(height: 16),
 
           Align(
             alignment: Alignment.centerLeft,
@@ -942,7 +909,7 @@ class _ReceiptWidget extends StatelessWidget {
             ),
           ],
 
-          const SizedBox(height: 20),
+          const SizedBox(height: 24),
           const Text(
             'Thank you for your patronage!',
             style: TextStyle(
@@ -962,7 +929,7 @@ class _ReceiptWidget extends StatelessWidget {
     );
   }
 
-  Widget _row(String label, double value, Color col) {
+  Widget _infoRow(String label, double value, Color col) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Row(

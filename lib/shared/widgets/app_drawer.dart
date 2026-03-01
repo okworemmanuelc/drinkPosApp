@@ -20,7 +20,7 @@ class AppDrawer extends StatelessWidget {
   Widget build(BuildContext context) {
     return ValueListenableBuilder<ThemeMode>(
       valueListenable: themeNotifier,
-      builder: (_, __, ___) => Drawer(
+      builder: (_, _, _) => Drawer(
         backgroundColor: _surface,
         child: Column(
           children: [
@@ -50,12 +50,12 @@ class AppDrawer extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.15),
+              color: Colors.white.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: Colors.white.withOpacity(0.2)),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
             ),
             child: const Icon(
-              FontAwesomeIcons.userLarge,
+              FontAwesomeIcons.user,
               color: Colors.white,
               size: 26,
             ),
@@ -73,7 +73,7 @@ class AppDrawer extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.15),
+              color: Colors.white.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(20),
             ),
             child: const Text(
@@ -148,7 +148,7 @@ class AppDrawer extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 6),
       child: Material(
-        color: active ? blueMain.withOpacity(0.1) : Colors.transparent,
+        color: active ? blueMain.withValues(alpha: 0.1) : Colors.transparent,
         borderRadius: BorderRadius.circular(14),
         child: InkWell(
           borderRadius: BorderRadius.circular(14),
@@ -161,7 +161,7 @@ class AppDrawer extends StatelessWidget {
                   width: 36,
                   height: 36,
                   decoration: BoxDecoration(
-                    color: active ? blueMain.withOpacity(0.2) : _cardCol,
+                    color: active ? blueMain.withValues(alpha: 0.2) : _cardCol,
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Icon(
@@ -201,7 +201,7 @@ class AppDrawer extends StatelessWidget {
   Widget _buildThemeToggle() {
     return ValueListenableBuilder<ThemeMode>(
       valueListenable: themeNotifier,
-      builder: (_, mode, __) {
+      builder: (_, mode, _) {
         final dark = mode == ThemeMode.dark;
         return GestureDetector(
           onTap: () =>
@@ -274,9 +274,9 @@ class AppDrawer extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 14),
         decoration: BoxDecoration(
-          color: danger.withOpacity(0.1),
+          color: danger.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: danger.withOpacity(0.2)),
+          border: Border.all(color: danger.withValues(alpha: 0.2)),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
