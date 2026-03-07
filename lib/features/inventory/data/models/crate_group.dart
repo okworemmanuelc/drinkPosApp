@@ -28,4 +28,17 @@ extension CrateGroupLabel on CrateGroup {
         return const Color(0xFF8B5CF6);
     }
   }
+
+  double get deposit {
+    switch (this) {
+      case CrateGroup.nbPlc:
+        return 1500;
+      case CrateGroup.guinness:
+        return 1500;
+      case CrateGroup.cocaCola:
+        return 1200;
+      case CrateGroup.premium:
+        return 2000;
+    }
+  }
 }

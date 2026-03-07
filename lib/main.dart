@@ -6,6 +6,8 @@ import 'core/theme/theme_notifier.dart';
 import 'features/inventory/screens/inventory_screen.dart';
 import 'features/pos/screens/pos_home_screen.dart';
 import 'shared/widgets/app_drawer.dart';
+import 'shared/widgets/activity_log_screen.dart';
+import 'features/customers/screens/customers_screen.dart';
 
 void main() {
   SystemChrome.setSystemUIOverlayStyle(
@@ -15,6 +17,12 @@ void main() {
   // Wire up the real InventoryScreen into the drawer at startup.
   // This breaks the circular import: AppDrawer never imports InventoryScreen.
   registerInventoryScreen(() => const InventoryScreen());
+
+  // Wire up ActivityLogScreen to AppDrawer proxy
+  registerActivityLogScreen(() => const ActivityLogScreen());
+
+  // Wire up CustomersScreen to AppDrawer proxy
+  registerCustomersScreen(() => const CustomersScreen());
 
   runApp(const BrewFlowApp());
 }

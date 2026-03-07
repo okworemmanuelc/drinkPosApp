@@ -9,7 +9,8 @@ import '../../../shared/widgets/app_drawer.dart';
 import '../data/products_data.dart';
 import '../../inventory/data/inventory_data.dart';
 import '../../inventory/data/models/inventory_item.dart';
-import 'checkout_page.dart';
+import '../../customers/data/models/customer.dart';
+import 'cart_screen.dart';
 
 class PosHomeScreen extends StatefulWidget {
   const PosHomeScreen({super.key});
@@ -21,7 +22,7 @@ class _PosHomeScreenState extends State<PosHomeScreen>
     with TickerProviderStateMixin {
   String _filter = 'All';
   bool _isWholesale = false;
-  final double _customerBalance = -1500.00;
+  Customer? _activeCustomer;
   String _searchQuery = '';
   bool _isSearching = false;
   final TextEditingController _searchController = TextEditingController();
@@ -36,6 +37,7 @@ class _PosHomeScreenState extends State<PosHomeScreen>
       'qty': 1.0,
       'icon': FontAwesomeIcons.beerMugEmpty,
       'color': const Color(0xFFF59E0B),
+      'category': 'Glass Crates',
     },
     {
       'name': 'Heineken',
@@ -44,6 +46,7 @@ class _PosHomeScreenState extends State<PosHomeScreen>
       'qty': 2.5,
       'icon': FontAwesomeIcons.wineBottle,
       'color': const Color(0xFF10B981),
+      'category': 'Cans & PET',
     },
   ];
 
@@ -165,7 +168,8 @@ class _PosHomeScreenState extends State<PosHomeScreen>
             ),
           ),
           SizedBox(width: context.getRSize(12)), // RESPONSIVE
-          Expanded( // RESPONSIVE to prevent title overflow
+          Expanded(
+            // RESPONSIVE to prevent title overflow
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -199,7 +203,9 @@ class _PosHomeScreenState extends State<PosHomeScreen>
       actions: [
         _iconBtn(
           context,
-          _isSearching ? FontAwesomeIcons.xmark : FontAwesomeIcons.magnifyingGlass,
+          _isSearching
+              ? FontAwesomeIcons.xmark
+              : FontAwesomeIcons.magnifyingGlass,
           () => setState(() {
             _isSearching = !_isSearching;
             if (!_isSearching) {
@@ -248,7 +254,12 @@ class _PosHomeScreenState extends State<PosHomeScreen>
     );
   }
 
-  Widget _iconBtn(BuildContext context, IconData icon, VoidCallback onTap, {double size = 18}) {
+  Widget _iconBtn(
+    BuildContext context,
+    IconData icon,
+    VoidCallback onTap, {
+    double size = 18,
+  }) {
     return InkWell(
       borderRadius: BorderRadius.circular(12),
       onTap: onTap,
@@ -256,7 +267,11 @@ class _PosHomeScreenState extends State<PosHomeScreen>
         width: context.getRSize(40), // RESPONSIVE
         height: context.getRSize(40), // RESPONSIVE
         alignment: Alignment.center,
-        child: Icon(icon, size: context.getRSize(size), color: _subtext), // RESPONSIVE
+        child: Icon(
+          icon,
+          size: context.getRSize(size),
+          color: _subtext,
+        ), // RESPONSIVE
       ),
     );
   }
@@ -266,10 +281,10 @@ class _PosHomeScreenState extends State<PosHomeScreen>
     return Container(
       color: _surface,
       padding: EdgeInsets.fromLTRB(
-        context.getRSize(16), 
-        context.getRSize(4), 
-        context.getRSize(16), 
-        context.getRSize(16)
+        context.getRSize(16),
+        context.getRSize(4),
+        context.getRSize(16),
+        context.getRSize(16),
       ), // RESPONSIVE
       child: Row(
         children: [
@@ -277,8 +292,8 @@ class _PosHomeScreenState extends State<PosHomeScreen>
             onTap: () {},
             child: Container(
               padding: EdgeInsets.symmetric(
-                horizontal: context.getRSize(16), 
-                vertical: context.getRSize(10)
+                horizontal: context.getRSize(16),
+                vertical: context.getRSize(10),
               ), // RESPONSIVE
               decoration: BoxDecoration(
                 color: blueMain.withValues(alpha: 0.1),
@@ -287,7 +302,11 @@ class _PosHomeScreenState extends State<PosHomeScreen>
               ),
               child: Row(
                 children: [
-                  Icon(FontAwesomeIcons.bolt, size: context.getRSize(14), color: blueMain), // RESPONSIVE
+                  Icon(
+                    FontAwesomeIcons.bolt,
+                    size: context.getRSize(14),
+                    color: blueMain,
+                  ), // RESPONSIVE
                   SizedBox(width: context.getRSize(8)), // RESPONSIVE
                   Text(
                     'Quick Sale',
@@ -329,8 +348,8 @@ class _PosHomeScreenState extends State<PosHomeScreen>
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         padding: EdgeInsets.symmetric(
-          horizontal: context.getRSize(16), 
-          vertical: context.getRSize(8)
+          horizontal: context.getRSize(16),
+          vertical: context.getRSize(8),
         ), // RESPONSIVE
         decoration: BoxDecoration(
           color: active ? _surface : Colors.transparent,
@@ -369,14 +388,16 @@ class _PosHomeScreenState extends State<PosHomeScreen>
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
               padding: EdgeInsets.symmetric(
-                horizontal: context.getRSize(16), 
-                vertical: context.getRSize(10)
+                horizontal: context.getRSize(16),
+                vertical: context.getRSize(10),
               ), // RESPONSIVE
               itemCount: _filters.length,
               itemBuilder: (_, i) {
                 final active = _filter == _filters[i];
                 return Padding(
-                  padding: EdgeInsets.only(right: context.getRSize(10)), // RESPONSIVE
+                  padding: EdgeInsets.only(
+                    right: context.getRSize(10),
+                  ), // RESPONSIVE
                   child: GestureDetector(
                     onTap: () => setState(() => _filter = _filters[i]),
                     child: AnimatedContainer(
@@ -422,11 +443,7 @@ class _PosHomeScreenState extends State<PosHomeScreen>
     // Match against kProducts by name to get price info
     final existing = kProducts.firstWhere(
       (p) => p['name'] == item.productName,
-      orElse: () => {
-        'price': 0,
-        'wholesale_price': 0,
-        'category': 'Other',
-      },
+      orElse: () => {'price': 0, 'wholesale_price': 0, 'category': 'Other'},
     );
     return {
       'name': item.productName,
@@ -453,9 +470,11 @@ class _PosHomeScreenState extends State<PosHomeScreen>
     if (_searchQuery.isNotEmpty) {
       final q = _searchQuery.toLowerCase();
       shown = shown
-          .where((p) =>
-              (p['name'] as String).toLowerCase().contains(q) ||
-              (p['subtitle'] as String).toLowerCase().contains(q))
+          .where(
+            (p) =>
+                (p['name'] as String).toLowerCase().contains(q) ||
+                (p['subtitle'] as String).toLowerCase().contains(q),
+          )
           .toList();
     }
 
@@ -466,14 +485,19 @@ class _PosHomeScreenState extends State<PosHomeScreen>
           children: [
             Icon(FontAwesomeIcons.magnifyingGlass, size: 48, color: _border),
             const SizedBox(height: 16),
-            Text('No products found',
-                style: TextStyle(
-                    color: _subtext,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16)),
+            Text(
+              'No products found',
+              style: TextStyle(
+                color: _subtext,
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+              ),
+            ),
             const SizedBox(height: 6),
-            Text('Try a different search term',
-                style: TextStyle(color: _subtext, fontSize: 13)),
+            Text(
+              'Try a different search term',
+              style: TextStyle(color: _subtext, fontSize: 13),
+            ),
           ],
         ),
       );
@@ -485,10 +509,10 @@ class _PosHomeScreenState extends State<PosHomeScreen>
 
     return GridView.builder(
       padding: EdgeInsets.fromLTRB(
-        context.getRSize(16), 
-        context.getRSize(16), 
-        context.getRSize(16), 
-        context.getRSize(100)
+        context.getRSize(16),
+        context.getRSize(16),
+        context.getRSize(16),
+        context.getRSize(100),
       ), // RESPONSIVE
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: crossAxisCount,
@@ -523,6 +547,7 @@ class _PosHomeScreenState extends State<PosHomeScreen>
               'qty': 1.0,
               'icon': product['icon'],
               'color': product['color'],
+              'category': product['category'],
             });
           }
         });
@@ -550,10 +575,10 @@ class _PosHomeScreenState extends State<PosHomeScreen>
           children: [
             Padding(
               padding: EdgeInsets.fromLTRB(
-                context.getRSize(10), 
-                context.getRSize(16), 
-                context.getRSize(10), 
-                context.getRSize(10)
+                context.getRSize(10),
+                context.getRSize(16),
+                context.getRSize(10),
+                context.getRSize(10),
               ), // RESPONSIVE
               child: Column(
                 children: [
@@ -586,7 +611,10 @@ class _PosHomeScreenState extends State<PosHomeScreen>
                   SizedBox(height: context.getRSize(2)), // RESPONSIVE
                   Text(
                     product['subtitle'],
-                    style: TextStyle(fontSize: context.getRFontSize(10), color: _subtext), // RESPONSIVE
+                    style: TextStyle(
+                      fontSize: context.getRFontSize(10),
+                      color: _subtext,
+                    ), // RESPONSIVE
                     textAlign: TextAlign.center,
                   ),
                   SizedBox(height: context.getRSize(8)), // RESPONSIVE
@@ -599,7 +627,8 @@ class _PosHomeScreenState extends State<PosHomeScreen>
                       color: _isDark ? dBg : lBg,
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: FittedBox( // RESPONSIVE
+                    child: FittedBox(
+                      // RESPONSIVE
                       fit: BoxFit.scaleDown,
                       child: Text(
                         '₦${fmtNumber(price)}',
@@ -642,7 +671,11 @@ class _PosHomeScreenState extends State<PosHomeScreen>
                   width: context.getRSize(24), // RESPONSIVE
                   height: context.getRSize(24), // RESPONSIVE
                   decoration: BoxDecoration(color: _bg, shape: BoxShape.circle),
-                  child: Icon(Icons.add, size: context.getRSize(14), color: _subtext), // RESPONSIVE
+                  child: Icon(
+                    Icons.add,
+                    size: context.getRSize(14),
+                    color: _subtext,
+                  ), // RESPONSIVE
                 ),
               ),
           ],
@@ -659,7 +692,10 @@ class _PosHomeScreenState extends State<PosHomeScreen>
       child: GestureDetector(
         onTap: _openCart,
         child: Container(
-          padding: EdgeInsets.symmetric(horizontal: context.getRSize(20), vertical: context.getRSize(14)), // RESPONSIVE
+          padding: EdgeInsets.symmetric(
+            horizontal: context.getRSize(20),
+            vertical: context.getRSize(14),
+          ), // RESPONSIVE
           decoration: BoxDecoration(
             gradient: const LinearGradient(
               colors: [blueLight, blueMain],
@@ -735,653 +771,27 @@ class _PosHomeScreenState extends State<PosHomeScreen>
     );
   }
 
-  // ── CART MODAL ───────────────────────────────────────────────────────────────
+  // ── CART SCREEN NAVIGATION ───────────────────────────────────────────────────────────────
   void _openCart() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => StatefulBuilder(
-        builder: (ctx, setModal) {
-          _cart.sort((a, b) => b['qty'].compareTo(a['qty']));
-          final sub = _cart.fold<double>(
-            0,
-            (s, i) => s + (i['price'] * i['qty']),
-          );
-          final dep = _crateDeposit;
-          final tot = sub + dep;
-          final bg = _isDark ? dSurface : lSurface;
-          final card = _isDark ? dCard : lCard;
-
-          return Container(
-            height: MediaQuery.of(context).size.height * 0.88,
-            decoration: BoxDecoration(
-              color: bg,
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(28),
-              ),
-            ),
-            child: Column(
-              children: [
-                Padding(
-                  padding: EdgeInsets.only(top: context.getRSize(14), bottom: context.getRSize(8)), // RESPONSIVE
-                  child: Container(
-                    width: context.getRSize(40), // RESPONSIVE
-                    height: context.getRSize(4), // RESPONSIVE
-                    decoration: BoxDecoration(
-                      color: _border,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                ),
-                Padding(
-                  padding: EdgeInsets.fromLTRB(context.getRSize(20), context.getRSize(12), context.getRSize(20), 0), // RESPONSIVE
-                  child: Row(
-                    children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Your Cart',
-                            style: TextStyle(
-                              fontSize: context.getRFontSize(22), // RESPONSIVE
-                              fontWeight: FontWeight.w800,
-                              color: _text,
-                            ),
-                          ),
-                          Text(
-                            '${_cart.length} item${_cart.length != 1 ? 's' : ''}',
-                            style: TextStyle(
-                              fontSize: context.getRFontSize(13), // RESPONSIVE
-                              color: blueMain,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const Spacer(),
-                      if (_cart.isNotEmpty)
-                        GestureDetector(
-                          onTap: () {
-                            setModal(() => _cart.clear());
-                            setState(() {});
-                          },
-                          child: Container(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: context.getRSize(14),
-                              vertical: context.getRSize(8),
-                            ), // RESPONSIVE
-                            decoration: BoxDecoration(
-                              color: danger.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(
-                                color: danger.withValues(alpha: 0.2),
-                              ),
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  FontAwesomeIcons.trashCan,
-                                  color: danger,
-                                  size: context.getRSize(13), // RESPONSIVE
-                                ),
-                                SizedBox(width: context.getRSize(8)), // RESPONSIVE
-                                Text(
-                                  'Clear',
-                                  style: TextStyle(
-                                    color: danger,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: context.getRFontSize(13), // RESPONSIVE
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      SizedBox(width: context.getRSize(10)), // RESPONSIVE
-                      GestureDetector(
-                        onTap: () => Navigator.pop(ctx),
-                        child: Container(
-                          width: context.getRSize(38), // RESPONSIVE
-                          height: context.getRSize(38), // RESPONSIVE
-                          decoration: BoxDecoration(
-                            color: card,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Icon(Icons.close, color: _subtext, size: context.getRSize(20)), // RESPONSIVE
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                SizedBox(height: context.getRSize(16)), // RESPONSIVE
-                Padding(
-                  padding: EdgeInsets.symmetric(horizontal: context.getRSize(20)), // RESPONSIVE
-                  child: Container(
-                    padding: EdgeInsets.all(context.getRSize(16)), // RESPONSIVE
-                    decoration: BoxDecoration(
-                      color: card,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: _border),
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: EdgeInsets.all(context.getRSize(10)), // RESPONSIVE
-                          decoration: BoxDecoration(
-                            color: blueMain.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Icon(
-                            FontAwesomeIcons.userTag,
-                            size: context.getRSize(16), // RESPONSIVE
-                            color: blueMain,
-                          ),
-                        ),
-                        SizedBox(width: context.getRSize(14)), // RESPONSIVE
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Walk-in Customer',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: context.getRFontSize(14), // RESPONSIVE
-                                color: _text,
-                              ),
-                            ),
-                            Row(
-                              children: [
-                                Icon(
-                                  FontAwesomeIcons.nairaSign,
-                                  size: context.getRSize(11), // RESPONSIVE
-                                  color: _customerBalance < 0
-                                      ? danger
-                                      : success,
-                                ),
-                                Text(
-                                  ' Bal: ₦${_customerBalance.abs().toStringAsFixed(0)} ${_customerBalance < 0 ? "overdue" : "credit"}',
-                                  style: TextStyle(
-                                    fontSize: context.getRFontSize(12), // RESPONSIVE
-                                    color: _customerBalance < 0
-                                        ? danger
-                                        : success,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                        const Spacer(),
-                        Container(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: context.getRSize(12),
-                            vertical: context.getRSize(6),
-                          ), // RESPONSIVE
-                          decoration: BoxDecoration(
-                            color: _bg,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: _border),
-                          ),
-                          child: Text(
-                            'Change',
-                            style: TextStyle(
-                              fontSize: context.getRFontSize(12), // RESPONSIVE
-                              fontWeight: FontWeight.bold,
-                              color: _subtext,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                SizedBox(height: context.getRSize(16)), // RESPONSIVE
-                Divider(height: 1, color: _border),
-                Expanded(
-                  child: _cart.isEmpty
-                      ? Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                FontAwesomeIcons.cartArrowDown,
-                                size: context.getRSize(48), // RESPONSIVE
-                                color: _border,
-                              ),
-                              SizedBox(height: context.getRSize(16)), // RESPONSIVE
-                              Text(
-                                'Cart is empty',
-                                style: TextStyle(
-                                  color: _subtext,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: context.getRFontSize(16), // RESPONSIVE
-                                ),
-                              ),
-                            ],
-                          ),
-                        )
-                      : ListView.separated(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: context.getRSize(20),
-                            vertical: context.getRSize(16),
-                          ), // RESPONSIVE
-                          itemCount: _cart.length,
-                          separatorBuilder: (_, _) =>
-                              SizedBox(height: context.getRSize(12)), // RESPONSIVE
-                          itemBuilder: (_, i) {
-                            final item = _cart[i];
-                            final Color c = item['color'] as Color;
-                            return InkWell(
-                              borderRadius: BorderRadius.circular(14),
-                              onTap: () => _editItem(ctx, item, setModal),
-                              child: Container(
-                                padding: EdgeInsets.all(context.getRSize(12)), // RESPONSIVE
-                                decoration: BoxDecoration(
-                                  color: card,
-                                  borderRadius: BorderRadius.circular(14),
-                                ),
-                                child: Row(
-                                  children: [
-                                    Container(
-                                      width: context.getRSize(48), // RESPONSIVE
-                                      height: context.getRSize(48), // RESPONSIVE
-                                      decoration: BoxDecoration(
-                                        color: c.withValues(alpha: 0.15),
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      child: Icon(
-                                        item['icon'] as IconData,
-                                        color: c,
-                                        size: context.getRSize(22), // RESPONSIVE
-                                      ),
-                                    ),
-                                    SizedBox(width: context.getRSize(14)), // RESPONSIVE
-                                    Expanded( // RESPONSIVE: wraps to avoid overflow
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            item['name'],
-                                            style: TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: context.getRFontSize(15), // RESPONSIVE
-                                              color: _text,
-                                            ),
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                          SizedBox(height: context.getRSize(4)), // RESPONSIVE
-                                          Text(
-                                            '${item['qty'].toStringAsFixed(1)} × ₦${fmtNumber(item['price'])}',
-                                            style: TextStyle(
-                                              fontSize: context.getRFontSize(13), // RESPONSIVE
-                                              color: _subtext,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    FittedBox( // RESPONSIVE: scale down price
-                                      fit: BoxFit.scaleDown,
-                                      child: Text(
-                                        '₦${fmtNumber((item['price'] * item['qty']).toInt())}',
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: context.getRFontSize(15), // RESPONSIVE
-                                          color: _text,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                ),
-                SafeArea(
-                  top: false,
-                  child: Container(
-                    padding: EdgeInsets.fromLTRB(
-                      context.getRSize(20), 
-                      context.getRSize(20), 
-                      context.getRSize(20), 
-                      context.getRSize(32)
-                    ), // RESPONSIVE
-                    decoration: BoxDecoration(
-                      color: bg,
-                      border: Border(top: BorderSide(color: _border)),
-                    ),
-                    child: Column(
-                    children: [
-                      _totalRow('Subtotal', sub, small: true),
-                      SizedBox(height: context.getRSize(8)), // RESPONSIVE
-                      GestureDetector(
-                        onTap: () => _showEditCrateDeposit(setModal),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Row(
-                              children: [
-                                Text('Crate Deposit',
-                                    style: TextStyle(
-                                        fontSize: context.getRFontSize(14), // RESPONSIVE
-                                        fontWeight: FontWeight.w600,
-                                        color: _subtext)),
-                                SizedBox(width: context.getRSize(6)), // RESPONSIVE
-                                Icon(FontAwesomeIcons.penToSquare,
-                                    size: context.getRSize(12), color: blueMain), // RESPONSIVE
-                              ],
-                            ),
-                            Text('₦${fmtNumber(dep.toInt())}',
-                                style: TextStyle(
-                                    fontSize: context.getRFontSize(15), // RESPONSIVE
-                                    fontWeight: FontWeight.w800,
-                                    color: _text)),
-                          ],
-                        ),
-                      ),
-                      SizedBox(height: context.getRSize(12)), // RESPONSIVE
-                      // ── Empty Crates Received (disabled / coming soon) ──
-                      Opacity(
-                        opacity: 0.45,
-                        child: IgnorePointer(
-                          child: Container(
-                            padding: EdgeInsets.all(context.getRSize(12)), // RESPONSIVE
-                            decoration: BoxDecoration(
-                              color: _isDark ? dCard : lCard,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: _border),
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(FontAwesomeIcons.beerMugEmpty,
-                                    size: context.getRSize(16), color: _subtext), // RESPONSIVE
-                                SizedBox(width: context.getRSize(10)), // RESPONSIVE
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text('Empty Crates Received',
-                                          style: TextStyle(
-                                              fontSize: context.getRFontSize(13), // RESPONSIVE
-                                              fontWeight: FontWeight.bold,
-                                              color: _text)),
-                                      Text('Coming soon',
-                                          style: TextStyle(
-                                              fontSize: context.getRFontSize(11), // RESPONSIVE
-                                              color: _subtext)),
-                                    ],
-                                  ),
-                                ),
-                                Icon(FontAwesomeIcons.lock,
-                                    size: context.getRSize(14), color: _subtext), // RESPONSIVE
-                                SizedBox(width: context.getRSize(8)), // RESPONSIVE
-                                Container(
-                                  width: context.getRSize(48), // RESPONSIVE
-                                  height: context.getRSize(36), // RESPONSIVE
-                                  alignment: Alignment.center,
-                                  decoration: BoxDecoration(
-                                    color: _isDark ? dBg : lBg,
-                                    borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(color: _border),
-                                  ),
-                                  child: Text('0',
-                                      style: TextStyle(
-                                          fontSize: context.getRFontSize(16), // RESPONSIVE
-                                          fontWeight: FontWeight.bold,
-                                          color: _subtext)),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                      SizedBox(height: context.getRSize(16)), // RESPONSIVE
-                      Container(height: 1, color: _border),
-                      SizedBox(height: context.getRSize(16)), // RESPONSIVE
-                      _totalRow('Total', tot, large: true),
-                      SizedBox(height: context.getRSize(24)), // RESPONSIVE
-                      GestureDetector(
-                        onTap: () {
-                          Navigator.pop(ctx);
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => CheckoutPage(
-                                cart: List<Map<String, dynamic>>.from(_cart),
-                                subtotal: sub,
-                                crateDeposit: dep,
-                                total: tot,
-                              ),
-                            ),
-                          );
-                        },
-                        child: Container(
-                          width: double.infinity,
-                          padding: EdgeInsets.symmetric(vertical: context.getRSize(18)), // RESPONSIVE
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [blueLight, blueDark],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                            borderRadius: BorderRadius.circular(16),
-                            boxShadow: [
-                              BoxShadow(
-                                color: blueMain.withValues(alpha: 0.3),
-                                blurRadius: 14,
-                                offset: const Offset(0, 6),
-                              ),
-                            ],
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                FontAwesomeIcons.checkToSlot,
-                                color: Colors.white,
-                                size: context.getRSize(18), // RESPONSIVE
-                              ),
-                              SizedBox(width: context.getRSize(10)), // RESPONSIVE
-                              Text(
-                                'Proceed to Checkout',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: context.getRFontSize(16), // RESPONSIVE
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                ),
-              ],
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _totalRow(
-    String label,
-    double value, {
-    bool small = false,
-    bool large = false,
-  }) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: context.getRFontSize(large ? 18 : 14), // RESPONSIVE
-            fontWeight: large ? FontWeight.bold : FontWeight.w600,
-            color: large ? _text : _subtext,
-          ),
-        ),
-        Text(
-          '₦${fmtNumber(value.toInt())}',
-          style: TextStyle(
-            fontSize: context.getRFontSize(large ? 22 : 15), // RESPONSIVE
-            fontWeight: FontWeight.w800,
-            color: large ? blueMain : _text,
-          ),
-        ),
-      ],
-    );
-  }
-
-  // ── EDIT DIALOG ──────────────────────────────────────────────────────────────
-  void _editItem(
-    BuildContext ctx,
-    Map<String, dynamic> item,
-    StateSetter setModal,
-  ) {
-    final qtyCtrl = TextEditingController(text: item['qty'].toString());
-    showDialog(
-      context: ctx,
-      builder: (_) => StatefulBuilder(
-        builder: (dCtx, setD) => AlertDialog(
-          backgroundColor: _isDark ? dSurface : lSurface,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(24),
-          ),
-          contentPadding: EdgeInsets.all(ctx.getRSize(24)), // RESPONSIVE
-          title: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Edit Quantity',
-                style: TextStyle(
-                  fontSize: ctx.getRFontSize(18), // RESPONSIVE
-                  fontWeight: FontWeight.bold,
-                  color: _text,
-                ),
-              ),
-              SizedBox(height: ctx.getRSize(4)), // RESPONSIVE
-              Text(
-                item['name'],
-                style: TextStyle(
-                  fontSize: ctx.getRFontSize(13), // RESPONSIVE
-                  color: blueMain,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-          content: Row(
-            children: [
-              _qtyBtn(ctx, FontAwesomeIcons.minus, () {
-                final v = double.tryParse(qtyCtrl.text) ?? 1.0;
-                if (v > 0.5) {
-                  setD(() => qtyCtrl.text = (v - 0.5).toStringAsFixed(1));
-                }
-              }),
-              Expanded(
-                child: TextField(
-                  controller: qtyCtrl,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: ctx.getRFontSize(22), // RESPONSIVE
-                    fontWeight: FontWeight.bold,
-                    color: _text,
-                  ),
-                  decoration: InputDecoration(
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
-                      borderSide: BorderSide(color: _border),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
-                      borderSide: BorderSide(color: _border),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
-                      borderSide: const BorderSide(color: blueMain, width: 2),
-                    ),
-                    contentPadding: EdgeInsets.symmetric(vertical: ctx.getRSize(16)), // RESPONSIVE
-                  ),
-                ),
-              ),
-              _qtyBtn(ctx, FontAwesomeIcons.plus, () {
-                final v = double.tryParse(qtyCtrl.text) ?? 1.0;
-                setD(() => qtyCtrl.text = (v + 0.5).toStringAsFixed(1));
-              }),
-            ],
-          ),
-          actionsAlignment: MainAxisAlignment.spaceBetween,
-          actions: [
-            TextButton.icon(
-              onPressed: () {
-                setModal(() => _cart.remove(item));
-                setState(() {});
-                Navigator.pop(dCtx);
-              },
-              icon: Icon(FontAwesomeIcons.trash, color: danger, size: ctx.getRSize(15)), // RESPONSIVE
-              label: const Text(
-                'Remove',
-                style: TextStyle(color: danger, fontWeight: FontWeight.bold),
-              ),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: blueMain,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                padding: EdgeInsets.symmetric(
-                  horizontal: ctx.getRSize(24),
-                  vertical: ctx.getRSize(14),
-                ), // RESPONSIVE
-                elevation: 0,
-              ),
-              onPressed: () {
-                setModal(
-                  () => item['qty'] = double.tryParse(qtyCtrl.text) ?? 1.0,
-                );
-                setState(() {});
-                Navigator.pop(dCtx);
-              },
-              child: const Text(
-                'Save',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-            ),
-          ],
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => CartScreen(
+          cart: _cart,
+          crateDeposit: _crateDeposit,
+          activeCustomer: _activeCustomer,
+          onCustomerChanged: (customer) {
+            setState(() {
+              _activeCustomer = customer;
+            });
+          },
         ),
       ),
-    );
-  }
-
-  Widget _qtyBtn(BuildContext context, IconData icon, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: context.getRSize(46), // RESPONSIVE
-        height: context.getRSize(46), // RESPONSIVE
-        margin: EdgeInsets.symmetric(horizontal: context.getRSize(10)), // RESPONSIVE
-        decoration: BoxDecoration(
-          color: blueMain.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: blueMain.withValues(alpha: 0.3)),
-        ),
-        child: Icon(icon, size: context.getRSize(16), color: blueMain), // RESPONSIVE
-      ),
-    );
+    ).then((_) {
+      if (mounted) {
+        setState(() {}); // Refresh the home screen after returning from cart
+      }
+    });
   }
 
   // ── SEARCH FIELD ──────────────────────────────────────────────────────────
@@ -1389,21 +799,27 @@ class _PosHomeScreenState extends State<PosHomeScreen>
     return Container(
       color: _surface,
       padding: EdgeInsets.fromLTRB(
-        context.getRSize(16), 
-        0, 
-        context.getRSize(16), 
-        context.getRSize(12)
+        context.getRSize(16),
+        0,
+        context.getRSize(16),
+        context.getRSize(12),
       ), // RESPONSIVE
       child: TextField(
         controller: _searchController,
         autofocus: true,
         onChanged: (v) => setState(() => _searchQuery = v),
-        style: TextStyle(fontSize: context.getRFontSize(14), color: _text), // RESPONSIVE
+        style: TextStyle(
+          fontSize: context.getRFontSize(14),
+          color: _text,
+        ), // RESPONSIVE
         decoration: InputDecoration(
           hintText: 'Search products by name...',
           hintStyle: TextStyle(color: _subtext),
-          prefixIcon: Icon(FontAwesomeIcons.magnifyingGlass,
-              size: context.getRSize(16), color: _subtext), // RESPONSIVE
+          prefixIcon: Icon(
+            FontAwesomeIcons.magnifyingGlass,
+            size: context.getRSize(16),
+            color: _subtext,
+          ), // RESPONSIVE
           filled: true,
           fillColor: _isDark ? dCard : lCard,
           border: OutlineInputBorder(
@@ -1415,72 +831,10 @@ class _PosHomeScreenState extends State<PosHomeScreen>
             borderSide: const BorderSide(color: blueMain, width: 2),
           ),
           contentPadding: EdgeInsets.symmetric(
-            horizontal: context.getRSize(16), 
-            vertical: context.getRSize(12)
+            horizontal: context.getRSize(16),
+            vertical: context.getRSize(12),
           ), // RESPONSIVE
         ),
-      ),
-    );
-  }
-
-  // ── EDIT CRATE DEPOSIT ────────────────────────────────────────────────────
-  void _showEditCrateDeposit(StateSetter setModal) {
-    final ctrl =
-        TextEditingController(text: _crateDeposit.toInt().toString());
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        backgroundColor: _isDark ? dSurface : lSurface,
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        title: Text('Edit Crate Deposit',
-            style:
-                TextStyle(fontWeight: FontWeight.bold, color: _text)),
-        content: TextField(
-          controller: ctrl,
-          keyboardType: TextInputType.number,
-          autofocus: true,
-          style: TextStyle(
-              fontSize: context.getRFontSize(18), fontWeight: FontWeight.bold, color: _text), // RESPONSIVE
-          decoration: InputDecoration(
-            prefixText: '₦ ',
-            prefixStyle: TextStyle(
-                fontSize: context.getRFontSize(18), // RESPONSIVE
-                fontWeight: FontWeight.bold,
-                color: _text),
-            filled: true,
-            fillColor: _isDark ? dCard : lCard,
-            border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide.none),
-            focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide:
-                    const BorderSide(color: blueMain, width: 2)),
-          ),
-        ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text('Cancel',
-                  style: TextStyle(color: _subtext))),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-                backgroundColor: blueMain,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12))),
-            onPressed: () {
-              final val =
-                  double.tryParse(ctrl.text) ?? _crateDeposit;
-              setState(() => _crateDeposit = val);
-              setModal(() {});
-              Navigator.pop(context);
-            },
-            child: const Text('Save',
-                style: TextStyle(fontWeight: FontWeight.bold)),
-          ),
-        ],
       ),
     );
   }

@@ -12,8 +12,12 @@ import 'package:path_provider/path_provider.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/theme_notifier.dart';
 import '../../../core/utils/number_format.dart';
+import '../../../shared/models/order.dart';
+import '../../../shared/services/order_service.dart';
+import '../../../shared/widgets/receipt_widget.dart';
 import '../../../core/utils/responsive.dart';
 import '../services/receipt_builder.dart';
+import '../../customers/data/models/customer.dart';
 import '../../inventory/data/inventory_data.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -25,6 +29,7 @@ class CheckoutPage extends StatefulWidget {
   final double subtotal;
   final double crateDeposit;
   final double total;
+  final Customer? customer;
 
   const CheckoutPage({
     super.key,
@@ -32,6 +37,7 @@ class CheckoutPage extends StatefulWidget {
     required this.subtotal,
     required this.crateDeposit,
     required this.total,
+    this.customer,
   });
 
   @override
@@ -209,35 +215,42 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
           SizedBox(height: context.getRSize(32)), // RESPONSIVE
           // ── Confirm button ────────────────────────────────────────────
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: blueMain,
-                foregroundColor: Colors.white,
-                padding: EdgeInsets.symmetric(
-                  vertical: context.getRSize(18),
-                ), // RESPONSIVE
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
+          GestureDetector(
+            onTap: _confirmPayment,
+            child: Container(
+              width: double.infinity,
+              padding: EdgeInsets.symmetric(vertical: context.getRSize(18)),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [blueLight, blueDark],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                 ),
-                elevation: 0,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: blueMain.withValues(alpha: 0.3),
+                    blurRadius: 14,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
               ),
-              onPressed: _confirmPayment,
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(
                     FontAwesomeIcons.check,
-                    size: context.getRSize(16),
-                  ), // RESPONSIVE
-                  SizedBox(width: context.getRSize(10)), // RESPONSIVE
+                    color: Colors.white,
+                    size: context.getRSize(18),
+                  ),
+                  SizedBox(width: context.getRSize(10)),
                   Text(
                     'Confirm Payment',
                     style: TextStyle(
-                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
                       fontSize: context.getRFontSize(16),
-                    ), // RESPONSIVE
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ],
               ),
@@ -282,6 +295,25 @@ class _CheckoutPageState extends State<CheckoutPage> {
       }
     }
 
+    final order = Order(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      customerId:
+          null, // Basic checkout page doesn't currently select Customer ID
+      customerName: _paymentType == PaymentType.credit
+          ? _customerNameCtrl.text.trim()
+          : null,
+      timestamp: DateTime.now(),
+      cart: widget.cart,
+      subtotal: widget.subtotal,
+      crateDeposit: widget.crateDeposit,
+      total: widget.total,
+      paymentMethod: _paymentLabel,
+      cashReceived: _paymentType == PaymentType.partialCash
+          ? double.tryParse(_cashReceivedCtrl.text)
+          : null,
+    );
+    orderService.addOrder(order);
+
     setState(() => _paymentConfirmed = true);
   }
 
@@ -296,7 +328,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
             padding: EdgeInsets.all(context.getRSize(20)), // RESPONSIVE
             child: Screenshot(
               controller: _screenshotCtrl,
-              child: _ReceiptWidget(
+              child: ReceiptWidget(
                 cart: widget.cart,
                 subtotal: widget.subtotal,
                 crateDeposit: widget.crateDeposit,
@@ -811,261 +843,5 @@ class _CheckoutPageState extends State<CheckoutPage> {
         ),
       ],
     );
-  }
-}
-
-// ═════════════════════════════════════════════════════════════════════════════
-// _ReceiptWidget — visually represents the receipt on screen to the user
-// ═════════════════════════════════════════════════════════════════════════════
-
-class _ReceiptWidget extends StatelessWidget {
-  final List<Map<String, dynamic>> cart;
-  final double subtotal;
-  final double crateDeposit;
-  final double total;
-  final String paymentMethod;
-  final String? customerName;
-  final double? cashReceived;
-
-  const _ReceiptWidget({
-    required this.cart,
-    required this.subtotal,
-    required this.crateDeposit,
-    required this.total,
-    required this.paymentMethod,
-    this.customerName,
-    this.cashReceived,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    const bg = Colors.white;
-    const textCol = Color(0xFF0F172A);
-    const sub = Color(0xFF64748B);
-    const divCol = Color(0xFFE2E8F0);
-
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.all(context.getRSize(24)), // RESPONSIVE
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: divCol),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          // Header
-          Text(
-            'BrewFlow POS',
-            style: TextStyle(
-              fontSize: context.getRFontSize(20), // RESPONSIVE
-              fontWeight: FontWeight.w800,
-              color: textCol,
-            ),
-          ),
-          Text(
-            'Sales Receipt',
-            style: TextStyle(
-              fontSize: context.getRFontSize(12),
-              color: sub,
-            ), // RESPONSIVE
-          ),
-          SizedBox(height: context.getRSize(4)), // RESPONSIVE
-          Text(
-            _formatDate(DateTime.now()),
-            style: TextStyle(
-              fontSize: context.getRFontSize(11),
-              color: sub,
-            ), // RESPONSIVE
-          ),
-          SizedBox(height: context.getRSize(16)), // RESPONSIVE
-          Container(height: 1, color: divCol),
-          SizedBox(height: context.getRSize(12)), // RESPONSIVE
-          // Items
-          ...cart.map((item) {
-            final lineTotal = ((item['price'] as int) * (item['qty'] as double))
-                .toInt();
-            return Padding(
-              padding: EdgeInsets.symmetric(
-                vertical: context.getRSize(4),
-              ), // RESPONSIVE
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      '${item['name']}  ×${(item['qty'] as double).toStringAsFixed(1)}',
-                      style: TextStyle(
-                        fontSize: context.getRFontSize(13),
-                        color: textCol,
-                      ), // RESPONSIVE
-                    ),
-                  ),
-                  Text(
-                    '₦${fmtNumber(lineTotal)}',
-                    style: TextStyle(
-                      fontSize: context.getRFontSize(13), // RESPONSIVE
-                      fontWeight: FontWeight.w600,
-                      color: textCol,
-                    ),
-                  ),
-                ],
-              ),
-            );
-          }),
-
-          SizedBox(height: context.getRSize(12)), // RESPONSIVE
-          Container(height: 1, color: divCol),
-          SizedBox(height: context.getRSize(12)), // RESPONSIVE
-          // Totals
-          _infoRow(context, 'Subtotal', subtotal, sub),
-          if (crateDeposit > 0) ...[
-            SizedBox(height: context.getRSize(4)), // RESPONSIVE
-            _infoRow(context, 'Crate Deposit', crateDeposit, sub),
-          ],
-
-          SizedBox(height: context.getRSize(12)), // RESPONSIVE
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'TOTAL',
-                style: TextStyle(
-                  fontSize: context.getRFontSize(16), // RESPONSIVE
-                  fontWeight: FontWeight.bold,
-                  color: textCol,
-                ),
-              ),
-              Text(
-                '₦${fmtNumber(total.toInt())}',
-                style: TextStyle(
-                  fontSize: context.getRFontSize(18), // RESPONSIVE
-                  fontWeight: FontWeight.w800,
-                  color: blueMain,
-                ),
-              ),
-            ],
-          ),
-
-          SizedBox(height: context.getRSize(16)), // RESPONSIVE
-          Container(height: 1, color: divCol),
-          SizedBox(height: context.getRSize(16)), // RESPONSIVE
-
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              'Payment: $paymentMethod',
-              style: TextStyle(
-                fontSize: context.getRFontSize(12),
-                color: sub,
-              ), // RESPONSIVE
-            ),
-          ),
-          if (customerName != null && customerName!.isNotEmpty)
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                'Customer: $customerName',
-                style: TextStyle(
-                  fontSize: context.getRFontSize(12),
-                  color: sub,
-                ), // RESPONSIVE
-              ),
-            ),
-          if (cashReceived != null) ...[
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                'Cash Received: ₦${fmtNumber(cashReceived!.toInt())}',
-                style: TextStyle(
-                  fontSize: context.getRFontSize(12),
-                  color: sub,
-                ), // RESPONSIVE
-              ),
-            ),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                'Remainder: ₦${fmtNumber((total - cashReceived!).clamp(0, total).toInt())}',
-                style: TextStyle(
-                  fontSize: context.getRFontSize(12),
-                  color: sub,
-                ), // RESPONSIVE
-              ),
-            ),
-          ],
-
-          SizedBox(height: context.getRSize(24)), // RESPONSIVE
-          Text(
-            'Thank you for your patronage!',
-            style: TextStyle(
-              fontSize: context.getRFontSize(13), // RESPONSIVE
-              fontWeight: FontWeight.w600,
-              fontStyle: FontStyle.italic,
-              color: sub,
-            ),
-          ),
-          SizedBox(height: context.getRSize(4)), // RESPONSIVE
-          Text(
-            'Powered by BrewFlow',
-            style: TextStyle(
-              fontSize: context.getRFontSize(10),
-              color: sub,
-            ), // RESPONSIVE
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _infoRow(BuildContext context, String label, double value, Color col) {
-    return Padding(
-      padding: EdgeInsets.symmetric(
-        vertical: context.getRSize(2),
-      ), // RESPONSIVE
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            label,
-            style: TextStyle(fontSize: context.getRFontSize(13), color: col),
-          ), // RESPONSIVE
-          Text(
-            '₦${fmtNumber(value.toInt())}',
-            style: TextStyle(
-              fontSize: context.getRFontSize(13), // RESPONSIVE
-              fontWeight: FontWeight.w600,
-              color: col,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  String _formatDate(DateTime dt) {
-    final months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
-    ];
-    return '${dt.day} ${months[dt.month - 1]} ${dt.year}, '
-        '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
   }
 }

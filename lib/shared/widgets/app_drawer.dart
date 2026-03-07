@@ -27,10 +27,7 @@ class AppDrawer extends StatelessWidget {
           children: [
             _buildHeader(context),
             Expanded(child: _buildNavList(context)),
-            SafeArea(
-              top: false,
-              child: _buildLogout(context),
-            ),
+            SafeArea(top: false, child: _buildLogout(context)),
           ],
         ),
       ),
@@ -124,7 +121,20 @@ class AppDrawer extends StatelessWidget {
           onTap: () => _navigateTo(context, 'inventory'),
         ),
         _navItem(context, FontAwesomeIcons.truckFast, 'Deliveries'),
-        _navItem(context, FontAwesomeIcons.users, 'Customers'),
+        _navItem(
+          context,
+          FontAwesomeIcons.users,
+          'Customers',
+          active: activeRoute == 'customers',
+          onTap: () => _navigateTo(context, 'customers'),
+        ),
+        _navItem(
+          context,
+          FontAwesomeIcons.clockRotateLeft,
+          'Activity Logs',
+          active: activeRoute == 'activity_logs',
+          onTap: () => _navigateTo(context, 'activity_logs'),
+        ),
         SizedBox(height: context.getRSize(12)),
         Divider(color: _border),
         SizedBox(height: context.getRSize(12)),
@@ -143,6 +153,18 @@ class AppDrawer extends StatelessWidget {
     if (route == 'pos') {
       // Pop back to POS (it's always the root)
       Navigator.of(context).popUntil((r) => r.isFirst);
+    }
+
+    if (route == 'activity_logs') {
+      Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const _ActivityLogScreenProxy()),
+      );
+    }
+
+    if (route == 'customers') {
+      Navigator.of(
+        context,
+      ).push(MaterialPageRoute(builder: (_) => const _CustomersScreenProxy()));
     }
 
     if (route == 'inventory') {
@@ -308,7 +330,11 @@ class AppDrawer extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(FontAwesomeIcons.rightFromBracket, color: danger, size: context.getRSize(16)),
+            Icon(
+              FontAwesomeIcons.rightFromBracket,
+              color: danger,
+              size: context.getRSize(16),
+            ),
             SizedBox(width: context.getRSize(10)),
             Text(
               'Logout',
@@ -362,4 +388,44 @@ Widget Function() _inventoryScreenBuilder = () => const Scaffold(
 /// Example:  registerInventoryScreen(() => const InventoryScreen());
 void registerInventoryScreen(Widget Function() builder) {
   _inventoryScreenBuilder = builder;
+}
+
+// ── Proxy widget for ActivityLogScreen ───────────────────────────────────────
+class _ActivityLogScreenProxy extends StatelessWidget {
+  const _ActivityLogScreenProxy();
+
+  @override
+  Widget build(BuildContext context) {
+    return _activityLogScreenBuilder();
+  }
+}
+
+// Default: shows a placeholder until wired up in main.dart
+Widget Function() _activityLogScreenBuilder = () => const Scaffold(
+  body: Center(child: Text('Activity Log screen not registered yet')),
+);
+
+/// Call this once from main.dart to register the real ActivityLogScreen.
+void registerActivityLogScreen(Widget Function() builder) {
+  _activityLogScreenBuilder = builder;
+}
+
+// ── Proxy widget for CustomersScreen ─────────────────────────────────────────
+class _CustomersScreenProxy extends StatelessWidget {
+  const _CustomersScreenProxy();
+
+  @override
+  Widget build(BuildContext context) {
+    return _customersScreenBuilder();
+  }
+}
+
+// Default: shows a placeholder until wired up in main.dart
+Widget Function() _customersScreenBuilder = () => const Scaffold(
+  body: Center(child: Text('Customers screen not registered yet')),
+);
+
+/// Call this once from main.dart to register the real CustomersScreen.
+void registerCustomersScreen(Widget Function() builder) {
+  _customersScreenBuilder = builder;
 }
