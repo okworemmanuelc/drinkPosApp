@@ -194,7 +194,7 @@ class ThermalReceiptService {
     );
 
     // Minimal feed + cut to reduce paper waste
-    bytes += generator.feed(0);
+    bytes += generator.feed(2);
     bytes += generator.cut();
 
     return bytes;

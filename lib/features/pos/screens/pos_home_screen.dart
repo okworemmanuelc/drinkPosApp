@@ -26,7 +26,7 @@ class _PosHomeScreenState extends State<PosHomeScreen>
   String _searchQuery = '';
   bool _isSearching = false;
   final TextEditingController _searchController = TextEditingController();
-  double _crateDeposit = 1500.0;
+  final double _crateDeposit = 1500.0;
   late AnimationController _fabAnim;
 
   final List<Map<String, dynamic>> _cart = [

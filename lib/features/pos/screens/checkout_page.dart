@@ -9,20 +9,18 @@ import 'package:screenshot/screenshot.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:path_provider/path_provider.dart';
 
-import '../../../core/theme/colors.dart';
-import '../../../core/theme/theme_notifier.dart';
-import '../../../core/utils/number_format.dart';
 import '../../../shared/models/order.dart';
+import '../../../shared/services/activity_log_service.dart';
 import '../../../shared/services/order_service.dart';
 import '../../../shared/widgets/receipt_widget.dart';
 import '../../../core/utils/responsive.dart';
 import '../services/receipt_builder.dart';
 import '../../customers/data/models/customer.dart';
+import '../../../core/theme/colors.dart';
+import '../../../core/theme/theme_notifier.dart';
+import '../../../core/utils/number_format.dart';
 import '../../customers/data/services/customer_service.dart';
-import '../../../shared/services/activity_log_service.dart';
 import '../../inventory/data/inventory_data.dart';
-import '../../../shared/models/delivery.dart';
-import '../../../shared/services/delivery_service.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CheckoutPage — shown after "Proceed to Checkout" in the cart.
@@ -105,7 +103,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
   Widget build(BuildContext context) {
     return ValueListenableBuilder<ThemeMode>(
       valueListenable: themeNotifier,
-      builder: (_, __, ___) => Scaffold(
+      builder: (_, mode, child) => Scaffold(
         backgroundColor: _bg,
         appBar: AppBar(
           backgroundColor: _surface,
@@ -437,38 +435,24 @@ class _CheckoutPageState extends State<CheckoutPage> {
       customerService.updateCustomer(updatedCustomer);
     }
 
-    // ── Create & store order ──────────────────────────────────────────
+    // ── Create & store unified order ─────────────────────────────────────────
     final orderId = DateTime.now().millisecondsSinceEpoch.toString();
     final order = Order(
       id: orderId,
       customerId: widget.customer?.id,
       customerName: _customerDisplayName,
-      timestamp: DateTime.now(),
-      cart: widget.cart,
-      subtotal: widget.subtotal,
-      crateDeposit: widget.crateDeposit,
-      total: widget.total,
-      paymentMethod: _paymentLabel,
-      cashReceived: _paymentType == PaymentType.partialCash ? amountPaid : null,
-    );
-    orderService.addOrder(order);
-
-    // ── Create & store delivery ───────────────────────────────────────
-    final delivery = Delivery(
-      id: orderId,
-      customerId: widget.customer?.id,
-      customerName: _customerDisplayName,
       customerAddress: widget.customer?.addressText ?? 'N/A',
       items: widget.cart,
+      subtotal: widget.subtotal,
+      crateDeposit: widget.crateDeposit,
       totalAmount: widget.total,
       amountPaid: amountPaid,
       balance: remaining,
       paymentMethod: _paymentLabel,
-      status: 'pending',
       createdAt: DateTime.now(),
-      receiptBarcode: orderId,
+      status: 'pending',
     );
-    deliveryService.addDelivery(delivery);
+    orderService.addOrder(order);
 
     // ── Activity log ──────────────────────────────────────────────────
     activityLogService.logAction(
@@ -483,8 +467,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
     activityLogService.logAction(
       'Order Dispatched',
       'Order $orderId for $_customerDisplayName added to pending deliveries',
-      relatedEntityId: delivery.id,
-      relatedEntityType: 'delivery',
+      relatedEntityId: orderId,
+      relatedEntityType: 'order',
     );
 
     // ── Store for receipt display ─────────────────────────────────────

@@ -746,7 +746,7 @@ class _CartScreenState extends State<CartScreen> {
 
     return ValueListenableBuilder<ThemeMode>(
       valueListenable: themeNotifier,
-      builder: (_, __, ___) => Scaffold(
+      builder: (_, mode, child) => Scaffold(
         backgroundColor: _bg,
         appBar: AppBar(
           backgroundColor: _surface,
@@ -977,7 +977,7 @@ class _CartScreenState extends State<CartScreen> {
                                 vertical: context.getRSize(8),
                               ),
                               itemCount: widget.cart.length,
-                              separatorBuilder: (_, __) =>
+                              separatorBuilder: (_, idx) =>
                                   SizedBox(height: context.getRSize(12)),
                               itemBuilder: (_, i) {
                                 final item = widget.cart[i];

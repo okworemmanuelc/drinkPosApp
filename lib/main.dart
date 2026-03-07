@@ -8,7 +8,10 @@ import 'features/pos/screens/pos_home_screen.dart';
 import 'shared/widgets/app_drawer.dart';
 import 'shared/widgets/activity_log_screen.dart';
 import 'features/customers/screens/customers_screen.dart';
+import 'features/orders/screens/orders_screen.dart';
+import 'features/payments/screens/payments_screen.dart';
 import 'features/deliveries/screens/deliveries_screen.dart';
+import 'features/expenses/screens/expenses_screen.dart';
 
 void main() {
   SystemChrome.setSystemUIOverlayStyle(
@@ -25,8 +28,17 @@ void main() {
   // Wire up CustomersScreen to AppDrawer proxy
   registerCustomersScreen(() => const CustomersScreen());
 
+  // Wire up OrdersScreen to AppDrawer proxy
+  registerOrdersScreen(() => const OrdersScreen());
+
+  // Wire up PaymentsScreen to AppDrawer proxy
+  registerPaymentsScreen(() => const PaymentsScreen());
+
   // Wire up DeliveriesScreen to AppDrawer proxy
   registerDeliveriesScreen(() => const DeliveriesScreen());
+
+  // Wire up ExpensesScreen to AppDrawer proxy
+  registerExpensesScreen(() => const ExpensesScreen());
 
   runApp(const BrewFlowApp());
 }

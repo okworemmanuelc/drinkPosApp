@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/theme_notifier.dart';
-import '../../core/utils/responsive.dart'; // Added ResponsiveHelper
+import '../../core/utils/responsive.dart';
 
 class AppDrawer extends StatelessWidget {
   // Pass 'pos' or 'inventory' to highlight the correct nav item
@@ -122,10 +122,31 @@ class AppDrawer extends StatelessWidget {
         ),
         _navItem(
           context,
+          FontAwesomeIcons.moneyBillWave,
+          'Payments',
+          active: activeRoute == 'payments',
+          onTap: () => _navigateTo(context, 'payments'),
+        ),
+        _navItem(
+          context,
           FontAwesomeIcons.truckFast,
+          'Orders',
+          active: activeRoute == 'orders',
+          onTap: () => _navigateTo(context, 'orders'),
+        ),
+        _navItem(
+          context,
+          FontAwesomeIcons.dolly,
           'Deliveries',
           active: activeRoute == 'deliveries',
           onTap: () => _navigateTo(context, 'deliveries'),
+        ),
+        _navItem(
+          context,
+          FontAwesomeIcons.fileInvoiceDollar,
+          'Expenses',
+          active: activeRoute == 'expenses',
+          onTap: () => _navigateTo(context, 'expenses'),
         ),
         _navItem(
           context,
@@ -173,10 +194,28 @@ class AppDrawer extends StatelessWidget {
       ).push(MaterialPageRoute(builder: (_) => const _CustomersScreenProxy()));
     }
 
+    if (route == 'orders') {
+      Navigator.of(
+        context,
+      ).push(MaterialPageRoute(builder: (_) => const _OrdersScreenProxy()));
+    }
+
+    if (route == 'payments') {
+      Navigator.of(
+        context,
+      ).push(MaterialPageRoute(builder: (_) => const _PaymentsScreenProxy()));
+    }
+
     if (route == 'deliveries') {
       Navigator.of(
         context,
       ).push(MaterialPageRoute(builder: (_) => const _DeliveriesScreenProxy()));
+    }
+
+    if (route == 'expenses') {
+      Navigator.of(
+        context,
+      ).push(MaterialPageRoute(builder: (_) => const _ExpensesScreenProxy()));
     }
 
     if (route == 'inventory') {
@@ -258,74 +297,166 @@ class AppDrawer extends StatelessWidget {
     return ValueListenableBuilder<ThemeMode>(
       valueListenable: themeNotifier,
       builder: (_, mode, _) {
+        final isSystem = mode == ThemeMode.system;
         final dark = mode == ThemeMode.dark;
-        return GestureDetector(
-          onTap: () =>
-              themeNotifier.value = dark ? ThemeMode.light : ThemeMode.dark,
-          child: Padding(
-            padding: EdgeInsets.symmetric(
-              horizontal: context.getRSize(16),
-              vertical: context.getRSize(12),
+        final label = isSystem
+            ? 'System Theme'
+            : dark
+            ? 'Dark Theme'
+            : 'Light Theme';
+        final icon = isSystem
+            ? FontAwesomeIcons.desktop
+            : dark
+            ? FontAwesomeIcons.moon
+            : FontAwesomeIcons.sun;
+
+        return Padding(
+          padding: EdgeInsets.symmetric(
+            horizontal: context.getRSize(16),
+            vertical: context.getRSize(12),
+          ),
+          child: Theme(
+            data: Theme.of(context).copyWith(
+              splashColor: Colors.transparent,
+              highlightColor: Colors.transparent,
             ),
-            child: Row(
-              children: [
-                Container(
-                  width: context.getRSize(36),
-                  height: context.getRSize(36),
-                  decoration: BoxDecoration(
-                    color: dark
-                        ? const Color(0xFF1E293B)
-                        : const Color(0xFFF1F5F9),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(
-                    dark ? FontAwesomeIcons.moon : FontAwesomeIcons.sun,
-                    size: context.getRSize(16),
-                    color: blueMain,
-                  ),
+            child: PopupMenuButton<ThemeMode>(
+              initialValue: mode,
+              tooltip: 'Select Theme',
+              offset: Offset(0, context.getRSize(-160)), // roll to the upside
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+              color: _surface,
+              elevation: 8,
+              onSelected: (ThemeMode newMode) {
+                themeNotifier.value = newMode;
+              },
+              itemBuilder: (context) => [
+                _buildThemeMenuItem(
+                  context,
+                  ThemeMode.light,
+                  'Light Theme',
+                  FontAwesomeIcons.sun,
+                  mode,
                 ),
-                SizedBox(width: context.getRSize(14)),
-                Expanded(
-                  child: Text(
-                    'Dark Mode',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      fontSize: context.getRFontSize(14.5),
-                      color: _text,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                _buildThemeMenuItem(
+                  context,
+                  ThemeMode.dark,
+                  'Dark Theme',
+                  FontAwesomeIcons.moon,
+                  mode,
                 ),
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  width: context.getRSize(44),
-                  height: context.getRSize(24),
-                  padding: EdgeInsets.all(context.getRSize(3)),
-                  decoration: BoxDecoration(
-                    color: dark ? blueMain : _border,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: AnimatedAlign(
-                    duration: const Duration(milliseconds: 200),
-                    alignment: dark
-                        ? Alignment.centerRight
-                        : Alignment.centerLeft,
-                    child: Container(
-                      width: context.getRSize(18),
-                      height: context.getRSize(18),
-                      decoration: const BoxDecoration(
-                        color: Colors.white,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                  ),
+                _buildThemeMenuItem(
+                  context,
+                  ThemeMode.system,
+                  'System Theme',
+                  FontAwesomeIcons.desktop,
+                  mode,
                 ),
               ],
+              child: Container(
+                width: double.infinity,
+                padding: EdgeInsets.symmetric(
+                  horizontal: context.getRSize(16),
+                  vertical: context.getRSize(14),
+                ),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [blueMain, blueDark],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(14),
+                  boxShadow: [
+                    BoxShadow(
+                      color: blueMain.withValues(alpha: 0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: context.getRSize(32),
+                      height: context.getRSize(32),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(
+                        icon,
+                        size: context.getRSize(14),
+                        color: Colors.white,
+                      ),
+                    ),
+                    SizedBox(width: context.getRSize(14)),
+                    Expanded(
+                      child: Text(
+                        label,
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: context.getRFontSize(14.5),
+                          color: Colors.white,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    Icon(
+                      FontAwesomeIcons.chevronUp,
+                      size: context.getRSize(14),
+                      color: Colors.white.withValues(alpha: 0.8),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
         );
       },
+    );
+  }
+
+  PopupMenuItem<ThemeMode> _buildThemeMenuItem(
+    BuildContext context,
+    ThemeMode value,
+    String text,
+    IconData icon,
+    ThemeMode currentMode,
+  ) {
+    final isActive = value == currentMode;
+    return PopupMenuItem<ThemeMode>(
+      value: value,
+      child: SizedBox(
+        width: context.getRSize(180),
+        child: Row(
+          children: [
+            Icon(
+              icon,
+              size: context.getRSize(16),
+              color: isActive ? blueMain : _text,
+            ),
+            SizedBox(width: context.getRSize(12)),
+            Text(
+              text,
+              style: TextStyle(
+                color: isActive ? blueMain : _text,
+                fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
+                fontSize: context.getRFontSize(14),
+              ),
+            ),
+            const Spacer(),
+            if (isActive)
+              Icon(
+                FontAwesomeIcons.circleCheck,
+                size: context.getRSize(16),
+                color: blueMain,
+              ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -442,7 +573,47 @@ void registerCustomersScreen(Widget Function() builder) {
   _customersScreenBuilder = builder;
 }
 
-// ── Proxy widget for DeliveriesScreen ─────────────────────────────────────────
+// ── Proxy widget for OrdersScreen ─────────────────────────────────────────
+class _OrdersScreenProxy extends StatelessWidget {
+  const _OrdersScreenProxy();
+
+  @override
+  Widget build(BuildContext context) {
+    return _ordersScreenBuilder();
+  }
+}
+
+// Default: shows a placeholder until wired up in main.dart
+Widget Function() _ordersScreenBuilder = () => const Scaffold(
+  body: Center(child: Text('Orders screen not registered yet')),
+);
+
+/// Call this once from main.dart to register the real OrdersScreen.
+void registerOrdersScreen(Widget Function() builder) {
+  _ordersScreenBuilder = builder;
+}
+
+// ── Proxy widget for PaymentsScreen ─────────────────────────────────────────
+class _PaymentsScreenProxy extends StatelessWidget {
+  const _PaymentsScreenProxy();
+
+  @override
+  Widget build(BuildContext context) {
+    return _paymentsScreenBuilder();
+  }
+}
+
+// Default: shows a placeholder until wired up in main.dart
+Widget Function() _paymentsScreenBuilder = () => const Scaffold(
+  body: Center(child: Text('Payments screen not registered yet')),
+);
+
+/// Call this once from main.dart to register the real PaymentsScreen.
+void registerPaymentsScreen(Widget Function() builder) {
+  _paymentsScreenBuilder = builder;
+}
+
+// ── Proxy widget for DeliveriesScreen ────────────────────────────────────────
 class _DeliveriesScreenProxy extends StatelessWidget {
   const _DeliveriesScreenProxy();
 
@@ -460,4 +631,24 @@ Widget Function() _deliveriesScreenBuilder = () => const Scaffold(
 /// Call this once from main.dart to register the real DeliveriesScreen.
 void registerDeliveriesScreen(Widget Function() builder) {
   _deliveriesScreenBuilder = builder;
+}
+
+// ── Proxy widget for ExpensesScreen ──────────────────────────────────────────
+class _ExpensesScreenProxy extends StatelessWidget {
+  const _ExpensesScreenProxy();
+
+  @override
+  Widget build(BuildContext context) {
+    return _expensesScreenBuilder();
+  }
+}
+
+// Default: shows a placeholder until wired up in main.dart
+Widget Function() _expensesScreenBuilder = () => const Scaffold(
+  body: Center(child: Text('Expenses screen not registered yet')),
+);
+
+/// Call this once from main.dart to register the real ExpensesScreen.
+void registerExpensesScreen(Widget Function() builder) {
+  _expensesScreenBuilder = builder;
 }

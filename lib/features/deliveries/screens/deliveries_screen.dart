@@ -5,12 +5,10 @@ import '../../../core/theme/colors.dart';
 import '../../../core/theme/theme_notifier.dart';
 import '../../../core/utils/number_format.dart';
 import '../../../core/utils/responsive.dart';
-import '../../../shared/models/delivery.dart';
-import '../../../shared/services/activity_log_service.dart';
-import '../../../shared/services/delivery_service.dart';
 import '../../../shared/widgets/app_drawer.dart';
-import '../../../shared/widgets/receipt_widget.dart';
-import '../../customers/data/services/customer_service.dart';
+import '../data/models/delivery.dart';
+import '../data/services/delivery_service.dart';
+import '../widgets/receive_delivery_sheet.dart';
 
 class DeliveriesScreen extends StatefulWidget {
   const DeliveriesScreen({super.key});
@@ -19,9 +17,8 @@ class DeliveriesScreen extends StatefulWidget {
   State<DeliveriesScreen> createState() => _DeliveriesScreenState();
 }
 
-class _DeliveriesScreenState extends State<DeliveriesScreen>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabController;
+class _DeliveriesScreenState extends State<DeliveriesScreen> {
+  String _filter = 'All';
 
   bool get _isDark => themeNotifier.value == ThemeMode.dark;
   Color get _bg => _isDark ? dBg : lBg;
@@ -29,18 +26,6 @@ class _DeliveriesScreenState extends State<DeliveriesScreen>
   Color get _text => _isDark ? dText : lText;
   Color get _subtext => _isDark ? dSubtext : lSubtext;
   Color get _border => _isDark ? dBorder : lBorder;
-
-  @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(length: 2, vsync: this);
-  }
-
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -51,20 +36,25 @@ class _DeliveriesScreenState extends State<DeliveriesScreen>
           backgroundColor: _bg,
           drawer: const AppDrawer(activeRoute: 'deliveries'),
           appBar: _buildAppBar(context),
-          body: ValueListenableBuilder<List<Delivery>>(
-            valueListenable: deliveryService,
-            builder: (context, deliveries, child) {
-              final pending = deliveryService.getPending();
-              final completed = deliveryService.getCompleted();
+          body: Column(
+            children: [
+              _buildReceiveDeliveryButton(context),
+              _buildFilterChips(context),
+              Expanded(
+                child: ValueListenableBuilder<List<Delivery>>(
+                  valueListenable: deliveryService,
+                  builder: (context, deliveries, child) {
+                    final filtered = _getFilteredDeliveries(deliveries);
 
-              return TabBarView(
-                controller: _tabController,
-                children: [
-                  _buildDeliveryList(context, pending, isPending: true),
-                  _buildDeliveryList(context, completed, isPending: false),
-                ],
-              );
-            },
+                    if (filtered.isEmpty) {
+                      return _buildEmptyState(context);
+                    }
+
+                    return _buildDeliveriesList(context, filtered);
+                  },
+                ),
+              ),
+            ],
           ),
         );
       },
@@ -76,6 +66,45 @@ class _DeliveriesScreenState extends State<DeliveriesScreen>
       backgroundColor: _surface,
       elevation: 0,
       iconTheme: IconThemeData(color: _text),
+      leading: Builder(
+        builder: (ctx) => InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () => Scaffold.of(ctx).openDrawer(),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  height: 2.5,
+                  width: context.getRSize(22),
+                  decoration: BoxDecoration(
+                    color: _text,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                Container(
+                  height: 2.5,
+                  width: context.getRSize(16),
+                  decoration: BoxDecoration(
+                    color: blueMain,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                Container(
+                  height: 2.5,
+                  width: context.getRSize(22),
+                  decoration: BoxDecoration(
+                    color: _text,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
       title: Text(
         'Deliveries',
         style: TextStyle(
@@ -85,272 +114,215 @@ class _DeliveriesScreenState extends State<DeliveriesScreen>
         ),
       ),
       centerTitle: true,
-      bottom: TabBar(
-        controller: _tabController,
-        labelColor: blueMain,
-        unselectedLabelColor: _subtext,
-        indicatorColor: blueMain,
-        indicatorWeight: 3,
-        labelStyle: TextStyle(
-          fontWeight: FontWeight.bold,
-          fontSize: context.getRFontSize(14),
+    );
+  }
+
+  Widget _buildReceiveDeliveryButton(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        context.getRSize(16),
+        context.getRSize(16),
+        context.getRSize(16),
+        0,
+      ),
+      child: Container(
+        width: double.infinity,
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [blueLight, blueDark],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: blueMain.withValues(alpha: 0.3),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
-        tabs: const [
-          Tab(text: 'Pending'),
-          Tab(text: 'Completed'),
+        child: ElevatedButton.icon(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.transparent,
+            foregroundColor: Colors.white,
+            shadowColor: Colors.transparent,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            padding: EdgeInsets.symmetric(vertical: context.getRSize(14)),
+            elevation: 0,
+          ),
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const ReceiveDeliveryScreen()),
+            );
+          },
+          icon: Icon(FontAwesomeIcons.truckRampBox, size: context.getRSize(16)),
+          label: Text(
+            'Receive Delivery',
+            style: TextStyle(
+              fontSize: context.getRFontSize(15),
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFilterChips(BuildContext context) {
+    final filters = ['Today', 'This Week', 'This Month', 'This Year', 'All'];
+    return Container(
+      color: Colors.transparent,
+      padding: EdgeInsets.symmetric(vertical: context.getRSize(16)),
+      height: context.getRSize(64),
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: EdgeInsets.symmetric(horizontal: context.getRSize(16)),
+        itemCount: filters.length,
+        separatorBuilder: (context, index) =>
+            SizedBox(width: context.getRSize(8)),
+        itemBuilder: (context, index) {
+          final f = filters[index];
+          final isSelected = f == _filter;
+          return FilterChip(
+            label: Text(
+              f,
+              style: TextStyle(
+                fontSize: context.getRFontSize(12),
+                color: isSelected ? Colors.white : _text,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+              ),
+            ),
+            selected: isSelected,
+            onSelected: (val) {
+              setState(() => _filter = f);
+            },
+            selectedColor: blueMain,
+            backgroundColor: _surface,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+              side: BorderSide(
+                color: isSelected ? Colors.transparent : _border,
+              ),
+            ),
+            showCheckmark: false,
+          );
+        },
+      ),
+    );
+  }
+
+  List<Delivery> _getFilteredDeliveries(List<Delivery> deliveries) {
+    final now = DateTime.now();
+    return deliveries.where((d) {
+      if (_filter == 'All') return true;
+      final diff = now.difference(d.deliveredAt);
+      if (_filter == 'Today') {
+        return diff.inDays == 0 && now.day == d.deliveredAt.day;
+      }
+      if (_filter == 'This Week') return diff.inDays <= 7;
+      if (_filter == 'This Month') return diff.inDays <= 30;
+      if (_filter == 'This Year') return diff.inDays <= 365;
+      return true;
+    }).toList();
+  }
+
+  Widget _buildEmptyState(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            FontAwesomeIcons.boxOpen,
+            size: context.getRSize(48),
+            color: _border,
+          ),
+          SizedBox(height: context.getRSize(16)),
+          Text(
+            'No deliveries yet',
+            style: TextStyle(
+              color: _subtext,
+              fontSize: context.getRFontSize(16),
+              fontWeight: FontWeight.w600,
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildDeliveryList(
-    BuildContext context,
-    List<Delivery> list, {
-    required bool isPending,
-  }) {
-    if (list.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              isPending
-                  ? FontAwesomeIcons.boxOpen
-                  : FontAwesomeIcons.clipboardCheck,
-              size: context.getRSize(48),
-              color: _border,
-            ),
-            SizedBox(height: context.getRSize(16)),
-            Text(
-              isPending ? 'No pending deliveries' : 'No completed deliveries',
-              style: TextStyle(
-                color: _subtext,
-                fontSize: context.getRFontSize(16),
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-      );
+  Widget _buildDeliveriesList(BuildContext context, List<Delivery> deliveries) {
+    // Group by supplier
+    final Map<String, List<Delivery>> bySupplier = {};
+    for (var del in deliveries) {
+      bySupplier.putIfAbsent(del.supplierName, () => []).add(del);
     }
+
+    // Convert map to a flat list for ListView with headers
+    final List<dynamic> listItems = [];
+    bySupplier.forEach((supplier, dels) {
+      listItems.add(supplier);
+      // Sort within group by date desc
+      dels.sort((a, b) => b.deliveredAt.compareTo(a.deliveredAt));
+      listItems.addAll(dels);
+    });
 
     return ListView.builder(
-      padding: EdgeInsets.all(context.getRSize(16)),
-      itemCount: list.length,
-      itemBuilder: (context, index) {
-        return _DeliveryCard(
-          delivery: list[index],
-          isPending: isPending,
-          onMarkAsDelivered: isPending
-              ? () => _markAsDelivered(list[index])
-              : null,
-          onViewReceipt: () => _viewReceipt(context, list[index]),
-        );
-      },
-    );
-  }
-
-  void _markAsDelivered(Delivery delivery) {
-    showDialog(
-      context: context,
-      builder: (ctx) {
-        return AlertDialog(
-          backgroundColor: _surface,
-          title: Text(
-            'Confirm Delivery',
-            style: TextStyle(color: _text, fontWeight: FontWeight.bold),
-          ),
-          content: Text(
-            'Mark order #${delivery.id} for ${delivery.customerName} as delivered?',
-            style: TextStyle(color: _subtext),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: Text('Cancel', style: TextStyle(color: _subtext)),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: success,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              onPressed: () {
-                Navigator.pop(ctx);
-                _executeMarkDelivered(delivery);
-              },
-              child: const Text('Confirm'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  void _executeMarkDelivered(Delivery delivery) {
-    // 1. Update status in deliveryService
-    deliveryService.markAsCompleted(delivery.id);
-
-    // 2. Map completion back to customer record if joined
-    if (delivery.customerId != null) {
-      final customer = customerService.getById(delivery.customerId!);
-      if (customer != null) {
-        // Here we could keep orderIds updated or tracking states,
-        // For now, ensuring the order exists in the tracker is good practice.
-        if (!customer.orderIds.contains(delivery.id)) {
-          final updatedCustomer = customer.copyWith(
-            orderIds: [...customer.orderIds, delivery.id],
-          );
-          customerService.updateCustomer(updatedCustomer);
-        }
-      }
-    }
-
-    // 3. Log action
-    activityLogService.logAction(
-      'Delivery Completed',
-      'Order ${delivery.id} for ${delivery.customerName} marked as delivered',
-      relatedEntityId: delivery.id,
-      relatedEntityType: 'delivery',
-    );
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Order #${delivery.id} marked as delivered.'),
-        backgroundColor: success,
+      padding: EdgeInsets.fromLTRB(
+        context.getRSize(16),
+        0,
+        context.getRSize(16),
+        context.getRSize(16),
       ),
-    );
-  }
-
-  void _viewReceipt(BuildContext context, Delivery delivery) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) {
-        return Container(
-          height: MediaQuery.of(context).size.height * 0.85,
-          decoration: BoxDecoration(
-            color: _surface,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          child: Column(
-            children: [
-              // Handle bump
-              Container(
-                margin: EdgeInsets.symmetric(vertical: context.getRSize(12)),
-                width: context.getRSize(40),
-                height: context.getRSize(5),
-                decoration: BoxDecoration(
-                  color: _border,
-                  borderRadius: BorderRadius.circular(10),
-                ),
+      itemCount: listItems.length,
+      itemBuilder: (context, index) {
+        final item = listItems[index];
+        if (item is String) {
+          // Supplier Header
+          return Padding(
+            padding: EdgeInsets.only(
+              top: index == 0 ? 0 : context.getRSize(16),
+              bottom: context.getRSize(8),
+              left: context.getRSize(4),
+            ),
+            child: Text(
+              item,
+              style: TextStyle(
+                color: _subtext,
+                fontWeight: FontWeight.bold,
+                fontSize: context.getRFontSize(14),
               ),
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: EdgeInsets.fromLTRB(
-                    context.getRSize(20),
-                    context.getRSize(10),
-                    context.getRSize(20),
-                    context.getRSize(30),
-                  ),
-                  child: ReceiptWidget(
-                    orderId: delivery.id,
-                    cart: delivery.items,
-                    subtotal: _computeSubtotal(delivery.items),
-                    crateDeposit: _computeCrateDeposit(delivery.items),
-                    total: delivery.totalAmount,
-                    paymentMethod: delivery.paymentMethod,
-                    customerName: delivery.customerName,
-                    customerAddress: delivery.customerAddress,
-                    cashReceived: delivery.amountPaid > 0
-                        ? delivery.amountPaid
-                        : null,
-                  ),
-                ),
-              ),
-              SafeArea(
-                top: false,
-                child: Padding(
-                  padding: EdgeInsets.all(context.getRSize(16)),
-                  child: SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: blueMain,
-                        padding: EdgeInsets.symmetric(
-                          vertical: context.getRSize(16),
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      onPressed: () => Navigator.pop(context),
-                      child: Text(
-                        'Close',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: context.getRFontSize(16),
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
+            ),
+          );
+        } else if (item is Delivery) {
+          return _DeliveryCard(delivery: item);
+        }
+        return const SizedBox.shrink();
       },
-    );
-  }
-
-  double _computeSubtotal(List<Map<String, dynamic>> items) {
-    return items.fold(0.0, (sum, i) => sum + (i['price'] * i['qty']));
-  }
-
-  double _computeCrateDeposit(List<Map<String, dynamic>> items) {
-    return items.fold(
-      0.0,
-      (sum, i) =>
-          sum +
-          ((i['needsEmptyCrate'] == true)
-              ? i['qty'] * 1500
-              : 0.0), // using typical bottle logic, or map back correctly
     );
   }
 }
 
 class _DeliveryCard extends StatelessWidget {
   final Delivery delivery;
-  final bool isPending;
-  final VoidCallback? onMarkAsDelivered;
-  final VoidCallback onViewReceipt;
 
-  const _DeliveryCard({
-    required this.delivery,
-    required this.isPending,
-    this.onMarkAsDelivered,
-    required this.onViewReceipt,
-  });
+  const _DeliveryCard({required this.delivery});
 
   bool get _isDark => themeNotifier.value == ThemeMode.dark;
   Color get _text => _isDark ? dText : lText;
   Color get _subtext => _isDark ? dSubtext : lSubtext;
   Color get _border => _isDark ? dBorder : lBorder;
   Color get _cardBg => _isDark ? dCard : lCard;
-  Color get _surface => _isDark ? dSurface : lSurface;
 
   @override
   Widget build(BuildContext context) {
-    final balanceColor = delivery.balance < 0 ? danger : success;
+    final isPending = delivery.status == 'pending';
+    final statusColor = isPending ? const Color(0xFFF59E0B) : success;
 
-    // Formatting date
-    final time = isPending
-        ? delivery.createdAt
-        : (delivery.completedAt ?? delivery.createdAt);
+    final time = delivery.deliveredAt;
     final isToday =
         time.year == DateTime.now().year &&
         time.month == DateTime.now().month &&
@@ -362,7 +334,7 @@ class _DeliveryCard extends StatelessWidget {
         '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
 
     return Container(
-      margin: EdgeInsets.only(bottom: context.getRSize(16)),
+      margin: EdgeInsets.only(bottom: context.getRSize(12)),
       decoration: BoxDecoration(
         color: _cardBg,
         borderRadius: BorderRadius.circular(16),
@@ -375,281 +347,121 @@ class _DeliveryCard extends StatelessWidget {
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header: Customer Info
-          Padding(
-            padding: EdgeInsets.all(context.getRSize(16)),
-            child: Row(
-              children: [
-                Container(
-                  padding: EdgeInsets.all(context.getRSize(10)),
-                  decoration: BoxDecoration(
-                    color: blueMain.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(
-                    FontAwesomeIcons.user,
-                    size: context.getRSize(16),
-                    color: blueMain,
-                  ),
-                ),
-                SizedBox(width: context.getRSize(12)),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        delivery.customerName,
-                        style: TextStyle(
-                          color: _text,
-                          fontWeight: FontWeight.bold,
-                          fontSize: context.getRFontSize(15),
-                        ),
-                      ),
-                      SizedBox(height: context.getRSize(2)),
-                      Text(
-                        delivery.customerAddress,
-                        style: TextStyle(
-                          color: _subtext,
-                          fontSize: context.getRFontSize(13),
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ),
-                ),
-                if (!isPending)
-                  Container(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: context.getRSize(10),
-                      vertical: context.getRSize(6),
-                    ),
-                    decoration: BoxDecoration(
-                      color: success.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: success.withValues(alpha: 0.2)),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          FontAwesomeIcons.check,
-                          size: context.getRSize(10),
-                          color: success,
-                        ),
-                        SizedBox(width: context.getRSize(6)),
-                        Text(
-                          'Completed',
-                          style: TextStyle(
-                            color: success,
-                            fontWeight: FontWeight.bold,
-                            fontSize: context.getRFontSize(11),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          Divider(height: 1, color: _border),
-
-          // Order ID & Time
-          Padding(
-            padding: EdgeInsets.fromLTRB(
-              context.getRSize(16),
-              context.getRSize(12),
-              context.getRSize(16),
-              0,
-            ),
-            child: Row(
+      child: Padding(
+        padding: EdgeInsets.all(context.getRSize(16)),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header
+            Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  'Order #${delivery.id}',
-                  style: TextStyle(
-                    color: _subtext,
-                    fontWeight: FontWeight.w600,
-                    fontSize: context.getRFontSize(13),
-                  ),
-                ),
-                Text(
-                  '$dateStr$timeStr',
-                  style: TextStyle(
-                    color: _subtext,
-                    fontSize: context.getRFontSize(12),
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          // Items List
-          Padding(
-            padding: EdgeInsets.all(context.getRSize(16)),
-            child: Column(
-              children: delivery.items.map((item) {
-                return Padding(
-                  padding: EdgeInsets.only(bottom: context.getRSize(6)),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          '${item['qty']}x ${item['name']}',
-                          style: TextStyle(
-                            color: _text,
-                            fontSize: context.getRFontSize(14),
-                          ),
-                        ),
-                      ),
-                      Text(
-                        '₦${fmtNumber((item['price'] * item['qty']).toInt())}',
-                        style: TextStyle(
-                          color: _text,
-                          fontWeight: FontWeight.w600,
-                          fontSize: context.getRFontSize(14),
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }).toList(),
-            ),
-          ),
-
-          Divider(height: 1, color: _border),
-
-          // Totals
-          Padding(
-            padding: EdgeInsets.all(context.getRSize(16)),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                Row(
                   children: [
-                    Text(
-                      'Total: ₦${fmtNumber(delivery.totalAmount.toInt())}',
-                      style: TextStyle(
-                        color: _text,
-                        fontWeight: FontWeight.w600,
-                        fontSize: context.getRFontSize(13),
-                      ),
+                    Icon(
+                      FontAwesomeIcons.truck,
+                      size: context.getRSize(14),
+                      color: _subtext,
                     ),
-                    SizedBox(height: context.getRSize(4)),
+                    SizedBox(width: context.getRSize(8)),
                     Text(
-                      'Paid: ₦${fmtNumber(delivery.amountPaid.toInt())} • ${delivery.paymentMethod}',
+                      '$dateStr$timeStr',
                       style: TextStyle(
                         color: _subtext,
-                        fontSize: context.getRFontSize(12),
+                        fontSize: context.getRFontSize(13),
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ],
                 ),
                 Container(
                   padding: EdgeInsets.symmetric(
-                    horizontal: context.getRSize(10),
-                    vertical: context.getRSize(6),
+                    horizontal: context.getRSize(8),
+                    vertical: context.getRSize(4),
                   ),
                   decoration: BoxDecoration(
-                    color: balanceColor.withValues(alpha: 0.1),
+                    color: statusColor.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
-                      color: balanceColor.withValues(alpha: 0.2),
+                      color: statusColor.withValues(alpha: 0.2),
                     ),
                   ),
                   child: Text(
-                    'Balance: ₦${fmtNumber(delivery.balance.toInt())}',
+                    delivery.status.toUpperCase(),
                     style: TextStyle(
-                      color: balanceColor,
+                      color: statusColor,
                       fontWeight: FontWeight.bold,
-                      fontSize: context.getRFontSize(12),
+                      fontSize: context.getRFontSize(10),
                     ),
                   ),
                 ),
               ],
             ),
-          ),
+            SizedBox(height: context.getRSize(12)),
+            Divider(height: 1, color: _border),
+            SizedBox(height: context.getRSize(12)),
 
-          // Footer Actions
-          Container(
-            padding: EdgeInsets.symmetric(
-              horizontal: context.getRSize(16),
-              vertical: context.getRSize(12),
-            ),
-            decoration: BoxDecoration(
-              color: _surface,
-              borderRadius: const BorderRadius.vertical(
-                bottom: Radius.circular(16),
+            // Items Summary
+            Text(
+              '${delivery.items.length} Product(s)',
+              style: TextStyle(
+                color: _text,
+                fontWeight: FontWeight.bold,
+                fontSize: context.getRFontSize(14),
               ),
-              border: Border(top: BorderSide(color: _border)),
             ),
-            child: Row(
+            SizedBox(height: context.getRSize(4)),
+            ...delivery.items.take(3).map((item) {
+              return Padding(
+                padding: EdgeInsets.only(bottom: context.getRSize(2)),
+                child: Text(
+                  '${item.quantity.toInt()}x ${item.productName}',
+                  style: TextStyle(
+                    color: _subtext,
+                    fontSize: context.getRFontSize(13),
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              );
+            }),
+            if (delivery.items.length > 3)
+              Text(
+                '...and ${delivery.items.length - 3} more',
+                style: TextStyle(
+                  color: _subtext,
+                  fontSize: context.getRFontSize(12),
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+
+            SizedBox(height: context.getRSize(12)),
+            Divider(height: 1, color: _border),
+            SizedBox(height: context.getRSize(12)),
+
+            // Total Value
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                // View receipt is always present
-                Expanded(
-                  child: TextButton.icon(
-                    style: TextButton.styleFrom(
-                      foregroundColor: blueMain,
-                      padding: EdgeInsets.symmetric(
-                        vertical: context.getRSize(12),
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                    icon: Icon(
-                      FontAwesomeIcons.receipt,
-                      size: context.getRSize(14),
-                    ),
-                    label: Text(
-                      'View Receipt',
-                      style: TextStyle(
-                        fontSize: context.getRFontSize(13),
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    onPressed: onViewReceipt,
+                Text(
+                  'Total Value',
+                  style: TextStyle(
+                    color: _subtext,
+                    fontSize: context.getRFontSize(13),
                   ),
                 ),
-                if (isPending && onMarkAsDelivered != null) ...[
-                  SizedBox(width: context.getRSize(12)),
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: blueMain,
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                        padding: EdgeInsets.symmetric(
-                          vertical: context.getRSize(12),
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                      icon: Icon(
-                        FontAwesomeIcons.truckFast,
-                        size: context.getRSize(14),
-                      ),
-                      label: Text(
-                        'Mark Delivered',
-                        style: TextStyle(
-                          fontSize: context.getRFontSize(13),
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      onPressed: onMarkAsDelivered,
-                    ),
+                Text(
+                  '₦${fmtNumber(delivery.totalValue.toInt())}',
+                  style: TextStyle(
+                    color: _text,
+                    fontWeight: FontWeight.w800,
+                    fontSize: context.getRFontSize(15),
                   ),
-                ],
+                ),
               ],
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

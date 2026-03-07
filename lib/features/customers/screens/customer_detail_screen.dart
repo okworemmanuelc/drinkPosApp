@@ -322,7 +322,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
       builder: (context, ordersList, _) {
         final customerOrders =
             ordersList.where((o) => o.customerId == _customer!.id).toList()
-              ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
+              ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
         final recentOrders = customerOrders.take(3).toList();
 
         return Padding(
@@ -410,7 +410,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                                     ),
                                     SizedBox(height: context.getRSize(4)),
                                     Text(
-                                      '₦${NumberFormat('#,###').format(order.total)} • ${order.paymentMethod}',
+                                      '₦${NumberFormat('#,###').format(order.totalAmount)} • ${order.paymentMethod}',
                                       style: TextStyle(
                                         fontSize: context.getRFontSize(12),
                                         color: subtextCol,
@@ -420,7 +420,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                                 ),
                               ),
                               Text(
-                                DateFormat('MMM d, y').format(order.timestamp),
+                                DateFormat('MMM d, y').format(order.createdAt),
                                 style: TextStyle(
                                   fontSize: context.getRFontSize(11),
                                   color: subtextCol,
@@ -484,9 +484,9 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
             final now = DateTime.now();
             List<Order> filteredOrders = orders.where((o) {
               if (selectedFilter == 'All Time') return true;
-              final diff = now.difference(o.timestamp);
+              final diff = now.difference(o.createdAt);
               if (selectedFilter == 'Day') {
-                return diff.inDays == 0 && now.day == o.timestamp.day;
+                return diff.inDays == 0 && now.day == o.createdAt.day;
               }
               if (selectedFilter == 'Week') return diff.inDays <= 7;
               if (selectedFilter == 'Month') return diff.inDays <= 30;
@@ -658,7 +658,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                                                 height: context.getRSize(4),
                                               ),
                                               Text(
-                                                '₦${NumberFormat('#,###').format(order.total)} • ${order.paymentMethod}',
+                                                '₦${NumberFormat('#,###').format(order.totalAmount)} • ${order.paymentMethod}',
                                                 style: TextStyle(
                                                   fontSize: context
                                                       .getRFontSize(12),
@@ -671,7 +671,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                                         Text(
                                           DateFormat(
                                             'MMM d, y',
-                                          ).format(order.timestamp),
+                                          ).format(order.createdAt),
                                           style: TextStyle(
                                             fontSize: context.getRFontSize(11),
                                             color: subtextCol,
@@ -743,15 +743,15 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                     padding: EdgeInsets.all(modalCtx.getRSize(20)),
                     child: ReceiptWidget(
                       orderId: order.id,
-                      cart: order.cart,
+                      cart: order.items,
                       subtotal: order.subtotal,
                       crateDeposit: order.crateDeposit,
-                      total: order.total,
+                      total: order.totalAmount,
                       paymentMethod: order.paymentMethod,
                       customerName: order.customerName,
                       customerAddress: _customer?.addressText,
                       customerPhone: _customer?.phone,
-                      cashReceived: order.cashReceived,
+                      cashReceived: order.amountPaid,
                     ),
                   ),
                 ),
