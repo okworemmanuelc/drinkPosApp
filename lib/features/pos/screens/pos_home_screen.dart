@@ -80,13 +80,13 @@ class _PosHomeScreenState extends State<PosHomeScreen>
       valueListenable: themeNotifier,
       builder: (_, _, _) => Scaffold(
         backgroundColor: _bg,
-        appBar: _buildAppBar(),
+        appBar: _buildAppBar(context),
         drawer: const AppDrawer(activeRoute: 'pos'),
         body: SafeArea(
           top: false,
           child: Column(
             children: [
-              _buildHeader(),
+              _buildHeader(context),
               if (_isSearching) _buildSearchField(),
               _buildFilterBar(),
               Expanded(child: _buildGrid()),
@@ -100,7 +100,7 @@ class _PosHomeScreenState extends State<PosHomeScreen>
   }
 
   // ── APP BAR ──────────────────────────────────────────────────────────────────
-  PreferredSizeWidget _buildAppBar() {
+  PreferredSizeWidget _buildAppBar(BuildContext context) {
     return AppBar(
       backgroundColor: _surface,
       elevation: 0,
@@ -116,7 +116,7 @@ class _PosHomeScreenState extends State<PosHomeScreen>
               children: [
                 Container(
                   height: 2.5,
-                  width: 22,
+                  width: context.getRSize(22), // RESPONSIVE
                   decoration: BoxDecoration(
                     color: _text,
                     borderRadius: BorderRadius.circular(2),
@@ -124,7 +124,7 @@ class _PosHomeScreenState extends State<PosHomeScreen>
                 ),
                 Container(
                   height: 2.5,
-                  width: 16,
+                  width: context.getRSize(16), // RESPONSIVE
                   decoration: BoxDecoration(
                     color: blueMain,
                     borderRadius: BorderRadius.circular(2),
@@ -132,7 +132,7 @@ class _PosHomeScreenState extends State<PosHomeScreen>
                 ),
                 Container(
                   height: 2.5,
-                  width: 22,
+                  width: context.getRSize(22), // RESPONSIVE
                   decoration: BoxDecoration(
                     color: _text,
                     borderRadius: BorderRadius.circular(2),
@@ -146,7 +146,7 @@ class _PosHomeScreenState extends State<PosHomeScreen>
       title: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(8),
+            padding: EdgeInsets.all(context.getRSize(8)), // RESPONSIVE
             decoration: BoxDecoration(
               gradient: const LinearGradient(colors: [blueLight, blueMain]),
               borderRadius: BorderRadius.circular(12),
@@ -158,39 +158,47 @@ class _PosHomeScreenState extends State<PosHomeScreen>
                 ),
               ],
             ),
-            child: const Icon(
+            child: Icon(
               FontAwesomeIcons.beerMugEmpty,
               color: Colors.white,
-              size: 16,
+              size: context.getRSize(16), // RESPONSIVE
             ),
           ),
-          const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'BrewFlow',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
-                  color: _text,
-                  letterSpacing: -0.5,
+          SizedBox(width: context.getRSize(12)), // RESPONSIVE
+          Expanded( // RESPONSIVE to prevent title overflow
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    'BrewFlow',
+                    style: TextStyle(
+                      fontSize: context.getRFontSize(18), // RESPONSIVE
+                      fontWeight: FontWeight.w800,
+                      color: _text,
+                      letterSpacing: -0.5,
+                    ),
+                  ),
                 ),
-              ),
-              Text(
-                'Point of Sale',
-                style: TextStyle(
-                  fontSize: 11,
-                  color: blueMain,
-                  fontWeight: FontWeight.w600,
+                Text(
+                  'Point of Sale',
+                  style: TextStyle(
+                    fontSize: context.getRFontSize(11), // RESPONSIVE
+                    color: blueMain,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ],
       ),
       actions: [
         _iconBtn(
+          context,
           _isSearching ? FontAwesomeIcons.xmark : FontAwesomeIcons.magnifyingGlass,
           () => setState(() {
             _isSearching = !_isSearching;
@@ -205,17 +213,18 @@ class _PosHomeScreenState extends State<PosHomeScreen>
           alignment: Alignment.center,
           children: [
             _iconBtn(
+              context,
               FontAwesomeIcons.cartShopping,
               () => _openCart(),
               size: 17,
             ),
             if (_cart.isNotEmpty)
               Positioned(
-                right: 6,
-                top: 6,
+                right: context.getRSize(6),
+                top: context.getRSize(6),
                 child: Container(
-                  width: 18,
-                  height: 18,
+                  width: context.getRSize(18),
+                  height: context.getRSize(18),
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
                     color: danger,
@@ -224,9 +233,9 @@ class _PosHomeScreenState extends State<PosHomeScreen>
                   ),
                   child: Text(
                     '${_cart.length}',
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: Colors.white,
-                      fontSize: 9,
+                      fontSize: context.getRFontSize(9), // RESPONSIVE
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -234,35 +243,43 @@ class _PosHomeScreenState extends State<PosHomeScreen>
               ),
           ],
         ),
-        const SizedBox(width: 8),
+        SizedBox(width: context.getRSize(8)), // RESPONSIVE
       ],
     );
   }
 
-  Widget _iconBtn(IconData icon, VoidCallback onTap, {double size = 18}) {
+  Widget _iconBtn(BuildContext context, IconData icon, VoidCallback onTap, {double size = 18}) {
     return InkWell(
       borderRadius: BorderRadius.circular(12),
       onTap: onTap,
       child: Container(
-        width: 40,
-        height: 40,
+        width: context.getRSize(40), // RESPONSIVE
+        height: context.getRSize(40), // RESPONSIVE
         alignment: Alignment.center,
-        child: Icon(icon, size: size, color: _subtext),
+        child: Icon(icon, size: context.getRSize(size), color: _subtext), // RESPONSIVE
       ),
     );
   }
 
   // ── HEADER STRIP ─────────────────────────────────────────────────────────────
-  Widget _buildHeader() {
+  Widget _buildHeader(BuildContext context) {
     return Container(
       color: _surface,
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+      padding: EdgeInsets.fromLTRB(
+        context.getRSize(16), 
+        context.getRSize(4), 
+        context.getRSize(16), 
+        context.getRSize(16)
+      ), // RESPONSIVE
       child: Row(
         children: [
           GestureDetector(
             onTap: () {},
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              padding: EdgeInsets.symmetric(
+                horizontal: context.getRSize(16), 
+                vertical: context.getRSize(10)
+              ), // RESPONSIVE
               decoration: BoxDecoration(
                 color: blueMain.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
@@ -270,12 +287,12 @@ class _PosHomeScreenState extends State<PosHomeScreen>
               ),
               child: Row(
                 children: [
-                  const Icon(FontAwesomeIcons.bolt, size: 14, color: blueMain),
-                  const SizedBox(width: 8),
+                  Icon(FontAwesomeIcons.bolt, size: context.getRSize(14), color: blueMain), // RESPONSIVE
+                  SizedBox(width: context.getRSize(8)), // RESPONSIVE
                   Text(
                     'Quick Sale',
                     style: TextStyle(
-                      fontSize: 13,
+                      fontSize: context.getRFontSize(13), // RESPONSIVE
                       fontWeight: FontWeight.w700,
                       color: _isDark ? blueLight : blueDark,
                     ),
@@ -286,7 +303,7 @@ class _PosHomeScreenState extends State<PosHomeScreen>
           ),
           const Spacer(),
           Container(
-            padding: const EdgeInsets.all(4),
+            padding: EdgeInsets.all(context.getRSize(4)), // RESPONSIVE
             decoration: BoxDecoration(
               color: _bg,
               borderRadius: BorderRadius.circular(30),
@@ -295,9 +312,9 @@ class _PosHomeScreenState extends State<PosHomeScreen>
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                _pricePill('Retail', !_isWholesale),
-                const SizedBox(width: 4),
-                _pricePill('Wholesale', _isWholesale),
+                _pricePill(context, 'Retail', !_isWholesale),
+                SizedBox(width: context.getRSize(4)), // RESPONSIVE
+                _pricePill(context, 'Wholesale', _isWholesale),
               ],
             ),
           ),
@@ -306,12 +323,15 @@ class _PosHomeScreenState extends State<PosHomeScreen>
     );
   }
 
-  Widget _pricePill(String label, bool active) {
+  Widget _pricePill(BuildContext context, String label, bool active) {
     return GestureDetector(
       onTap: () => setState(() => _isWholesale = label == 'Wholesale'),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: EdgeInsets.symmetric(
+          horizontal: context.getRSize(16), 
+          vertical: context.getRSize(8)
+        ), // RESPONSIVE
         decoration: BoxDecoration(
           color: active ? _surface : Colors.transparent,
           borderRadius: BorderRadius.circular(26),
@@ -328,7 +348,7 @@ class _PosHomeScreenState extends State<PosHomeScreen>
         child: Text(
           label,
           style: TextStyle(
-            fontSize: 12,
+            fontSize: context.getRFontSize(12), // RESPONSIVE
             fontWeight: active ? FontWeight.w700 : FontWeight.w600,
             color: active ? blueMain : _subtext,
           ),
@@ -345,23 +365,26 @@ class _PosHomeScreenState extends State<PosHomeScreen>
         children: [
           Divider(height: 1, color: _border),
           SizedBox(
-            height: 54,
+            height: context.getRSize(54), // RESPONSIVE
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              padding: EdgeInsets.symmetric(
+                horizontal: context.getRSize(16), 
+                vertical: context.getRSize(10)
+              ), // RESPONSIVE
               itemCount: _filters.length,
               itemBuilder: (_, i) {
                 final active = _filter == _filters[i];
                 return Padding(
-                  padding: const EdgeInsets.only(right: 10),
+                  padding: EdgeInsets.only(right: context.getRSize(10)), // RESPONSIVE
                   child: GestureDetector(
                     onTap: () => setState(() => _filter = _filters[i]),
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 180),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 18,
-                        vertical: 6,
-                      ),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: context.getRSize(18),
+                        vertical: context.getRSize(6),
+                      ), // RESPONSIVE
                       decoration: BoxDecoration(
                         color: active ? blueMain : (_isDark ? dCard : lCard),
                         borderRadius: BorderRadius.circular(20),
@@ -374,7 +397,7 @@ class _PosHomeScreenState extends State<PosHomeScreen>
                         child: Text(
                           _filters[i],
                           style: TextStyle(
-                            fontSize: 13,
+                            fontSize: context.getRFontSize(13), // RESPONSIVE
                             fontWeight: active
                                 ? FontWeight.w700
                                 : FontWeight.w600,
@@ -461,12 +484,17 @@ class _PosHomeScreenState extends State<PosHomeScreen>
     final aspect = screenWidth < 360 ? 0.85 : (screenWidth > 500 ? 0.80 : 0.80);
 
     return GridView.builder(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
+      padding: EdgeInsets.fromLTRB(
+        context.getRSize(16), 
+        context.getRSize(16), 
+        context.getRSize(16), 
+        context.getRSize(100)
+      ), // RESPONSIVE
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: crossAxisCount,
         childAspectRatio: aspect,
-        crossAxisSpacing: rSize(context, 12),
-        mainAxisSpacing: rSize(context, 12),
+        crossAxisSpacing: context.getRSize(12), // RESPONSIVE
+        mainAxisSpacing: context.getRSize(12), // RESPONSIVE
       ),
       itemCount: shown.length,
       itemBuilder: (_, i) => _buildProductCard(shown[i]),
@@ -521,7 +549,12 @@ class _PosHomeScreenState extends State<PosHomeScreen>
         child: Stack(
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(10, 16, 10, 10),
+              padding: EdgeInsets.fromLTRB(
+                context.getRSize(10), 
+                context.getRSize(16), 
+                context.getRSize(10), 
+                context.getRSize(10)
+              ), // RESPONSIVE
               child: Column(
                 children: [
                   Expanded(
@@ -533,16 +566,16 @@ class _PosHomeScreenState extends State<PosHomeScreen>
                       ),
                       child: Icon(
                         product['icon'] as IconData,
-                        size: 28,
+                        size: context.getRSize(28), // RESPONSIVE
                         color: accent,
                       ),
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  SizedBox(height: context.getRSize(12)), // RESPONSIVE
                   Text(
                     product['name'],
                     style: TextStyle(
-                      fontSize: 12,
+                      fontSize: context.getRFontSize(12), // RESPONSIVE
                       fontWeight: FontWeight.w700,
                       color: _text,
                     ),
@@ -550,28 +583,31 @@ class _PosHomeScreenState extends State<PosHomeScreen>
                     overflow: TextOverflow.ellipsis,
                     textAlign: TextAlign.center,
                   ),
-                  const SizedBox(height: 2),
+                  SizedBox(height: context.getRSize(2)), // RESPONSIVE
                   Text(
                     product['subtitle'],
-                    style: TextStyle(fontSize: 10, color: _subtext),
+                    style: TextStyle(fontSize: context.getRFontSize(10), color: _subtext), // RESPONSIVE
                     textAlign: TextAlign.center,
                   ),
-                  const SizedBox(height: 8),
+                  SizedBox(height: context.getRSize(8)), // RESPONSIVE
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
+                    padding: EdgeInsets.symmetric(
+                      horizontal: context.getRSize(8),
+                      vertical: context.getRSize(4),
+                    ), // RESPONSIVE
                     decoration: BoxDecoration(
                       color: _isDark ? dBg : lBg,
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: Text(
-                      '₦${fmtNumber(price)}',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w800,
-                        color: _isDark ? blueLight : blueDark,
+                    child: FittedBox( // RESPONSIVE
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        '₦${fmtNumber(price)}',
+                        style: TextStyle(
+                          fontSize: context.getRFontSize(11), // RESPONSIVE
+                          fontWeight: FontWeight.w800,
+                          color: _isDark ? blueLight : blueDark,
+                        ),
                       ),
                     ),
                   ),
@@ -580,19 +616,19 @@ class _PosHomeScreenState extends State<PosHomeScreen>
             ),
             if (inCart)
               Positioned(
-                top: 8,
-                right: 8,
+                top: context.getRSize(8), // RESPONSIVE
+                right: context.getRSize(8), // RESPONSIVE
                 child: Container(
-                  padding: const EdgeInsets.all(6),
+                  padding: EdgeInsets.all(context.getRSize(6)), // RESPONSIVE
                   decoration: const BoxDecoration(
                     color: blueMain,
                     shape: BoxShape.circle,
                   ),
                   child: Text(
                     qty.toStringAsFixed(0),
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: Colors.white,
-                      fontSize: 10,
+                      fontSize: context.getRFontSize(10), // RESPONSIVE
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -600,13 +636,13 @@ class _PosHomeScreenState extends State<PosHomeScreen>
               ),
             if (!inCart)
               Positioned(
-                top: 8,
-                right: 8,
+                top: context.getRSize(8), // RESPONSIVE
+                right: context.getRSize(8), // RESPONSIVE
                 child: Container(
-                  width: 24,
-                  height: 24,
+                  width: context.getRSize(24), // RESPONSIVE
+                  height: context.getRSize(24), // RESPONSIVE
                   decoration: BoxDecoration(color: _bg, shape: BoxShape.circle),
-                  child: Icon(Icons.add, size: 14, color: _subtext),
+                  child: Icon(Icons.add, size: context.getRSize(14), color: _subtext), // RESPONSIVE
                 ),
               ),
           ],
@@ -623,7 +659,7 @@ class _PosHomeScreenState extends State<PosHomeScreen>
       child: GestureDetector(
         onTap: _openCart,
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+          padding: EdgeInsets.symmetric(horizontal: context.getRSize(20), vertical: context.getRSize(14)), // RESPONSIVE
           decoration: BoxDecoration(
             gradient: const LinearGradient(
               colors: [blueLight, blueMain],
@@ -642,51 +678,51 @@ class _PosHomeScreenState extends State<PosHomeScreen>
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(
+              Icon(
                 FontAwesomeIcons.cartShopping,
                 color: Colors.white,
-                size: 18,
+                size: context.getRSize(18), // RESPONSIVE
               ),
-              const SizedBox(width: 12),
+              SizedBox(width: context.getRSize(12)), // RESPONSIVE
               Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'View Cart',
                     style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.w800,
-                      fontSize: 13,
+                      fontSize: context.getRFontSize(13), // RESPONSIVE
                     ),
                   ),
                   if (_cart.isNotEmpty)
                     Text(
                       '₦${fmtNumber(total.toInt())}',
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: Colors.white70,
-                        fontSize: 11,
+                        fontSize: context.getRFontSize(11), // RESPONSIVE
                         fontWeight: FontWeight.w600,
                       ),
                     ),
                 ],
               ),
               if (_cart.isNotEmpty) ...[
-                const SizedBox(width: 14),
+                SizedBox(width: context.getRSize(14)), // RESPONSIVE
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 4,
-                  ),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: context.getRSize(10),
+                    vertical: context.getRSize(4),
+                  ), // RESPONSIVE
                   decoration: BoxDecoration(
                     color: Colors.white.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
                     '${_cart.length}',
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: Colors.white,
-                      fontSize: 12,
+                      fontSize: context.getRFontSize(12), // RESPONSIVE
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -728,10 +764,10 @@ class _PosHomeScreenState extends State<PosHomeScreen>
             child: Column(
               children: [
                 Padding(
-                  padding: const EdgeInsets.only(top: 14, bottom: 8),
+                  padding: EdgeInsets.only(top: context.getRSize(14), bottom: context.getRSize(8)), // RESPONSIVE
                   child: Container(
-                    width: 40,
-                    height: 4,
+                    width: context.getRSize(40), // RESPONSIVE
+                    height: context.getRSize(4), // RESPONSIVE
                     decoration: BoxDecoration(
                       color: _border,
                       borderRadius: BorderRadius.circular(2),
@@ -739,7 +775,7 @@ class _PosHomeScreenState extends State<PosHomeScreen>
                   ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+                  padding: EdgeInsets.fromLTRB(context.getRSize(20), context.getRSize(12), context.getRSize(20), 0), // RESPONSIVE
                   child: Row(
                     children: [
                       Column(
@@ -748,15 +784,15 @@ class _PosHomeScreenState extends State<PosHomeScreen>
                           Text(
                             'Your Cart',
                             style: TextStyle(
-                              fontSize: 22,
+                              fontSize: context.getRFontSize(22), // RESPONSIVE
                               fontWeight: FontWeight.w800,
                               color: _text,
                             ),
                           ),
                           Text(
                             '${_cart.length} item${_cart.length != 1 ? 's' : ''}',
-                            style: const TextStyle(
-                              fontSize: 13,
+                            style: TextStyle(
+                              fontSize: context.getRFontSize(13), // RESPONSIVE
                               color: blueMain,
                               fontWeight: FontWeight.bold,
                             ),
@@ -771,10 +807,10 @@ class _PosHomeScreenState extends State<PosHomeScreen>
                             setState(() {});
                           },
                           child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 8,
-                            ),
+                            padding: EdgeInsets.symmetric(
+                              horizontal: context.getRSize(14),
+                              vertical: context.getRSize(8),
+                            ), // RESPONSIVE
                             decoration: BoxDecoration(
                               color: danger.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(10),
@@ -783,46 +819,46 @@ class _PosHomeScreenState extends State<PosHomeScreen>
                               ),
                             ),
                             child: Row(
-                              children: const [
+                              children: [
                                 Icon(
                                   FontAwesomeIcons.trashCan,
                                   color: danger,
-                                  size: 13,
+                                  size: context.getRSize(13), // RESPONSIVE
                                 ),
-                                SizedBox(width: 8),
+                                SizedBox(width: context.getRSize(8)), // RESPONSIVE
                                 Text(
                                   'Clear',
                                   style: TextStyle(
                                     color: danger,
                                     fontWeight: FontWeight.bold,
-                                    fontSize: 13,
+                                    fontSize: context.getRFontSize(13), // RESPONSIVE
                                   ),
                                 ),
                               ],
                             ),
                           ),
                         ),
-                      const SizedBox(width: 10),
+                      SizedBox(width: context.getRSize(10)), // RESPONSIVE
                       GestureDetector(
                         onTap: () => Navigator.pop(ctx),
                         child: Container(
-                          width: 38,
-                          height: 38,
+                          width: context.getRSize(38), // RESPONSIVE
+                          height: context.getRSize(38), // RESPONSIVE
                           decoration: BoxDecoration(
                             color: card,
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          child: Icon(Icons.close, color: _subtext, size: 20),
+                          child: Icon(Icons.close, color: _subtext, size: context.getRSize(20)), // RESPONSIVE
                         ),
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: context.getRSize(16)), // RESPONSIVE
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  padding: EdgeInsets.symmetric(horizontal: context.getRSize(20)), // RESPONSIVE
                   child: Container(
-                    padding: const EdgeInsets.all(16),
+                    padding: EdgeInsets.all(context.getRSize(16)), // RESPONSIVE
                     decoration: BoxDecoration(
                       color: card,
                       borderRadius: BorderRadius.circular(16),
@@ -831,18 +867,18 @@ class _PosHomeScreenState extends State<PosHomeScreen>
                     child: Row(
                       children: [
                         Container(
-                          padding: const EdgeInsets.all(10),
+                          padding: EdgeInsets.all(context.getRSize(10)), // RESPONSIVE
                           decoration: BoxDecoration(
                             color: blueMain.withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(10),
                           ),
-                          child: const Icon(
+                          child: Icon(
                             FontAwesomeIcons.userTag,
-                            size: 16,
+                            size: context.getRSize(16), // RESPONSIVE
                             color: blueMain,
                           ),
                         ),
-                        const SizedBox(width: 14),
+                        SizedBox(width: context.getRSize(14)), // RESPONSIVE
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -850,7 +886,7 @@ class _PosHomeScreenState extends State<PosHomeScreen>
                               'Walk-in Customer',
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
-                                fontSize: 14,
+                                fontSize: context.getRFontSize(14), // RESPONSIVE
                                 color: _text,
                               ),
                             ),
@@ -858,7 +894,7 @@ class _PosHomeScreenState extends State<PosHomeScreen>
                               children: [
                                 Icon(
                                   FontAwesomeIcons.nairaSign,
-                                  size: 11,
+                                  size: context.getRSize(11), // RESPONSIVE
                                   color: _customerBalance < 0
                                       ? danger
                                       : success,
@@ -866,7 +902,7 @@ class _PosHomeScreenState extends State<PosHomeScreen>
                                 Text(
                                   ' Bal: ₦${_customerBalance.abs().toStringAsFixed(0)} ${_customerBalance < 0 ? "overdue" : "credit"}',
                                   style: TextStyle(
-                                    fontSize: 12,
+                                    fontSize: context.getRFontSize(12), // RESPONSIVE
                                     color: _customerBalance < 0
                                         ? danger
                                         : success,
@@ -879,10 +915,10 @@ class _PosHomeScreenState extends State<PosHomeScreen>
                         ),
                         const Spacer(),
                         Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 6,
-                          ),
+                          padding: EdgeInsets.symmetric(
+                            horizontal: context.getRSize(12),
+                            vertical: context.getRSize(6),
+                          ), // RESPONSIVE
                           decoration: BoxDecoration(
                             color: _bg,
                             borderRadius: BorderRadius.circular(8),
@@ -891,7 +927,7 @@ class _PosHomeScreenState extends State<PosHomeScreen>
                           child: Text(
                             'Change',
                             style: TextStyle(
-                              fontSize: 12,
+                              fontSize: context.getRFontSize(12), // RESPONSIVE
                               fontWeight: FontWeight.bold,
                               color: _subtext,
                             ),
@@ -901,7 +937,7 @@ class _PosHomeScreenState extends State<PosHomeScreen>
                     ),
                   ),
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: context.getRSize(16)), // RESPONSIVE
                 Divider(height: 1, color: _border),
                 Expanded(
                   child: _cart.isEmpty
@@ -911,29 +947,29 @@ class _PosHomeScreenState extends State<PosHomeScreen>
                             children: [
                               Icon(
                                 FontAwesomeIcons.cartArrowDown,
-                                size: 48,
+                                size: context.getRSize(48), // RESPONSIVE
                                 color: _border,
                               ),
-                              const SizedBox(height: 16),
+                              SizedBox(height: context.getRSize(16)), // RESPONSIVE
                               Text(
                                 'Cart is empty',
                                 style: TextStyle(
                                   color: _subtext,
                                   fontWeight: FontWeight.bold,
-                                  fontSize: 16,
+                                  fontSize: context.getRFontSize(16), // RESPONSIVE
                                 ),
                               ),
                             ],
                           ),
                         )
                       : ListView.separated(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 20,
-                            vertical: 16,
-                          ),
+                          padding: EdgeInsets.symmetric(
+                            horizontal: context.getRSize(20),
+                            vertical: context.getRSize(16),
+                          ), // RESPONSIVE
                           itemCount: _cart.length,
                           separatorBuilder: (_, _) =>
-                              const SizedBox(height: 12),
+                              SizedBox(height: context.getRSize(12)), // RESPONSIVE
                           itemBuilder: (_, i) {
                             final item = _cart[i];
                             final Color c = item['color'] as Color;
@@ -941,7 +977,7 @@ class _PosHomeScreenState extends State<PosHomeScreen>
                               borderRadius: BorderRadius.circular(14),
                               onTap: () => _editItem(ctx, item, setModal),
                               child: Container(
-                                padding: const EdgeInsets.all(12),
+                                padding: EdgeInsets.all(context.getRSize(12)), // RESPONSIVE
                                 decoration: BoxDecoration(
                                   color: card,
                                   borderRadius: BorderRadius.circular(14),
@@ -949,8 +985,8 @@ class _PosHomeScreenState extends State<PosHomeScreen>
                                 child: Row(
                                   children: [
                                     Container(
-                                      width: 48,
-                                      height: 48,
+                                      width: context.getRSize(48), // RESPONSIVE
+                                      height: context.getRSize(48), // RESPONSIVE
                                       decoration: BoxDecoration(
                                         color: c.withValues(alpha: 0.15),
                                         borderRadius: BorderRadius.circular(12),
@@ -958,11 +994,11 @@ class _PosHomeScreenState extends State<PosHomeScreen>
                                       child: Icon(
                                         item['icon'] as IconData,
                                         color: c,
-                                        size: 22,
+                                        size: context.getRSize(22), // RESPONSIVE
                                       ),
                                     ),
-                                    const SizedBox(width: 14),
-                                    Expanded(
+                                    SizedBox(width: context.getRSize(14)), // RESPONSIVE
+                                    Expanded( // RESPONSIVE: wraps to avoid overflow
                                       child: Column(
                                         crossAxisAlignment:
                                             CrossAxisAlignment.start,
@@ -971,27 +1007,32 @@ class _PosHomeScreenState extends State<PosHomeScreen>
                                             item['name'],
                                             style: TextStyle(
                                               fontWeight: FontWeight.bold,
-                                              fontSize: 15,
+                                              fontSize: context.getRFontSize(15), // RESPONSIVE
                                               color: _text,
                                             ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
                                           ),
-                                          const SizedBox(height: 4),
+                                          SizedBox(height: context.getRSize(4)), // RESPONSIVE
                                           Text(
                                             '${item['qty'].toStringAsFixed(1)} × ₦${fmtNumber(item['price'])}',
                                             style: TextStyle(
-                                              fontSize: 13,
+                                              fontSize: context.getRFontSize(13), // RESPONSIVE
                                               color: _subtext,
                                             ),
                                           ),
                                         ],
                                       ),
                                     ),
-                                    Text(
-                                      '₦${fmtNumber((item['price'] * item['qty']).toInt())}',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 15,
-                                        color: _text,
+                                    FittedBox( // RESPONSIVE: scale down price
+                                      fit: BoxFit.scaleDown,
+                                      child: Text(
+                                        '₦${fmtNumber((item['price'] * item['qty']).toInt())}',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: context.getRFontSize(15), // RESPONSIVE
+                                          color: _text,
+                                        ),
                                       ),
                                     ),
                                   ],
@@ -1001,16 +1042,23 @@ class _PosHomeScreenState extends State<PosHomeScreen>
                           },
                         ),
                 ),
-                Container(
-                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
-                  decoration: BoxDecoration(
-                    color: bg,
-                    border: Border(top: BorderSide(color: _border)),
-                  ),
-                  child: Column(
+                SafeArea(
+                  top: false,
+                  child: Container(
+                    padding: EdgeInsets.fromLTRB(
+                      context.getRSize(20), 
+                      context.getRSize(20), 
+                      context.getRSize(20), 
+                      context.getRSize(32)
+                    ), // RESPONSIVE
+                    decoration: BoxDecoration(
+                      color: bg,
+                      border: Border(top: BorderSide(color: _border)),
+                    ),
+                    child: Column(
                     children: [
                       _totalRow('Subtotal', sub, small: true),
-                      const SizedBox(height: 8),
+                      SizedBox(height: context.getRSize(8)), // RESPONSIVE
                       GestureDetector(
                         onTap: () => _showEditCrateDeposit(setModal),
                         child: Row(
@@ -1020,29 +1068,29 @@ class _PosHomeScreenState extends State<PosHomeScreen>
                               children: [
                                 Text('Crate Deposit',
                                     style: TextStyle(
-                                        fontSize: 14,
+                                        fontSize: context.getRFontSize(14), // RESPONSIVE
                                         fontWeight: FontWeight.w600,
                                         color: _subtext)),
-                                const SizedBox(width: 6),
+                                SizedBox(width: context.getRSize(6)), // RESPONSIVE
                                 Icon(FontAwesomeIcons.penToSquare,
-                                    size: 12, color: blueMain),
+                                    size: context.getRSize(12), color: blueMain), // RESPONSIVE
                               ],
                             ),
                             Text('₦${fmtNumber(dep.toInt())}',
                                 style: TextStyle(
-                                    fontSize: 15,
+                                    fontSize: context.getRFontSize(15), // RESPONSIVE
                                     fontWeight: FontWeight.w800,
                                     color: _text)),
                           ],
                         ),
                       ),
-                      const SizedBox(height: 12),
+                      SizedBox(height: context.getRSize(12)), // RESPONSIVE
                       // ── Empty Crates Received (disabled / coming soon) ──
                       Opacity(
                         opacity: 0.45,
                         child: IgnorePointer(
                           child: Container(
-                            padding: const EdgeInsets.all(12),
+                            padding: EdgeInsets.all(context.getRSize(12)), // RESPONSIVE
                             decoration: BoxDecoration(
                               color: _isDark ? dCard : lCard,
                               borderRadius: BorderRadius.circular(12),
@@ -1051,8 +1099,8 @@ class _PosHomeScreenState extends State<PosHomeScreen>
                             child: Row(
                               children: [
                                 Icon(FontAwesomeIcons.beerMugEmpty,
-                                    size: 16, color: _subtext),
-                                const SizedBox(width: 10),
+                                    size: context.getRSize(16), color: _subtext), // RESPONSIVE
+                                SizedBox(width: context.getRSize(10)), // RESPONSIVE
                                 Expanded(
                                   child: Column(
                                     crossAxisAlignment:
@@ -1060,22 +1108,22 @@ class _PosHomeScreenState extends State<PosHomeScreen>
                                     children: [
                                       Text('Empty Crates Received',
                                           style: TextStyle(
-                                              fontSize: 13,
+                                              fontSize: context.getRFontSize(13), // RESPONSIVE
                                               fontWeight: FontWeight.bold,
                                               color: _text)),
                                       Text('Coming soon',
                                           style: TextStyle(
-                                              fontSize: 11,
+                                              fontSize: context.getRFontSize(11), // RESPONSIVE
                                               color: _subtext)),
                                     ],
                                   ),
                                 ),
                                 Icon(FontAwesomeIcons.lock,
-                                    size: 14, color: _subtext),
-                                const SizedBox(width: 8),
+                                    size: context.getRSize(14), color: _subtext), // RESPONSIVE
+                                SizedBox(width: context.getRSize(8)), // RESPONSIVE
                                 Container(
-                                  width: 48,
-                                  height: 36,
+                                  width: context.getRSize(48), // RESPONSIVE
+                                  height: context.getRSize(36), // RESPONSIVE
                                   alignment: Alignment.center,
                                   decoration: BoxDecoration(
                                     color: _isDark ? dBg : lBg,
@@ -1084,7 +1132,7 @@ class _PosHomeScreenState extends State<PosHomeScreen>
                                   ),
                                   child: Text('0',
                                       style: TextStyle(
-                                          fontSize: 16,
+                                          fontSize: context.getRFontSize(16), // RESPONSIVE
                                           fontWeight: FontWeight.bold,
                                           color: _subtext)),
                                 ),
@@ -1093,11 +1141,11 @@ class _PosHomeScreenState extends State<PosHomeScreen>
                           ),
                         ),
                       ),
-                      const SizedBox(height: 16),
+                      SizedBox(height: context.getRSize(16)), // RESPONSIVE
                       Container(height: 1, color: _border),
-                      const SizedBox(height: 16),
+                      SizedBox(height: context.getRSize(16)), // RESPONSIVE
                       _totalRow('Total', tot, large: true),
-                      const SizedBox(height: 24),
+                      SizedBox(height: context.getRSize(24)), // RESPONSIVE
                       GestureDetector(
                         onTap: () {
                           Navigator.pop(ctx);
@@ -1115,7 +1163,7 @@ class _PosHomeScreenState extends State<PosHomeScreen>
                         },
                         child: Container(
                           width: double.infinity,
-                          padding: const EdgeInsets.symmetric(vertical: 18),
+                          padding: EdgeInsets.symmetric(vertical: context.getRSize(18)), // RESPONSIVE
                           decoration: BoxDecoration(
                             gradient: const LinearGradient(
                               colors: [blueLight, blueDark],
@@ -1133,18 +1181,18 @@ class _PosHomeScreenState extends State<PosHomeScreen>
                           ),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
-                            children: const [
+                            children: [
                               Icon(
                                 FontAwesomeIcons.checkToSlot,
                                 color: Colors.white,
-                                size: 18,
+                                size: context.getRSize(18), // RESPONSIVE
                               ),
-                              SizedBox(width: 10),
+                              SizedBox(width: context.getRSize(10)), // RESPONSIVE
                               Text(
                                 'Proceed to Checkout',
                                 style: TextStyle(
                                   color: Colors.white,
-                                  fontSize: 16,
+                                  fontSize: context.getRFontSize(16), // RESPONSIVE
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
@@ -1154,6 +1202,7 @@ class _PosHomeScreenState extends State<PosHomeScreen>
                       ),
                     ],
                   ),
+                ),
                 ),
               ],
             ),
@@ -1175,7 +1224,7 @@ class _PosHomeScreenState extends State<PosHomeScreen>
         Text(
           label,
           style: TextStyle(
-            fontSize: large ? 18 : 14,
+            fontSize: context.getRFontSize(large ? 18 : 14), // RESPONSIVE
             fontWeight: large ? FontWeight.bold : FontWeight.w600,
             color: large ? _text : _subtext,
           ),
@@ -1183,7 +1232,7 @@ class _PosHomeScreenState extends State<PosHomeScreen>
         Text(
           '₦${fmtNumber(value.toInt())}',
           style: TextStyle(
-            fontSize: large ? 22 : 15,
+            fontSize: context.getRFontSize(large ? 22 : 15), // RESPONSIVE
             fontWeight: FontWeight.w800,
             color: large ? blueMain : _text,
           ),
@@ -1207,23 +1256,23 @@ class _PosHomeScreenState extends State<PosHomeScreen>
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(24),
           ),
-          contentPadding: const EdgeInsets.all(24),
+          contentPadding: EdgeInsets.all(ctx.getRSize(24)), // RESPONSIVE
           title: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 'Edit Quantity',
                 style: TextStyle(
-                  fontSize: 18,
+                  fontSize: ctx.getRFontSize(18), // RESPONSIVE
                   fontWeight: FontWeight.bold,
                   color: _text,
                 ),
               ),
-              const SizedBox(height: 4),
+              SizedBox(height: ctx.getRSize(4)), // RESPONSIVE
               Text(
                 item['name'],
-                style: const TextStyle(
-                  fontSize: 13,
+                style: TextStyle(
+                  fontSize: ctx.getRFontSize(13), // RESPONSIVE
                   color: blueMain,
                   fontWeight: FontWeight.bold,
                 ),
@@ -1232,7 +1281,7 @@ class _PosHomeScreenState extends State<PosHomeScreen>
           ),
           content: Row(
             children: [
-              _qtyBtn(FontAwesomeIcons.minus, () {
+              _qtyBtn(ctx, FontAwesomeIcons.minus, () {
                 final v = double.tryParse(qtyCtrl.text) ?? 1.0;
                 if (v > 0.5) {
                   setD(() => qtyCtrl.text = (v - 0.5).toStringAsFixed(1));
@@ -1246,7 +1295,7 @@ class _PosHomeScreenState extends State<PosHomeScreen>
                   ),
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    fontSize: 22,
+                    fontSize: ctx.getRFontSize(22), // RESPONSIVE
                     fontWeight: FontWeight.bold,
                     color: _text,
                   ),
@@ -1263,11 +1312,11 @@ class _PosHomeScreenState extends State<PosHomeScreen>
                       borderRadius: BorderRadius.circular(14),
                       borderSide: const BorderSide(color: blueMain, width: 2),
                     ),
-                    contentPadding: const EdgeInsets.symmetric(vertical: 16),
+                    contentPadding: EdgeInsets.symmetric(vertical: ctx.getRSize(16)), // RESPONSIVE
                   ),
                 ),
               ),
-              _qtyBtn(FontAwesomeIcons.plus, () {
+              _qtyBtn(ctx, FontAwesomeIcons.plus, () {
                 final v = double.tryParse(qtyCtrl.text) ?? 1.0;
                 setD(() => qtyCtrl.text = (v + 0.5).toStringAsFixed(1));
               }),
@@ -1281,7 +1330,7 @@ class _PosHomeScreenState extends State<PosHomeScreen>
                 setState(() {});
                 Navigator.pop(dCtx);
               },
-              icon: const Icon(FontAwesomeIcons.trash, color: danger, size: 15),
+              icon: Icon(FontAwesomeIcons.trash, color: danger, size: ctx.getRSize(15)), // RESPONSIVE
               label: const Text(
                 'Remove',
                 style: TextStyle(color: danger, fontWeight: FontWeight.bold),
@@ -1294,10 +1343,10 @@ class _PosHomeScreenState extends State<PosHomeScreen>
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 14,
-                ),
+                padding: EdgeInsets.symmetric(
+                  horizontal: ctx.getRSize(24),
+                  vertical: ctx.getRSize(14),
+                ), // RESPONSIVE
                 elevation: 0,
               ),
               onPressed: () {
@@ -1318,19 +1367,19 @@ class _PosHomeScreenState extends State<PosHomeScreen>
     );
   }
 
-  Widget _qtyBtn(IconData icon, VoidCallback onTap) {
+  Widget _qtyBtn(BuildContext context, IconData icon, VoidCallback onTap) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 46,
-        height: 46,
-        margin: const EdgeInsets.symmetric(horizontal: 10),
+        width: context.getRSize(46), // RESPONSIVE
+        height: context.getRSize(46), // RESPONSIVE
+        margin: EdgeInsets.symmetric(horizontal: context.getRSize(10)), // RESPONSIVE
         decoration: BoxDecoration(
           color: blueMain.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(14),
           border: Border.all(color: blueMain.withValues(alpha: 0.3)),
         ),
-        child: Icon(icon, size: 16, color: blueMain),
+        child: Icon(icon, size: context.getRSize(16), color: blueMain), // RESPONSIVE
       ),
     );
   }
@@ -1339,17 +1388,22 @@ class _PosHomeScreenState extends State<PosHomeScreen>
   Widget _buildSearchField() {
     return Container(
       color: _surface,
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      padding: EdgeInsets.fromLTRB(
+        context.getRSize(16), 
+        0, 
+        context.getRSize(16), 
+        context.getRSize(12)
+      ), // RESPONSIVE
       child: TextField(
         controller: _searchController,
         autofocus: true,
         onChanged: (v) => setState(() => _searchQuery = v),
-        style: TextStyle(fontSize: 14, color: _text),
+        style: TextStyle(fontSize: context.getRFontSize(14), color: _text), // RESPONSIVE
         decoration: InputDecoration(
           hintText: 'Search products by name...',
           hintStyle: TextStyle(color: _subtext),
           prefixIcon: Icon(FontAwesomeIcons.magnifyingGlass,
-              size: 16, color: _subtext),
+              size: context.getRSize(16), color: _subtext), // RESPONSIVE
           filled: true,
           fillColor: _isDark ? dCard : lCard,
           border: OutlineInputBorder(
@@ -1360,8 +1414,10 @@ class _PosHomeScreenState extends State<PosHomeScreen>
             borderRadius: BorderRadius.circular(14),
             borderSide: const BorderSide(color: blueMain, width: 2),
           ),
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          contentPadding: EdgeInsets.symmetric(
+            horizontal: context.getRSize(16), 
+            vertical: context.getRSize(12)
+          ), // RESPONSIVE
         ),
       ),
     );
@@ -1385,11 +1441,11 @@ class _PosHomeScreenState extends State<PosHomeScreen>
           keyboardType: TextInputType.number,
           autofocus: true,
           style: TextStyle(
-              fontSize: 18, fontWeight: FontWeight.bold, color: _text),
+              fontSize: context.getRFontSize(18), fontWeight: FontWeight.bold, color: _text), // RESPONSIVE
           decoration: InputDecoration(
             prefixText: '₦ ',
             prefixStyle: TextStyle(
-                fontSize: 18,
+                fontSize: context.getRFontSize(18), // RESPONSIVE
                 fontWeight: FontWeight.bold,
                 color: _text),
             filled: true,

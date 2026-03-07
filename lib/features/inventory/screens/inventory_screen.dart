@@ -3,6 +3,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/theme_notifier.dart';
+import '../../../core/utils/responsive.dart'; // RESPONSIVE: utility imported
 import '../../../shared/widgets/app_drawer.dart';
 import '../data/models/crate_group.dart';
 import '../data/models/supplier.dart';
@@ -11,6 +12,8 @@ import '../data/models/crate_stock.dart';
 import '../data/models/inventory_log.dart';
 import '../data/inventory_data.dart';
 import '../../pos/data/products_data.dart';
+import 'product_detail_screen.dart';
+import 'supplier_detail_screen.dart';
 
 class InventoryScreen extends StatefulWidget {
   const InventoryScreen({super.key});
@@ -35,7 +38,7 @@ class _InventoryScreenState extends State<InventoryScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
   }
 
   @override
@@ -50,34 +53,37 @@ class _InventoryScreenState extends State<InventoryScreen>
       valueListenable: themeNotifier,
       builder: (_, _, _) => Scaffold(
         backgroundColor: _bg,
-        appBar: _buildAppBar(),
+        appBar: _buildAppBar(context),
         drawer: const AppDrawer(activeRoute: 'inventory'),
         body: SafeArea(
           top: false,
           child: Column(
             children: [
-              _buildSummaryCards(),
-              _buildTabBar(),
+              _buildSummaryCards(context), // RESPONSIVE: passing context
+              _buildTabBar(context), // RESPONSIVE: passing context
               Expanded(
                 child: TabBarView(
                   controller: _tabController,
                   children: [
-                    _buildProductsTab(),
-                    _buildCratesTab(),
-                    _buildLogTab(),
+                    _buildProductsTab(context), // RESPONSIVE: passing context
+                    _buildSuppliersTab(context), // RESPONSIVE: passing context
+                    _buildCratesTab(context), // RESPONSIVE: passing context
+                    _buildLogTab(context), // RESPONSIVE: passing context
                   ],
                 ),
               ),
             ],
           ),
         ),
-        floatingActionButton: _buildAddFab(),
+        floatingActionButton: _buildAddFab(
+          context,
+        ), // RESPONSIVE: passing context
       ),
     );
   }
 
   // ── APP BAR ──────────────────────────────────────────────────────────────────
-  PreferredSizeWidget _buildAppBar() {
+  PreferredSizeWidget _buildAppBar(BuildContext context) {
     return AppBar(
       backgroundColor: _surface,
       elevation: 0,
@@ -93,7 +99,7 @@ class _InventoryScreenState extends State<InventoryScreen>
               children: [
                 Container(
                   height: 2.5,
-                  width: 22,
+                  width: context.getRSize(22), // RESPONSIVE
                   decoration: BoxDecoration(
                     color: _text,
                     borderRadius: BorderRadius.circular(2),
@@ -101,7 +107,7 @@ class _InventoryScreenState extends State<InventoryScreen>
                 ),
                 Container(
                   height: 2.5,
-                  width: 16,
+                  width: context.getRSize(16), // RESPONSIVE
                   decoration: BoxDecoration(
                     color: blueMain,
                     borderRadius: BorderRadius.circular(2),
@@ -109,7 +115,7 @@ class _InventoryScreenState extends State<InventoryScreen>
                 ),
                 Container(
                   height: 2.5,
-                  width: 22,
+                  width: context.getRSize(22), // RESPONSIVE
                   decoration: BoxDecoration(
                     color: _text,
                     borderRadius: BorderRadius.circular(2),
@@ -123,7 +129,7 @@ class _InventoryScreenState extends State<InventoryScreen>
       title: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(8),
+            padding: EdgeInsets.all(context.getRSize(8)), // RESPONSIVE
             decoration: BoxDecoration(
               gradient: const LinearGradient(colors: [blueLight, blueMain]),
               borderRadius: BorderRadius.circular(12),
@@ -135,185 +141,206 @@ class _InventoryScreenState extends State<InventoryScreen>
                 ),
               ],
             ),
-            child: const Icon(
+            child: Icon(
               FontAwesomeIcons.boxesStacked,
               color: Colors.white,
-              size: 16,
+              size: context.getRSize(16), // RESPONSIVE
             ),
           ),
-          const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Inventory',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
-                  color: _text,
-                  letterSpacing: -0.5,
-                ),
-              ),
-              Text(
-                'Stock Management',
-                style: TextStyle(
-                  fontSize: 11,
-                  color: blueMain,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-      actions: [
-        InkWell(
-          borderRadius: BorderRadius.circular(12),
-          onTap: _showAddSupplierDialog,
-          child: Container(
-            margin: const EdgeInsets.only(right: 8),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-            decoration: BoxDecoration(
-              color: blueMain.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: blueMain.withValues(alpha: 0.25)),
-            ),
-            child: Row(
+          SizedBox(width: context.getRSize(12)), // RESPONSIVE
+          Expanded(
+            // RESPONSIVE: Wrap in Expanded to prevent overflow
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(
-                  FontAwesomeIcons.buildingColumns,
-                  size: 13,
-                  color: blueMain,
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  '+ Supplier',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: _isDark ? blueLight : blueDark,
+                FittedBox(
+                  // RESPONSIVE: ensure text scales
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    'Inventory',
+                    style: TextStyle(
+                      fontSize: context.getRFontSize(18), // RESPONSIVE
+                      fontWeight: FontWeight.w800,
+                      color: _text,
+                      letterSpacing: -0.5,
+                    ),
                   ),
+                ),
+                Text(
+                  'Stock Management',
+                  style: TextStyle(
+                    fontSize: context.getRFontSize(11), // RESPONSIVE
+                    color: blueMain,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis, // RESPONSIVE
                 ),
               ],
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
   // ── SUMMARY CARDS ─────────────────────────────────────────────────────────────
-  Widget _buildSummaryCards() {
+  Widget _buildSummaryCards(BuildContext context) {
     final totalItems = kInventoryItems.length;
     final lowStock = kInventoryItems
         .where((i) => i.stock <= i.lowStockThreshold)
         .length;
     final outOfStock = kInventoryItems.where((i) => i.stock == 0).length;
-    final totalCrates = _activeCrateGroups.fold<double>(0, (s, c) => s + c.available);
+    final totalCrates = _activeCrateGroups.fold<double>(
+      0,
+      (s, c) => s + c.available,
+    );
+
+    final cards = [
+      _summaryCard(
+        context,
+        'Total SKUs',
+        '$totalItems',
+        FontAwesomeIcons.layerGroup,
+        blueMain,
+        isActive: _stockFilter == 'all',
+        onTap: () => setState(() {
+          _stockFilter = 'all';
+          _tabController.animateTo(0);
+        }),
+      ),
+      _summaryCard(
+        context,
+        'Low Stock',
+        '$lowStock',
+        FontAwesomeIcons.triangleExclamation,
+        const Color(0xFFF59E0B),
+        isActive: _stockFilter == 'low',
+        onTap: () => setState(() {
+          _stockFilter = 'low';
+          _tabController.animateTo(0);
+        }),
+      ),
+      _summaryCard(
+        context,
+        'Out of Stock',
+        '$outOfStock',
+        FontAwesomeIcons.ban,
+        danger,
+        isActive: _stockFilter == 'out',
+        onTap: () => setState(() {
+          _stockFilter = 'out';
+          _tabController.animateTo(0);
+        }),
+      ),
+      _summaryCard(
+        context,
+        'Empty Crates',
+        '${totalCrates.toInt()}',
+        FontAwesomeIcons.beerMugEmpty,
+        success,
+        isActive: _tabController.index == 1,
+        onTap: () => setState(() {
+          _tabController.animateTo(1);
+        }),
+      ),
+    ];
 
     return Container(
       color: _surface,
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-      child: Row(
-        children: [
-          _summaryCard(
-            'Total SKUs',
-            '$totalItems',
-            FontAwesomeIcons.layerGroup,
-            blueMain,
-            isActive: _stockFilter == 'all',
-            onTap: () => setState(() {
-              _stockFilter = 'all';
-              _tabController.animateTo(0);
-            }),
-          ),
-          const SizedBox(width: 10),
-          _summaryCard(
-            'Low Stock',
-            '$lowStock',
-            FontAwesomeIcons.triangleExclamation,
-            const Color(0xFFF59E0B),
-            isActive: _stockFilter == 'low',
-            onTap: () => setState(() {
-              _stockFilter = 'low';
-              _tabController.animateTo(0);
-            }),
-          ),
-          const SizedBox(width: 10),
-          _summaryCard(
-            'Out of Stock',
-            '$outOfStock',
-            FontAwesomeIcons.ban,
-            danger,
-            isActive: _stockFilter == 'out',
-            onTap: () => setState(() {
-              _stockFilter = 'out';
-              _tabController.animateTo(0);
-            }),
-          ),
-          const SizedBox(width: 10),
-          _summaryCard(
-            'Empty Crates',
-            '${totalCrates.toInt()}',
-            FontAwesomeIcons.beerMugEmpty,
-            success,
-            isActive: _tabController.index == 1,
-            onTap: () => setState(() {
-              _tabController.animateTo(1);
-            }),
-          ),
-        ],
+      padding: EdgeInsets.only(
+        top: context.getRSize(12),
+        bottom: context.getRSize(16),
+      ),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        padding: EdgeInsets.symmetric(
+          horizontal: context.getRSize(16),
+        ), // RESPONSIVE: edge padding
+        child: Row(
+          children: cards.asMap().entries.map((entry) {
+            final int index = entry.key;
+            final Widget card = entry.value;
+            return Container(
+              // Allow cards to scroll naturally with a fixed width
+              width: context.isPhone
+                  ? context.getRSize(130)
+                  : context.getRSize(180),
+              margin: EdgeInsets.only(
+                right: index < cards.length - 1 ? context.getRSize(12) : 0,
+              ),
+              child: card,
+            );
+          }).toList(),
+        ),
       ),
     );
   }
 
-  Widget _summaryCard(String label, String value, IconData icon, Color color,
-      {bool isActive = false, VoidCallback? onTap}) {
-    return Expanded(
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: _isDark ? dCard : lCard,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(
-                color: isActive ? color : color.withValues(alpha: 0.2),
-                width: isActive ? 2 : 1),
+  Widget _summaryCard(
+    BuildContext context,
+    String label,
+    String value,
+    IconData icon,
+    Color color, {
+    bool isActive = false,
+    VoidCallback? onTap,
+  }) {
+    // RESPONSIVE: Removed Expanded wrapper so it can be sized externally by Wrap or Row
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: EdgeInsets.all(
+          context.getRSize(12),
+        ), // RESPONSIVE: dynamic padding
+        decoration: BoxDecoration(
+          color: _isDark ? dCard : lCard,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: isActive ? color : color.withValues(alpha: 0.2),
+            width: isActive ? 2 : 1,
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(icon, size: 16, color: color),
-              const SizedBox(height: 8),
-              Text(
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(
+              icon,
+              size: context.getRSize(16),
+              color: color,
+            ), // RESPONSIVE: scaled icon
+            SizedBox(height: context.getRSize(8)),
+            FittedBox(
+              // RESPONSIVE: Text scales dynamically
+              fit: BoxFit.scaleDown,
+              child: Text(
                 value,
                 style: TextStyle(
-                  fontSize: 20,
+                  fontSize: context.getRFontSize(20), // RESPONSIVE: scaled font
                   fontWeight: FontWeight.w800,
                   color: _text,
                 ),
               ),
-              const SizedBox(height: 2),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 10,
-                  color: _subtext,
-                  fontWeight: FontWeight.w600,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+            ),
+            SizedBox(height: context.getRSize(2)),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: context.getRFontSize(10), // RESPONSIVE: scaled font
+                color: _subtext,
+                fontWeight: FontWeight.w600,
               ),
-            ],
-          ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
         ),
       ),
     );
   }
 
   // ── TAB BAR ──────────────────────────────────────────────────────────────────
-  Widget _buildTabBar() {
+  Widget _buildTabBar(BuildContext context) {
     return Container(
       color: _surface,
       child: Column(
@@ -321,20 +348,23 @@ class _InventoryScreenState extends State<InventoryScreen>
           Divider(height: 1, color: _border),
           TabBar(
             controller: _tabController,
+            isScrollable: true,
+            tabAlignment: TabAlignment.start,
             labelColor: blueMain,
             unselectedLabelColor: _subtext,
-            labelStyle: const TextStyle(
+            labelStyle: TextStyle(
               fontWeight: FontWeight.w700,
-              fontSize: 13,
+              fontSize: context.getRFontSize(13), // RESPONSIVE
             ),
-            unselectedLabelStyle: const TextStyle(
+            unselectedLabelStyle: TextStyle(
               fontWeight: FontWeight.w600,
-              fontSize: 13,
+              fontSize: context.getRFontSize(13), // RESPONSIVE
             ),
             indicatorColor: blueMain,
             indicatorWeight: 3,
             tabs: const [
               Tab(text: 'Products'),
+              Tab(text: 'Suppliers'),
               Tab(text: 'Empty Crates'),
               Tab(text: 'Activity Log'),
             ],
@@ -345,16 +375,144 @@ class _InventoryScreenState extends State<InventoryScreen>
   }
 
   // ── PRODUCTS TAB ──────────────────────────────────────────────────────────────
-  Widget _buildProductsTab() {
+  Widget _buildProductsTab(BuildContext context) {
     return Column(
       children: [
-        _buildSupplierFilter(),
+        _buildSupplierFilter(context),
         Expanded(
           child: ListView.builder(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
+            padding: EdgeInsets.fromLTRB(
+              context.getRSize(16),
+              context.getRSize(12),
+              context.getRSize(16),
+              context.getRSize(120),
+            ), // RESPONSIVE
             itemCount: _filteredItems.length,
-            itemBuilder: (_, i) => _buildProductRow(_filteredItems[i]),
+            itemBuilder: (_, i) => _buildProductRow(context, _filteredItems[i]),
           ),
+        ),
+      ],
+    );
+  }
+
+  // ── SUPPLIERS TAB ─────────────────────────────────────────────────────────────
+  Widget _buildSuppliersTab(BuildContext context) {
+    return Column(
+      children: [
+        // Non-floating "+" button at the top of the tab
+        Padding(
+          padding: EdgeInsets.all(context.getRSize(16)),
+          child: SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: blueMain.withValues(alpha: 0.1),
+                foregroundColor: blueMain,
+                elevation: 0,
+                padding: EdgeInsets.symmetric(vertical: context.getRSize(16)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  side: BorderSide(color: blueMain.withValues(alpha: 0.3)),
+                ),
+              ),
+              icon: Icon(FontAwesomeIcons.plus, size: context.getRSize(16)),
+              label: Text(
+                'Add Supplier',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: context.getRFontSize(15),
+                ),
+              ),
+              onPressed: _showAddSupplierDialog,
+            ),
+          ),
+        ),
+        // Supplier List
+        Expanded(
+          child: kSuppliers.isEmpty
+              ? Center(
+                  child: Text(
+                    'No suppliers added yet',
+                    style: TextStyle(color: _subtext),
+                  ),
+                )
+              : ListView.builder(
+                  padding: EdgeInsets.fromLTRB(
+                    context.getRSize(16),
+                    0,
+                    context.getRSize(16),
+                    context.getRSize(120),
+                  ),
+                  itemCount: kSuppliers.length,
+                  itemBuilder: (_, i) {
+                    final s = kSuppliers[i];
+                    return GestureDetector(
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => SupplierDetailScreen(supplier: s),
+                        ),
+                      ).then((_) => setState(() {})),
+                      child: Container(
+                        margin: EdgeInsets.only(bottom: context.getRSize(12)),
+                        padding: EdgeInsets.all(context.getRSize(16)),
+                        decoration: BoxDecoration(
+                          color: _cardBg,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: _border),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: context.getRSize(48),
+                              height: context.getRSize(48),
+                              decoration: BoxDecoration(
+                                color: blueMain.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Icon(
+                                FontAwesomeIcons.buildingColumns,
+                                color: blueMain,
+                                size: context.getRSize(20),
+                              ),
+                            ),
+                            SizedBox(width: context.getRSize(16)),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    s.name,
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: context.getRFontSize(16),
+                                      color: _text,
+                                    ),
+                                  ),
+                                  if (s.contactDetails.isNotEmpty) ...[
+                                    SizedBox(height: context.getRSize(4)),
+                                    Text(
+                                      s.contactDetails,
+                                      style: TextStyle(
+                                        color: _subtext,
+                                        fontSize: context.getRFontSize(13),
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                            Icon(
+                              Icons.chevron_right,
+                              color: _subtext,
+                              size: context.getRSize(20),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
         ),
       ],
     );
@@ -364,8 +522,8 @@ class _InventoryScreenState extends State<InventoryScreen>
     var list = _selectedSupplierId == 'all'
         ? kInventoryItems
         : kInventoryItems
-            .where((i) => i.supplierId == _selectedSupplierId)
-            .toList();
+              .where((i) => i.supplierId == _selectedSupplierId)
+              .toList();
 
     if (_stockFilter == 'low') {
       return list
@@ -385,29 +543,35 @@ class _InventoryScreenState extends State<InventoryScreen>
           orElse: () =>
               Supplier(id: '', name: '', crateGroup: CrateGroup.nbPlc),
         );
-        final isGlass = item.subtitle.toLowerCase() == 'crate' ||
-            kProducts.any((p) =>
-                p['name'] == item.productName &&
-                p['category'] == 'Glass Crates');
+        final isGlass =
+            item.subtitle.toLowerCase() == 'crate' ||
+            kProducts.any(
+              (p) =>
+                  p['name'] == item.productName &&
+                  p['category'] == 'Glass Crates',
+            );
         return supplier.crateGroup == cs.group && isGlass;
       });
     }).toList();
   }
 
-  Widget _buildSupplierFilter() {
+  Widget _buildSupplierFilter(BuildContext context) {
     return Container(
       color: _surface,
       child: Column(
         children: [
           SizedBox(
-            height: 54,
+            height: context.getRSize(58), // RESPONSIVE
             child: ListView(
               scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              padding: EdgeInsets.symmetric(
+                horizontal: context.getRSize(16),
+                vertical: context.getRSize(12),
+              ), // RESPONSIVE
               children: [
-                _filterChip('All', 'all'),
+                _filterChip(context, 'All', 'all'),
                 ...kSuppliers.map(
-                  (s) => _filterChip(s.name.split(' ').first, s.id),
+                  (s) => _filterChip(context, s.name.split(' ').first, s.id),
                 ),
               ],
             ),
@@ -418,15 +582,18 @@ class _InventoryScreenState extends State<InventoryScreen>
     );
   }
 
-  Widget _filterChip(String label, String id) {
+  Widget _filterChip(BuildContext context, String label, String id) {
     final active = _selectedSupplierId == id;
     return Padding(
-      padding: const EdgeInsets.only(right: 10),
+      padding: EdgeInsets.only(right: context.getRSize(8)), // RESPONSIVE
       child: GestureDetector(
         onTap: () => setState(() => _selectedSupplierId = id),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
+          padding: EdgeInsets.symmetric(
+            horizontal: context.getRSize(18),
+            vertical: context.getRSize(6),
+          ), // RESPONSIVE
           decoration: BoxDecoration(
             color: active ? blueMain : (_isDark ? dCard : lCard),
             borderRadius: BorderRadius.circular(20),
@@ -435,7 +602,7 @@ class _InventoryScreenState extends State<InventoryScreen>
           child: Text(
             label,
             style: TextStyle(
-              fontSize: 13,
+              fontSize: context.getRFontSize(13), // RESPONSIVE
               fontWeight: active ? FontWeight.w700 : FontWeight.w600,
               color: active ? Colors.white : _subtext,
             ),
@@ -445,7 +612,7 @@ class _InventoryScreenState extends State<InventoryScreen>
     );
   }
 
-  Widget _buildProductRow(InventoryItem item) {
+  Widget _buildProductRow(BuildContext context, InventoryItem item) {
     final isLow = item.stock > 0 && item.stock <= item.lowStockThreshold;
     final isOut = item.stock == 0;
     final supplier = kSuppliers.firstWhere(
@@ -469,9 +636,17 @@ class _InventoryScreenState extends State<InventoryScreen>
     }
 
     return GestureDetector(
-      onTap: () => _showUpdateStockDialog(item),
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ProductDetailScreen(
+            item: item,
+            onUpdateStock: () => _showUpdateStockDialog(item),
+          ),
+        ),
+      ).then((_) => setState(() {})), // refresh after returning
       child: Container(
-        margin: const EdgeInsets.only(bottom: 10),
+        margin: EdgeInsets.only(bottom: context.getRSize(10)), // RESPONSIVE
         decoration: BoxDecoration(
           color: _cardBg,
           borderRadius: BorderRadius.circular(16),
@@ -491,19 +666,25 @@ class _InventoryScreenState extends State<InventoryScreen>
           ],
         ),
         child: Padding(
-          padding: EdgeInsets.all(MediaQuery.of(context).size.width < 360 ? 10 : 14),
+          padding: EdgeInsets.all(
+            context.isPhone ? context.getRSize(10) : context.getRSize(14),
+          ), // RESPONSIVE
           child: Row(
             children: [
               Container(
-                width: 52,
-                height: 52,
+                width: context.getRSize(52), // RESPONSIVE
+                height: context.getRSize(52), // RESPONSIVE
                 decoration: BoxDecoration(
                   color: item.color.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(14),
                 ),
-                child: Icon(item.icon, color: item.color, size: 24),
+                child: Icon(
+                  item.icon,
+                  color: item.color,
+                  size: context.getRSize(24),
+                ), // RESPONSIVE
               ),
-              const SizedBox(width: 14),
+              SizedBox(width: context.getRSize(14)), // RESPONSIVE
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -517,17 +698,17 @@ class _InventoryScreenState extends State<InventoryScreen>
                             maxLines: 1,
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
-                              fontSize: 15,
+                              fontSize: context.getRFontSize(15), // RESPONSIVE
                               color: _text,
                             ),
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        SizedBox(width: context.getRSize(8)), // RESPONSIVE
                         Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 2,
-                          ),
+                          padding: EdgeInsets.symmetric(
+                            horizontal: context.getRSize(8),
+                            vertical: context.getRSize(2),
+                          ), // RESPONSIVE
                           decoration: BoxDecoration(
                             color: statusColor.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(6),
@@ -535,7 +716,7 @@ class _InventoryScreenState extends State<InventoryScreen>
                           child: Text(
                             statusLabel,
                             style: TextStyle(
-                              fontSize: 10,
+                              fontSize: context.getRFontSize(10), // RESPONSIVE
                               fontWeight: FontWeight.bold,
                               color: statusColor,
                             ),
@@ -543,24 +724,30 @@ class _InventoryScreenState extends State<InventoryScreen>
                         ),
                       ],
                     ),
-                    const SizedBox(height: 4),
+                    SizedBox(height: context.getRSize(4)), // RESPONSIVE
                     Text(
                       supplier.name,
-                      style: TextStyle(fontSize: 12, color: _subtext),
+                      style: TextStyle(
+                        fontSize: context.getRFontSize(12),
+                        color: _subtext,
+                      ), // RESPONSIVE
                     ),
-                    const SizedBox(height: 6),
+                    SizedBox(height: context.getRSize(6)), // RESPONSIVE
                     Row(
                       children: [
                         Icon(
                           FontAwesomeIcons.beerMugEmpty,
-                          size: 10,
+                          size: context.getRSize(10), // RESPONSIVE
                           color: supplier.crateGroup.color,
                         ),
-                        const SizedBox(width: 4),
+                        SizedBox(width: context.getRSize(4)), // RESPONSIVE
                         Expanded(
                           child: Text(
                             'Empty crates (${supplier.crateGroup.label}): ${crateStock.available.toInt()} available',
-                            style: TextStyle(fontSize: 11, color: _subtext),
+                            style: TextStyle(
+                              fontSize: context.getRFontSize(11),
+                              color: _subtext,
+                            ), // RESPONSIVE
                             overflow: TextOverflow.ellipsis,
                             maxLines: 1,
                           ),
@@ -573,24 +760,35 @@ class _InventoryScreenState extends State<InventoryScreen>
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Text(
-                    item.stock.toStringAsFixed(item.stock % 1 == 0 ? 0 : 1),
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w800,
-                      color: isOut
-                          ? danger
-                          : isLow
-                          ? const Color(0xFFF59E0B)
-                          : _text,
+                  FittedBox(
+                    // RESPONSIVE: Prevent quantity overflow
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      item.stock.toStringAsFixed(item.stock % 1 == 0 ? 0 : 1),
+                      style: TextStyle(
+                        fontSize: context.getRFontSize(22), // RESPONSIVE
+                        fontWeight: FontWeight.w800,
+                        color: isOut
+                            ? danger
+                            : isLow
+                            ? const Color(0xFFF59E0B)
+                            : _text,
+                      ),
                     ),
                   ),
                   Text(
                     item.subtitle,
-                    style: TextStyle(fontSize: 11, color: _subtext),
+                    style: TextStyle(
+                      fontSize: context.getRFontSize(11),
+                      color: _subtext,
+                    ), // RESPONSIVE
                   ),
-                  const SizedBox(height: 4),
-                  const Icon(FontAwesomeIcons.penToSquare, size: 12, color: blueMain),
+                  SizedBox(height: context.getRSize(4)), // RESPONSIVE
+                  Icon(
+                    FontAwesomeIcons.penToSquare,
+                    size: context.getRSize(12),
+                    color: blueMain,
+                  ), // RESPONSIVE
                 ],
               ),
             ],
@@ -601,12 +799,17 @@ class _InventoryScreenState extends State<InventoryScreen>
   }
 
   // ── CRATES TAB ────────────────────────────────────────────────────────────────
-  Widget _buildCratesTab() {
+  Widget _buildCratesTab(BuildContext context) {
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
+      padding: EdgeInsets.fromLTRB(
+        context.getRSize(16),
+        context.getRSize(16),
+        context.getRSize(16),
+        context.getRSize(100),
+      ), // RESPONSIVE
       children: [
         Container(
-          padding: const EdgeInsets.all(16),
+          padding: EdgeInsets.all(context.getRSize(16)), // RESPONSIVE
           decoration: BoxDecoration(
             color: _isDark ? dCard : lCard,
             borderRadius: BorderRadius.circular(16),
@@ -617,46 +820,57 @@ class _InventoryScreenState extends State<InventoryScreen>
             children: [
               Row(
                 children: [
-                  const Icon(
+                  Icon(
                     FontAwesomeIcons.circleInfo,
-                    size: 14,
+                    size: context.getRSize(14), // RESPONSIVE
                     color: blueMain,
                   ),
-                  const SizedBox(width: 8),
-                  Text(
-                    'How Empty Crates Work',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
-                      color: _text,
+                  SizedBox(width: context.getRSize(8)), // RESPONSIVE
+                  Expanded(
+                    child: Text(
+                      'How Empty Crates Work',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: context.getRFontSize(14), // RESPONSIVE
+                        color: _text,
+                      ),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
+              SizedBox(height: context.getRSize(8)), // RESPONSIVE
               Text(
                 'Empty crates are pooled by supplier group — all bottles from the same group share the same crate type. When a customer returns crates, add them to the relevant group. When restocking a product, crates are drawn from that group.',
-                style: TextStyle(fontSize: 13, color: _subtext, height: 1.5),
+                style: TextStyle(
+                  fontSize: context.getRFontSize(13),
+                  color: _subtext,
+                  height: 1.5,
+                ), // RESPONSIVE
               ),
             ],
           ),
         ),
-        const SizedBox(height: 16),
+        SizedBox(height: context.getRSize(16)), // RESPONSIVE
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              'Crate Groups',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: _text,
+            Expanded(
+              child: Text(
+                'Crate Groups',
+                style: TextStyle(
+                  fontSize: context.getRFontSize(16), // RESPONSIVE
+                  fontWeight: FontWeight.bold,
+                  color: _text,
+                ),
               ),
             ),
             GestureDetector(
-              onTap: _showAddSupplierDialog,
+              onTap: _showAddCrateGroupDialog,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: EdgeInsets.symmetric(
+                  horizontal: context.getRSize(12),
+                  vertical: context.getRSize(6),
+                ), // RESPONSIVE
                 decoration: BoxDecoration(
                   color: blueMain.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(20),
@@ -664,12 +878,16 @@ class _InventoryScreenState extends State<InventoryScreen>
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(FontAwesomeIcons.plus, size: 12, color: blueMain),
-                    const SizedBox(width: 6),
+                    Icon(
+                      FontAwesomeIcons.plus,
+                      size: context.getRSize(12),
+                      color: blueMain,
+                    ), // RESPONSIVE
+                    SizedBox(width: context.getRSize(6)), // RESPONSIVE
                     Text(
                       'New Group',
                       style: TextStyle(
-                        fontSize: 12,
+                        fontSize: context.getRFontSize(12), // RESPONSIVE
                         fontWeight: FontWeight.bold,
                         color: blueMain,
                       ),
@@ -680,13 +898,13 @@ class _InventoryScreenState extends State<InventoryScreen>
             ),
           ],
         ),
-        const SizedBox(height: 12),
-        ..._activeCrateGroups.map((cs) => _buildCrateGroupCard(cs)),
+        SizedBox(height: context.getRSize(12)), // RESPONSIVE
+        ..._activeCrateGroups.map((cs) => _buildCrateGroupCard(context, cs)),
       ],
     );
   }
 
-  Widget _buildCrateGroupCard(CrateStock cs) {
+  Widget _buildCrateGroupCard(BuildContext context, CrateStock cs) {
     final linkedProducts = kInventoryItems
         .where((item) {
           final supplier = kSuppliers.firstWhere(
@@ -705,50 +923,53 @@ class _InventoryScreenState extends State<InventoryScreen>
         .toList();
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: EdgeInsets.only(bottom: context.getRSize(12)), // RESPONSIVE
       decoration: BoxDecoration(
         color: _cardBg,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: cs.group.color.withValues(alpha: 0.3)),
+        border: Border.all(color: cs.color.withValues(alpha: 0.3)),
       ),
       child: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.all(16),
+            padding: EdgeInsets.all(context.getRSize(16)), // RESPONSIVE
             child: Row(
               children: [
                 Container(
-                  width: 48,
-                  height: 48,
+                  width: context.getRSize(48), // RESPONSIVE
+                  height: context.getRSize(48), // RESPONSIVE
                   decoration: BoxDecoration(
-                    color: cs.group.color.withValues(alpha: 0.15),
+                    color: cs.color.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(14),
                   ),
                   child: Icon(
                     FontAwesomeIcons.beerMugEmpty,
-                    color: cs.group.color,
-                    size: 22,
+                    color: cs.color,
+                    size: context.getRSize(22), // RESPONSIVE
                   ),
                 ),
-                const SizedBox(width: 14),
+                SizedBox(width: context.getRSize(14)), // RESPONSIVE
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        cs.group.label,
+                        cs.label,
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
-                          fontSize: 16,
+                          fontSize: context.getRFontSize(16), // RESPONSIVE
                           color: _text,
                         ),
                       ),
-                      const SizedBox(height: 4),
+                      SizedBox(height: context.getRSize(4)), // RESPONSIVE
                       Text(
                         linkedSuppliers.isEmpty
                             ? 'No suppliers linked'
                             : linkedSuppliers.join(', '),
-                        style: TextStyle(fontSize: 12, color: _subtext),
+                        style: TextStyle(
+                          fontSize: context.getRFontSize(12),
+                          color: _subtext,
+                        ), // RESPONSIVE
                       ),
                     ],
                   ),
@@ -756,17 +977,24 @@ class _InventoryScreenState extends State<InventoryScreen>
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    Text(
-                      '${cs.available.toInt()}',
-                      style: TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.w800,
-                        color: cs.available == 0 ? danger : _text,
+                    FittedBox(
+                      // RESPONSIVE: Prevent quantity overflow
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        '${cs.available.toInt()}',
+                        style: TextStyle(
+                          fontSize: context.getRFontSize(28), // RESPONSIVE
+                          fontWeight: FontWeight.w800,
+                          color: cs.available == 0 ? danger : _text,
+                        ),
                       ),
                     ),
                     Text(
                       'crates',
-                      style: TextStyle(fontSize: 11, color: _subtext),
+                      style: TextStyle(
+                        fontSize: context.getRFontSize(11),
+                        color: _subtext,
+                      ), // RESPONSIVE
                     ),
                   ],
                 ),
@@ -776,14 +1004,20 @@ class _InventoryScreenState extends State<InventoryScreen>
           if (linkedProducts.isNotEmpty) ...[
             Divider(height: 1, color: _border),
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+              padding: EdgeInsets.fromLTRB(
+                // RESPONSIVE
+                context.getRSize(16),
+                context.getRSize(10),
+                context.getRSize(16),
+                context.getRSize(10),
+              ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     'Linked Products: ',
                     style: TextStyle(
-                      fontSize: 12,
+                      fontSize: context.getRFontSize(12), // RESPONSIVE
                       fontWeight: FontWeight.bold,
                       color: _subtext,
                     ),
@@ -791,29 +1025,32 @@ class _InventoryScreenState extends State<InventoryScreen>
                   Expanded(
                     child: Text(
                       linkedProducts.join(', '),
-                      style: TextStyle(fontSize: 12, color: _subtext),
+                      style: TextStyle(
+                        fontSize: context.getRFontSize(12),
+                        color: _subtext,
+                      ), // RESPONSIVE
                     ),
                   ),
                   GestureDetector(
                     onTap: () => _showUpdateCratesDialog(cs),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 5,
-                      ),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: context.getRSize(12),
+                        vertical: context.getRSize(5),
+                      ), // RESPONSIVE
                       decoration: BoxDecoration(
-                        color: cs.group.color.withValues(alpha: 0.1),
+                        color: cs.color.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(
-                          color: cs.group.color.withValues(alpha: 0.3),
+                          color: cs.color.withValues(alpha: 0.3),
                         ),
                       ),
                       child: Text(
                         'Update',
                         style: TextStyle(
-                          fontSize: 11,
+                          fontSize: context.getRFontSize(11), // RESPONSIVE
                           fontWeight: FontWeight.bold,
-                          color: cs.group.color,
+                          color: cs.color,
                         ),
                       ),
                     ),
@@ -828,26 +1065,33 @@ class _InventoryScreenState extends State<InventoryScreen>
   }
 
   // ── LOG TAB ───────────────────────────────────────────────────────────────────
-  Widget _buildLogTab() {
+  Widget _buildLogTab(BuildContext context) {
     if (kInventoryLogs.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(FontAwesomeIcons.clockRotateLeft, size: 48, color: _border),
-            const SizedBox(height: 16),
+            Icon(
+              FontAwesomeIcons.clockRotateLeft,
+              size: context.getRSize(48),
+              color: _border,
+            ), // RESPONSIVE
+            SizedBox(height: context.getRSize(16)), // RESPONSIVE
             Text(
               'No activity yet',
               style: TextStyle(
                 color: _subtext,
                 fontWeight: FontWeight.bold,
-                fontSize: 16,
+                fontSize: context.getRFontSize(16), // RESPONSIVE
               ),
             ),
-            const SizedBox(height: 6),
+            SizedBox(height: context.getRSize(6)), // RESPONSIVE
             Text(
               'Updates will appear here with date, time, and user',
-              style: TextStyle(color: _subtext, fontSize: 13),
+              style: TextStyle(
+                color: _subtext,
+                fontSize: context.getRFontSize(13),
+              ), // RESPONSIVE
               textAlign: TextAlign.center,
             ),
           ],
@@ -858,14 +1102,20 @@ class _InventoryScreenState extends State<InventoryScreen>
     final sorted = [...kInventoryLogs]
       ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
     return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
+      padding: EdgeInsets.fromLTRB(
+        context.getRSize(16),
+        context.getRSize(16),
+        context.getRSize(16),
+        context.getRSize(100),
+      ), // RESPONSIVE
       itemCount: sorted.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 8),
-      itemBuilder: (_, i) => _buildLogRow(sorted[i]),
+      separatorBuilder: (_, _) =>
+          SizedBox(height: context.getRSize(8)), // RESPONSIVE
+      itemBuilder: (_, i) => _buildLogRow(context, sorted[i]),
     );
   }
 
-  Widget _buildLogRow(InventoryLog log) {
+  Widget _buildLogRow(BuildContext context, InventoryLog log) {
     final actionColors = {
       'restock': success,
       'adjustment': blueMain,
@@ -879,7 +1129,7 @@ class _InventoryScreenState extends State<InventoryScreen>
         : diff.toStringAsFixed(1);
 
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: EdgeInsets.all(context.getRSize(14)), // RESPONSIVE
       decoration: BoxDecoration(
         color: _cardBg,
         borderRadius: BorderRadius.circular(14),
@@ -888,8 +1138,8 @@ class _InventoryScreenState extends State<InventoryScreen>
       child: Row(
         children: [
           Container(
-            width: 42,
-            height: 42,
+            width: context.getRSize(42), // RESPONSIVE
+            height: context.getRSize(42), // RESPONSIVE
             decoration: BoxDecoration(
               color: color.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(12),
@@ -902,11 +1152,11 @@ class _InventoryScreenState extends State<InventoryScreen>
                   : log.action == 'new_supplier'
                   ? FontAwesomeIcons.buildingColumns
                   : FontAwesomeIcons.pen,
-              size: 16,
+              size: context.getRSize(16), // RESPONSIVE
               color: color,
             ),
           ),
-          const SizedBox(width: 12),
+          SizedBox(width: context.getRSize(12)), // RESPONSIVE
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -915,21 +1165,24 @@ class _InventoryScreenState extends State<InventoryScreen>
                   log.itemName,
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
-                    fontSize: 14,
+                    fontSize: context.getRFontSize(14), // RESPONSIVE
                     color: _text,
                   ),
                 ),
-                const SizedBox(height: 2),
+                SizedBox(height: context.getRSize(2)), // RESPONSIVE
                 Text(
                   '${log.user} · ${_formatLogTime(log.timestamp)}',
-                  style: TextStyle(fontSize: 11, color: _subtext),
+                  style: TextStyle(
+                    fontSize: context.getRFontSize(11),
+                    color: _subtext,
+                  ), // RESPONSIVE
                 ),
                 if (log.note != null) ...[
-                  const SizedBox(height: 2),
+                  SizedBox(height: context.getRSize(2)), // RESPONSIVE
                   Text(
                     log.note!,
                     style: TextStyle(
-                      fontSize: 11,
+                      fontSize: context.getRFontSize(11), // RESPONSIVE
                       color: _subtext,
                       fontStyle: FontStyle.italic,
                     ),
@@ -944,14 +1197,17 @@ class _InventoryScreenState extends State<InventoryScreen>
               Text(
                 diffStr,
                 style: TextStyle(
-                  fontSize: 16,
+                  fontSize: context.getRFontSize(16), // RESPONSIVE
                   fontWeight: FontWeight.w800,
                   color: diff >= 0 ? success : danger,
                 ),
               ),
               Text(
                 '${log.previousValue.toInt()} → ${log.newValue.toInt()}',
-                style: TextStyle(fontSize: 10, color: _subtext),
+                style: TextStyle(
+                  fontSize: context.getRFontSize(10),
+                  color: _subtext,
+                ), // RESPONSIVE
               ),
             ],
           ),
@@ -970,11 +1226,14 @@ class _InventoryScreenState extends State<InventoryScreen>
   }
 
   // ── FAB ───────────────────────────────────────────────────────────────────────
-  Widget _buildAddFab() {
+  Widget _buildAddFab(BuildContext context) {
     return GestureDetector(
       onTap: _showAddProductDialog,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+        padding: EdgeInsets.symmetric(
+          horizontal: context.getRSize(20),
+          vertical: context.getRSize(14),
+        ), // RESPONSIVE
         decoration: BoxDecoration(
           gradient: const LinearGradient(
             colors: [blueLight, blueMain],
@@ -990,17 +1249,21 @@ class _InventoryScreenState extends State<InventoryScreen>
             ),
           ],
         ),
-        child: const Row(
+        child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(FontAwesomeIcons.plus, color: Colors.white, size: 16),
-            SizedBox(width: 10),
+            Icon(
+              FontAwesomeIcons.plus,
+              color: Colors.white,
+              size: context.getRSize(16),
+            ), // RESPONSIVE
+            SizedBox(width: context.getRSize(10)), // RESPONSIVE
             Text(
               'Add Product',
               style: TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.w800,
-                fontSize: 13,
+                fontSize: context.getRFontSize(13), // RESPONSIVE
               ),
             ),
           ],
@@ -1022,7 +1285,9 @@ class _InventoryScreenState extends State<InventoryScreen>
       builder: (_) => StatefulBuilder(
         builder: (ctx, setB) => Padding(
           padding: EdgeInsets.only(
-            bottom: MediaQuery.of(ctx).viewInsets.bottom,
+            bottom:
+                MediaQuery.of(ctx).viewInsets.bottom +
+                MediaQuery.of(ctx).padding.bottom,
           ),
           child: Container(
             constraints: BoxConstraints(
@@ -1039,11 +1304,16 @@ class _InventoryScreenState extends State<InventoryScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+                  padding: EdgeInsets.fromLTRB(
+                    ctx.getRSize(20),
+                    ctx.getRSize(20),
+                    ctx.getRSize(20),
+                    0,
+                  ), // RESPONSIVE
                   child: Center(
                     child: Container(
-                      width: 40,
-                      height: 4,
+                      width: ctx.getRSize(40), // RESPONSIVE
+                      height: ctx.getRSize(4), // RESPONSIVE
                       decoration: BoxDecoration(
                         color: _border,
                         borderRadius: BorderRadius.circular(2),
@@ -1051,85 +1321,111 @@ class _InventoryScreenState extends State<InventoryScreen>
                     ),
                   ),
                 ),
-                const SizedBox(height: 20),
+                SizedBox(height: ctx.getRSize(20)), // RESPONSIVE
                 Flexible(
                   child: SingleChildScrollView(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    padding: EdgeInsets.symmetric(
+                      horizontal: ctx.getRSize(20),
+                    ), // RESPONSIVE
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(
                           children: [
                             Container(
-                              width: 44,
-                              height: 44,
+                              width: ctx.getRSize(44), // RESPONSIVE
+                              height: ctx.getRSize(44), // RESPONSIVE
                               decoration: BoxDecoration(
                                 color: item.color.withValues(alpha: 0.15),
                                 borderRadius: BorderRadius.circular(12),
                               ),
-                              child: Icon(item.icon, color: item.color, size: 20),
+                              child: Icon(
+                                item.icon,
+                                color: item.color,
+                                size: ctx.getRSize(20),
+                              ), // RESPONSIVE
                             ),
-                            const SizedBox(width: 14),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Update Stock',
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w800,
-                                    color: _text,
+                            SizedBox(width: ctx.getRSize(14)), // RESPONSIVE
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  FittedBox(
+                                    // RESPONSIVE
+                                    fit: BoxFit.scaleDown,
+                                    child: Text(
+                                      'Update Stock',
+                                      style: TextStyle(
+                                        fontSize: ctx.getRFontSize(
+                                          18,
+                                        ), // RESPONSIVE
+                                        fontWeight: FontWeight.w800,
+                                        color: _text,
+                                      ),
+                                    ),
                                   ),
-                                ),
-                                Text(
-                                  item.productName,
-                                  style: const TextStyle(
-                                    fontSize: 13,
-                                    color: blueMain,
-                                    fontWeight: FontWeight.bold,
+                                  Text(
+                                    item.productName,
+                                    style: TextStyle(
+                                      fontSize: ctx.getRFontSize(
+                                        13,
+                                      ), // RESPONSIVE
+                                      color: blueMain,
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 20),
+                        SizedBox(height: ctx.getRSize(20)), // RESPONSIVE
                         Text(
                           'Action',
                           style: TextStyle(
-                            fontSize: 12,
+                            fontSize: ctx.getRFontSize(12), // RESPONSIVE
                             fontWeight: FontWeight.w700,
                             color: _subtext,
                           ),
                         ),
-                        const SizedBox(height: 8),
+                        SizedBox(height: ctx.getRSize(8)), // RESPONSIVE
                         Row(
                           children: [
-                            _actionChip(
-                              'restock',
-                              'Restock',
-                              action,
-                              (v) => setB(() => action = v),
+                            Expanded(
+                              // RESPONSIVE: use Expanded to fit buttons evenly
+                              child: _actionChip(
+                                ctx,
+                                'restock',
+                                'Restock',
+                                action,
+                                (v) => setB(() => action = v),
+                              ),
                             ),
-                            const SizedBox(width: 8),
-                            _actionChip(
-                              'adjustment',
-                              'Adjust',
-                              action,
-                              (v) => setB(() => action = v),
+                            SizedBox(width: ctx.getRSize(8)), // RESPONSIVE
+                            Expanded(
+                              // RESPONSIVE: use Expanded
+                              child: _actionChip(
+                                ctx,
+                                'adjustment',
+                                'Adjust',
+                                action,
+                                (v) => setB(() => action = v),
+                              ),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 16),
+                        SizedBox(height: ctx.getRSize(16)), // RESPONSIVE
                         Text(
-                          action == 'restock' ? 'Quantity to Add' : 'Set Stock To',
+                          action == 'restock'
+                              ? 'Quantity to Add'
+                              : 'Set Stock To',
                           style: TextStyle(
-                            fontSize: 12,
+                            fontSize: ctx.getRFontSize(12), // RESPONSIVE
                             fontWeight: FontWeight.w700,
                             color: _subtext,
                           ),
                         ),
-                        const SizedBox(height: 8),
+                        SizedBox(height: ctx.getRSize(8)), // RESPONSIVE
                         TextField(
                           controller: ctrl,
                           keyboardType: const TextInputType.numberWithOptions(
@@ -1153,11 +1449,17 @@ class _InventoryScreenState extends State<InventoryScreen>
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(14),
-                              borderSide: const BorderSide(color: blueMain, width: 2),
+                              borderSide: const BorderSide(
+                                color: blueMain,
+                                width: 2,
+                              ),
                             ),
                             contentPadding: const EdgeInsets.all(16),
                             suffixText: item.subtitle,
-                            suffixStyle: TextStyle(color: _subtext, fontSize: 14),
+                            suffixStyle: TextStyle(
+                              color: _subtext,
+                              fontSize: 14,
+                            ),
                           ),
                         ),
                         const SizedBox(height: 12),
@@ -1175,7 +1477,10 @@ class _InventoryScreenState extends State<InventoryScreen>
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(14),
-                              borderSide: const BorderSide(color: blueMain, width: 2),
+                              borderSide: const BorderSide(
+                                color: blueMain,
+                                width: 2,
+                              ),
                             ),
                             contentPadding: const EdgeInsets.all(16),
                           ),
@@ -1192,12 +1497,18 @@ class _InventoryScreenState extends State<InventoryScreen>
                             decoration: BoxDecoration(
                               color: success.withValues(alpha: 0.08),
                               borderRadius: BorderRadius.circular(14),
-                              border: Border.all(color: success.withValues(alpha: 0.3)),
+                              border: Border.all(
+                                color: success.withValues(alpha: 0.3),
+                              ),
                             ),
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(FontAwesomeIcons.tag, size: 14, color: success),
+                                Icon(
+                                  FontAwesomeIcons.tag,
+                                  size: 14,
+                                  color: success,
+                                ),
                                 const SizedBox(width: 10),
                                 Text(
                                   'Update Price',
@@ -1265,11 +1576,15 @@ class _InventoryScreenState extends State<InventoryScreen>
                             final supplier = kSuppliers.firstWhere(
                               (s) => s.id == item.supplierId,
                               orElse: () => Supplier(
-                                  id: '', name: '', crateGroup: CrateGroup.premium),
+                                id: '',
+                                name: '',
+                                crateGroup: CrateGroup.premium,
+                              ),
                             );
 
                             final cStockIndex = kCrateStocks.indexWhere(
-                                (c) => c.group == supplier.crateGroup);
+                              (c) => c.group == supplier.crateGroup,
+                            );
 
                             if (cStockIndex != -1) {
                               kCrateStocks[cStockIndex].available += diff;
@@ -1300,11 +1615,7 @@ class _InventoryScreenState extends State<InventoryScreen>
   void _showUpdatePriceDialog(InventoryItem item) {
     final existingParams = kProducts.firstWhere(
       (p) => p['name'] == item.productName,
-      orElse: () => {
-        'price': 0,
-        'wholesale_price': 0,
-        'category': 'Other',
-      },
+      orElse: () => {'price': 0, 'wholesale_price': 0, 'category': 'Other'},
     );
     final priceCtrl = TextEditingController(
       text: (existingParams['price'] ?? 0).toString(),
@@ -1317,7 +1628,9 @@ class _InventoryScreenState extends State<InventoryScreen>
       builder: (_) => StatefulBuilder(
         builder: (ctx, setB) => Padding(
           padding: EdgeInsets.only(
-            bottom: MediaQuery.of(ctx).viewInsets.bottom,
+            bottom:
+                MediaQuery.of(ctx).viewInsets.bottom +
+                MediaQuery.of(ctx).padding.bottom,
           ),
           child: Container(
             constraints: BoxConstraints(
@@ -1366,7 +1679,11 @@ class _InventoryScreenState extends State<InventoryScreen>
                                 color: success.withValues(alpha: 0.15),
                                 borderRadius: BorderRadius.circular(12),
                               ),
-                              child: Icon(FontAwesomeIcons.tag, color: success, size: 20),
+                              child: Icon(
+                                FontAwesomeIcons.tag,
+                                color: success,
+                                size: 20,
+                              ),
                             ),
                             const SizedBox(width: 14),
                             Column(
@@ -1408,7 +1725,7 @@ class _InventoryScreenState extends State<InventoryScreen>
                             decimal: true,
                           ),
                           style: TextStyle(
-                            fontSize: 18,
+                            fontSize: ctx.getRFontSize(18), // RESPONSIVE
                             fontWeight: FontWeight.bold,
                             color: _text,
                           ),
@@ -1423,9 +1740,14 @@ class _InventoryScreenState extends State<InventoryScreen>
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(14),
-                              borderSide: const BorderSide(color: blueMain, width: 2),
+                              borderSide: const BorderSide(
+                                color: blueMain,
+                                width: 2,
+                              ),
                             ),
-                            contentPadding: const EdgeInsets.all(16),
+                            contentPadding: EdgeInsets.all(
+                              ctx.getRSize(16),
+                            ), // RESPONSIVE
                           ),
                         ),
                       ],
@@ -1433,7 +1755,12 @@ class _InventoryScreenState extends State<InventoryScreen>
                   ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
+                  padding: EdgeInsets.fromLTRB(
+                    ctx.getRSize(20),
+                    ctx.getRSize(24),
+                    ctx.getRSize(20),
+                    ctx.getRSize(32),
+                  ), // RESPONSIVE
                   child: SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
@@ -1443,13 +1770,19 @@ class _InventoryScreenState extends State<InventoryScreen>
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(14),
                         ),
-                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        padding: EdgeInsets.symmetric(
+                          vertical: ctx.getRSize(16),
+                        ), // RESPONSIVE
                         elevation: 0,
                       ),
                       onPressed: () {
-                        final newPrice = int.tryParse(priceCtrl.text) ?? existingParams['price'];
+                        final newPrice =
+                            int.tryParse(priceCtrl.text) ??
+                            existingParams['price'];
                         setState(() {
-                          final idx = kProducts.indexWhere((p) => p['name'] == item.productName);
+                          final idx = kProducts.indexWhere(
+                            (p) => p['name'] == item.productName,
+                          );
                           if (idx != -1) {
                             kProducts[idx]['price'] = newPrice;
                           } else {
@@ -1485,6 +1818,7 @@ class _InventoryScreenState extends State<InventoryScreen>
   }
 
   Widget _actionChip(
+    BuildContext context, // RESPONSIVE: pass context
     String value,
     String label,
     String current,
@@ -1495,18 +1829,23 @@ class _InventoryScreenState extends State<InventoryScreen>
       onTap: () => onTap(value),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        padding: EdgeInsets.symmetric(
+          horizontal: context.getRSize(20),
+          vertical: context.getRSize(10),
+        ), // RESPONSIVE
         decoration: BoxDecoration(
           color: active ? blueMain : (_isDark ? dCard : lCard),
           borderRadius: BorderRadius.circular(10),
           border: Border.all(color: active ? blueMain : _border),
         ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 13,
-            color: active ? Colors.white : _subtext,
+        child: Center(
+          child: Text(
+            label,
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: context.getRFontSize(13), // RESPONSIVE
+              color: active ? Colors.white : _subtext,
+            ),
           ),
         ),
       ),
@@ -1524,7 +1863,9 @@ class _InventoryScreenState extends State<InventoryScreen>
       backgroundColor: Colors.transparent,
       builder: (_) => Padding(
         padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom,
+          bottom:
+              MediaQuery.of(context).viewInsets.bottom +
+              MediaQuery.of(context).padding.bottom,
         ),
         child: Container(
           constraints: BoxConstraints(
@@ -1563,100 +1904,106 @@ class _InventoryScreenState extends State<InventoryScreen>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
-                children: [
-                  Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: cs.group.color.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(
-                      FontAwesomeIcons.beerMugEmpty,
-                      color: cs.group.color,
-                      size: 20,
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
+                        children: [
+                          Container(
+                            width: 44,
+                            height: 44,
+                            decoration: BoxDecoration(
+                              color: cs.group.color.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Icon(
+                              FontAwesomeIcons.beerMugEmpty,
+                              color: cs.group.color,
+                              size: 20,
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Update Empty Crates',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w800,
+                                  color: _text,
+                                ),
+                              ),
+                              Text(
+                                cs.group.label,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: cs.group.color,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
                       Text(
-                        'Update Empty Crates',
+                        'Available Empty Crates',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: _subtext,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: ctrl,
+                        keyboardType: TextInputType.number,
                         style: TextStyle(
                           fontSize: 18,
-                          fontWeight: FontWeight.w800,
+                          fontWeight: FontWeight.bold,
                           color: _text,
                         ),
-                      ),
-                      Text(
-                        cs.group.label,
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: cs.group.color,
-                          fontWeight: FontWeight.bold,
+                        decoration: InputDecoration(
+                          hintText: 'Number of crates',
+                          hintStyle: TextStyle(color: _subtext),
+                          filled: true,
+                          fillColor: _isDark ? dCard : lCard,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: BorderSide.none,
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: const BorderSide(
+                              color: blueMain,
+                              width: 2,
+                            ),
+                          ),
+                          contentPadding: const EdgeInsets.all(16),
+                          suffixText: 'crates',
+                          suffixStyle: TextStyle(color: _subtext, fontSize: 14),
                         ),
                       ),
-                    ],
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-              Text(
-                'Available Empty Crates',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  color: _subtext,
-                ),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: ctrl,
-                keyboardType: TextInputType.number,
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: _text,
-                ),
-                decoration: InputDecoration(
-                  hintText: 'Number of crates',
-                  hintStyle: TextStyle(color: _subtext),
-                  filled: true,
-                  fillColor: _isDark ? dCard : lCard,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: BorderSide.none,
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: const BorderSide(color: blueMain, width: 2),
-                  ),
-                  contentPadding: const EdgeInsets.all(16),
-                  suffixText: 'crates',
-                  suffixStyle: TextStyle(color: _subtext, fontSize: 14),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: noteCtrl,
-                style: TextStyle(fontSize: 14, color: _text),
-                decoration: InputDecoration(
-                  hintText: 'Note e.g. "Customer returned 10 crates"',
-                  hintStyle: TextStyle(color: _subtext),
-                  filled: true,
-                  fillColor: _isDark ? dCard : lCard,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: BorderSide.none,
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: const BorderSide(color: blueMain, width: 2),
-                  ),
-                  contentPadding: const EdgeInsets.all(16),
-                ),
-              ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: noteCtrl,
+                        style: TextStyle(fontSize: 14, color: _text),
+                        decoration: InputDecoration(
+                          hintText: 'Note e.g. "Customer returned 10 crates"',
+                          hintStyle: TextStyle(color: _subtext),
+                          filled: true,
+                          fillColor: _isDark ? dCard : lCard,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: BorderSide.none,
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: const BorderSide(
+                              color: blueMain,
+                              width: 2,
+                            ),
+                          ),
+                          contentPadding: const EdgeInsets.all(16),
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -1695,7 +2042,10 @@ class _InventoryScreenState extends State<InventoryScreen>
                     },
                     child: const Text(
                       'Save Update',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                      ),
                     ),
                   ),
                 ),
@@ -1724,7 +2074,9 @@ class _InventoryScreenState extends State<InventoryScreen>
       builder: (_) => StatefulBuilder(
         builder: (ctx, setB) => Padding(
           padding: EdgeInsets.only(
-            bottom: MediaQuery.of(ctx).viewInsets.bottom,
+            bottom:
+                MediaQuery.of(ctx).viewInsets.bottom +
+                MediaQuery.of(ctx).padding.bottom,
           ),
           child: Container(
             constraints: BoxConstraints(
@@ -1779,51 +2131,56 @@ class _InventoryScreenState extends State<InventoryScreen>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _inputField('Product Name', nameCtrl, 'e.g. Trophy Lager'),
-                const SizedBox(height: 12),
-                _inputField(
-                  'Type / Packaging',
-                  subtitleCtrl,
-                  'e.g. Crate, Can, Keg',
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  'Supplier',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: _subtext,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  decoration: BoxDecoration(
-                    color: _isDark ? dCard : lCard,
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<String>(
-                      value: selectedSupplierId,
-                      dropdownColor: _isDark ? dCard : lSurface,
-                      style: TextStyle(
-                        color: _text,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                      ),
-                      isExpanded: true,
-                      onChanged: (v) => setB(() => selectedSupplierId = v!),
-                      items: kSuppliers
-                          .map(
-                            (s) => DropdownMenuItem(
-                              value: s.id,
-                              child: Text(s.name),
+                        _inputField(
+                          'Product Name',
+                          nameCtrl,
+                          'e.g. Trophy Lager',
+                        ),
+                        const SizedBox(height: 12),
+                        _inputField(
+                          'Type / Packaging',
+                          subtitleCtrl,
+                          'e.g. Crate, Can, Keg',
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          'Supplier',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: _subtext,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          decoration: BoxDecoration(
+                            color: _isDark ? dCard : lCard,
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: DropdownButtonHideUnderline(
+                            child: DropdownButton<String>(
+                              value: selectedSupplierId,
+                              dropdownColor: _isDark ? dCard : lSurface,
+                              style: TextStyle(
+                                color: _text,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              isExpanded: true,
+                              onChanged: (v) =>
+                                  setB(() => selectedSupplierId = v!),
+                              items: kSuppliers
+                                  .map(
+                                    (s) => DropdownMenuItem(
+                                      value: s.id,
+                                      child: Text(s.name),
+                                    ),
+                                  )
+                                  .toList(),
                             ),
-                          )
-                          .toList(),
-                    ),
-                  ),
-                ),
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -1868,14 +2225,16 @@ class _InventoryScreenState extends State<InventoryScreen>
                         setState(() {
                           kInventoryItems.add(newItem);
                           kInventoryLogs.add(log);
-                          
+
                           // Also add to POS products data
                           kProducts.add({
                             'name': newItem.productName,
                             'subtitle': newItem.subtitle,
                             'price': int.tryParse(retailPriceCtrl.text) ?? 0,
-                            'wholesale_price': int.tryParse(wholesalePriceCtrl.text) ?? 0,
-                            'buying_price': int.tryParse(buyingPriceCtrl.text) ?? 0,
+                            'wholesale_price':
+                                int.tryParse(wholesalePriceCtrl.text) ?? 0,
+                            'buying_price':
+                                int.tryParse(buyingPriceCtrl.text) ?? 0,
                             'category': 'Other',
                             'icon': newItem.icon,
                             'color': newItem.color,
@@ -1946,8 +2305,7 @@ class _InventoryScreenState extends State<InventoryScreen>
   // ── ADD SUPPLIER DIALOG ───────────────────────────────────────────────────────
   void _showAddSupplierDialog() {
     final nameCtrl = TextEditingController();
-    CrateGroup selectedGroup = CrateGroup.nbPlc;
-    bool trackInventory = true;
+    final contactCtrl = TextEditingController();
 
     showModalBottomSheet(
       context: context,
@@ -1956,7 +2314,9 @@ class _InventoryScreenState extends State<InventoryScreen>
       builder: (_) => StatefulBuilder(
         builder: (ctx, setB) => Padding(
           padding: EdgeInsets.only(
-            bottom: MediaQuery.of(ctx).viewInsets.bottom,
+            bottom:
+                MediaQuery.of(ctx).viewInsets.bottom +
+                MediaQuery.of(ctx).padding.bottom,
           ),
           child: Container(
             decoration: BoxDecoration(
@@ -1965,7 +2325,12 @@ class _InventoryScreenState extends State<InventoryScreen>
                 top: Radius.circular(28),
               ),
             ),
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+            padding: EdgeInsets.fromLTRB(
+              ctx.getRSize(20),
+              ctx.getRSize(20),
+              ctx.getRSize(20),
+              ctx.getRSize(32),
+            ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1980,125 +2345,36 @@ class _InventoryScreenState extends State<InventoryScreen>
                     ),
                   ),
                 ),
-                const SizedBox(height: 20),
+                SizedBox(height: ctx.getRSize(20)),
                 Text(
                   'Add New Supplier',
                   style: TextStyle(
-                    fontSize: 20,
+                    fontSize: ctx.getRFontSize(20),
                     fontWeight: FontWeight.w800,
                     color: _text,
                   ),
                 ),
-                const SizedBox(height: 4),
+                SizedBox(height: ctx.getRSize(4)),
                 Text(
-                  'Choose a crate group so empty crates are tracked correctly',
-                  style: TextStyle(fontSize: 13, color: _subtext),
+                  'Enter the company and contact details',
+                  style: TextStyle(
+                    fontSize: ctx.getRFontSize(13),
+                    color: _subtext,
+                  ),
                 ),
-                const SizedBox(height: 20),
+                SizedBox(height: ctx.getRSize(20)),
                 _inputField(
                   'Supplier / Company Name',
                   nameCtrl,
                   'e.g. SABMiller Nigeria',
                 ),
-                const SizedBox(height: 16),
-                Text(
-                  'Crate Group',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: _subtext,
-                  ),
+                SizedBox(height: ctx.getRSize(16)),
+                _inputField(
+                  'Contact Details / Rep Info',
+                  contactCtrl,
+                  'e.g. John Doe, 08012345678',
                 ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: CrateGroup.values.map((g) {
-                    final active = selectedGroup == g;
-                    return GestureDetector(
-                      onTap: () => setB(() => selectedGroup = g),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 150),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 10,
-                        ),
-                        decoration: BoxDecoration(
-                          color: active
-                              ? g.color.withValues(alpha: 0.15)
-                              : (_isDark ? dCard : lCard),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: active ? g.color : _border,
-                            width: active ? 2 : 1,
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Container(
-                              width: 10,
-                              height: 10,
-                              decoration: BoxDecoration(
-                                color: g.color,
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              g.label,
-                              style: TextStyle(
-                                fontWeight: active
-                                    ? FontWeight.bold
-                                    : FontWeight.w600,
-                                fontSize: 13,
-                                color: active ? g.color : _subtext,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                ),
-                const SizedBox(height: 16),
-                GestureDetector(
-                  onTap: () => setB(() => trackInventory = !trackInventory),
-                  child: Row(
-                    children: [
-                      AnimatedContainer(
-                        duration: const Duration(milliseconds: 150),
-                        width: 22,
-                        height: 22,
-                        decoration: BoxDecoration(
-                          color: trackInventory ? blueMain : Colors.transparent,
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(
-                            color: trackInventory ? blueMain : _border,
-                            width: 2,
-                          ),
-                        ),
-                        child: trackInventory
-                            ? const Icon(
-                                Icons.check,
-                                color: Colors.white,
-                                size: 14,
-                              )
-                            : null,
-                      ),
-                      const SizedBox(width: 12),
-                      Text(
-                        'Track inventory for this supplier',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: _text,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 24),
+                SizedBox(height: ctx.getRSize(32)),
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
@@ -2108,7 +2384,7 @@ class _InventoryScreenState extends State<InventoryScreen>
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(14),
                       ),
-                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      padding: EdgeInsets.symmetric(vertical: ctx.getRSize(16)),
                       elevation: 0,
                     ),
                     onPressed: () {
@@ -2116,8 +2392,11 @@ class _InventoryScreenState extends State<InventoryScreen>
                       final newSupplier = Supplier(
                         id: 's${DateTime.now().millisecondsSinceEpoch}',
                         name: nameCtrl.text.trim(),
-                        crateGroup: selectedGroup,
-                        trackInventory: trackInventory,
+                        crateGroup: CrateGroup.nbPlc, // Default hidden value
+                        trackInventory: true,
+                        contactDetails: contactCtrl.text.trim(),
+                        amountPaid: 0.0,
+                        outstandingBalance: 0.0,
                       );
                       final log = InventoryLog(
                         timestamp: DateTime.now(),
@@ -2127,7 +2406,7 @@ class _InventoryScreenState extends State<InventoryScreen>
                         action: 'new_supplier',
                         previousValue: 0,
                         newValue: 0,
-                        note: 'Crate group: ${selectedGroup.label}',
+                        note: 'Supplier added: ${newSupplier.name}',
                       );
                       setState(() {
                         kSuppliers.add(newSupplier);
@@ -2135,11 +2414,157 @@ class _InventoryScreenState extends State<InventoryScreen>
                       });
                       Navigator.pop(ctx);
                     },
-                    child: const Text(
+                    child: Text(
                       'Add Supplier',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
-                        fontSize: 15,
+                        fontSize: ctx.getRFontSize(15),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── ADD CRATE GROUP DIALOG ──────────────────────────────────────────────────
+  void _showAddCrateGroupDialog() {
+    final nameCtrl = TextEditingController();
+    final qtyCtrl = TextEditingController(text: '0');
+
+    // Palette of colors for new custom groups
+    const groupColors = [
+      Color(0xFF6366F1), // indigo
+      Color(0xFF0EA5E9), // sky blue
+      Color(0xFF14B8A6), // teal
+      Color(0xFFF97316), // orange
+      Color(0xFFEC4899), // pink
+      Color(0xFF8B5CF6), // violet
+      Color(0xFF22C55E), // green
+      Color(0xFFEF4444), // red
+    ];
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => StatefulBuilder(
+        builder: (ctx, setB) => Padding(
+          padding: EdgeInsets.only(
+            bottom:
+                MediaQuery.of(ctx).viewInsets.bottom +
+                MediaQuery.of(ctx).padding.bottom,
+          ),
+          child: Container(
+            decoration: BoxDecoration(
+              color: _isDark ? dSurface : lSurface,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(28),
+              ),
+            ),
+            padding: EdgeInsets.fromLTRB(
+              ctx.getRSize(20),
+              ctx.getRSize(20),
+              ctx.getRSize(20),
+              ctx.getRSize(32),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Drag handle
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: _border,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                SizedBox(height: ctx.getRSize(20)),
+                Text(
+                  'Add Crate Group',
+                  style: TextStyle(
+                    fontSize: ctx.getRFontSize(20),
+                    fontWeight: FontWeight.w800,
+                    color: _text,
+                  ),
+                ),
+                SizedBox(height: ctx.getRSize(4)),
+                Text(
+                  'Enter a name for the new crate group and set the initial count',
+                  style: TextStyle(
+                    fontSize: ctx.getRFontSize(13),
+                    color: _subtext,
+                  ),
+                ),
+                SizedBox(height: ctx.getRSize(20)),
+                // Crate Group Name input
+                _inputField(
+                  'Crate Group Name',
+                  nameCtrl,
+                  'e.g. SABMiller, Diageo',
+                ),
+                SizedBox(height: ctx.getRSize(16)),
+                // Initial quantity
+                _inputField('Initial Quantity', qtyCtrl, '0', isNumber: true),
+                SizedBox(height: ctx.getRSize(24)),
+                // Save button
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: blueMain,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      padding: EdgeInsets.symmetric(vertical: ctx.getRSize(16)),
+                      elevation: 0,
+                    ),
+                    onPressed: () {
+                      final name = nameCtrl.text.trim();
+                      if (name.isEmpty) return;
+                      final qty = double.tryParse(qtyCtrl.text.trim()) ?? 0;
+                      // Pick a color from the palette based on the current count
+                      final colorIndex =
+                          kCrateStocks.length % groupColors.length;
+                      setState(() {
+                        kCrateStocks.add(
+                          CrateStock(
+                            group: CrateGroup.values.first,
+                            available: qty,
+                            customLabel: name,
+                            customColor: groupColors[colorIndex],
+                          ),
+                        );
+                        kInventoryLogs.add(
+                          InventoryLog(
+                            timestamp: DateTime.now(),
+                            user: 'John Cashier',
+                            itemId:
+                                'cg_${DateTime.now().millisecondsSinceEpoch}',
+                            itemName: name,
+                            action: 'crate_update',
+                            previousValue: 0,
+                            newValue: qty,
+                            note: 'New crate group: $name',
+                          ),
+                        );
+                      });
+                      Navigator.pop(ctx);
+                    },
+                    child: Text(
+                      'Save',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: ctx.getRFontSize(15),
                       ),
                     ),
                   ),

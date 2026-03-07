@@ -12,6 +12,7 @@ import 'package:path_provider/path_provider.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/theme_notifier.dart';
 import '../../../core/utils/number_format.dart';
+import '../../../core/utils/responsive.dart';
 import '../services/receipt_builder.dart';
 import '../../inventory/data/inventory_data.dart';
 
@@ -45,7 +46,6 @@ class _CheckoutPageState extends State<CheckoutPage> {
   final TextEditingController _customerNameCtrl = TextEditingController();
   final ScreenshotController _screenshotCtrl = ScreenshotController();
   bool _paymentConfirmed = false;
-
 
   bool get _isDark => themeNotifier.value == ThemeMode.dark;
   Color get _bg => _isDark ? dBg : lBg;
@@ -87,13 +87,17 @@ class _CheckoutPageState extends State<CheckoutPage> {
           backgroundColor: _surface,
           elevation: 0,
           leading: IconButton(
-            icon: Icon(Icons.arrow_back_ios_new, size: 20, color: _text),
+            icon: Icon(
+              Icons.arrow_back_ios_new,
+              size: context.getRSize(20),
+              color: _text,
+            ), // RESPONSIVE
             onPressed: () => Navigator.pop(context),
           ),
           title: Text(
             _paymentConfirmed ? 'Receipt' : 'Checkout',
             style: TextStyle(
-              fontSize: 18,
+              fontSize: context.getRFontSize(18), // RESPONSIVE
               fontWeight: FontWeight.w800,
               color: _text,
             ),
@@ -113,13 +117,18 @@ class _CheckoutPageState extends State<CheckoutPage> {
   // ═══════════════════════════════════════════════════════════════════════════
   Widget _buildCheckoutForm() {
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 40),
+      padding: EdgeInsets.fromLTRB(
+        context.getRSize(20),
+        context.getRSize(20),
+        context.getRSize(20),
+        context.getRSize(40),
+      ), // RESPONSIVE
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // ── Order Summary ─────────────────────────────────────────────
           _sectionLabel('Order Summary'),
-          const SizedBox(height: 12),
+          SizedBox(height: context.getRSize(12)), // RESPONSIVE
           Container(
             decoration: BoxDecoration(
               color: _surface,
@@ -138,11 +147,10 @@ class _CheckoutPageState extends State<CheckoutPage> {
             ),
           ),
 
-          const SizedBox(height: 28),
-
+          SizedBox(height: context.getRSize(28)), // RESPONSIVE
           // ── Payment Type ──────────────────────────────────────────────
           _sectionLabel('Payment Method'),
-          const SizedBox(height: 12),
+          SizedBox(height: context.getRSize(12)), // RESPONSIVE
           _paymentOption(
             PaymentType.fullCash,
             'Full Cash Payment',
@@ -166,14 +174,14 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
           // ── Conditional fields ────────────────────────────────────────
           if (_paymentType == PaymentType.partialCash) ...[
-            const SizedBox(height: 16),
+            SizedBox(height: context.getRSize(16)), // RESPONSIVE
             _inputField(
               'Cash Received',
               _cashReceivedCtrl,
               '₦ Amount received in cash',
               isNumber: true,
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: context.getRSize(8)), // RESPONSIVE
             Builder(
               builder: (_) {
                 final cash = double.tryParse(_cashReceivedCtrl.text) ?? 0;
@@ -181,7 +189,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 return Text(
                   'Remainder (card/credit): ₦${fmtNumber(remainder.toInt())}',
                   style: TextStyle(
-                    fontSize: 13,
+                    fontSize: context.getRFontSize(13), // RESPONSIVE
                     color: blueMain,
                     fontWeight: FontWeight.w600,
                   ),
@@ -191,7 +199,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
           ],
 
           if (_paymentType == PaymentType.credit) ...[
-            const SizedBox(height: 16),
+            SizedBox(height: context.getRSize(16)), // RESPONSIVE
             _inputField(
               'Customer Name / Account',
               _customerNameCtrl,
@@ -199,8 +207,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
             ),
           ],
 
-          const SizedBox(height: 32),
-
+          SizedBox(height: context.getRSize(32)), // RESPONSIVE
           // ── Confirm button ────────────────────────────────────────────
           SizedBox(
             width: double.infinity,
@@ -208,7 +215,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: blueMain,
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 18),
+                padding: EdgeInsets.symmetric(
+                  vertical: context.getRSize(18),
+                ), // RESPONSIVE
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
                 ),
@@ -217,12 +226,18 @@ class _CheckoutPageState extends State<CheckoutPage> {
               onPressed: _confirmPayment,
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
-                children: const [
-                  Icon(FontAwesomeIcons.check, size: 16),
-                  SizedBox(width: 10),
+                children: [
+                  Icon(
+                    FontAwesomeIcons.check,
+                    size: context.getRSize(16),
+                  ), // RESPONSIVE
+                  SizedBox(width: context.getRSize(10)), // RESPONSIVE
                   Text(
                     'Confirm Payment',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: context.getRFontSize(16),
+                    ), // RESPONSIVE
                   ),
                 ],
               ),
@@ -278,7 +293,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
       children: [
         Expanded(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(20),
+            padding: EdgeInsets.all(context.getRSize(20)), // RESPONSIVE
             child: Screenshot(
               controller: _screenshotCtrl,
               child: _ReceiptWidget(
@@ -304,7 +319,12 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
   Widget _buildReceiptActions() {
     return Container(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+      padding: EdgeInsets.fromLTRB(
+        context.getRSize(20),
+        context.getRSize(16),
+        context.getRSize(20),
+        context.getRSize(32),
+      ), // RESPONSIVE
       decoration: BoxDecoration(
         color: _surface,
         border: Border(top: BorderSide(color: _border)),
@@ -314,12 +334,12 @@ class _CheckoutPageState extends State<CheckoutPage> {
           Text(
             'Receipt Options',
             style: TextStyle(
-              fontSize: 16,
+              fontSize: context.getRFontSize(16), // RESPONSIVE
               fontWeight: FontWeight.bold,
               color: _text,
             ),
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: context.getRSize(16)), // RESPONSIVE
           Row(
             children: [
               Expanded(
@@ -330,7 +350,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                   _printReceipt,
                 ),
               ),
-              const SizedBox(width: 12),
+              SizedBox(width: context.getRSize(12)), // RESPONSIVE
               Expanded(
                 child: _receiptButton(
                   'Share Receipt',
@@ -341,7 +361,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: context.getRSize(12)), // RESPONSIVE
           SizedBox(
             width: double.infinity,
             child: TextButton(
@@ -353,7 +373,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 'Done — Back to POS',
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
-                  fontSize: 14,
+                  fontSize: context.getRFontSize(14), // RESPONSIVE
                   color: blueMain,
                 ),
               ),
@@ -373,7 +393,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 14),
+        padding: EdgeInsets.symmetric(
+          vertical: context.getRSize(14),
+        ), // RESPONSIVE
         decoration: BoxDecoration(
           color: color.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(14),
@@ -381,12 +403,12 @@ class _CheckoutPageState extends State<CheckoutPage> {
         ),
         child: Column(
           children: [
-            Icon(icon, size: 20, color: color),
-            const SizedBox(height: 6),
+            Icon(icon, size: context.getRSize(20), color: color), // RESPONSIVE
+            SizedBox(height: context.getRSize(6)), // RESPONSIVE
             Text(
               label,
               style: TextStyle(
-                fontSize: 11,
+                fontSize: context.getRFontSize(11), // RESPONSIVE
                 fontWeight: FontWeight.bold,
                 color: color,
               ),
@@ -419,15 +441,12 @@ class _CheckoutPageState extends State<CheckoutPage> {
       );
       await file.writeAsBytes(imageBytes);
 
-      await Share.shareXFiles(
-        [XFile(file.path)],
-        text: 'BrewFlow POS Receipt',
-      );
+      await Share.shareXFiles([XFile(file.path)], text: 'BrewFlow POS Receipt');
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error sharing receipt: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error sharing receipt: $e')));
     }
   }
 
@@ -461,6 +480,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       backgroundColor: _surface,
       constraints: BoxConstraints(
         maxHeight: MediaQuery.of(context).size.height * 0.5,
@@ -469,95 +489,98 @@ class _CheckoutPageState extends State<CheckoutPage> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
       builder: (_) {
-        return FutureBuilder<List<BluetoothInfo>>(
-          future: PrintBluetoothThermal.pairedBluetooths,
-          builder: (c, snapshot) {
-            final devices = snapshot.data ?? [];
-            return Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Text(
-                    'Select Receipt Printer',
-                    style: TextStyle(
-                      color: _text,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                    ),
-                  ),
-                ),
-                Divider(height: 1, color: _border),
-                if (snapshot.connectionState == ConnectionState.waiting)
-                  const Expanded(
-                    child: Center(child: CircularProgressIndicator()),
-                  )
-                else if (devices.isEmpty)
-                  Expanded(
-                    child: Center(
-                      child: Text(
-                        'No paired printers found',
-                        style: TextStyle(color: _subtext),
+        return SafeArea(
+          top: false,
+          child: FutureBuilder<List<BluetoothInfo>>(
+            future: PrintBluetoothThermal.pairedBluetooths,
+            builder: (c, snapshot) {
+              final devices = snapshot.data ?? [];
+              return Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Text(
+                      'Select Receipt Printer',
+                      style: TextStyle(
+                        color: _text,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
                       ),
                     ),
-                  )
-                else
-                  Expanded(
-                    child: ListView.builder(
-                      physics: const ClampingScrollPhysics(),
-                      itemCount: devices.length,
-                      itemBuilder: (_, i) {
-                        final device = devices[i];
-                        return ListTile(
-                          leading: const Icon(Icons.print),
-                          title: Text(
-                            device.name.isEmpty
-                                ? 'Unknown Device'
-                                : device.name,
-                          ),
-                          subtitle: Text(device.macAdress),
-                          onTap: () async {
-                            Navigator.pop(context);
-
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Connecting to printer...'),
-                              ),
-                            );
-
-                            bool isConnected =
-                                await PrintBluetoothThermal.connect(
-                              macPrinterAddress: device.macAdress,
-                            );
-                            if (isConnected) {
-                              await PrintBluetoothThermal.writeBytes(
-                                receiptBytes,
-                              );
-                              await PrintBluetoothThermal.disconnect;
-
-                              if (!mounted) return;
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Print successful'),
-                                ),
-                              );
-                            } else {
-                              if (!mounted) return;
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                    'Failed to connect to printer.',
-                                  ),
-                                ),
-                              );
-                            }
-                          },
-                        );
-                      },
-                    ),
                   ),
-              ],
-            );
-          },
+                  Divider(height: 1, color: _border),
+                  if (snapshot.connectionState == ConnectionState.waiting)
+                    const Expanded(
+                      child: Center(child: CircularProgressIndicator()),
+                    )
+                  else if (devices.isEmpty)
+                    Expanded(
+                      child: Center(
+                        child: Text(
+                          'No paired printers found',
+                          style: TextStyle(color: _subtext),
+                        ),
+                      ),
+                    )
+                  else
+                    Expanded(
+                      child: ListView.builder(
+                        physics: const ClampingScrollPhysics(),
+                        itemCount: devices.length,
+                        itemBuilder: (_, i) {
+                          final device = devices[i];
+                          return ListTile(
+                            leading: const Icon(Icons.print),
+                            title: Text(
+                              device.name.isEmpty
+                                  ? 'Unknown Device'
+                                  : device.name,
+                            ),
+                            subtitle: Text(device.macAdress),
+                            onTap: () async {
+                              Navigator.pop(context);
+
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Connecting to printer...'),
+                                ),
+                              );
+
+                              bool isConnected =
+                                  await PrintBluetoothThermal.connect(
+                                    macPrinterAddress: device.macAdress,
+                                  );
+                              if (isConnected) {
+                                await PrintBluetoothThermal.writeBytes(
+                                  receiptBytes,
+                                );
+                                await PrintBluetoothThermal.disconnect;
+
+                                if (!mounted) return;
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Print successful'),
+                                  ),
+                                );
+                              } else {
+                                if (!mounted) return;
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      'Failed to connect to printer.',
+                                    ),
+                                  ),
+                                );
+                              }
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
         );
       },
     );
@@ -568,7 +591,11 @@ class _CheckoutPageState extends State<CheckoutPage> {
   Widget _sectionLabel(String text) {
     return Text(
       text,
-      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: _text),
+      style: TextStyle(
+        fontSize: context.getRFontSize(16),
+        fontWeight: FontWeight.w800,
+        color: _text,
+      ), // RESPONSIVE
     );
   }
 
@@ -576,12 +603,15 @@ class _CheckoutPageState extends State<CheckoutPage> {
     final lineTotal = ((item['price'] as int) * (item['qty'] as double))
         .toInt();
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      padding: EdgeInsets.symmetric(
+        horizontal: context.getRSize(16),
+        vertical: context.getRSize(10),
+      ), // RESPONSIVE
       child: Row(
         children: [
           Container(
-            width: 38,
-            height: 38,
+            width: context.getRSize(38), // RESPONSIVE
+            height: context.getRSize(38), // RESPONSIVE
             decoration: BoxDecoration(
               color: (item['color'] as Color).withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(10),
@@ -589,11 +619,12 @@ class _CheckoutPageState extends State<CheckoutPage> {
             child: Icon(
               item['icon'] as IconData,
               color: item['color'],
-              size: 18,
+              size: context.getRSize(18), // RESPONSIVE
             ),
           ),
-          const SizedBox(width: 12),
+          SizedBox(width: context.getRSize(12)), // RESPONSIVE
           Expanded(
+            // RESPONSIVE
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -601,23 +632,31 @@ class _CheckoutPageState extends State<CheckoutPage> {
                   item['name'],
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
-                    fontSize: 14,
+                    fontSize: context.getRFontSize(14), // RESPONSIVE
                     color: _text,
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
                 Text(
                   '${(item['qty'] as double).toStringAsFixed(1)} × ₦${fmtNumber(item['price'])}',
-                  style: TextStyle(fontSize: 12, color: _subtext),
+                  style: TextStyle(
+                    fontSize: context.getRFontSize(12),
+                    color: _subtext,
+                  ), // RESPONSIVE
                 ),
               ],
             ),
           ),
-          Text(
-            '₦${fmtNumber(lineTotal)}',
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 14,
-              color: _text,
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              '₦${fmtNumber(lineTotal)}',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: context.getRFontSize(14), // RESPONSIVE
+                color: _text,
+              ),
             ),
           ),
         ],
@@ -632,14 +671,17 @@ class _CheckoutPageState extends State<CheckoutPage> {
     bool accent = false,
   }) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      padding: EdgeInsets.symmetric(
+        horizontal: context.getRSize(16),
+        vertical: context.getRSize(10),
+      ), // RESPONSIVE
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(
             label,
             style: TextStyle(
-              fontSize: bold ? 16 : 14,
+              fontSize: context.getRFontSize(bold ? 16 : 14), // RESPONSIVE
               fontWeight: bold ? FontWeight.bold : FontWeight.w600,
               color: bold ? _text : _subtext,
             ),
@@ -647,7 +689,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
           Text(
             '₦${fmtNumber(value.toInt())}',
             style: TextStyle(
-              fontSize: bold ? 18 : 14,
+              fontSize: context.getRFontSize(bold ? 18 : 14), // RESPONSIVE
               fontWeight: FontWeight.w800,
               color: accent ? blueMain : _text,
             ),
@@ -663,8 +705,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
       onTap: () => setState(() => _paymentType = type),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
-        margin: const EdgeInsets.only(bottom: 10),
-        padding: const EdgeInsets.all(14),
+        margin: EdgeInsets.only(bottom: context.getRSize(10)), // RESPONSIVE
+        padding: EdgeInsets.all(context.getRSize(14)), // RESPONSIVE
         decoration: BoxDecoration(
           color: active ? blueMain.withValues(alpha: 0.08) : _surface,
           borderRadius: BorderRadius.circular(14),
@@ -676,29 +718,33 @@ class _CheckoutPageState extends State<CheckoutPage> {
         child: Row(
           children: [
             Container(
-              width: 42,
-              height: 42,
+              width: context.getRSize(42), // RESPONSIVE
+              height: context.getRSize(42), // RESPONSIVE
               decoration: BoxDecoration(
                 color: (active ? blueMain : _subtext).withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(icon, size: 18, color: active ? blueMain : _subtext),
+              child: Icon(
+                icon,
+                size: context.getRSize(18),
+                color: active ? blueMain : _subtext,
+              ), // RESPONSIVE
             ),
-            const SizedBox(width: 14),
+            SizedBox(width: context.getRSize(14)), // RESPONSIVE
             Expanded(
               child: Text(
                 label,
                 style: TextStyle(
                   fontWeight: active ? FontWeight.bold : FontWeight.w600,
-                  fontSize: 14,
+                  fontSize: context.getRFontSize(14), // RESPONSIVE
                   color: active ? blueMain : _text,
                 ),
               ),
             ),
             AnimatedContainer(
               duration: const Duration(milliseconds: 150),
-              width: 22,
-              height: 22,
+              width: context.getRSize(22), // RESPONSIVE
+              height: context.getRSize(22), // RESPONSIVE
               decoration: BoxDecoration(
                 color: active ? blueMain : Colors.transparent,
                 shape: BoxShape.circle,
@@ -708,7 +754,11 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 ),
               ),
               child: active
-                  ? const Icon(Icons.check, size: 14, color: Colors.white)
+                  ? Icon(
+                      Icons.check,
+                      size: context.getRSize(14),
+                      color: Colors.white,
+                    ) // RESPONSIVE
                   : null,
             ),
           ],
@@ -729,17 +779,20 @@ class _CheckoutPageState extends State<CheckoutPage> {
         Text(
           label,
           style: TextStyle(
-            fontSize: 12,
+            fontSize: context.getRFontSize(12), // RESPONSIVE
             fontWeight: FontWeight.w700,
             color: _subtext,
           ),
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: context.getRSize(8)), // RESPONSIVE
         TextField(
           controller: ctrl,
           keyboardType: isNumber ? TextInputType.number : TextInputType.text,
           onChanged: (_) => setState(() {}),
-          style: TextStyle(fontSize: 14, color: _text),
+          style: TextStyle(
+            fontSize: context.getRFontSize(14),
+            color: _text,
+          ), // RESPONSIVE
           decoration: InputDecoration(
             hintText: hint,
             hintStyle: TextStyle(color: _subtext),
@@ -753,7 +806,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
               borderRadius: BorderRadius.circular(14),
               borderSide: const BorderSide(color: blueMain, width: 2),
             ),
-            contentPadding: const EdgeInsets.all(16),
+            contentPadding: EdgeInsets.all(context.getRSize(16)), // RESPONSIVE
           ),
         ),
       ],
@@ -793,7 +846,7 @@ class _ReceiptWidget extends StatelessWidget {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.all(context.getRSize(24)), // RESPONSIVE
       decoration: BoxDecoration(
         color: bg,
         borderRadius: BorderRadius.circular(16),
@@ -810,45 +863,55 @@ class _ReceiptWidget extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           // Header
-          const Text(
+          Text(
             'BrewFlow POS',
             style: TextStyle(
-              fontSize: 20,
+              fontSize: context.getRFontSize(20), // RESPONSIVE
               fontWeight: FontWeight.w800,
               color: textCol,
             ),
           ),
-          const Text(
+          Text(
             'Sales Receipt',
-            style: TextStyle(fontSize: 12, color: sub),
+            style: TextStyle(
+              fontSize: context.getRFontSize(12),
+              color: sub,
+            ), // RESPONSIVE
           ),
-          const SizedBox(height: 4),
+          SizedBox(height: context.getRSize(4)), // RESPONSIVE
           Text(
             _formatDate(DateTime.now()),
-            style: const TextStyle(fontSize: 11, color: sub),
+            style: TextStyle(
+              fontSize: context.getRFontSize(11),
+              color: sub,
+            ), // RESPONSIVE
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: context.getRSize(16)), // RESPONSIVE
           Container(height: 1, color: divCol),
-          const SizedBox(height: 12),
-
+          SizedBox(height: context.getRSize(12)), // RESPONSIVE
           // Items
           ...cart.map((item) {
             final lineTotal = ((item['price'] as int) * (item['qty'] as double))
                 .toInt();
             return Padding(
-              padding: const EdgeInsets.symmetric(vertical: 4),
+              padding: EdgeInsets.symmetric(
+                vertical: context.getRSize(4),
+              ), // RESPONSIVE
               child: Row(
                 children: [
                   Expanded(
                     child: Text(
                       '${item['name']}  ×${(item['qty'] as double).toStringAsFixed(1)}',
-                      style: const TextStyle(fontSize: 13, color: textCol),
+                      style: TextStyle(
+                        fontSize: context.getRFontSize(13),
+                        color: textCol,
+                      ), // RESPONSIVE
                     ),
                   ),
                   Text(
                     '₦${fmtNumber(lineTotal)}',
-                    style: const TextStyle(
-                      fontSize: 13,
+                    style: TextStyle(
+                      fontSize: context.getRFontSize(13), // RESPONSIVE
                       fontWeight: FontWeight.w600,
                       color: textCol,
                     ),
@@ -858,33 +921,32 @@ class _ReceiptWidget extends StatelessWidget {
             );
           }),
 
-          const SizedBox(height: 12),
+          SizedBox(height: context.getRSize(12)), // RESPONSIVE
           Container(height: 1, color: divCol),
-          const SizedBox(height: 12),
-
+          SizedBox(height: context.getRSize(12)), // RESPONSIVE
           // Totals
-          _infoRow('Subtotal', subtotal, sub),
+          _infoRow(context, 'Subtotal', subtotal, sub),
           if (crateDeposit > 0) ...[
-            const SizedBox(height: 4),
-            _infoRow('Crate Deposit', crateDeposit, sub),
+            SizedBox(height: context.getRSize(4)), // RESPONSIVE
+            _infoRow(context, 'Crate Deposit', crateDeposit, sub),
           ],
-          
-          const SizedBox(height: 12),
+
+          SizedBox(height: context.getRSize(12)), // RESPONSIVE
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
+              Text(
                 'TOTAL',
                 style: TextStyle(
-                  fontSize: 16,
+                  fontSize: context.getRFontSize(16), // RESPONSIVE
                   fontWeight: FontWeight.bold,
                   color: textCol,
                 ),
               ),
               Text(
                 '₦${fmtNumber(total.toInt())}',
-                style: const TextStyle(
-                  fontSize: 18,
+                style: TextStyle(
+                  fontSize: context.getRFontSize(18), // RESPONSIVE
                   fontWeight: FontWeight.w800,
                   color: blueMain,
                 ),
@@ -892,15 +954,18 @@ class _ReceiptWidget extends StatelessWidget {
             ],
           ),
 
-          const SizedBox(height: 16),
+          SizedBox(height: context.getRSize(16)), // RESPONSIVE
           Container(height: 1, color: divCol),
-          const SizedBox(height: 16),
+          SizedBox(height: context.getRSize(16)), // RESPONSIVE
 
           Align(
             alignment: Alignment.centerLeft,
             child: Text(
               'Payment: $paymentMethod',
-              style: const TextStyle(fontSize: 12, color: sub),
+              style: TextStyle(
+                fontSize: context.getRFontSize(12),
+                color: sub,
+              ), // RESPONSIVE
             ),
           ),
           if (customerName != null && customerName!.isNotEmpty)
@@ -908,7 +973,10 @@ class _ReceiptWidget extends StatelessWidget {
               alignment: Alignment.centerLeft,
               child: Text(
                 'Customer: $customerName',
-                style: const TextStyle(fontSize: 12, color: sub),
+                style: TextStyle(
+                  fontSize: context.getRFontSize(12),
+                  color: sub,
+                ), // RESPONSIVE
               ),
             ),
           if (cashReceived != null) ...[
@@ -916,49 +984,63 @@ class _ReceiptWidget extends StatelessWidget {
               alignment: Alignment.centerLeft,
               child: Text(
                 'Cash Received: ₦${fmtNumber(cashReceived!.toInt())}',
-                style: const TextStyle(fontSize: 12, color: sub),
+                style: TextStyle(
+                  fontSize: context.getRFontSize(12),
+                  color: sub,
+                ), // RESPONSIVE
               ),
             ),
             Align(
               alignment: Alignment.centerLeft,
               child: Text(
                 'Remainder: ₦${fmtNumber((total - cashReceived!).clamp(0, total).toInt())}',
-                style: const TextStyle(fontSize: 12, color: sub),
+                style: TextStyle(
+                  fontSize: context.getRFontSize(12),
+                  color: sub,
+                ), // RESPONSIVE
               ),
             ),
           ],
 
-          const SizedBox(height: 24),
-          const Text(
+          SizedBox(height: context.getRSize(24)), // RESPONSIVE
+          Text(
             'Thank you for your patronage!',
             style: TextStyle(
-              fontSize: 13,
+              fontSize: context.getRFontSize(13), // RESPONSIVE
               fontWeight: FontWeight.w600,
               fontStyle: FontStyle.italic,
               color: sub,
             ),
           ),
-          const SizedBox(height: 4),
-          const Text(
+          SizedBox(height: context.getRSize(4)), // RESPONSIVE
+          Text(
             'Powered by BrewFlow',
-            style: TextStyle(fontSize: 10, color: sub),
+            style: TextStyle(
+              fontSize: context.getRFontSize(10),
+              color: sub,
+            ), // RESPONSIVE
           ),
         ],
       ),
     );
   }
 
-  Widget _infoRow(String label, double value, Color col) {
+  Widget _infoRow(BuildContext context, String label, double value, Color col) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
+      padding: EdgeInsets.symmetric(
+        vertical: context.getRSize(2),
+      ), // RESPONSIVE
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: TextStyle(fontSize: 13, color: col)),
+          Text(
+            label,
+            style: TextStyle(fontSize: context.getRFontSize(13), color: col),
+          ), // RESPONSIVE
           Text(
             '₦${fmtNumber(value.toInt())}',
             style: TextStyle(
-              fontSize: 13,
+              fontSize: context.getRFontSize(13), // RESPONSIVE
               fontWeight: FontWeight.w600,
               color: col,
             ),

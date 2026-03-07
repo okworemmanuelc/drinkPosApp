@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/theme_notifier.dart';
+import '../../core/utils/responsive.dart'; // Added ResponsiveHelper
 
 class AppDrawer extends StatelessWidget {
   // Pass 'pos' or 'inventory' to highlight the correct nav item
@@ -24,19 +25,27 @@ class AppDrawer extends StatelessWidget {
         backgroundColor: _surface,
         child: Column(
           children: [
-            _buildHeader(),
+            _buildHeader(context),
             Expanded(child: _buildNavList(context)),
-            _buildLogout(),
+            SafeArea(
+              top: false,
+              child: _buildLogout(context),
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildHeader() {
+  Widget _buildHeader(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(20, 60, 20, 28),
+      padding: EdgeInsets.fromLTRB(
+        context.getRSize(20),
+        context.getRSize(60),
+        context.getRSize(20),
+        context.getRSize(28),
+      ),
       decoration: const BoxDecoration(
         gradient: LinearGradient(
           colors: [Color(0xFF0F172A), blueDark],
@@ -48,39 +57,42 @@ class AppDrawer extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            padding: const EdgeInsets.all(12),
+            padding: EdgeInsets.all(context.getRSize(12)),
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(14),
               border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
             ),
-            child: const Icon(
+            child: Icon(
               FontAwesomeIcons.user,
               color: Colors.white,
-              size: 26,
+              size: context.getRSize(26), // Responsive icon
             ),
           ),
-          const SizedBox(height: 16),
-          const Text(
+          SizedBox(height: context.getRSize(16)),
+          Text(
             'John Cashier',
             style: TextStyle(
               color: Colors.white,
-              fontSize: 18,
+              fontSize: context.getRFontSize(18), // Responsive font
               fontWeight: FontWeight.bold,
             ),
           ),
-          const SizedBox(height: 4),
+          SizedBox(height: context.getRSize(4)),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            padding: EdgeInsets.symmetric(
+              horizontal: context.getRSize(10),
+              vertical: context.getRSize(4),
+            ),
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(20),
             ),
-            child: const Text(
+            child: Text(
               'Terminal 01',
               style: TextStyle(
                 color: Colors.white,
-                fontSize: 12,
+                fontSize: context.getRFontSize(12),
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -92,7 +104,10 @@ class AppDrawer extends StatelessWidget {
 
   Widget _buildNavList(BuildContext context) {
     return ListView(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+      padding: EdgeInsets.symmetric(
+        horizontal: context.getRSize(12),
+        vertical: context.getRSize(16),
+      ),
       children: [
         _navItem(
           context,
@@ -110,10 +125,10 @@ class AppDrawer extends StatelessWidget {
         ),
         _navItem(context, FontAwesomeIcons.truckFast, 'Deliveries'),
         _navItem(context, FontAwesomeIcons.users, 'Customers'),
-        const SizedBox(height: 12),
+        SizedBox(height: context.getRSize(12)),
         Divider(color: _border),
-        const SizedBox(height: 12),
-        _buildThemeToggle(),
+        SizedBox(height: context.getRSize(12)),
+        _buildThemeToggle(context),
       ],
     );
   }
@@ -146,7 +161,7 @@ class AppDrawer extends StatelessWidget {
     VoidCallback? onTap,
   }) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 6),
+      margin: EdgeInsets.only(bottom: context.getRSize(6)),
       child: Material(
         color: active ? blueMain.withValues(alpha: 0.1) : Colors.transparent,
         borderRadius: BorderRadius.circular(14),
@@ -154,36 +169,43 @@ class AppDrawer extends StatelessWidget {
           borderRadius: BorderRadius.circular(14),
           onTap: onTap ?? () {},
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            padding: EdgeInsets.symmetric(
+              horizontal: context.getRSize(16),
+              vertical: context.getRSize(12),
+            ),
             child: Row(
               children: [
                 Container(
-                  width: 36,
-                  height: 36,
+                  width: context.getRSize(36),
+                  height: context.getRSize(36),
                   decoration: BoxDecoration(
                     color: active ? blueMain.withValues(alpha: 0.2) : _cardCol,
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Icon(
                     icon,
-                    size: 16,
+                    size: context.getRSize(16),
                     color: active ? blueMain : _subtext,
                   ),
                 ),
-                const SizedBox(width: 14),
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontWeight: active ? FontWeight.bold : FontWeight.w600,
-                    fontSize: 14.5,
-                    color: active ? blueMain : _text,
+                SizedBox(width: context.getRSize(14)),
+                Expanded(
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      fontWeight: active ? FontWeight.bold : FontWeight.w600,
+                      fontSize: context.getRFontSize(14.5),
+                      color: active ? blueMain : _text,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 if (active) ...[
-                  const Spacer(),
+                  SizedBox(width: context.getRSize(8)),
                   Container(
-                    width: 6,
-                    height: 6,
+                    width: context.getRSize(6),
+                    height: context.getRSize(6),
                     decoration: const BoxDecoration(
                       color: blueMain,
                       shape: BoxShape.circle,
@@ -198,7 +220,7 @@ class AppDrawer extends StatelessWidget {
     );
   }
 
-  Widget _buildThemeToggle() {
+  Widget _buildThemeToggle(BuildContext context) {
     return ValueListenableBuilder<ThemeMode>(
       valueListenable: themeNotifier,
       builder: (_, mode, _) {
@@ -207,12 +229,15 @@ class AppDrawer extends StatelessWidget {
           onTap: () =>
               themeNotifier.value = dark ? ThemeMode.light : ThemeMode.dark,
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            padding: EdgeInsets.symmetric(
+              horizontal: context.getRSize(16),
+              vertical: context.getRSize(12),
+            ),
             child: Row(
               children: [
                 Container(
-                  width: 36,
-                  height: 36,
+                  width: context.getRSize(36),
+                  height: context.getRSize(36),
                   decoration: BoxDecoration(
                     color: dark
                         ? const Color(0xFF1E293B)
@@ -221,26 +246,28 @@ class AppDrawer extends StatelessWidget {
                   ),
                   child: Icon(
                     dark ? FontAwesomeIcons.moon : FontAwesomeIcons.sun,
-                    size: 16,
+                    size: context.getRSize(16),
                     color: blueMain,
                   ),
                 ),
-                const SizedBox(width: 14),
+                SizedBox(width: context.getRSize(14)),
                 Expanded(
                   child: Text(
                     'Dark Mode',
                     style: TextStyle(
                       fontWeight: FontWeight.w600,
-                      fontSize: 14.5,
+                      fontSize: context.getRFontSize(14.5),
                       color: _text,
                     ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
-                  width: 44,
-                  height: 24,
-                  padding: const EdgeInsets.all(3),
+                  width: context.getRSize(44),
+                  height: context.getRSize(24),
+                  padding: EdgeInsets.all(context.getRSize(3)),
                   decoration: BoxDecoration(
                     color: dark ? blueMain : _border,
                     borderRadius: BorderRadius.circular(12),
@@ -251,8 +278,8 @@ class AppDrawer extends StatelessWidget {
                         ? Alignment.centerRight
                         : Alignment.centerLeft,
                     child: Container(
-                      width: 18,
-                      height: 18,
+                      width: context.getRSize(18),
+                      height: context.getRSize(18),
                       decoration: const BoxDecoration(
                         color: Colors.white,
                         shape: BoxShape.circle,
@@ -268,11 +295,11 @@ class AppDrawer extends StatelessWidget {
     );
   }
 
-  Widget _buildLogout() {
+  Widget _buildLogout(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(context.getRSize(16)),
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 14),
+        padding: EdgeInsets.symmetric(vertical: context.getRSize(14)),
         decoration: BoxDecoration(
           color: danger.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(14),
@@ -280,16 +307,18 @@ class AppDrawer extends StatelessWidget {
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
-          children: const [
-            Icon(FontAwesomeIcons.rightFromBracket, color: danger, size: 16),
-            SizedBox(width: 10),
+          children: [
+            Icon(FontAwesomeIcons.rightFromBracket, color: danger, size: context.getRSize(16)),
+            SizedBox(width: context.getRSize(10)),
             Text(
               'Logout',
               style: TextStyle(
                 color: danger,
                 fontWeight: FontWeight.bold,
-                fontSize: 14,
+                fontSize: context.getRFontSize(14),
               ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),
