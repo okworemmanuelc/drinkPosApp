@@ -166,7 +166,18 @@ class ThermalReceiptService {
     bytes += generator.text('');
 
     // --- 6. BARCODE ---
-    bytes += generator.barcode(Barcode.code128([...orderId.codeUnits]));
+    // ESC/POS Code 128 explicitly requires a subset control character to define the encoding type.
+    // {B (123, 66) specifies Subset B which accepts all ascii chars.
+    final List<int> barcodeData = [123, 66, ...orderId.codeUnits];
+    bytes += generator.barcode(
+      Barcode.code128(barcodeData),
+      textPos: BarcodeText.none,
+    );
+    // Explicitly print the unformatted number below the barcode
+    bytes += generator.text(
+      orderId,
+      styles: const PosStyles(align: PosAlign.center),
+    );
     bytes += generator.text('');
 
     // --- 7. FOOTER ---
