@@ -120,7 +120,13 @@ class AppDrawer extends StatelessWidget {
           active: activeRoute == 'inventory',
           onTap: () => _navigateTo(context, 'inventory'),
         ),
-        _navItem(context, FontAwesomeIcons.truckFast, 'Deliveries'),
+        _navItem(
+          context,
+          FontAwesomeIcons.truckFast,
+          'Deliveries',
+          active: activeRoute == 'deliveries',
+          onTap: () => _navigateTo(context, 'deliveries'),
+        ),
         _navItem(
           context,
           FontAwesomeIcons.users,
@@ -165,6 +171,12 @@ class AppDrawer extends StatelessWidget {
       Navigator.of(
         context,
       ).push(MaterialPageRoute(builder: (_) => const _CustomersScreenProxy()));
+    }
+
+    if (route == 'deliveries') {
+      Navigator.of(
+        context,
+      ).push(MaterialPageRoute(builder: (_) => const _DeliveriesScreenProxy()));
     }
 
     if (route == 'inventory') {
@@ -428,4 +440,24 @@ Widget Function() _customersScreenBuilder = () => const Scaffold(
 /// Call this once from main.dart to register the real CustomersScreen.
 void registerCustomersScreen(Widget Function() builder) {
   _customersScreenBuilder = builder;
+}
+
+// ── Proxy widget for DeliveriesScreen ─────────────────────────────────────────
+class _DeliveriesScreenProxy extends StatelessWidget {
+  const _DeliveriesScreenProxy();
+
+  @override
+  Widget build(BuildContext context) {
+    return _deliveriesScreenBuilder();
+  }
+}
+
+// Default: shows a placeholder until wired up in main.dart
+Widget Function() _deliveriesScreenBuilder = () => const Scaffold(
+  body: Center(child: Text('Deliveries screen not registered yet')),
+);
+
+/// Call this once from main.dart to register the real DeliveriesScreen.
+void registerDeliveriesScreen(Widget Function() builder) {
+  _deliveriesScreenBuilder = builder;
 }

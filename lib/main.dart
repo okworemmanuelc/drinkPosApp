@@ -8,6 +8,7 @@ import 'features/pos/screens/pos_home_screen.dart';
 import 'shared/widgets/app_drawer.dart';
 import 'shared/widgets/activity_log_screen.dart';
 import 'features/customers/screens/customers_screen.dart';
+import 'features/deliveries/screens/deliveries_screen.dart';
 
 void main() {
   SystemChrome.setSystemUIOverlayStyle(
@@ -23,6 +24,9 @@ void main() {
 
   // Wire up CustomersScreen to AppDrawer proxy
   registerCustomersScreen(() => const CustomersScreen());
+
+  // Wire up DeliveriesScreen to AppDrawer proxy
+  registerDeliveriesScreen(() => const DeliveriesScreen());
 
   runApp(const BrewFlowApp());
 }

@@ -1,25 +1,32 @@
 import 'package:flutter/material.dart';
+import 'package:barcode_widget/barcode_widget.dart';
 import '../../core/utils/responsive.dart';
 import '../../core/utils/number_format.dart';
 import '../../core/theme/colors.dart';
 
 class ReceiptWidget extends StatelessWidget {
+  final String orderId;
   final List<Map<String, dynamic>> cart;
   final double subtotal;
   final double crateDeposit;
   final double total;
   final String paymentMethod;
   final String? customerName;
+  final String? customerAddress;
+  final String? customerPhone;
   final double? cashReceived;
 
   const ReceiptWidget({
     super.key,
+    required this.orderId,
     required this.cart,
     required this.subtotal,
     required this.crateDeposit,
     required this.total,
     required this.paymentMethod,
     this.customerName,
+    this.customerAddress,
+    this.customerPhone,
     this.cashReceived,
   });
 
@@ -60,12 +67,40 @@ class ReceiptWidget extends StatelessWidget {
             'Sales Receipt',
             style: TextStyle(fontSize: context.getRFontSize(12), color: sub),
           ),
-          SizedBox(height: context.getRSize(4)),
-          Text(
-            _formatDate(DateTime.now()),
-            style: TextStyle(fontSize: context.getRFontSize(11), color: sub),
-          ),
           SizedBox(height: context.getRSize(16)),
+          Container(height: 1, color: divCol),
+          SizedBox(height: context.getRSize(12)),
+
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              (customerName != null && customerName!.isNotEmpty)
+                  ? [
+                      customerName!,
+                      if (customerAddress != null &&
+                          customerAddress!.isNotEmpty)
+                        customerAddress!,
+                      if (customerPhone != null && customerPhone!.isNotEmpty)
+                        customerPhone!,
+                    ].join('\n')
+                  : 'Walk-in Customer',
+              style: TextStyle(
+                fontSize: context.getRFontSize(13),
+                fontWeight: FontWeight.bold,
+                color: textCol,
+              ),
+            ),
+          ),
+          SizedBox(height: context.getRSize(8)),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              'Order: #$orderId\nDate: ${_formatDate(DateTime.now())}',
+              style: TextStyle(fontSize: context.getRFontSize(12), color: sub),
+            ),
+          ),
+
+          SizedBox(height: context.getRSize(12)),
           Container(height: 1, color: divCol),
           SizedBox(height: context.getRSize(12)),
 
@@ -139,28 +174,22 @@ class ReceiptWidget extends StatelessWidget {
           Align(
             alignment: Alignment.centerLeft,
             child: Text(
-              'Payment: $paymentMethod',
-              style: TextStyle(fontSize: context.getRFontSize(12), color: sub),
+              'Payment Method: $paymentMethod',
+              style: TextStyle(
+                fontSize: context.getRFontSize(13),
+                fontWeight: FontWeight.w600,
+                color: textCol,
+              ),
             ),
           ),
-          if (customerName != null && customerName!.isNotEmpty)
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                'Customer: $customerName',
-                style: TextStyle(
-                  fontSize: context.getRFontSize(12),
-                  color: sub,
-                ),
-              ),
-            ),
           if (cashReceived != null) ...[
+            SizedBox(height: context.getRSize(4)),
             Align(
               alignment: Alignment.centerLeft,
               child: Text(
-                'Cash Received: ₦${fmtNumber(cashReceived!.toInt())}',
+                'Amount Paid: ₦${fmtNumber(cashReceived!.toInt())}',
                 style: TextStyle(
-                  fontSize: context.getRFontSize(12),
+                  fontSize: context.getRFontSize(13),
                   color: sub,
                 ),
               ),
@@ -168,9 +197,53 @@ class ReceiptWidget extends StatelessWidget {
             Align(
               alignment: Alignment.centerLeft,
               child: Text(
-                'Remainder: ₦${fmtNumber((total - cashReceived!).clamp(0, total).toInt())}',
+                'Balance: ₦${fmtNumber((total - cashReceived!).clamp(0, total).toInt())}',
                 style: TextStyle(
-                  fontSize: context.getRFontSize(12),
+                  fontSize: context.getRFontSize(13),
+                  color: sub,
+                ),
+              ),
+            ),
+          ] else if (paymentMethod == 'Register as Credit Sale') ...[
+            SizedBox(height: context.getRSize(4)),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Amount Paid: ₦0',
+                style: TextStyle(
+                  fontSize: context.getRFontSize(13),
+                  color: sub,
+                ),
+              ),
+            ),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Balance: ₦${fmtNumber(total.toInt())}',
+                style: TextStyle(
+                  fontSize: context.getRFontSize(13),
+                  color: sub,
+                ),
+              ),
+            ),
+          ] else ...[
+            SizedBox(height: context.getRSize(4)),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Amount Paid: ₦${fmtNumber(total.toInt())}',
+                style: TextStyle(
+                  fontSize: context.getRFontSize(13),
+                  color: sub,
+                ),
+              ),
+            ),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Balance: ₦0',
+                style: TextStyle(
+                  fontSize: context.getRFontSize(13),
                   color: sub,
                 ),
               ),
@@ -178,6 +251,18 @@ class ReceiptWidget extends StatelessWidget {
           ],
 
           SizedBox(height: context.getRSize(24)),
+          BarcodeWidget(
+            barcode: Barcode.code128(),
+            data: orderId,
+            width: context.getRSize(200),
+            height: context.getRSize(60),
+            style: TextStyle(
+              fontSize: context.getRFontSize(12),
+              color: textCol,
+            ),
+          ),
+          SizedBox(height: context.getRSize(24)),
+
           Text(
             'Thank you for your patronage!',
             style: TextStyle(

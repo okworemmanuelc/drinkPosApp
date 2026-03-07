@@ -742,12 +742,15 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                   child: SingleChildScrollView(
                     padding: EdgeInsets.all(modalCtx.getRSize(20)),
                     child: ReceiptWidget(
+                      orderId: order.id,
                       cart: order.cart,
                       subtotal: order.subtotal,
                       crateDeposit: order.crateDeposit,
                       total: order.total,
                       paymentMethod: order.paymentMethod,
                       customerName: order.customerName,
+                      customerAddress: _customer?.addressText,
+                      customerPhone: _customer?.phone,
                       cashReceived: order.cashReceived,
                     ),
                   ),

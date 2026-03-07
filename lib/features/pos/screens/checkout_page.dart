@@ -18,7 +18,11 @@ import '../../../shared/widgets/receipt_widget.dart';
 import '../../../core/utils/responsive.dart';
 import '../services/receipt_builder.dart';
 import '../../customers/data/models/customer.dart';
+import '../../customers/data/services/customer_service.dart';
+import '../../../shared/services/activity_log_service.dart';
 import '../../inventory/data/inventory_data.dart';
+import '../../../shared/models/delivery.dart';
+import '../../../shared/services/delivery_service.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CheckoutPage — shown after "Proceed to Checkout" in the cart.
@@ -44,14 +48,23 @@ class CheckoutPage extends StatefulWidget {
   State<CheckoutPage> createState() => _CheckoutPageState();
 }
 
-enum PaymentType { fullCash, partialCash, card, credit }
+/// 3 payment methods:
+/// - fullCash  → full amount paid now (cash or card), no balance added
+/// - partialCash → partial payment, remainder added to customer balance
+/// - credit    → full amount added to customer balance (disabled for walk-in)
+enum PaymentType { fullCash, partialCash, credit }
 
 class _CheckoutPageState extends State<CheckoutPage> {
   PaymentType _paymentType = PaymentType.fullCash;
   final TextEditingController _cashReceivedCtrl = TextEditingController();
-  final TextEditingController _customerNameCtrl = TextEditingController();
   final ScreenshotController _screenshotCtrl = ScreenshotController();
   bool _paymentConfirmed = false;
+
+  // Computed on confirm — passed to receipt
+  double _amountPaid = 0;
+  String _currentOrderId = '';
+
+  bool get _isWalkIn => widget.customer == null;
 
   bool get _isDark => themeNotifier.value == ThemeMode.dark;
   Color get _bg => _isDark ? dBg : lBg;
@@ -64,7 +77,6 @@ class _CheckoutPageState extends State<CheckoutPage> {
   @override
   void dispose() {
     _cashReceivedCtrl.dispose();
-    _customerNameCtrl.dispose();
     super.dispose();
   }
 
@@ -72,22 +84,28 @@ class _CheckoutPageState extends State<CheckoutPage> {
   String get _paymentLabel {
     switch (_paymentType) {
       case PaymentType.fullCash:
-        return 'Full Cash';
+        return 'Full Cash / Card';
       case PaymentType.partialCash:
-        return 'Partial Cash';
-      case PaymentType.card:
-        return 'Card';
+        return 'Partial Cash / Card';
       case PaymentType.credit:
         return 'Credit Sale';
     }
   }
+
+  String get _customerDisplayName =>
+      widget.customer?.name ?? 'Walk-in Customer';
+
+  double get _cashReceivedValue => double.tryParse(_cashReceivedCtrl.text) ?? 0;
+
+  double get _partialRemaining =>
+      (widget.total - _cashReceivedValue).clamp(0, widget.total);
 
   // ── build ──────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     return ValueListenableBuilder<ThemeMode>(
       valueListenable: themeNotifier,
-      builder: (_, _, _) => Scaffold(
+      builder: (_, __, ___) => Scaffold(
         backgroundColor: _bg,
         appBar: AppBar(
           backgroundColor: _surface,
@@ -97,13 +115,13 @@ class _CheckoutPageState extends State<CheckoutPage> {
               Icons.arrow_back_ios_new,
               size: context.getRSize(20),
               color: _text,
-            ), // RESPONSIVE
+            ),
             onPressed: () => Navigator.pop(context),
           ),
           title: Text(
             _paymentConfirmed ? 'Receipt' : 'Checkout',
             style: TextStyle(
-              fontSize: context.getRFontSize(18), // RESPONSIVE
+              fontSize: context.getRFontSize(18),
               fontWeight: FontWeight.w800,
               color: _text,
             ),
@@ -128,13 +146,13 @@ class _CheckoutPageState extends State<CheckoutPage> {
         context.getRSize(20),
         context.getRSize(20),
         context.getRSize(40),
-      ), // RESPONSIVE
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // ── Order Summary ─────────────────────────────────────────────
           _sectionLabel('Order Summary'),
-          SizedBox(height: context.getRSize(12)), // RESPONSIVE
+          SizedBox(height: context.getRSize(12)),
           Container(
             decoration: BoxDecoration(
               color: _surface,
@@ -153,67 +171,174 @@ class _CheckoutPageState extends State<CheckoutPage> {
             ),
           ),
 
-          SizedBox(height: context.getRSize(28)), // RESPONSIVE
-          // ── Payment Type ──────────────────────────────────────────────
+          SizedBox(height: context.getRSize(28)),
+          // ── Customer Info ─────────────────────────────────────────────
+          _sectionLabel('Customer'),
+          SizedBox(height: context.getRSize(12)),
+          Container(
+            padding: EdgeInsets.all(context.getRSize(14)),
+            decoration: BoxDecoration(
+              color: _surface,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: _border),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: EdgeInsets.all(context.getRSize(10)),
+                  decoration: BoxDecoration(
+                    color: blueMain.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(
+                    _isWalkIn
+                        ? FontAwesomeIcons.userTag
+                        : FontAwesomeIcons.user,
+                    size: context.getRSize(16),
+                    color: blueMain,
+                  ),
+                ),
+                SizedBox(width: context.getRSize(14)),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _customerDisplayName,
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: context.getRFontSize(14),
+                          color: _text,
+                        ),
+                      ),
+                      if (!_isWalkIn) ...[
+                        SizedBox(height: context.getRSize(2)),
+                        Text(
+                          'Balance: ₦${fmtNumber(widget.customer!.outstandingBalance.abs().toInt())} ${widget.customer!.outstandingBalance < 0
+                              ? "(overdue)"
+                              : widget.customer!.outstandingBalance > 0
+                              ? "(credit)"
+                              : "(clear)"}',
+                          style: TextStyle(
+                            fontSize: context.getRFontSize(12),
+                            color: widget.customer!.outstandingBalance < 0
+                                ? danger
+                                : widget.customer!.outstandingBalance > 0
+                                ? success
+                                : _subtext,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          SizedBox(height: context.getRSize(28)),
+          // ── Payment Method ────────────────────────────────────────────
           _sectionLabel('Payment Method'),
-          SizedBox(height: context.getRSize(12)), // RESPONSIVE
+          SizedBox(height: context.getRSize(12)),
+
+          // 1. Full Cash / Card
           _paymentOption(
             PaymentType.fullCash,
-            'Full Cash Payment',
+            'Full Cash / Card Payment',
+            'Full amount paid now — no balance added',
             FontAwesomeIcons.moneyBill,
           ),
+
+          // 2. Partial Cash / Card
           _paymentOption(
             PaymentType.partialCash,
-            'Partial Cash Payment',
+            'Partial Cash / Card Payment',
+            'Enter amount paid — remainder added to balance',
             FontAwesomeIcons.moneyBillTransfer,
           ),
-          _paymentOption(
-            PaymentType.card,
-            'Card Payment',
-            FontAwesomeIcons.creditCard,
-          ),
+
+          // Partial amount input + live remaining
+          if (_paymentType == PaymentType.partialCash) ...[
+            SizedBox(height: context.getRSize(16)),
+            _inputField(
+              'Amount Paid Now',
+              _cashReceivedCtrl,
+              '₦ Enter amount',
+              isNumber: true,
+            ),
+            SizedBox(height: context.getRSize(10)),
+            Container(
+              padding: EdgeInsets.symmetric(
+                horizontal: context.getRSize(16),
+                vertical: context.getRSize(12),
+              ),
+              decoration: BoxDecoration(
+                color: blueMain.withValues(alpha: 0.07),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: blueMain.withValues(alpha: 0.2)),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Remaining Balance',
+                    style: TextStyle(
+                      fontSize: context.getRFontSize(13),
+                      fontWeight: FontWeight.w700,
+                      color: _text,
+                    ),
+                  ),
+                  Text(
+                    '₦${fmtNumber(_partialRemaining.toInt())}',
+                    style: TextStyle(
+                      fontSize: context.getRFontSize(15),
+                      fontWeight: FontWeight.w800,
+                      color: blueMain,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            SizedBox(height: context.getRSize(4)),
+            if (!_isWalkIn)
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: context.getRSize(4)),
+                child: Text(
+                  'Remaining will be added to ${widget.customer!.name}\'s balance',
+                  style: TextStyle(
+                    fontSize: context.getRFontSize(12),
+                    color: _subtext,
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              ),
+            if (_isWalkIn)
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: context.getRSize(4)),
+                child: Text(
+                  'Remaining will appear on the receipt only (Walk-in)',
+                  style: TextStyle(
+                    fontSize: context.getRFontSize(12),
+                    color: _subtext,
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              ),
+          ],
+
+          // 3. Credit Sale — disabled for walk-in
           _paymentOption(
             PaymentType.credit,
             'Register as Credit Sale',
+            _isWalkIn
+                ? 'Not available for Walk-in customers'
+                : 'Full amount added to customer\'s outstanding balance',
             FontAwesomeIcons.fileInvoiceDollar,
+            disabled: _isWalkIn,
           ),
 
-          // ── Conditional fields ────────────────────────────────────────
-          if (_paymentType == PaymentType.partialCash) ...[
-            SizedBox(height: context.getRSize(16)), // RESPONSIVE
-            _inputField(
-              'Cash Received',
-              _cashReceivedCtrl,
-              '₦ Amount received in cash',
-              isNumber: true,
-            ),
-            SizedBox(height: context.getRSize(8)), // RESPONSIVE
-            Builder(
-              builder: (_) {
-                final cash = double.tryParse(_cashReceivedCtrl.text) ?? 0;
-                final remainder = (widget.total - cash).clamp(0, widget.total);
-                return Text(
-                  'Remainder (card/credit): ₦${fmtNumber(remainder.toInt())}',
-                  style: TextStyle(
-                    fontSize: context.getRFontSize(13), // RESPONSIVE
-                    color: blueMain,
-                    fontWeight: FontWeight.w600,
-                  ),
-                );
-              },
-            ),
-          ],
-
-          if (_paymentType == PaymentType.credit) ...[
-            SizedBox(height: context.getRSize(16)), // RESPONSIVE
-            _inputField(
-              'Customer Name / Account',
-              _customerNameCtrl,
-              'Enter customer name',
-            ),
-          ],
-
-          SizedBox(height: context.getRSize(32)), // RESPONSIVE
+          SizedBox(height: context.getRSize(32)),
           // ── Confirm button ────────────────────────────────────────────
           GestureDetector(
             onTap: _confirmPayment,
@@ -261,60 +386,113 @@ class _CheckoutPageState extends State<CheckoutPage> {
     );
   }
 
+  // ── Confirm payment logic ──────────────────────────────────────────────────
   void _confirmPayment() {
-    // basic validation
-    if (_paymentType == PaymentType.credit &&
-        _customerNameCtrl.text.trim().isEmpty) {
+    // Validation
+    if (_paymentType == PaymentType.partialCash && _cashReceivedValue <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a customer name')),
-      );
-      return;
-    }
-    if (_paymentType == PaymentType.partialCash &&
-        (double.tryParse(_cashReceivedCtrl.text) ?? 0) <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter the cash amount received')),
+        const SnackBar(content: Text('Please enter the amount paid')),
       );
       return;
     }
 
-    // Process Inventory Deduction
-    for (var item in widget.cart) {
+    // Compute amounts
+    double amountPaid;
+    double remaining;
+
+    switch (_paymentType) {
+      case PaymentType.fullCash:
+        amountPaid = widget.total;
+        remaining = 0;
+        break;
+      case PaymentType.partialCash:
+        amountPaid = _cashReceivedValue;
+        remaining = _partialRemaining;
+        break;
+      case PaymentType.credit:
+        amountPaid = 0;
+        remaining = widget.total;
+        break;
+    }
+
+    // ── Inventory deduction ───────────────────────────────────────────
+    for (final item in widget.cart) {
       final name = item['name'] as String;
       final qty = item['qty'] as double;
-
-      final inventoryIndex = kInventoryItems.indexWhere(
-        (inv) => inv.productName == name,
-      );
-
-      if (inventoryIndex != -1) {
-        kInventoryItems[inventoryIndex].stock -= qty;
-        if (kInventoryItems[inventoryIndex].stock < 0) {
-          kInventoryItems[inventoryIndex].stock = 0; // Safeguard
+      final idx = kInventoryItems.indexWhere((inv) => inv.productName == name);
+      if (idx != -1) {
+        kInventoryItems[idx].stock -= qty;
+        if (kInventoryItems[idx].stock < 0) {
+          kInventoryItems[idx].stock = 0;
         }
       }
     }
 
+    // ── Customer balance mutation ─────────────────────────────────────
+    if (!_isWalkIn && remaining > 0) {
+      final customer = widget.customer!;
+      final updatedCustomer = customer.copyWith(
+        outstandingBalance: customer.outstandingBalance - remaining,
+      );
+      customerService.updateCustomer(updatedCustomer);
+    }
+
+    // ── Create & store order ──────────────────────────────────────────
+    final orderId = DateTime.now().millisecondsSinceEpoch.toString();
     final order = Order(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      customerId:
-          null, // Basic checkout page doesn't currently select Customer ID
-      customerName: _paymentType == PaymentType.credit
-          ? _customerNameCtrl.text.trim()
-          : null,
+      id: orderId,
+      customerId: widget.customer?.id,
+      customerName: _customerDisplayName,
       timestamp: DateTime.now(),
       cart: widget.cart,
       subtotal: widget.subtotal,
       crateDeposit: widget.crateDeposit,
       total: widget.total,
       paymentMethod: _paymentLabel,
-      cashReceived: _paymentType == PaymentType.partialCash
-          ? double.tryParse(_cashReceivedCtrl.text)
-          : null,
+      cashReceived: _paymentType == PaymentType.partialCash ? amountPaid : null,
     );
     orderService.addOrder(order);
 
-    setState(() => _paymentConfirmed = true);
+    // ── Create & store delivery ───────────────────────────────────────
+    final delivery = Delivery(
+      id: orderId,
+      customerId: widget.customer?.id,
+      customerName: _customerDisplayName,
+      customerAddress: widget.customer?.addressText ?? 'N/A',
+      items: widget.cart,
+      totalAmount: widget.total,
+      amountPaid: amountPaid,
+      balance: remaining,
+      paymentMethod: _paymentLabel,
+      status: 'pending',
+      createdAt: DateTime.now(),
+      receiptBarcode: orderId,
+    );
+    deliveryService.addDelivery(delivery);
+
+    // ── Activity log ──────────────────────────────────────────────────
+    activityLogService.logAction(
+      'Sale Completed',
+      'Order $orderId completed for $_customerDisplayName. '
+          'Method: $_paymentLabel. '
+          'Amount paid: ₦${fmtNumber(amountPaid.toInt())}. '
+          'Balance: ₦${fmtNumber(remaining.toInt())}',
+      relatedEntityId: widget.customer?.id,
+      relatedEntityType: 'customer',
+    );
+    activityLogService.logAction(
+      'Order Dispatched',
+      'Order $orderId for $_customerDisplayName added to pending deliveries',
+      relatedEntityId: delivery.id,
+      relatedEntityType: 'delivery',
+    );
+
+    // ── Store for receipt display ─────────────────────────────────────
+    setState(() {
+      _amountPaid = amountPaid;
+      _paymentConfirmed = true;
+      _currentOrderId = orderId;
+    });
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -325,20 +503,21 @@ class _CheckoutPageState extends State<CheckoutPage> {
       children: [
         Expanded(
           child: SingleChildScrollView(
-            padding: EdgeInsets.all(context.getRSize(20)), // RESPONSIVE
+            padding: EdgeInsets.all(context.getRSize(20)),
             child: Screenshot(
               controller: _screenshotCtrl,
               child: ReceiptWidget(
+                orderId: _currentOrderId,
                 cart: widget.cart,
                 subtotal: widget.subtotal,
                 crateDeposit: widget.crateDeposit,
                 total: widget.total,
                 paymentMethod: _paymentLabel,
-                customerName: _paymentType == PaymentType.credit
-                    ? _customerNameCtrl.text.trim()
-                    : null,
+                customerName: _customerDisplayName,
+                customerAddress: widget.customer?.addressText,
+                customerPhone: widget.customer?.phone,
                 cashReceived: _paymentType == PaymentType.partialCash
-                    ? double.tryParse(_cashReceivedCtrl.text)
+                    ? _amountPaid
                     : null,
               ),
             ),
@@ -356,7 +535,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
         context.getRSize(16),
         context.getRSize(20),
         context.getRSize(32),
-      ), // RESPONSIVE
+      ),
       decoration: BoxDecoration(
         color: _surface,
         border: Border(top: BorderSide(color: _border)),
@@ -366,12 +545,12 @@ class _CheckoutPageState extends State<CheckoutPage> {
           Text(
             'Receipt Options',
             style: TextStyle(
-              fontSize: context.getRFontSize(16), // RESPONSIVE
+              fontSize: context.getRFontSize(16),
               fontWeight: FontWeight.bold,
               color: _text,
             ),
           ),
-          SizedBox(height: context.getRSize(16)), // RESPONSIVE
+          SizedBox(height: context.getRSize(16)),
           Row(
             children: [
               Expanded(
@@ -382,7 +561,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                   _printReceipt,
                 ),
               ),
-              SizedBox(width: context.getRSize(12)), // RESPONSIVE
+              SizedBox(width: context.getRSize(12)),
               Expanded(
                 child: _receiptButton(
                   'Share Receipt',
@@ -393,19 +572,18 @@ class _CheckoutPageState extends State<CheckoutPage> {
               ),
             ],
           ),
-          SizedBox(height: context.getRSize(12)), // RESPONSIVE
+          SizedBox(height: context.getRSize(12)),
           SizedBox(
             width: double.infinity,
             child: TextButton(
               onPressed: () {
-                // Pop back to POS screen
                 Navigator.of(context).popUntil((r) => r.isFirst);
               },
               child: Text(
                 'Done — Back to POS',
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
-                  fontSize: context.getRFontSize(14), // RESPONSIVE
+                  fontSize: context.getRFontSize(14),
                   color: blueMain,
                 ),
               ),
@@ -425,9 +603,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: EdgeInsets.symmetric(
-          vertical: context.getRSize(14),
-        ), // RESPONSIVE
+        padding: EdgeInsets.symmetric(vertical: context.getRSize(14)),
         decoration: BoxDecoration(
           color: color.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(14),
@@ -435,12 +611,12 @@ class _CheckoutPageState extends State<CheckoutPage> {
         ),
         child: Column(
           children: [
-            Icon(icon, size: context.getRSize(20), color: color), // RESPONSIVE
-            SizedBox(height: context.getRSize(6)), // RESPONSIVE
+            Icon(icon, size: context.getRSize(20), color: color),
+            SizedBox(height: context.getRSize(6)),
             Text(
               label,
               style: TextStyle(
-                fontSize: context.getRFontSize(11), // RESPONSIVE
+                fontSize: context.getRFontSize(11),
                 fontWeight: FontWeight.bold,
                 color: color,
               ),
@@ -483,7 +659,6 @@ class _CheckoutPageState extends State<CheckoutPage> {
   }
 
   Future<void> _printReceipt() async {
-    // 1. Request Bluetooth permissions first (required on modern Android)
     if (Platform.isAndroid) {
       await [
         Permission.bluetoothScan,
@@ -492,22 +667,66 @@ class _CheckoutPageState extends State<CheckoutPage> {
       ].request();
     }
 
-    // 2. Generate the raw ESC/POS bytes from our new builder
     final List<int> receiptBytes = await ThermalReceiptService.buildReceipt(
+      orderId: _currentOrderId,
       cart: widget.cart,
       subtotal: widget.subtotal,
       crateDeposit: widget.crateDeposit,
       total: widget.total,
       paymentMethod: _paymentLabel,
-      customerName: _paymentType == PaymentType.credit
-          ? _customerNameCtrl.text.trim()
-          : null,
+      customerName: _customerDisplayName,
+      customerAddress: widget.customer?.addressText,
+      customerPhone: widget.customer?.phone,
       cashReceived: _paymentType == PaymentType.partialCash
-          ? double.tryParse(_cashReceivedCtrl.text)
+          ? _amountPaid
           : null,
     );
 
-    // 3. Show bottom sheet to pick the paired Bluetooth Printer
+    if (!mounted) return;
+
+    // Check if already connected
+    bool isConnected = await PrintBluetoothThermal.connectionStatus;
+    if (!mounted) return;
+
+    if (isConnected) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Printing receipt...')));
+      await PrintBluetoothThermal.writeBytes(receiptBytes);
+      return;
+    }
+
+    // Try silent auto-connect to known printer
+    final paired = await PrintBluetoothThermal.pairedBluetooths;
+    final targetPrinters = paired.where((d) {
+      final name = d.name.toLowerCase();
+      return name.contains('bluetooth_mobile_printer') ||
+          name.contains('mp583');
+    }).toList();
+
+    if (targetPrinters.isNotEmpty) {
+      final targetPrinter = targetPrinters.first;
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Connecting to ${targetPrinter.name}...')),
+        );
+      }
+
+      bool autoConnected = await PrintBluetoothThermal.connect(
+        macPrinterAddress: targetPrinter.macAdress,
+      );
+
+      if (!mounted) return;
+
+      if (autoConnected) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Printing receipt...')));
+        await PrintBluetoothThermal.writeBytes(receiptBytes);
+        return;
+      }
+    }
+
     if (!mounted) return;
 
     showModalBottomSheet(
@@ -526,7 +745,16 @@ class _CheckoutPageState extends State<CheckoutPage> {
           child: FutureBuilder<List<BluetoothInfo>>(
             future: PrintBluetoothThermal.pairedBluetooths,
             builder: (c, snapshot) {
-              final devices = snapshot.data ?? [];
+              final allDevices = snapshot.data ?? [];
+              final devices = allDevices.where((d) {
+                final n = d.name.toLowerCase();
+                return n.contains('print') ||
+                    n.contains('pos') ||
+                    n.contains('therma') ||
+                    n.contains('mtp') ||
+                    n.contains('mp583');
+              }).toList();
+
               return Column(
                 children: [
                   Padding(
@@ -571,23 +799,19 @@ class _CheckoutPageState extends State<CheckoutPage> {
                             subtitle: Text(device.macAdress),
                             onTap: () async {
                               Navigator.pop(context);
-
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
                                   content: Text('Connecting to printer...'),
                                 ),
                               );
-
-                              bool isConnected =
+                              bool connected =
                                   await PrintBluetoothThermal.connect(
                                     macPrinterAddress: device.macAdress,
                                   );
-                              if (isConnected) {
+                              if (connected) {
                                 await PrintBluetoothThermal.writeBytes(
                                   receiptBytes,
                                 );
-                                await PrintBluetoothThermal.disconnect;
-
                                 if (!mounted) return;
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
@@ -627,7 +851,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
         fontSize: context.getRFontSize(16),
         fontWeight: FontWeight.w800,
         color: _text,
-      ), // RESPONSIVE
+      ),
     );
   }
 
@@ -638,12 +862,12 @@ class _CheckoutPageState extends State<CheckoutPage> {
       padding: EdgeInsets.symmetric(
         horizontal: context.getRSize(16),
         vertical: context.getRSize(10),
-      ), // RESPONSIVE
+      ),
       child: Row(
         children: [
           Container(
-            width: context.getRSize(38), // RESPONSIVE
-            height: context.getRSize(38), // RESPONSIVE
+            width: context.getRSize(38),
+            height: context.getRSize(38),
             decoration: BoxDecoration(
               color: (item['color'] as Color).withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(10),
@@ -651,12 +875,11 @@ class _CheckoutPageState extends State<CheckoutPage> {
             child: Icon(
               item['icon'] as IconData,
               color: item['color'],
-              size: context.getRSize(18), // RESPONSIVE
+              size: context.getRSize(18),
             ),
           ),
-          SizedBox(width: context.getRSize(12)), // RESPONSIVE
+          SizedBox(width: context.getRSize(12)),
           Expanded(
-            // RESPONSIVE
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -664,7 +887,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                   item['name'],
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
-                    fontSize: context.getRFontSize(14), // RESPONSIVE
+                    fontSize: context.getRFontSize(14),
                     color: _text,
                   ),
                   maxLines: 1,
@@ -675,7 +898,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                   style: TextStyle(
                     fontSize: context.getRFontSize(12),
                     color: _subtext,
-                  ), // RESPONSIVE
+                  ),
                 ),
               ],
             ),
@@ -686,7 +909,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
               '₦${fmtNumber(lineTotal)}',
               style: TextStyle(
                 fontWeight: FontWeight.bold,
-                fontSize: context.getRFontSize(14), // RESPONSIVE
+                fontSize: context.getRFontSize(14),
                 color: _text,
               ),
             ),
@@ -706,14 +929,14 @@ class _CheckoutPageState extends State<CheckoutPage> {
       padding: EdgeInsets.symmetric(
         horizontal: context.getRSize(16),
         vertical: context.getRSize(10),
-      ), // RESPONSIVE
+      ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(
             label,
             style: TextStyle(
-              fontSize: context.getRFontSize(bold ? 16 : 14), // RESPONSIVE
+              fontSize: context.getRFontSize(bold ? 16 : 14),
               fontWeight: bold ? FontWeight.bold : FontWeight.w600,
               color: bold ? _text : _subtext,
             ),
@@ -721,7 +944,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
           Text(
             '₦${fmtNumber(value.toInt())}',
             style: TextStyle(
-              fontSize: context.getRFontSize(bold ? 18 : 14), // RESPONSIVE
+              fontSize: context.getRFontSize(bold ? 18 : 14),
               fontWeight: FontWeight.w800,
               color: accent ? blueMain : _text,
             ),
@@ -731,57 +954,91 @@ class _CheckoutPageState extends State<CheckoutPage> {
     );
   }
 
-  Widget _paymentOption(PaymentType type, String label, IconData icon) {
-    final active = _paymentType == type;
+  /// Payment option tile.
+  /// [disabled] is true for Credit Sale when walk-in customer.
+  Widget _paymentOption(
+    PaymentType type,
+    String label,
+    String subLabel,
+    IconData icon, {
+    bool disabled = false,
+  }) {
+    final active = !disabled && _paymentType == type;
+    final effectiveColor = disabled ? _subtext : (active ? blueMain : _text);
+    final iconColor = disabled ? _subtext : (active ? blueMain : _subtext);
+
     return GestureDetector(
-      onTap: () => setState(() => _paymentType = type),
+      onTap: disabled ? null : () => setState(() => _paymentType = type),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
-        margin: EdgeInsets.only(bottom: context.getRSize(10)), // RESPONSIVE
-        padding: EdgeInsets.all(context.getRSize(14)), // RESPONSIVE
+        margin: EdgeInsets.only(bottom: context.getRSize(10)),
+        padding: EdgeInsets.all(context.getRSize(14)),
         decoration: BoxDecoration(
-          color: active ? blueMain.withValues(alpha: 0.08) : _surface,
+          color: disabled
+              ? _border.withValues(alpha: 0.10)
+              : active
+              ? blueMain.withValues(alpha: 0.08)
+              : _surface,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: active ? blueMain : _border,
+            color: disabled
+                ? _border.withValues(alpha: 0.4)
+                : active
+                ? blueMain
+                : _border,
             width: active ? 2 : 1,
           ),
         ),
         child: Row(
           children: [
             Container(
-              width: context.getRSize(42), // RESPONSIVE
-              height: context.getRSize(42), // RESPONSIVE
+              width: context.getRSize(42),
+              height: context.getRSize(42),
               decoration: BoxDecoration(
-                color: (active ? blueMain : _subtext).withValues(alpha: 0.12),
+                color: iconColor.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(
-                icon,
-                size: context.getRSize(18),
-                color: active ? blueMain : _subtext,
-              ), // RESPONSIVE
+              child: Icon(icon, size: context.getRSize(18), color: iconColor),
             ),
-            SizedBox(width: context.getRSize(14)), // RESPONSIVE
+            SizedBox(width: context.getRSize(14)),
             Expanded(
-              child: Text(
-                label,
-                style: TextStyle(
-                  fontWeight: active ? FontWeight.bold : FontWeight.w600,
-                  fontSize: context.getRFontSize(14), // RESPONSIVE
-                  color: active ? blueMain : _text,
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontWeight: active ? FontWeight.bold : FontWeight.w600,
+                      fontSize: context.getRFontSize(14),
+                      color: effectiveColor,
+                    ),
+                  ),
+                  SizedBox(height: context.getRSize(2)),
+                  Text(
+                    subLabel,
+                    style: TextStyle(
+                      fontSize: context.getRFontSize(12),
+                      color: disabled ? danger : _subtext,
+                      fontStyle: disabled ? FontStyle.italic : FontStyle.normal,
+                    ),
+                  ),
+                ],
               ),
             ),
+            // Radio dot
             AnimatedContainer(
               duration: const Duration(milliseconds: 150),
-              width: context.getRSize(22), // RESPONSIVE
-              height: context.getRSize(22), // RESPONSIVE
+              width: context.getRSize(22),
+              height: context.getRSize(22),
               decoration: BoxDecoration(
                 color: active ? blueMain : Colors.transparent,
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: active ? blueMain : _border,
+                  color: disabled
+                      ? _border.withValues(alpha: 0.4)
+                      : active
+                      ? blueMain
+                      : _border,
                   width: 2,
                 ),
               ),
@@ -790,7 +1047,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                       Icons.check,
                       size: context.getRSize(14),
                       color: Colors.white,
-                    ) // RESPONSIVE
+                    )
                   : null,
             ),
           ],
@@ -811,20 +1068,17 @@ class _CheckoutPageState extends State<CheckoutPage> {
         Text(
           label,
           style: TextStyle(
-            fontSize: context.getRFontSize(12), // RESPONSIVE
+            fontSize: context.getRFontSize(12),
             fontWeight: FontWeight.w700,
             color: _subtext,
           ),
         ),
-        SizedBox(height: context.getRSize(8)), // RESPONSIVE
+        SizedBox(height: context.getRSize(8)),
         TextField(
           controller: ctrl,
           keyboardType: isNumber ? TextInputType.number : TextInputType.text,
           onChanged: (_) => setState(() {}),
-          style: TextStyle(
-            fontSize: context.getRFontSize(14),
-            color: _text,
-          ), // RESPONSIVE
+          style: TextStyle(fontSize: context.getRFontSize(14), color: _text),
           decoration: InputDecoration(
             hintText: hint,
             hintStyle: TextStyle(color: _subtext),
@@ -838,7 +1092,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
               borderRadius: BorderRadius.circular(14),
               borderSide: const BorderSide(color: blueMain, width: 2),
             ),
-            contentPadding: EdgeInsets.all(context.getRSize(16)), // RESPONSIVE
+            contentPadding: EdgeInsets.all(context.getRSize(16)),
           ),
         ),
       ],

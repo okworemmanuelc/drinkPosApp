@@ -5,12 +5,15 @@ import '../../../core/utils/number_format.dart'; // assuming fmtNumber is export
 class ThermalReceiptService {
   /// Builds a byte array of ESC/POS commands formatted for 58mm (32 chars/line)
   static Future<List<int>> buildReceipt({
+    required String orderId,
     required List<Map<String, dynamic>> cart,
     required double subtotal,
     required double crateDeposit,
     required double total,
     required String paymentMethod,
     String? customerName,
+    String? customerAddress,
+    String? customerPhone,
     double? cashReceived,
   }) async {
     // Generate profile for 58mm printer
@@ -34,13 +37,34 @@ class ThermalReceiptService {
     );
     bytes += generator.hr(); // "--------------------------------"
 
-    // --- 2. TRANSACTION INFO ---
+    // --- 2. CUSTOMER & TRANSACTION DETAILS ---
+    if (customerName != null && customerName.isNotEmpty) {
+      bytes += generator.text(
+        customerName,
+        styles: const PosStyles(bold: true),
+      );
+      if (customerAddress != null && customerAddress.isNotEmpty) {
+        bytes += generator.text(customerAddress);
+      }
+      if (customerPhone != null && customerPhone.isNotEmpty) {
+        bytes += generator.text(customerPhone);
+      }
+    } else {
+      bytes += generator.text(
+        'Walk-in Customer',
+        styles: const PosStyles(bold: true),
+      );
+    }
+
+    // Add empty line spacing
+    bytes += generator.text('');
+
     final now = DateTime.now();
-    final dateStr = '${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')}/${now.year} ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
-    
+    final dateStr =
+        '${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')}/${now.year} ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+
+    bytes += generator.text('Order #$orderId');
     bytes += generator.text('Date: $dateStr');
-    bytes += generator.text('Receipt: #${now.millisecondsSinceEpoch.toString().substring(5)}');
-    bytes += generator.text('Cashier: Admin');
     bytes += generator.hr();
 
     // --- 3. ITEMS LIST ---
@@ -53,31 +77,40 @@ class ThermalReceiptService {
 
       final String qtyStr = '${qty.toStringAsFixed(1)}x ';
       final String priceStr = 'N${fmtNumber(lineTotal.toInt())}';
-      
+
       // Calculate max length for product name to fit in 32 characters
-      int maxNameLen = 32 - qtyStr.length - priceStr.length - 1; // 1 space minimum
+      int maxNameLen =
+          32 - qtyStr.length - priceStr.length - 1; // 1 space minimum
       String nameStr = name;
       if (nameStr.length > maxNameLen) {
-        nameStr = nameStr.substring(0, maxNameLen); 
+        nameStr = nameStr.substring(0, maxNameLen);
       }
-      
+
       final String leftPart = '$qtyStr$nameStr';
       int spaceCount = 32 - leftPart.length - priceStr.length;
       if (spaceCount < 1) spaceCount = 1;
-      
+
       final String spacing = ' ' * spaceCount;
       bytes += generator.text(
-        '$leftPart$spacing$priceStr', 
+        '$leftPart$spacing$priceStr',
         styles: const PosStyles(bold: false, fontType: PosFontType.fontA),
       );
     }
     bytes += generator.hr();
 
     // --- 4. TOTALS SECTION ---
-    bytes += _buildTwoColumnRow(generator, 'Subtotal', 'N${fmtNumber(subtotal.toInt())}');
-    
+    bytes += _buildTwoColumnRow(
+      generator,
+      'Subtotal',
+      'N${fmtNumber(subtotal.toInt())}',
+    );
+
     if (crateDeposit > 0) {
-      bytes += _buildTwoColumnRow(generator, 'Crate Deposit', 'N${fmtNumber(crateDeposit.toInt())}');
+      bytes += _buildTwoColumnRow(
+        generator,
+        'Crate Deposit',
+        'N${fmtNumber(crateDeposit.toInt())}',
+      );
     }
     bytes += generator.hr();
 
@@ -97,39 +130,71 @@ class ThermalReceiptService {
     bytes += generator.hr();
 
     // --- 5. PAYMENT SECTION ---
-    bytes += generator.text('Payment: $paymentMethod');
-    
-    if (customerName != null && customerName.isNotEmpty) {
-      bytes += generator.text('Customer: $customerName');
-    }
+    bytes += generator.text(
+      'Payment Method: $paymentMethod',
+      styles: const PosStyles(bold: true),
+    );
 
     if (cashReceived != null) {
-      bytes += _buildTwoColumnRow(generator, 'Cash:', 'N${fmtNumber(cashReceived.toInt())}');
+      bytes += _buildTwoColumnRow(
+        generator,
+        'Amount Paid:',
+        'N${fmtNumber(cashReceived.toInt())}',
+      );
       final remainder = (total - cashReceived).clamp(0, total);
-      if (remainder > 0) {
-        bytes += _buildTwoColumnRow(generator, 'Remainder:', 'N${fmtNumber(remainder.toInt())}');
-      }
+      bytes += _buildTwoColumnRow(
+        generator,
+        'Balance:',
+        'N${fmtNumber(remainder.toInt())}',
+      );
+    } else if (paymentMethod == 'Register as Credit Sale') {
+      bytes += _buildTwoColumnRow(generator, 'Amount Paid:', 'N0');
+      bytes += _buildTwoColumnRow(
+        generator,
+        'Balance:',
+        'N${fmtNumber(total.toInt())}',
+      );
+    } else {
+      bytes += _buildTwoColumnRow(
+        generator,
+        'Amount Paid:',
+        'N${fmtNumber(total.toInt())}',
+      );
+      bytes += _buildTwoColumnRow(generator, 'Balance:', 'N0');
     }
 
-    // --- 6. FOOTER ---
+    bytes += generator.text('');
+
+    // --- 6. BARCODE ---
+    bytes += generator.barcode(Barcode.code128([...orderId.codeUnits]));
+    bytes += generator.text('');
+
+    // --- 7. FOOTER ---
     bytes += generator.text(
-      'Thank you for your patronage!',
+      'Goods received in good condition',
       styles: const PosStyles(align: PosAlign.center),
     );
     bytes += generator.text(
       'Powered by BrewFlow',
-      styles: const PosStyles(align: PosAlign.center, fontType: PosFontType.fontB),
+      styles: const PosStyles(
+        align: PosAlign.center,
+        fontType: PosFontType.fontB,
+      ),
     );
 
     // Minimal feed + cut to reduce paper waste
-    bytes += generator.feed(1);
+    bytes += generator.feed(0);
     bytes += generator.cut();
 
     return bytes;
   }
 
   /// Helper to create exactly 32-character lines for 58mm
-  static List<int> _buildTwoColumnRow(Generator generator, String label, String value) {
+  static List<int> _buildTwoColumnRow(
+    Generator generator,
+    String label,
+    String value,
+  ) {
     int spaceCount = 32 - label.length - value.length;
     if (spaceCount < 1) spaceCount = 1;
     final spacing = ' ' * spaceCount;
