@@ -288,35 +288,42 @@ class _PosHomeScreenState extends State<PosHomeScreen>
       ), // RESPONSIVE
       child: Row(
         children: [
-          GestureDetector(
-            onTap: () {},
-            child: Container(
-              padding: EdgeInsets.symmetric(
-                horizontal: context.getRSize(16),
-                vertical: context.getRSize(10),
-              ), // RESPONSIVE
-              decoration: BoxDecoration(
-                color: blueMain.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: blueMain.withValues(alpha: 0.2)),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    FontAwesomeIcons.bolt,
-                    size: context.getRSize(14),
-                    color: blueMain,
-                  ), // RESPONSIVE
-                  SizedBox(width: context.getRSize(8)), // RESPONSIVE
-                  Text(
-                    'Quick Sale',
-                    style: TextStyle(
-                      fontSize: context.getRFontSize(13), // RESPONSIVE
-                      fontWeight: FontWeight.w700,
-                      color: _isDark ? blueLight : blueDark,
+          Flexible(
+            child: GestureDetector(
+              onTap: () {},
+              child: Container(
+                padding: EdgeInsets.symmetric(
+                  horizontal: context.getRSize(16),
+                  vertical: context.getRSize(10),
+                ), // RESPONSIVE
+                decoration: BoxDecoration(
+                  color: blueMain.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: blueMain.withValues(alpha: 0.2)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      FontAwesomeIcons.bolt,
+                      size: context.getRSize(14),
+                      color: blueMain,
+                    ), // RESPONSIVE
+                    SizedBox(width: context.getRSize(8)), // RESPONSIVE
+                    Flexible(
+                      child: Text(
+                        'Quick Sale',
+                        style: TextStyle(
+                          fontSize: context.getRFontSize(13), // RESPONSIVE
+                          fontWeight: FontWeight.w700,
+                          color: _isDark ? blueLight : blueDark,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -505,7 +512,7 @@ class _PosHomeScreenState extends State<PosHomeScreen>
 
     final screenWidth = MediaQuery.of(context).size.width;
     final crossAxisCount = screenWidth < 360 ? 2 : (screenWidth > 500 ? 4 : 3);
-    final aspect = screenWidth < 360 ? 0.85 : (screenWidth > 500 ? 0.80 : 0.80);
+    final aspect = screenWidth < 360 ? 0.75 : (screenWidth > 500 ? 0.68 : 0.68);
 
     return GridView.builder(
       padding: EdgeInsets.fromLTRB(

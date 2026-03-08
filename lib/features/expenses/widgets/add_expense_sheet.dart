@@ -6,6 +6,7 @@ import '../../../core/theme/colors.dart';
 import '../../../core/theme/theme_notifier.dart';
 import '../../../core/utils/responsive.dart';
 import '../../../shared/services/activity_log_service.dart';
+import '../../../core/utils/currency_input_formatter.dart';
 import '../data/models/expense.dart';
 import '../data/services/expense_service.dart';
 
@@ -87,7 +88,7 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
   void _submit() {
     if (!_formKey.currentState!.validate()) return;
 
-    final amount = double.tryParse(_amountCtrl.text) ?? 0.0;
+    final amount = parseCurrency(_amountCtrl.text);
     final isOthers = _selectedCategory == 'Others';
     final desc = _descCtrl.text.trim();
 
@@ -308,6 +309,7 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
                       TextFormField(
                         controller: _amountCtrl,
                         keyboardType: TextInputType.number,
+                        inputFormatters: [CurrencyInputFormatter()],
                         style: TextStyle(
                           fontSize: context.getRFontSize(14),
                           fontWeight: FontWeight.bold,

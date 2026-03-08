@@ -16,11 +16,13 @@ import '../../../shared/widgets/receipt_widget.dart';
 import '../../../core/utils/responsive.dart';
 import '../services/receipt_builder.dart';
 import '../../customers/data/models/customer.dart';
+import '../../customers/data/models/payment.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/theme_notifier.dart';
 import '../../../core/utils/number_format.dart';
 import '../../customers/data/services/customer_service.dart';
 import '../../inventory/data/inventory_data.dart';
+import '../../../core/utils/currency_input_formatter.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CheckoutPage — shown after "Proceed to Checkout" in the cart.
@@ -93,10 +95,12 @@ class _CheckoutPageState extends State<CheckoutPage> {
   String get _customerDisplayName =>
       widget.customer?.name ?? 'Walk-in Customer';
 
-  double get _cashReceivedValue => double.tryParse(_cashReceivedCtrl.text) ?? 0;
+  double get _cashReceivedValue => parseCurrency(_cashReceivedCtrl.text);
 
-  double get _partialRemaining =>
-      (widget.total - _cashReceivedValue).clamp(0, widget.total);
+  double get _dynamicNewBalance {
+    final oldBalance = _isWalkIn ? 0.0 : widget.customer!.outstandingBalance;
+    return oldBalance - widget.total + _cashReceivedValue;
+  }
 
   // ── build ──────────────────────────────────────────────────────────────────
   @override
@@ -287,13 +291,24 @@ class _CheckoutPageState extends State<CheckoutPage> {
                       color: _text,
                     ),
                   ),
-                  Text(
-                    '₦${fmtNumber(_partialRemaining.toInt())}',
-                    style: TextStyle(
-                      fontSize: context.getRFontSize(15),
-                      fontWeight: FontWeight.w800,
-                      color: blueMain,
-                    ),
+                  Builder(
+                    builder: (context) {
+                      final newBalance = _dynamicNewBalance;
+                      final isDebt = newBalance < 0;
+                      final valText = isDebt
+                          ? '-₦${fmtNumber(newBalance.abs().toInt())}'
+                          : '+₦${fmtNumber(newBalance.toInt())}';
+                      final valColor = isDebt ? Colors.amber.shade700 : success;
+
+                      return Text(
+                        newBalance == 0 ? '₦0' : valText,
+                        style: TextStyle(
+                          fontSize: context.getRFontSize(15),
+                          fontWeight: FontWeight.w800,
+                          color: valColor,
+                        ),
+                      );
+                    },
                   ),
                 ],
               ),
@@ -396,20 +411,27 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
     // Compute amounts
     double amountPaid;
-    double remaining;
+    double orderRemaining;
+    double extraPayment = 0;
 
     switch (_paymentType) {
       case PaymentType.fullCash:
         amountPaid = widget.total;
-        remaining = 0;
+        orderRemaining = 0;
         break;
       case PaymentType.partialCash:
-        amountPaid = _cashReceivedValue;
-        remaining = _partialRemaining;
+        if (_cashReceivedValue > widget.total) {
+          amountPaid = widget.total;
+          orderRemaining = 0;
+          extraPayment = _cashReceivedValue - widget.total;
+        } else {
+          amountPaid = _cashReceivedValue;
+          orderRemaining = widget.total - _cashReceivedValue;
+        }
         break;
       case PaymentType.credit:
         amountPaid = 0;
-        remaining = widget.total;
+        orderRemaining = widget.total;
         break;
     }
 
@@ -427,12 +449,27 @@ class _CheckoutPageState extends State<CheckoutPage> {
     }
 
     // ── Customer balance mutation ─────────────────────────────────────
-    if (!_isWalkIn && remaining > 0) {
+    if (!_isWalkIn) {
       final customer = widget.customer!;
-      final updatedCustomer = customer.copyWith(
-        outstandingBalance: customer.outstandingBalance - remaining,
-      );
-      customerService.updateCustomer(updatedCustomer);
+
+      // Deduct unpaid order amount from balance (reduces balance / adds debt)
+      if (orderRemaining > 0) {
+        final updatedCustomer = customer.copyWith(
+          outstandingBalance: customer.outstandingBalance - orderRemaining,
+        );
+        customerService.updateCustomer(updatedCustomer);
+      }
+
+      // Add extra payment to ledger explicitly (adds to balance / pays off debt)
+      if (extraPayment > 0) {
+        final payment = Payment(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          amount: extraPayment,
+          timestamp: DateTime.now(),
+          note: 'Overpayment from checkout',
+        );
+        customerService.addPayment(customer.id, payment);
+      }
     }
 
     // ── Create & store unified order ─────────────────────────────────────────
@@ -447,7 +484,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
       crateDeposit: widget.crateDeposit,
       totalAmount: widget.total,
       amountPaid: amountPaid,
-      balance: remaining,
+      balance: orderRemaining,
       paymentMethod: _paymentLabel,
       createdAt: DateTime.now(),
       status: 'pending',
@@ -460,7 +497,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
       'Order $orderId completed for $_customerDisplayName. '
           'Method: $_paymentLabel. '
           'Amount paid: ₦${fmtNumber(amountPaid.toInt())}. '
-          'Balance: ₦${fmtNumber(remaining.toInt())}',
+          'Balance: ₦${fmtNumber(orderRemaining.toInt())}',
       relatedEntityId: widget.customer?.id,
       relatedEntityType: 'customer',
     );
@@ -1061,6 +1098,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
         TextField(
           controller: ctrl,
           keyboardType: isNumber ? TextInputType.number : TextInputType.text,
+          inputFormatters: isNumber ? [CurrencyInputFormatter()] : null,
           onChanged: (_) => setState(() {}),
           style: TextStyle(fontSize: context.getRFontSize(14), color: _text),
           decoration: InputDecoration(

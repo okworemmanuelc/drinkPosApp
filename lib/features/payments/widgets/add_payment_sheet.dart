@@ -12,6 +12,7 @@ import '../../customers/data/services/customer_service.dart';
 import '../../deliveries/data/services/delivery_service.dart';
 import '../data/models/payment.dart';
 import '../data/services/payment_service.dart';
+import '../../../core/utils/currency_input_formatter.dart';
 
 class AddPaymentSheet extends StatefulWidget {
   const AddPaymentSheet({super.key});
@@ -137,7 +138,7 @@ class _AddPaymentSheetState extends State<AddPaymentSheet> {
       }
     }
 
-    final amount = double.tryParse(_amountCtrl.text) ?? 0.0;
+    final amount = parseCurrency(_amountCtrl.text);
 
     final payment = Payment(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
@@ -361,6 +362,7 @@ class _AddPaymentSheetState extends State<AddPaymentSheet> {
                       TextFormField(
                         controller: _amountCtrl,
                         keyboardType: TextInputType.number,
+                        inputFormatters: [CurrencyInputFormatter()],
                         style: TextStyle(
                           fontSize: context.getRFontSize(14),
                           fontWeight: FontWeight.bold,
@@ -379,7 +381,14 @@ class _AddPaymentSheetState extends State<AddPaymentSheet> {
                         value: _paymentMethod,
                         isExpanded: true,
                         underline: const SizedBox(),
-                        items: ['Cash', 'Transfer', 'Cheque', 'POS'].map((e) => DropdownMenuItem(value: e, child: Text(e, style: TextStyle(color: _text)))).toList(),
+                        items: ['Cash', 'Transfer', 'Cheque', 'POS']
+                            .map(
+                              (e) => DropdownMenuItem(
+                                value: e,
+                                child: Text(e, style: TextStyle(color: _text)),
+                              ),
+                            )
+                            .toList(),
                         onChanged: (val) {
                           if (val != null) setState(() => _paymentMethod = val);
                         },
@@ -426,16 +435,26 @@ class _AddPaymentSheetState extends State<AddPaymentSheet> {
                         isExpanded: true,
                         underline: const SizedBox(),
                         items: [
-                          DropdownMenuItem<String?>(value: null, child: Text('None', style: TextStyle(color: _text))),
+                          DropdownMenuItem<String?>(
+                            value: null,
+                            child: Text('None', style: TextStyle(color: _text)),
+                          ),
                           ...recentDeliveries.map((d) {
-                            final label = '${DateFormat('MMM d').format(d.deliveredAt)} - ${d.supplierName}';
+                            final label =
+                                '${DateFormat('MMM d').format(d.deliveredAt)} - ${d.supplierName}';
                             return DropdownMenuItem<String?>(
                               value: d.id,
-                              child: Text(label, style: TextStyle(color: _text), maxLines: 1, overflow: TextOverflow.ellipsis),
+                              child: Text(
+                                label,
+                                style: TextStyle(color: _text),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             );
                           }),
                         ],
-                        onChanged: (val) => setState(() => _selectedDeliveryId = val),
+                        onChanged: (val) =>
+                            setState(() => _selectedDeliveryId = val),
                         dropdownColor: _surface,
                       ),
                       SizedBox(height: context.getRSize(16)),

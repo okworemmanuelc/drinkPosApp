@@ -8,6 +8,7 @@ import '../../../core/utils/responsive.dart';
 import '../../customers/data/models/customer.dart';
 import '../../customers/widgets/add_customer_sheet.dart';
 import '../../../shared/services/activity_log_service.dart';
+import '../../../core/utils/currency_input_formatter.dart';
 import '../../customers/data/services/customer_service.dart';
 import '../../inventory/data/inventory_data.dart';
 import '../../inventory/data/models/crate_group.dart';
@@ -545,6 +546,7 @@ class _CartScreenState extends State<CartScreen> {
                 TextField(
                   controller: ctrl,
                   keyboardType: TextInputType.number,
+                  inputFormatters: [CurrencyInputFormatter()],
                   autofocus: true,
                   style: TextStyle(
                     fontSize: context.getRFontSize(20),
@@ -612,7 +614,7 @@ class _CartScreenState extends State<CartScreen> {
                     Expanded(
                       child: GestureDetector(
                         onTap: () {
-                          final val = double.tryParse(ctrl.text) ?? 0;
+                          final val = parseCurrency(ctrl.text);
                           setState(() => _crateDeposit = val);
                           Navigator.pop(sheetCtx);
                         },

@@ -12,6 +12,7 @@ import '../data/services/customer_service.dart';
 import '../../../shared/models/order.dart';
 import '../../../shared/services/order_service.dart';
 import '../../../shared/widgets/receipt_widget.dart';
+import '../../../core/utils/currency_input_formatter.dart';
 
 class CustomerDetailScreen extends StatefulWidget {
   final String customerId;
@@ -1394,6 +1395,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                             keyboardType: const TextInputType.numberWithOptions(
                               decimal: true,
                             ),
+                            inputFormatters: [CurrencyInputFormatter()],
                             style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
@@ -1425,8 +1427,8 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                             ),
                             validator: (v) {
                               if (v == null || v.isEmpty) return 'Required';
-                              if (double.tryParse(v) == null ||
-                                  double.parse(v) <= 0) {
+                              final parsed = parseCurrency(v);
+                              if (parsed <= 0) {
                                 return 'Invalid amount';
                               }
                               return null;
@@ -1486,7 +1488,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                       ),
                       onPressed: () {
                         if (formKey.currentState!.validate()) {
-                          final amount = double.parse(amountCtrl.text);
+                          final amount = parseCurrency(amountCtrl.text);
                           final payment = Payment(
                             id: DateTime.now().millisecondsSinceEpoch
                                 .toString(),

@@ -11,6 +11,7 @@ import '../../inventory/data/models/inventory_item.dart';
 import '../../inventory/data/models/inventory_log.dart';
 import '../../inventory/data/models/supplier.dart';
 import '../../inventory/data/models/crate_group.dart';
+import '../../../core/utils/currency_input_formatter.dart';
 import '../../pos/data/products_data.dart';
 import '../data/models/delivery.dart';
 import '../data/services/delivery_service.dart';
@@ -32,7 +33,7 @@ class _DeliveryItemLine {
   CrateGroup? selectedCrateGroup;
 
   double get lineTotal {
-    final price = double.tryParse(priceCtrl.text) ?? 0;
+    final price = parseCurrency(priceCtrl.text);
     final qty = double.tryParse(qtyCtrl.text) ?? 0;
     return price * qty;
   }
@@ -135,7 +136,7 @@ class _ReceiveDeliveryScreenState extends State<ReceiveDeliveryScreen> {
 
     for (var l in _lines) {
       final qty = double.tryParse(l.qtyCtrl.text) ?? 0;
-      final price = double.tryParse(l.priceCtrl.text) ?? 0;
+      final price = parseCurrency(l.priceCtrl.text);
       final lineTot = price * qty;
       grandTotal += lineTot;
       totalQty += qty;
@@ -487,6 +488,7 @@ class _ReceiveDeliveryScreenState extends State<ReceiveDeliveryScreen> {
                       TextField(
                         controller: line.priceCtrl,
                         keyboardType: TextInputType.number,
+                        inputFormatters: [CurrencyInputFormatter()],
                         style: TextStyle(
                           color: _text,
                           fontWeight: FontWeight.bold,
