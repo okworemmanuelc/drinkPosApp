@@ -5,6 +5,7 @@ import '../../../core/theme/colors.dart';
 import '../../../core/theme/theme_notifier.dart';
 import '../../../core/utils/number_format.dart';
 import '../../../core/utils/responsive.dart';
+import '../../../core/utils/stock_calculator.dart';
 import '../data/models/inventory_item.dart';
 import '../data/models/supplier.dart';
 import '../data/models/crate_group.dart';
@@ -202,7 +203,10 @@ class ProductDetailScreen extends StatelessWidget {
     );
     final int sellingPrice = (product['price'] as int?) ?? 0;
     final int buyingPrice = (product['wholesale_price'] as int?) ?? 0;
-    final int totalStockValue = (item.stock * buyingPrice).toInt();
+    final double totalStockValue = stockValue(
+      sellingPrice.toDouble(),
+      item.stock,
+    );
 
     // Last delivery from logs
     final deliveryLogs =
@@ -274,7 +278,7 @@ class ProductDetailScreen extends StatelessWidget {
               context,
               FontAwesomeIcons.chartLine,
               'Total Stock Value',
-              '₦${fmtNumber(totalStockValue)}',
+              '₦${fmtNumber(totalStockValue.toInt())}',
               blueMain,
             ),
           ]),

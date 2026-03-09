@@ -10,6 +10,7 @@ import '../data/products_data.dart';
 import '../../inventory/data/inventory_data.dart';
 import '../../inventory/data/models/inventory_item.dart';
 import '../../customers/data/models/customer.dart';
+import '../../../core/utils/stock_calculator.dart';
 import 'cart_screen.dart';
 
 class PosHomeScreen extends StatefulWidget {
@@ -693,7 +694,11 @@ class _PosHomeScreenState extends State<PosHomeScreen>
 
   // ── FAB ──────────────────────────────────────────────────────────────────────
   Widget _buildFab() {
-    final total = _cart.fold<double>(0, (s, i) => s + (i['price'] * i['qty']));
+    final total = _cart.fold<double>(
+      0,
+      (s, i) =>
+          s + stockValue((i['price'] as int).toDouble(), i['qty'] as double),
+    );
     return ScaleTransition(
       scale: CurvedAnimation(parent: _fabAnim, curve: Curves.elasticOut),
       child: GestureDetector(

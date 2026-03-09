@@ -236,11 +236,11 @@ class _CustomersScreenState extends State<CustomersScreen> {
     Color subtextCol,
     Color borderCol,
   ) {
-    final isNegative = customer.outstandingBalance < 0;
+    final isNegative = customer.customerWallet < 0;
     final balanceColor = isNegative ? danger : success;
     final formattedBalance = isNegative
-        ? '-₦${customer.outstandingBalance.abs().toStringAsFixed(0)}'
-        : '₦${customer.outstandingBalance.toStringAsFixed(0)}';
+        ? '-₦${customer.customerWallet.abs().toStringAsFixed(0)}'
+        : '₦${customer.customerWallet.toStringAsFixed(0)}';
 
     return InkWell(
       onTap: () {

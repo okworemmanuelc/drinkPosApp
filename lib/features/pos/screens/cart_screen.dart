@@ -7,6 +7,7 @@ import '../../../core/utils/number_format.dart';
 import '../../../core/utils/responsive.dart';
 import '../../customers/data/models/customer.dart';
 import '../../customers/widgets/add_customer_sheet.dart';
+import '../../../core/utils/stock_calculator.dart';
 import '../../../shared/services/activity_log_service.dart';
 import '../../../core/utils/currency_input_formatter.dart';
 import '../../customers/data/services/customer_service.dart';
@@ -224,7 +225,7 @@ class _CartScreenState extends State<CartScreen> {
   Widget _buildCustomerTile(Customer? customer, BuildContext modalCtx) {
     final bool isSelected = _activeCustomer?.id == customer?.id;
     final name = customer?.name ?? 'Walk-in Customer';
-    final balance = customer?.outstandingBalance ?? 0.0;
+    final balance = customer?.customerWallet ?? 0.0;
     final isOwe = balance < 0;
 
     return InkWell(
@@ -693,8 +694,9 @@ class _CartScreenState extends State<CartScreen> {
   Widget build(BuildContext context) {
     widget.cart.sort((a, b) => b['qty'].compareTo(a['qty']));
     final sub = widget.cart.fold<double>(
-      0,
-      (s, i) => s + (i['price'] * i['qty']),
+      0.0,
+      (s, i) =>
+          s + stockValue((i['price'] as int).toDouble(), i['qty'] as double),
     );
 
     // ── Glass detection & crate deposit computation ──
@@ -743,7 +745,7 @@ class _CartScreenState extends State<CartScreen> {
     final tot = sub + _crateDeposit;
 
     final customerName = _activeCustomer?.name ?? 'Walk-in Customer';
-    final customerBalance = _activeCustomer?.outstandingBalance ?? 0.0;
+    final customerBalance = _activeCustomer?.customerWallet ?? 0.0;
     final isOwe = customerBalance < 0;
 
     return ValueListenableBuilder<ThemeMode>(
@@ -1049,7 +1051,7 @@ class _CartScreenState extends State<CartScreen> {
                                         FittedBox(
                                           fit: BoxFit.scaleDown,
                                           child: Text(
-                                            '₦${fmtNumber((item['price'] * item['qty']).toInt())}',
+                                            '₦${fmtNumber(stockValue((item['price'] as int).toDouble(), item['qty'] as double).toInt())}',
                                             style: TextStyle(
                                               fontWeight: FontWeight.bold,
                                               fontSize: context.getRFontSize(

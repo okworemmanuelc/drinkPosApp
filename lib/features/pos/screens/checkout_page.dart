@@ -23,6 +23,7 @@ import '../../../core/utils/number_format.dart';
 import '../../customers/data/services/customer_service.dart';
 import '../../inventory/data/inventory_data.dart';
 import '../../../core/utils/currency_input_formatter.dart';
+import '../../../core/utils/stock_calculator.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CheckoutPage — shown after "Proceed to Checkout" in the cart.
@@ -98,7 +99,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
   double get _cashReceivedValue => parseCurrency(_cashReceivedCtrl.text);
 
   double get _dynamicNewBalance {
-    final oldBalance = _isWalkIn ? 0.0 : widget.customer!.outstandingBalance;
+    final oldBalance = _isWalkIn ? 0.0 : widget.customer!.customerWallet;
     return oldBalance - widget.total + _cashReceivedValue;
   }
 
@@ -216,16 +217,16 @@ class _CheckoutPageState extends State<CheckoutPage> {
                       if (!_isWalkIn) ...[
                         SizedBox(height: context.getRSize(2)),
                         Text(
-                          'Balance: ₦${fmtNumber(widget.customer!.outstandingBalance.abs().toInt())} ${widget.customer!.outstandingBalance < 0
+                          'Balance: ₦${fmtNumber(widget.customer!.customerWallet.abs().toInt())} ${widget.customer!.customerWallet < 0
                               ? "(overdue)"
-                              : widget.customer!.outstandingBalance > 0
+                              : widget.customer!.customerWallet > 0
                               ? "(credit)"
                               : "(clear)"}',
                           style: TextStyle(
                             fontSize: context.getRFontSize(12),
-                            color: widget.customer!.outstandingBalance < 0
+                            color: widget.customer!.customerWallet < 0
                                 ? danger
-                                : widget.customer!.outstandingBalance > 0
+                                : widget.customer!.customerWallet > 0
                                 ? success
                                 : _subtext,
                             fontWeight: FontWeight.w600,
@@ -256,8 +257,11 @@ class _CheckoutPageState extends State<CheckoutPage> {
           _paymentOption(
             PaymentType.partialCash,
             'Partial Cash / Card Payment',
-            'Enter amount paid — remainder added to balance',
+            _isWalkIn
+                ? 'Not available for Walk-in customers'
+                : 'Enter amount paid — remainder added to balance',
             FontAwesomeIcons.moneyBillTransfer,
+            disabled: _isWalkIn,
           ),
 
           // Partial amount input + live remaining
@@ -346,7 +350,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
             'Register as Credit Sale',
             _isWalkIn
                 ? 'Not available for Walk-in customers'
-                : 'Full amount added to customer\'s outstanding balance',
+                : 'Full amount added to customer\'s wallet',
             FontAwesomeIcons.fileInvoiceDollar,
             disabled: _isWalkIn,
           ),
@@ -401,6 +405,17 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
   // ── Confirm payment logic ──────────────────────────────────────────────────
   void _confirmPayment() {
+    // Walk-in validation
+    if (_isWalkIn && _paymentType != PaymentType.fullCash) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Walk-in customers must pay in full'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
     // Validation
     if (_paymentType == PaymentType.partialCash && _cashReceivedValue <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -435,6 +450,25 @@ class _CheckoutPageState extends State<CheckoutPage> {
         break;
     }
 
+    // ── Wallet Limit Validation ───────────────────────────────────────
+    if (!_isWalkIn && (orderRemaining > 0 || extraPayment > 0)) {
+      final customer = widget.customer!;
+      final projectedBalance =
+          customer.customerWallet - orderRemaining + extraPayment;
+
+      if (projectedBalance < customer.walletLimit) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Transaction denied: Exceeds wallet limit of -₦${fmtNumber(customer.walletLimit.abs().toInt())}',
+            ),
+            backgroundColor: danger,
+          ),
+        );
+        return;
+      }
+    }
+
     // ── Inventory deduction ───────────────────────────────────────────
     for (final item in widget.cart) {
       final name = item['name'] as String;
@@ -455,7 +489,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
       // Deduct unpaid order amount from balance (reduces balance / adds debt)
       if (orderRemaining > 0) {
         final updatedCustomer = customer.copyWith(
-          outstandingBalance: customer.outstandingBalance - orderRemaining,
+          customerWallet: customer.customerWallet - orderRemaining,
         );
         customerService.updateCustomer(updatedCustomer);
       }
@@ -877,8 +911,10 @@ class _CheckoutPageState extends State<CheckoutPage> {
   }
 
   Widget _orderItemTile(Map<String, dynamic> item) {
-    final lineTotal = ((item['price'] as int) * (item['qty'] as double))
-        .toInt();
+    final lineTotal = stockValue(
+      (item['price'] as int).toDouble(),
+      (item['qty'] as double),
+    ).toInt();
     return Padding(
       padding: EdgeInsets.symmetric(
         horizontal: context.getRSize(16),

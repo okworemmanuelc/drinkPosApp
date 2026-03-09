@@ -273,6 +273,8 @@ class _AddCustomerSheetState extends State<AddCustomerSheet> {
                           phone: _phoneCtrl.text.trim().isEmpty
                               ? null
                               : _phoneCtrl.text.trim(),
+                          customerGroup: CustomerGroup.retailer,
+                          isWalkIn: false,
                         );
                         customerService.addCustomer(newCustomer);
                         Navigator.pop(context);
