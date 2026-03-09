@@ -435,6 +435,25 @@ class _CheckoutPageState extends State<CheckoutPage> {
         break;
     }
 
+    // ── Wallet Limit Validation ───────────────────────────────────────
+    if (!_isWalkIn && (orderRemaining > 0 || extraPayment > 0)) {
+      final customer = widget.customer!;
+      final projectedBalance =
+          customer.customerWallet - orderRemaining + extraPayment;
+
+      if (projectedBalance < customer.walletLimit) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Transaction denied: Exceeds wallet limit of -₦${fmtNumber(customer.walletLimit.abs().toInt())}',
+            ),
+            backgroundColor: danger,
+          ),
+        );
+        return;
+      }
+    }
+
     // ── Inventory deduction ───────────────────────────────────────────
     for (final item in widget.cart) {
       final name = item['name'] as String;
