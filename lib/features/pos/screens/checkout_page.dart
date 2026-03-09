@@ -98,7 +98,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
   double get _cashReceivedValue => parseCurrency(_cashReceivedCtrl.text);
 
   double get _dynamicNewBalance {
-    final oldBalance = _isWalkIn ? 0.0 : widget.customer!.outstandingBalance;
+    final oldBalance = _isWalkIn ? 0.0 : widget.customer!.customerWallet;
     return oldBalance - widget.total + _cashReceivedValue;
   }
 
@@ -216,16 +216,16 @@ class _CheckoutPageState extends State<CheckoutPage> {
                       if (!_isWalkIn) ...[
                         SizedBox(height: context.getRSize(2)),
                         Text(
-                          'Balance: ₦${fmtNumber(widget.customer!.outstandingBalance.abs().toInt())} ${widget.customer!.outstandingBalance < 0
+                          'Balance: ₦${fmtNumber(widget.customer!.customerWallet.abs().toInt())} ${widget.customer!.customerWallet < 0
                               ? "(overdue)"
-                              : widget.customer!.outstandingBalance > 0
+                              : widget.customer!.customerWallet > 0
                               ? "(credit)"
                               : "(clear)"}',
                           style: TextStyle(
                             fontSize: context.getRFontSize(12),
-                            color: widget.customer!.outstandingBalance < 0
+                            color: widget.customer!.customerWallet < 0
                                 ? danger
-                                : widget.customer!.outstandingBalance > 0
+                                : widget.customer!.customerWallet > 0
                                 ? success
                                 : _subtext,
                             fontWeight: FontWeight.w600,
@@ -346,7 +346,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
             'Register as Credit Sale',
             _isWalkIn
                 ? 'Not available for Walk-in customers'
-                : 'Full amount added to customer\'s outstanding balance',
+                : 'Full amount added to customer\'s wallet',
             FontAwesomeIcons.fileInvoiceDollar,
             disabled: _isWalkIn,
           ),
@@ -455,7 +455,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
       // Deduct unpaid order amount from balance (reduces balance / adds debt)
       if (orderRemaining > 0) {
         final updatedCustomer = customer.copyWith(
-          outstandingBalance: customer.outstandingBalance - orderRemaining,
+          customerWallet: customer.customerWallet - orderRemaining,
         );
         customerService.updateCustomer(updatedCustomer);
       }

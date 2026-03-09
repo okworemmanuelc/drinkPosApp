@@ -12,7 +12,7 @@ class CustomerService extends ValueNotifier<List<Customer>> {
       name: 'Alhaji Musa',
       addressText: '12 Borno Way, Maiduguri',
       googleMapsLocation: '12 Borno Way',
-      outstandingBalance: 15000.0,
+      customerWallet: 15000.0,
       customerGroup: CustomerGroup.retailer,
       isWalkIn: false,
     ),
@@ -21,7 +21,7 @@ class CustomerService extends ValueNotifier<List<Customer>> {
       name: 'Mama Chioma',
       addressText: '45 Market Road, Maiduguri',
       googleMapsLocation: '45 Market Road',
-      outstandingBalance: 0.0,
+      customerWallet: 0.0,
       customerGroup: CustomerGroup.retailer,
       isWalkIn: false,
     ),
@@ -30,7 +30,7 @@ class CustomerService extends ValueNotifier<List<Customer>> {
       name: 'Cold Room Express',
       addressText: '8 Industrial Layout, Maiduguri',
       googleMapsLocation: '8 Industrial Layout',
-      outstandingBalance: -7500.0,
+      customerWallet: -7500.0,
       customerGroup: CustomerGroup.retailer,
       isWalkIn: false,
     ),
@@ -76,11 +76,11 @@ class CustomerService extends ValueNotifier<List<Customer>> {
     final customer = getById(customerId);
     if (customer != null) {
       final updatedPayments = [...customer.payments, payment];
-      final newBalance = customer.outstandingBalance + payment.amount;
+      final newBalance = customer.customerWallet + payment.amount;
 
       final updatedCustomer = customer.copyWith(
         payments: updatedPayments,
-        outstandingBalance: newBalance,
+        customerWallet: newBalance,
       );
 
       final index = value.indexWhere((c) => c.id == customerId);

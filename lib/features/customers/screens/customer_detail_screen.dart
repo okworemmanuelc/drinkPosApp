@@ -265,11 +265,11 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
     Color textCol,
     Color borderCol,
   ) {
-    final isNegative = _customer!.outstandingBalance < 0;
+    final isNegative = _customer!.customerWallet < 0;
     final balanceColor = isNegative ? danger : success;
     final formattedBalance = isNegative
-        ? '-₦${_customer!.outstandingBalance.abs().toStringAsFixed(0)}'
-        : '₦${_customer!.outstandingBalance.toStringAsFixed(0)}';
+        ? '-₦${_customer!.customerWallet.abs().toStringAsFixed(0)}'
+        : '₦${_customer!.customerWallet.toStringAsFixed(0)}';
 
     return Container(
       margin: EdgeInsets.symmetric(horizontal: context.getRSize(16)),
