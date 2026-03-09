@@ -203,9 +203,9 @@ class ProductDetailScreen extends StatelessWidget {
     );
     final int sellingPrice = (product['price'] as int?) ?? 0;
     final int buyingPrice = (product['wholesale_price'] as int?) ?? 0;
-    final int totalStockValue = calculateStockValue(
-      quantity: item.stock,
-      sellingPrice: sellingPrice,
+    final double totalStockValue = stockValue(
+      sellingPrice.toDouble(),
+      item.stock,
     );
 
     // Last delivery from logs
@@ -278,7 +278,7 @@ class ProductDetailScreen extends StatelessWidget {
               context,
               FontAwesomeIcons.chartLine,
               'Total Stock Value',
-              '₦${fmtNumber(totalStockValue)}',
+              '₦${fmtNumber(totalStockValue.toInt())}',
               blueMain,
             ),
           ]),

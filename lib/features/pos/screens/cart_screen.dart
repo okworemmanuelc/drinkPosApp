@@ -7,6 +7,7 @@ import '../../../core/utils/number_format.dart';
 import '../../../core/utils/responsive.dart';
 import '../../customers/data/models/customer.dart';
 import '../../customers/widgets/add_customer_sheet.dart';
+import '../../../core/utils/stock_calculator.dart';
 import '../../../shared/services/activity_log_service.dart';
 import '../../../core/utils/currency_input_formatter.dart';
 import '../../customers/data/services/customer_service.dart';
@@ -693,8 +694,9 @@ class _CartScreenState extends State<CartScreen> {
   Widget build(BuildContext context) {
     widget.cart.sort((a, b) => b['qty'].compareTo(a['qty']));
     final sub = widget.cart.fold<double>(
-      0,
-      (s, i) => s + (i['price'] * i['qty']),
+      0.0,
+      (s, i) =>
+          s + stockValue((i['price'] as int).toDouble(), i['qty'] as double),
     );
 
     // ── Glass detection & crate deposit computation ──
@@ -1049,7 +1051,7 @@ class _CartScreenState extends State<CartScreen> {
                                         FittedBox(
                                           fit: BoxFit.scaleDown,
                                           child: Text(
-                                            '₦${fmtNumber((item['price'] * item['qty']).toInt())}',
+                                            '₦${fmtNumber(stockValue((item['price'] as int).toDouble(), item['qty'] as double).toInt())}',
                                             style: TextStyle(
                                               fontWeight: FontWeight.bold,
                                               fontSize: context.getRFontSize(

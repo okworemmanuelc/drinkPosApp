@@ -23,6 +23,7 @@ import '../../../core/utils/number_format.dart';
 import '../../customers/data/services/customer_service.dart';
 import '../../inventory/data/inventory_data.dart';
 import '../../../core/utils/currency_input_formatter.dart';
+import '../../../core/utils/stock_calculator.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CheckoutPage — shown after "Proceed to Checkout" in the cart.
@@ -910,8 +911,10 @@ class _CheckoutPageState extends State<CheckoutPage> {
   }
 
   Widget _orderItemTile(Map<String, dynamic> item) {
-    final lineTotal = ((item['price'] as int) * (item['qty'] as double))
-        .toInt();
+    final lineTotal = stockValue(
+      (item['price'] as int).toDouble(),
+      (item['qty'] as double),
+    ).toInt();
     return Padding(
       padding: EdgeInsets.symmetric(
         horizontal: context.getRSize(16),
