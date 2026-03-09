@@ -13,6 +13,7 @@ import '../../../shared/models/order.dart';
 import '../../../shared/services/order_service.dart';
 import '../../../shared/widgets/receipt_widget.dart';
 import '../../../core/utils/currency_input_formatter.dart';
+import '../../../core/utils/number_format.dart';
 
 class CustomerDetailScreen extends StatefulWidget {
   final String customerId;
@@ -268,8 +269,8 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
     final isNegative = _customer!.customerWallet < 0;
     final balanceColor = isNegative ? danger : success;
     final formattedBalance = isNegative
-        ? '-₦${_customer!.customerWallet.abs().toStringAsFixed(0)}'
-        : '₦${_customer!.customerWallet.toStringAsFixed(0)}';
+        ? '-₦${fmtNumber(_customer!.customerWallet.abs().toInt())}'
+        : '₦${fmtNumber(_customer!.customerWallet.toInt())}';
 
     return Container(
       margin: EdgeInsets.symmetric(horizontal: context.getRSize(16)),
@@ -289,7 +290,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
       child: Column(
         children: [
           Text(
-            'Balance',
+            'Wallet balance',
             style: TextStyle(
               fontSize: context.getRFontSize(14),
               fontWeight: FontWeight.w600,
@@ -790,7 +791,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                   color: blueMain,
                 ),
                 label: Text(
-                  'Add Payment',
+                  'Fund Wallet',
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: context.getRFontSize(13),
@@ -868,7 +869,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                '₦${payment.amount.toStringAsFixed(0)}',
+                                '+₦${fmtNumber(payment.amount.toInt())}',
                                 style: TextStyle(
                                   fontSize: context.getRFontSize(15),
                                   fontWeight: FontWeight.w700,
@@ -1109,7 +1110,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                                               CrossAxisAlignment.start,
                                           children: [
                                             Text(
-                                              '₦${payment.amount.toStringAsFixed(0)}',
+                                              '+₦${fmtNumber(payment.amount.toInt())}',
                                               style: TextStyle(
                                                 fontSize: context.getRFontSize(
                                                   15,
