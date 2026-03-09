@@ -256,8 +256,11 @@ class _CheckoutPageState extends State<CheckoutPage> {
           _paymentOption(
             PaymentType.partialCash,
             'Partial Cash / Card Payment',
-            'Enter amount paid — remainder added to balance',
+            _isWalkIn
+                ? 'Not available for Walk-in customers'
+                : 'Enter amount paid — remainder added to balance',
             FontAwesomeIcons.moneyBillTransfer,
+            disabled: _isWalkIn,
           ),
 
           // Partial amount input + live remaining
@@ -401,6 +404,17 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
   // ── Confirm payment logic ──────────────────────────────────────────────────
   void _confirmPayment() {
+    // Walk-in validation
+    if (_isWalkIn && _paymentType != PaymentType.fullCash) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Walk-in customers must pay in full'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
     // Validation
     if (_paymentType == PaymentType.partialCash && _cashReceivedValue <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
