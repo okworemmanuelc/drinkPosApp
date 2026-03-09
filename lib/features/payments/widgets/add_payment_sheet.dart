@@ -6,13 +6,14 @@ import '../../../core/theme/colors.dart';
 import '../../../core/theme/theme_notifier.dart';
 import '../../../core/utils/responsive.dart';
 import '../../../shared/services/activity_log_service.dart';
-import '../../customers/data/models/customer.dart';
-import '../../customers/data/services/customer_service.dart';
 
 import '../../deliveries/data/services/delivery_service.dart';
 import '../data/models/payment.dart';
 import '../data/services/payment_service.dart';
 import '../../../core/utils/currency_input_formatter.dart';
+import '../../inventory/data/models/supplier.dart';
+import '../../inventory/data/models/crate_group.dart';
+import '../../inventory/data/inventory_data.dart';
 
 class AddPaymentSheet extends StatefulWidget {
   const AddPaymentSheet({super.key});
@@ -40,7 +41,7 @@ class _AddPaymentSheetState extends State<AddPaymentSheet> {
   String _paymentMethod = 'Cash';
   DateTime _selectedDate = DateTime.now();
   String? _selectedDeliveryId;
-  Customer? _selectedSupplier;
+  Supplier? _selectedSupplier;
 
   bool get _isDark => themeNotifier.value == ThemeMode.dark;
   Color get _surface => _isDark ? dSurface : lSurface;
@@ -86,13 +87,11 @@ class _AddPaymentSheetState extends State<AddPaymentSheet> {
     final typedName = _supplierCtrl.text.trim();
     if (typedName.isEmpty) return;
 
-    // Check if supplier exists. By convention suppliers are in customerService right now.
-    // If not, we prompt to create.
-    Customer? finalSupplier = _selectedSupplier;
+    Supplier? finalSupplier = _selectedSupplier;
     if (finalSupplier == null ||
         finalSupplier.name.toLowerCase() != typedName.toLowerCase()) {
-      final existing = customerService.getAll().where(
-        (c) => c.name.toLowerCase() == typedName.toLowerCase(),
+      final existing = kSuppliers.where(
+        (s) => s.name.toLowerCase() == typedName.toLowerCase(),
       );
       if (existing.isNotEmpty) {
         finalSupplier = existing.first;
@@ -128,13 +127,12 @@ class _AddPaymentSheetState extends State<AddPaymentSheet> {
         );
         if (create != true) return; // User cancelled
 
-        finalSupplier = Customer(
+        finalSupplier = Supplier(
           id: DateTime.now().millisecondsSinceEpoch.toString(),
           name: typedName,
-          addressText: '',
-          googleMapsLocation: '',
+          crateGroup: CrateGroup.premium, // Default to a standard crate group
         );
-        customerService.addCustomer(finalSupplier); // Adds to memory
+        kSuppliers.add(finalSupplier); // Adds to memory
       }
     }
 
@@ -153,10 +151,15 @@ class _AddPaymentSheetState extends State<AddPaymentSheet> {
       createdAt: DateTime.now(),
     );
 
+    // Write to the payments ledger
     paymentService.addPayment(payment);
 
+    // Update the specific supplier's balance (no interaction with Customers)
+    finalSupplier.amountPaid += amount;
+    finalSupplier.outstandingBalance -= amount;
+
     activityLogService.logAction(
-      'Payment Recorded',
+      'Supplier Payment Recorded',
       'Payment of ₦${amount.toStringAsFixed(2)} to ${finalSupplier.name} via $_paymentMethod',
       relatedEntityId: payment.id,
       relatedEntityType: 'payment',
@@ -306,19 +309,19 @@ class _AddPaymentSheetState extends State<AddPaymentSheet> {
                     children: [
                       // Supplier Autocomplete
                       _buildLabel('Supplier Name'),
-                      Autocomplete<Customer>(
+                      Autocomplete<Supplier>(
                         displayStringForOption: (item) => item.name,
                         optionsBuilder: (TextEditingValue textEditingValue) {
                           if (textEditingValue.text.isEmpty) {
-                            return const Iterable<Customer>.empty();
+                            return const Iterable<Supplier>.empty();
                           }
-                          return customerService.getAll().where((Customer c) {
+                          return kSuppliers.where((Supplier c) {
                             return c.name.toLowerCase().contains(
                               textEditingValue.text.toLowerCase(),
                             );
                           });
                         },
-                        onSelected: (Customer selection) {
+                        onSelected: (Supplier selection) {
                           _selectedSupplier = selection;
                           _supplierCtrl.text = selection.name;
                         },
