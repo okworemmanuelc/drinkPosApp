@@ -180,49 +180,84 @@ class AppDrawer extends StatelessWidget {
     if (route == 'pos') {
       // Pop back to POS (it's always the root)
       Navigator.of(context).popUntil((r) => r.isFirst);
+      return;
     }
+
+    // For all other top-level drawer items, we replace the current route
+    // (except POS which is the root) to prevent the navigation stack from growing infinitely.
+    // If we are currently on POS, we push. If we are on another drawer item, we replace.
+    final bool isPushReplacement = activeRoute != 'pos';
 
     if (route == 'activity_logs') {
-      Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => const _ActivityLogScreenProxy()),
-      );
-    }
-
-    if (route == 'customers') {
-      Navigator.of(
-        context,
-      ).push(MaterialPageRoute(builder: (_) => const _CustomersScreenProxy()));
-    }
-
-    if (route == 'orders') {
-      Navigator.of(
-        context,
-      ).push(MaterialPageRoute(builder: (_) => const _OrdersScreenProxy()));
-    }
-
-    if (route == 'payments') {
-      Navigator.of(
-        context,
-      ).push(MaterialPageRoute(builder: (_) => const _PaymentsScreenProxy()));
-    }
-
-    if (route == 'deliveries') {
-      Navigator.of(
-        context,
-      ).push(MaterialPageRoute(builder: (_) => const _DeliveriesScreenProxy()));
-    }
-
-    if (route == 'expenses') {
-      Navigator.of(
-        context,
-      ).push(MaterialPageRoute(builder: (_) => const _ExpensesScreenProxy()));
-    }
-
-    if (route == 'inventory') {
-      // Import lazily to avoid circular dep — see note below
-      Navigator.of(
-        context,
-      ).push(MaterialPageRoute(builder: (_) => const _InventoryScreenProxy()));
+      if (isPushReplacement) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const _ActivityLogScreenProxy()),
+        );
+      } else {
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const _ActivityLogScreenProxy()),
+        );
+      }
+    } else if (route == 'customers') {
+      if (isPushReplacement) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const _CustomersScreenProxy()),
+        );
+      } else {
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const _CustomersScreenProxy()),
+        );
+      }
+    } else if (route == 'orders') {
+      if (isPushReplacement) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const _OrdersScreenProxy()),
+        );
+      } else {
+        Navigator.of(
+          context,
+        ).push(MaterialPageRoute(builder: (_) => const _OrdersScreenProxy()));
+      }
+    } else if (route == 'payments') {
+      if (isPushReplacement) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const _PaymentsScreenProxy()),
+        );
+      } else {
+        Navigator.of(
+          context,
+        ).push(MaterialPageRoute(builder: (_) => const _PaymentsScreenProxy()));
+      }
+    } else if (route == 'deliveries') {
+      if (isPushReplacement) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const _DeliveriesScreenProxy()),
+        );
+      } else {
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const _DeliveriesScreenProxy()),
+        );
+      }
+    } else if (route == 'expenses') {
+      if (isPushReplacement) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const _ExpensesScreenProxy()),
+        );
+      } else {
+        Navigator.of(
+          context,
+        ).push(MaterialPageRoute(builder: (_) => const _ExpensesScreenProxy()));
+      }
+    } else if (route == 'inventory') {
+      if (isPushReplacement) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const _InventoryScreenProxy()),
+        );
+      } else {
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const _InventoryScreenProxy()),
+        );
+      }
     }
   }
 
