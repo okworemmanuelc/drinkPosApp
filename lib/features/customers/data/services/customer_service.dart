@@ -13,6 +13,8 @@ class CustomerService extends ValueNotifier<List<Customer>> {
       addressText: '12 Borno Way, Maiduguri',
       googleMapsLocation: '12 Borno Way',
       outstandingBalance: 15000.0,
+      customerGroup: CustomerGroup.retailer,
+      isWalkIn: false,
     ),
     Customer(
       id: 'c2',
@@ -20,6 +22,8 @@ class CustomerService extends ValueNotifier<List<Customer>> {
       addressText: '45 Market Road, Maiduguri',
       googleMapsLocation: '45 Market Road',
       outstandingBalance: 0.0,
+      customerGroup: CustomerGroup.retailer,
+      isWalkIn: false,
     ),
     Customer(
       id: 'c3',
@@ -27,6 +31,8 @@ class CustomerService extends ValueNotifier<List<Customer>> {
       addressText: '8 Industrial Layout, Maiduguri',
       googleMapsLocation: '8 Industrial Layout',
       outstandingBalance: -7500.0,
+      customerGroup: CustomerGroup.retailer,
+      isWalkIn: false,
     ),
   ];
 
