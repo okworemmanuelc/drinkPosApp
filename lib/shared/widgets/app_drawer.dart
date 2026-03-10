@@ -3,6 +3,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/theme_notifier.dart';
 import '../../core/utils/responsive.dart';
+import '../../shared/services/navigation_service.dart';
 
 class AppDrawer extends StatelessWidget {
   // Pass 'pos' or 'inventory' to highlight the correct nav item
@@ -177,65 +178,32 @@ class AppDrawer extends StatelessWidget {
     );
   }
 
-  // ── Navigation logic — all routing lives here ──────────────────────────────
+  // ── Navigation logic — now uses NavigationService shell ────────────────────
   void _navigateTo(BuildContext context, String route) {
     // Always close the drawer first
     Navigator.pop(context);
 
-    if (route == activeRoute) return; // already here
+    // Ensure we are at the root MainLayout shell
+    Navigator.of(context).popUntil((r) => r.isFirst);
 
     if (route == 'pos') {
-      // Pop back to POS (it's always the root)
-      Navigator.of(context).popUntil((r) => r.isFirst);
-    }
-
-    if (route == 'activity_logs') {
-      Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => const _ActivityLogScreenProxy()),
-      );
-    }
-
-    if (route == 'customers') {
-      Navigator.of(
-        context,
-      ).push(MaterialPageRoute(builder: (_) => const _CustomersScreenProxy()));
-    }
-
-    if (route == 'orders') {
-      Navigator.of(
-        context,
-      ).push(MaterialPageRoute(builder: (_) => const _OrdersScreenProxy()));
-    }
-
-    if (route == 'cart') {
-      Navigator.of(
-        context,
-      ).push(MaterialPageRoute(builder: (_) => const _CartScreenProxy()));
-    }
-
-    if (route == 'payments') {
-      Navigator.of(
-        context,
-      ).push(MaterialPageRoute(builder: (_) => const _PaymentsScreenProxy()));
-    }
-
-    if (route == 'deliveries') {
-      Navigator.of(
-        context,
-      ).push(MaterialPageRoute(builder: (_) => const _DeliveriesScreenProxy()));
-    }
-
-    if (route == 'expenses') {
-      Navigator.of(
-        context,
-      ).push(MaterialPageRoute(builder: (_) => const _ExpensesScreenProxy()));
-    }
-
-    if (route == 'inventory') {
-      // Import lazily to avoid circular dep — see note below
-      Navigator.of(
-        context,
-      ).push(MaterialPageRoute(builder: (_) => const _InventoryScreenProxy()));
+      navigationService.setIndex(0);
+    } else if (route == 'inventory') {
+      navigationService.setIndex(1);
+    } else if (route == 'orders') {
+      navigationService.setIndex(2);
+    } else if (route == 'cart') {
+      navigationService.setIndex(3);
+    } else if (route == 'payments') {
+      navigationService.setIndex(4);
+    } else if (route == 'deliveries') {
+      navigationService.setIndex(5);
+    } else if (route == 'expenses') {
+      navigationService.setIndex(6);
+    } else if (route == 'customers') {
+      navigationService.setIndex(7);
+    } else if (route == 'activity_logs') {
+      navigationService.setIndex(8);
     }
   }
 
