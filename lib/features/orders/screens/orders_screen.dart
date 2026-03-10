@@ -257,7 +257,12 @@ class _OrdersScreenState extends State<OrdersScreen>
     }
 
     return ListView.builder(
-      padding: EdgeInsets.all(context.getRSize(16)),
+      padding: EdgeInsets.fromLTRB(
+        context.getRSize(16),
+        context.getRSize(16),
+        context.getRSize(16),
+        context.getRSize(100),
+      ),
       itemCount: list.length,
       itemBuilder: (context, index) {
         return _OrderCard(

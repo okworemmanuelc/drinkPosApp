@@ -4,7 +4,6 @@ import 'package:flutter/services.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/theme_notifier.dart';
 import 'features/inventory/screens/inventory_screen.dart';
-import 'features/pos/screens/pos_home_screen.dart';
 import 'shared/widgets/app_drawer.dart';
 import 'shared/widgets/activity_log_screen.dart';
 import 'features/customers/screens/customers_screen.dart';
@@ -12,6 +11,7 @@ import 'features/orders/screens/orders_screen.dart';
 import 'features/payments/screens/payments_screen.dart';
 import 'features/deliveries/screens/deliveries_screen.dart';
 import 'features/expenses/screens/expenses_screen.dart';
+import 'shared/widgets/main_layout.dart';
 
 void main() {
   SystemChrome.setSystemUIOverlayStyle(
@@ -56,7 +56,7 @@ class BrewFlowApp extends StatelessWidget {
         themeMode: mode,
         theme: AppTheme.light(),
         darkTheme: AppTheme.dark(),
-        home: const PosHomeScreen(),
+        home: const MainLayout(),
       ),
     );
   }
