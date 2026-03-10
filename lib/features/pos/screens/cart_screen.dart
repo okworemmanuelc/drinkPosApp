@@ -705,7 +705,11 @@ class _CartScreenState extends State<CartScreen> {
     final sub = cartItems.fold<double>(
       0.0,
       (s, i) =>
-          s + stockValue((i['price'] as int).toDouble(), i['qty'] as double),
+          s +
+          stockValue(
+            (i['price'] as num).toDouble(),
+            (i['qty'] as num).toDouble(),
+          ),
     );
 
     // ── Glass detection & crate deposit computation ──
@@ -765,16 +769,7 @@ class _CartScreenState extends State<CartScreen> {
         appBar: AppBar(
           backgroundColor: _surface,
           elevation: 0,
-          leading: Navigator.of(context).canPop()
-              ? IconButton(
-                  icon: Icon(
-                    Icons.arrow_back_ios_new,
-                    color: _text,
-                    size: context.getRSize(20),
-                  ),
-                  onPressed: () => Navigator.pop(context),
-                )
-              : const MenuButton(),
+          leading: const MenuButton(),
           title: const AppBarHeader(
             icon: FontAwesomeIcons.cartShopping,
             title: 'Cart',

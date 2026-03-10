@@ -13,3 +13,9 @@ String fmtNumber(int n) {
   }
   return n.toString();
 }
+
+/// Formats a double as currency with Nair sign.
+/// e.g. formatCurrency(5000.5) → '₦5,000'
+String formatCurrency(num n) {
+  return '₦${fmtNumber(n.toInt())}';
+}

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'app_drawer.dart';
+import 'menu_button.dart';
 
 class SharedScaffold extends StatelessWidget {
   final PreferredSizeWidget? appBar;
@@ -23,8 +24,16 @@ class SharedScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bool isPrimaryRoute = [
+      'pos',
+      'inventory',
+      'orders',
+      'cart',
+    ].contains(activeRoute);
+
     return Scaffold(
-      appBar: appBar,
+      appBar:
+          appBar ?? AppBar(leading: isPrimaryRoute ? const MenuButton() : null),
       backgroundColor: backgroundColor,
       floatingActionButton: floatingActionButton,
       floatingActionButtonLocation: floatingActionButtonLocation,

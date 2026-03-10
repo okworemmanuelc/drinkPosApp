@@ -53,7 +53,9 @@ class CartService extends ValueNotifier<List<Map<String, dynamic>>> {
 
   double get subtotal => value.fold(
     0,
-    (sum, item) => sum + ((item['price'] as int) * (item['qty'] as double)),
+    (sum, item) =>
+        sum +
+        ((item['price'] as num).toDouble() * (item['qty'] as num).toDouble()),
   );
 }
 

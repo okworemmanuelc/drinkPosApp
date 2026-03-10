@@ -72,8 +72,8 @@ class ThermalReceiptService {
     // Single line per item: [qty]x [product name]         [price]
     for (var item in cart) {
       final String name = item['name'].toString();
-      final double qty = item['qty'] as double;
-      final double price = (item['price'] as int).toDouble();
+      final double qty = (item['qty'] as num).toDouble();
+      final double price = (item['price'] as num).toDouble();
       final double lineTotal = stockValue(price, qty);
 
       final String qtyStr = '${qty.toStringAsFixed(1)}x ';

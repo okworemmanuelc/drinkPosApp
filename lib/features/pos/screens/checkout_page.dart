@@ -916,8 +916,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
   Widget _orderItemTile(Map<String, dynamic> item) {
     final lineTotal = stockValue(
-      (item['price'] as int).toDouble(),
-      (item['qty'] as double),
+      (item['price'] as num).toDouble(),
+      (item['qty'] as num).toDouble(),
     ).toInt();
     return Padding(
       padding: EdgeInsets.symmetric(
