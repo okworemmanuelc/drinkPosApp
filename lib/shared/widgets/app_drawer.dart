@@ -109,6 +109,13 @@ class AppDrawer extends StatelessWidget {
       children: [
         _navItem(
           context,
+          FontAwesomeIcons.chartLine,
+          'Dashboard',
+          active: activeRoute == 'dashboard',
+          onTap: () => _navigateTo(context, 'dashboard'),
+        ),
+        _navItem(
+          context,
           FontAwesomeIcons.cashRegister,
           'Point of Sale',
           active: activeRoute == 'pos',
@@ -186,24 +193,26 @@ class AppDrawer extends StatelessWidget {
     // Ensure we are at the root MainLayout shell
     Navigator.of(context).popUntil((r) => r.isFirst);
 
-    if (route == 'pos') {
+    if (route == 'dashboard') {
       navigationService.setIndex(0);
-    } else if (route == 'inventory') {
+    } else if (route == 'pos') {
       navigationService.setIndex(1);
-    } else if (route == 'orders') {
+    } else if (route == 'inventory') {
       navigationService.setIndex(2);
-    } else if (route == 'cart') {
+    } else if (route == 'orders') {
       navigationService.setIndex(3);
-    } else if (route == 'payments') {
+    } else if (route == 'cart') {
       navigationService.setIndex(4);
-    } else if (route == 'deliveries') {
+    } else if (route == 'payments') {
       navigationService.setIndex(5);
-    } else if (route == 'expenses') {
+    } else if (route == 'deliveries') {
       navigationService.setIndex(6);
-    } else if (route == 'customers') {
+    } else if (route == 'expenses') {
       navigationService.setIndex(7);
-    } else if (route == 'activity_logs') {
+    } else if (route == 'customers') {
       navigationService.setIndex(8);
+    } else if (route == 'activity_logs') {
+      navigationService.setIndex(9);
     }
   }
 

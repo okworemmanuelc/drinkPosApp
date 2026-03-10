@@ -1,13 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/theme_notifier.dart';
 import '../../../core/utils/number_format.dart';
 import '../../../core/utils/responsive.dart';
-import '../../../shared/services/order_service.dart';
+import '../../../shared/widgets/shared_scaffold.dart';
+import '../../../shared/widgets/menu_button.dart';
+import '../../../shared/widgets/app_bar_header.dart';
+import '../../../shared/widgets/app_bar_header.dart';
+import '../../../core/utils/responsive.dart';
 import '../../inventory/data/inventory_data.dart';
-import '../../customers/data/services/customer_service.dart';
+import '../../../shared/widgets/shared_scaffold.dart';
+
+final Color warning = Color(0xFFF59E0B);
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -17,241 +22,184 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
+  String _selectedPeriod = 'Day';
+  final List<String> _periods = ['Day', 'Week', 'Month', 'Year', 'To Date'];
+
   bool get _isDark => themeNotifier.value == ThemeMode.dark;
   Color get _bg => _isDark ? dBg : lBg;
   Color get _surface => _isDark ? dSurface : lSurface;
+  Color get _cardBg => _isDark ? dCard : lSurface;
   Color get _text => _isDark ? dText : lText;
   Color get _subtext => _isDark ? dSubtext : lSubtext;
   Color get _border => _isDark ? dBorder : lBorder;
-  Color get _cardBg => _isDark ? dCard : lSurface;
+
+  double get _totalStockValue {
+    return kInventoryItems.fold(0, (sum, item) {
+      // Mock price logic or lookup
+      return sum + (item.stock * 5000); // Using 5000 as a base mock price
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<ThemeMode>(
-      valueListenable: themeNotifier,
-      builder: (context, mode, child) {
-        // 1. Daily Sales
-        final today = DateTime.now();
-        final completedOrders = orderService.getCompleted();
-        final todaysOrders = completedOrders.where((o) {
-          final t = o.completedAt ?? o.createdAt;
-          return t.year == today.year &&
-              t.month == today.month &&
-              t.day == today.day;
-        });
-        final dailySales = todaysOrders.fold<double>(
-          0,
-          (sum, o) => sum + o.totalAmount,
-        );
-
-        // 2. Pending Orders
-        final pendingOrdersCount = orderService.getPending().length;
-
-        // 3. Total Stock Value (Phase 2 feature not present in this branch)
-        var totalStockValue = 0.0;
-
-        // 4. Customer Wallet Summary
-        final customers = customerService.getAll();
-        var totalDebt = 0.0;
-        var totalCredit = 0.0;
-        for (var c in customers) {
-          if (c.customerWallet < 0) totalDebt += c.customerWallet.abs();
-          if (c.customerWallet > 0) totalCredit += c.customerWallet;
-        }
-
-        return Scaffold(
-          backgroundColor: _bg,
-          appBar: AppBar(
-            backgroundColor: _surface,
-            elevation: 0,
-            leading: Builder(
-              builder: (ctx) => IconButton(
-                icon: Icon(Icons.menu, color: _text),
-                onPressed: () => Scaffold.of(ctx).openDrawer(),
-              ),
-            ),
-            title: Text(
-              'Dashboard',
-              style: TextStyle(
-                color: _text,
-                fontSize: context.getRFontSize(18),
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            centerTitle: true,
-          ),
-          body: SafeArea(
-            child: SingleChildScrollView(
-              padding: EdgeInsets.all(context.getRSize(16)),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Business Overview',
-                    style: TextStyle(
-                      fontSize: context.getRFontSize(20),
-                      fontWeight: FontWeight.bold,
-                      color: _text,
-                    ),
-                  ),
-                  SizedBox(height: context.getRSize(16)),
-
-                  // Primary Metrics Grid
-                  GridView.count(
-                    crossAxisCount: context.isPhone ? 2 : 4,
-                    crossAxisSpacing: context.getRSize(12),
-                    mainAxisSpacing: context.getRSize(12),
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    childAspectRatio: 1.2,
-                    children: [
-                      _buildMetricCard(
-                        'Today\'s Sales',
-                        '₦${fmtNumber(dailySales.toInt())}',
-                        FontAwesomeIcons.nairaSign,
-                        success,
-                      ),
-                      _buildMetricCard(
-                        'Pending Orders',
-                        '$pendingOrdersCount',
-                        FontAwesomeIcons.boxOpen,
-                        const Color(0xFFF59E0B),
-                      ),
-                      _buildMetricCard(
-                        'Total Stock Value',
-                        '₦${fmtNumber(totalStockValue.toInt())}',
-                        FontAwesomeIcons.layerGroup,
-                        blueMain,
-                      ),
-                      _buildMetricCard(
-                        'Current Expenses',
-                        '₦0',
-                        FontAwesomeIcons.arrowTrendDown,
-                        const Color(0xFFF59E0B),
-                      ),
-                    ],
-                  ),
-
-                  SizedBox(height: context.getRSize(24)),
-                  Text(
-                    'Customer Balances',
-                    style: TextStyle(
-                      fontSize: context.getRFontSize(18),
-                      fontWeight: FontWeight.bold,
-                      color: _text,
-                    ),
-                  ),
-                  SizedBox(height: context.getRSize(12)),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildBalanceCard(
-                          'Total Debt (Owed)',
-                          totalDebt,
-                          danger,
-                        ),
-                      ),
-                      SizedBox(width: context.getRSize(12)),
-                      Expanded(
-                        child: _buildBalanceCard(
-                          'Total Credit (Prepaid)',
-                          totalCredit,
-                          success,
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  SizedBox(height: context.getRSize(24)),
-                  Text(
-                    'Top 3 Products (Mock)',
-                    style: TextStyle(
-                      fontSize: context.getRFontSize(18),
-                      fontWeight: FontWeight.bold,
-                      color: _text,
-                    ),
-                  ),
-                  SizedBox(height: context.getRSize(12)),
-                  _buildTopProductsList(),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildMetricCard(
-    String title,
-    String value,
-    IconData icon,
-    Color color,
-  ) {
-    return Container(
-      padding: EdgeInsets.all(context.getRSize(12)),
-      decoration: BoxDecoration(
-        color: _cardBg,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, color: color, size: context.getRSize(20)),
-          const Spacer(),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: context.getRFontSize(title.contains('Mock') ? 14 : 18),
-              fontWeight: FontWeight.bold,
-              color: _text,
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          SizedBox(height: context.getRSize(4)),
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: context.getRFontSize(12),
-              color: _subtext,
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
+    return SharedScaffold(
+      activeRoute: 'dashboard',
+      backgroundColor: _bg,
+      appBar: AppBar(
+        backgroundColor: _surface,
+        elevation: 0,
+        leading: const MenuButton(),
+        title: const AppBarHeader(
+          icon: FontAwesomeIcons.chartLine,
+          title: 'BrewFlow',
+          subtitle: 'Business Overview',
+        ),
+        actions: [
+          _buildPeriodDropdown(),
+          SizedBox(width: context.getRSize(16)),
         ],
       ),
+      body: SafeArea(
+        child: ListView(
+          padding: EdgeInsets.all(context.getRSize(16)),
+          children: [
+            _buildMetricsGrid(),
+            SizedBox(height: context.getRSize(24)),
+            _buildExpenseTotal(),
+          ],
+        ),
+      ),
     );
   }
 
-  Widget _buildBalanceCard(String label, double amount, Color color) {
+  Widget _buildPeriodDropdown() {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: context.getRSize(12)),
+      decoration: BoxDecoration(
+        color: _cardBg,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _border),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: _selectedPeriod,
+          icon: Icon(
+            FontAwesomeIcons.chevronDown,
+            size: context.getRSize(12),
+            color: blueMain,
+          ),
+          dropdownColor: _surface,
+          borderRadius: BorderRadius.circular(12),
+          items: _periods.map((p) {
+            return DropdownMenuItem(
+              value: p,
+              child: Text(
+                p,
+                style: TextStyle(
+                  fontSize: context.getRFontSize(12),
+                  fontWeight: FontWeight.bold,
+                  color: _text,
+                ),
+              ),
+            );
+          }).toList(),
+          onChanged: (val) {
+            if (val != null) setState(() => _selectedPeriod = val);
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMetricsGrid() {
+    return GridView.count(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      crossAxisCount: 2,
+      crossAxisSpacing: context.getRSize(16),
+      mainAxisSpacing: context.getRSize(16),
+      childAspectRatio: 1.1,
+      children: [
+        _metricCard(
+          'Daily Sales',
+          formatCurrency(125000),
+          FontAwesomeIcons.nairaSign,
+          blueMain,
+        ),
+        _metricCard('Pending Orders', '12', FontAwesomeIcons.clock, warning),
+        _metricCard(
+          'Net Profit',
+          formatCurrency(45000),
+          FontAwesomeIcons.arrowTrendUp,
+          success,
+        ),
+        _metricCard(
+          'Total Loss',
+          formatCurrency(5000),
+          FontAwesomeIcons.arrowTrendDown,
+          danger,
+        ),
+        _metricCard(
+          'Stock Value',
+          formatCurrency(_totalStockValue),
+          FontAwesomeIcons.boxesStacked,
+          blueMain,
+        ),
+        _metricCard(
+          'Customer Wallet',
+          'Cr: ' + formatCurrency(25000) + '\nDr: ' + formatCurrency(12000),
+          FontAwesomeIcons.wallet,
+          blueMain,
+        ),
+      ],
+    );
+  }
+
+  Widget _metricCard(String label, String value, IconData icon, Color color) {
     return Container(
       padding: EdgeInsets.all(context.getRSize(16)),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
+        color: _surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: _border),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Container(
+            padding: EdgeInsets.all(context.getRSize(8)),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, color: color, size: context.getRSize(16)),
+          ),
+          const Spacer(),
           Text(
             label,
             style: TextStyle(
-              color: color,
-              fontWeight: FontWeight.bold,
               fontSize: context.getRFontSize(12),
+              color: _subtext,
+              fontWeight: FontWeight.w600,
             ),
           ),
-          SizedBox(height: context.getRSize(8)),
-          Text(
-            '₦${fmtNumber(amount.toInt())}',
-            style: TextStyle(
-              color: color,
-              fontWeight: FontWeight.w900,
-              fontSize: context.getRFontSize(18),
+          SizedBox(height: context.getRSize(4)),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              value,
+              style: TextStyle(
+                fontSize: context.getRFontSize(18),
+                fontWeight: FontWeight.w800,
+                color: _text,
+              ),
             ),
           ),
         ],
@@ -259,69 +207,54 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildTopProductsList() {
-    // Just pulling first 3 inventory items as mock data for Top 3
-    final topItems = kInventoryItems.take(3).toList();
-
-    return Column(
-      children: topItems.map((item) {
-        return Container(
-          margin: EdgeInsets.only(bottom: context.getRSize(10)),
-          padding: EdgeInsets.all(context.getRSize(12)),
-          decoration: BoxDecoration(
-            color: _cardBg,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: _border),
+  Widget _buildExpenseTotal() {
+    return Container(
+      padding: EdgeInsets.all(context.getRSize(20)),
+      decoration: BoxDecoration(
+        color: _surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: _border),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: EdgeInsets.all(context.getRSize(12)),
+            decoration: BoxDecoration(
+              color: danger.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Icon(
+              FontAwesomeIcons.fileInvoiceDollar,
+              color: danger,
+              size: context.getRSize(20),
+            ),
           ),
-          child: Row(
-            children: [
-              Container(
-                padding: EdgeInsets.all(context.getRSize(8)),
-                decoration: BoxDecoration(
-                  color: item.color.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
+          SizedBox(width: context.getRSize(16)),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Expense Total',
+                  style: TextStyle(
+                    fontSize: context.getRFontSize(14),
+                    color: _subtext,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
-                child: Icon(
-                  item.icon,
-                  color: item.color,
-                  size: context.getRSize(16),
+                Text(
+                  formatCurrency(8500),
+                  style: TextStyle(
+                    fontSize: context.getRFontSize(24),
+                    fontWeight: FontWeight.w800,
+                    color: _text,
+                  ),
                 ),
-              ),
-              SizedBox(width: context.getRSize(12)),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      item.productName,
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: _text,
-                        fontSize: context.getRFontSize(14),
-                      ),
-                    ),
-                    Text(
-                      item.subtitle,
-                      style: TextStyle(
-                        color: _subtext,
-                        fontSize: context.getRFontSize(12),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Text(
-                'High Sales', // Mock string
-                style: TextStyle(
-                  color: success,
-                  fontWeight: FontWeight.bold,
-                  fontSize: context.getRFontSize(12),
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
-        );
-      }).toList(),
+        ],
+      ),
     );
   }
 }
