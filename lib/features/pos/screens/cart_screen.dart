@@ -15,6 +15,9 @@ import '../../inventory/data/inventory_data.dart';
 import '../../inventory/data/models/crate_group.dart';
 import '../../inventory/data/services/supplier_service.dart';
 import '../../../shared/services/cart_service.dart';
+import '../../../shared/widgets/shared_scaffold.dart';
+import '../../../shared/widgets/menu_button.dart';
+import '../../../shared/widgets/app_bar_header.dart';
 import 'checkout_page.dart';
 
 class CartScreen extends StatefulWidget {
@@ -756,7 +759,8 @@ class _CartScreenState extends State<CartScreen> {
 
     return ValueListenableBuilder<ThemeMode>(
       valueListenable: themeNotifier,
-      builder: (_, mode, child) => Scaffold(
+      builder: (_, mode, child) => SharedScaffold(
+        activeRoute: 'cart',
         backgroundColor: _bg,
         appBar: AppBar(
           backgroundColor: _surface,
@@ -770,39 +774,11 @@ class _CartScreenState extends State<CartScreen> {
                   ),
                   onPressed: () => Navigator.pop(context),
                 )
-              : null,
-          title: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                padding: EdgeInsets.all(context.getRSize(8)),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(colors: [blueLight, blueMain]),
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: blueMain.withValues(alpha: 0.3),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Icon(
-                  FontAwesomeIcons.cartShopping,
-                  color: Colors.white,
-                  size: context.getRSize(16),
-                ),
-              ),
-              SizedBox(width: context.getRSize(12)),
-              Text(
-                'Cart',
-                style: TextStyle(
-                  fontSize: context.getRFontSize(18),
-                  fontWeight: FontWeight.w800,
-                  color: _text,
-                ),
-              ),
-            ],
+              : const MenuButton(),
+          title: const AppBarHeader(
+            icon: FontAwesomeIcons.cartShopping,
+            title: 'Cart',
+            subtitle: 'Review Selection',
           ),
           actions: [
             if (cartItems.isNotEmpty)

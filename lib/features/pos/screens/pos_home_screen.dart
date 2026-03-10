@@ -5,12 +5,14 @@ import '../../../core/theme/colors.dart';
 import '../../../core/theme/theme_notifier.dart';
 import '../../../core/utils/number_format.dart';
 import '../../../core/utils/responsive.dart';
-import '../../../shared/widgets/app_drawer.dart';
-import '../data/products_data.dart';
-import '../../inventory/data/inventory_data.dart';
 import '../../inventory/data/models/inventory_item.dart';
+import '../../inventory/data/inventory_data.dart';
+import '../data/products_data.dart';
 import '../../customers/data/models/customer.dart';
 import '../../../shared/services/cart_service.dart';
+import '../../../shared/widgets/shared_scaffold.dart';
+import '../../../shared/widgets/menu_button.dart';
+import '../../../shared/widgets/app_bar_header.dart';
 
 class PosHomeScreen extends StatefulWidget {
   const PosHomeScreen({super.key});
@@ -53,10 +55,10 @@ class _PosHomeScreenState extends State<PosHomeScreen>
   Widget build(BuildContext context) {
     return ValueListenableBuilder<ThemeMode>(
       valueListenable: themeNotifier,
-      builder: (_, _, _) => Scaffold(
+      builder: (_, _, _) => SharedScaffold(
+        activeRoute: 'pos',
         backgroundColor: _bg,
         appBar: _buildAppBar(context),
-        drawer: const AppDrawer(activeRoute: 'pos'),
         body: SafeArea(
           top: false,
           child: Column(
@@ -78,98 +80,11 @@ class _PosHomeScreenState extends State<PosHomeScreen>
     return AppBar(
       backgroundColor: _surface,
       elevation: 0,
-      leading: Builder(
-        builder: (ctx) => InkWell(
-          borderRadius: BorderRadius.circular(12),
-          onTap: () => Scaffold.of(ctx).openDrawer(),
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  height: 2.5,
-                  width: context.getRSize(22), // RESPONSIVE
-                  decoration: BoxDecoration(
-                    color: _text,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                Container(
-                  height: 2.5,
-                  width: context.getRSize(16), // RESPONSIVE
-                  decoration: BoxDecoration(
-                    color: blueMain,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                Container(
-                  height: 2.5,
-                  width: context.getRSize(22), // RESPONSIVE
-                  decoration: BoxDecoration(
-                    color: _text,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-      title: Row(
-        children: [
-          Container(
-            padding: EdgeInsets.all(context.getRSize(8)), // RESPONSIVE
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(colors: [blueLight, blueMain]),
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: [
-                BoxShadow(
-                  color: blueMain.withValues(alpha: 0.3),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Icon(
-              FontAwesomeIcons.beerMugEmpty,
-              color: Colors.white,
-              size: context.getRSize(16), // RESPONSIVE
-            ),
-          ),
-          SizedBox(width: context.getRSize(12)), // RESPONSIVE
-          Expanded(
-            // RESPONSIVE to prevent title overflow
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Text(
-                    'BrewFlow',
-                    style: TextStyle(
-                      fontSize: context.getRFontSize(18), // RESPONSIVE
-                      fontWeight: FontWeight.w800,
-                      color: _text,
-                      letterSpacing: -0.5,
-                    ),
-                  ),
-                ),
-                Text(
-                  'Point of Sale',
-                  style: TextStyle(
-                    fontSize: context.getRFontSize(11), // RESPONSIVE
-                    color: blueMain,
-                    fontWeight: FontWeight.w600,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-          ),
-        ],
+      leading: const MenuButton(),
+      title: const AppBarHeader(
+        icon: FontAwesomeIcons.beerMugEmpty,
+        title: 'BrewFlow',
+        subtitle: 'Point of Sale',
       ),
       actions: [
         _iconBtn(

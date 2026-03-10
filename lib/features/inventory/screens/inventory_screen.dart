@@ -4,7 +4,6 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/theme_notifier.dart';
 import '../../../core/utils/responsive.dart'; // RESPONSIVE: utility imported
-import '../../../shared/widgets/app_drawer.dart';
 import '../data/models/crate_group.dart';
 import '../data/models/supplier.dart';
 import '../data/services/supplier_service.dart';
@@ -12,6 +11,9 @@ import '../data/models/inventory_item.dart';
 import '../data/models/crate_stock.dart';
 import '../data/models/inventory_log.dart';
 import '../data/inventory_data.dart';
+import '../../../shared/widgets/shared_scaffold.dart';
+import '../../../shared/widgets/menu_button.dart';
+import '../../../shared/widgets/app_bar_header.dart';
 import '../../pos/data/products_data.dart';
 import 'product_detail_screen.dart';
 import 'supplier_detail_screen.dart';
@@ -52,10 +54,10 @@ class _InventoryScreenState extends State<InventoryScreen>
   Widget build(BuildContext context) {
     return ValueListenableBuilder<ThemeMode>(
       valueListenable: themeNotifier,
-      builder: (_, _, _) => Scaffold(
+      builder: (_, _, _) => SharedScaffold(
+        activeRoute: 'inventory',
         backgroundColor: _bg,
         appBar: _buildAppBar(context),
-        drawer: const AppDrawer(activeRoute: 'inventory'),
         body: SafeArea(
           top: false,
           child: Column(
@@ -88,99 +90,11 @@ class _InventoryScreenState extends State<InventoryScreen>
     return AppBar(
       backgroundColor: _surface,
       elevation: 0,
-      leading: Builder(
-        builder: (ctx) => InkWell(
-          borderRadius: BorderRadius.circular(12),
-          onTap: () => Scaffold.of(ctx).openDrawer(),
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  height: 2.5,
-                  width: context.getRSize(22), // RESPONSIVE
-                  decoration: BoxDecoration(
-                    color: _text,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                Container(
-                  height: 2.5,
-                  width: context.getRSize(16), // RESPONSIVE
-                  decoration: BoxDecoration(
-                    color: blueMain,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                Container(
-                  height: 2.5,
-                  width: context.getRSize(22), // RESPONSIVE
-                  decoration: BoxDecoration(
-                    color: _text,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-      title: Row(
-        children: [
-          Container(
-            padding: EdgeInsets.all(context.getRSize(8)), // RESPONSIVE
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(colors: [blueLight, blueMain]),
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: [
-                BoxShadow(
-                  color: blueMain.withValues(alpha: 0.3),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Icon(
-              FontAwesomeIcons.boxesStacked,
-              color: Colors.white,
-              size: context.getRSize(16), // RESPONSIVE
-            ),
-          ),
-          SizedBox(width: context.getRSize(12)), // RESPONSIVE
-          Expanded(
-            // RESPONSIVE: Wrap in Expanded to prevent overflow
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                FittedBox(
-                  // RESPONSIVE: ensure text scales
-                  fit: BoxFit.scaleDown,
-                  child: Text(
-                    'Inventory',
-                    style: TextStyle(
-                      fontSize: context.getRFontSize(18), // RESPONSIVE
-                      fontWeight: FontWeight.w800,
-                      color: _text,
-                      letterSpacing: -0.5,
-                    ),
-                  ),
-                ),
-                Text(
-                  'Stock Management',
-                  style: TextStyle(
-                    fontSize: context.getRFontSize(11), // RESPONSIVE
-                    color: blueMain,
-                    fontWeight: FontWeight.w600,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis, // RESPONSIVE
-                ),
-              ],
-            ),
-          ),
-        ],
+      leading: const MenuButton(),
+      title: const AppBarHeader(
+        icon: FontAwesomeIcons.boxesStacked,
+        title: 'Inventory',
+        subtitle: 'Stock Management',
       ),
     );
   }

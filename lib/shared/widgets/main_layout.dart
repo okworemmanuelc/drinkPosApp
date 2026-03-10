@@ -3,9 +3,8 @@ import '../../features/pos/screens/pos_home_screen.dart';
 import '../../features/inventory/screens/inventory_screen.dart';
 import '../../features/orders/screens/orders_screen.dart';
 import '../../features/pos/screens/cart_screen.dart';
-import 'app_drawer.dart';
-import '../../core/theme/colors.dart';
 import '../../shared/services/cart_service.dart';
+import '../../core/theme/colors.dart';
 
 class MainLayout extends StatefulWidget {
   const MainLayout({super.key});
@@ -15,7 +14,6 @@ class MainLayout extends StatefulWidget {
 }
 
 class _MainLayoutState extends State<MainLayout> {
-  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   int _currentIndex = 0;
 
   static void _voidOnCustomerChanged(dynamic _) {}
@@ -38,19 +36,7 @@ class _MainLayoutState extends State<MainLayout> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      key: _scaffoldKey,
-      drawer: const AppDrawer(
-        activeRoute: 'pos',
-      ), // Will update activeRoute dynamically later
-      body: GestureDetector(
-        onHorizontalDragEnd: (details) {
-          // Right swipe detection
-          if (details.primaryVelocity! > 300) {
-            _scaffoldKey.currentState?.openDrawer();
-          }
-        },
-        child: IndexedStack(index: _currentIndex, children: _screens),
-      ),
+      body: IndexedStack(index: _currentIndex, children: _screens),
       bottomNavigationBar: ValueListenableBuilder<List<Map<String, dynamic>>>(
         valueListenable: cartService,
         builder: (context, cart, _) => BottomNavigationBar(

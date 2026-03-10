@@ -136,6 +136,13 @@ class AppDrawer extends StatelessWidget {
         ),
         _navItem(
           context,
+          FontAwesomeIcons.cartShopping,
+          'Cart',
+          active: activeRoute == 'cart',
+          onTap: () => _navigateTo(context, 'cart'),
+        ),
+        _navItem(
+          context,
           FontAwesomeIcons.dolly,
           'Deliveries',
           active: activeRoute == 'deliveries',
@@ -198,6 +205,12 @@ class AppDrawer extends StatelessWidget {
       Navigator.of(
         context,
       ).push(MaterialPageRoute(builder: (_) => const _OrdersScreenProxy()));
+    }
+
+    if (route == 'cart') {
+      Navigator.of(
+        context,
+      ).push(MaterialPageRoute(builder: (_) => const _CartScreenProxy()));
     }
 
     if (route == 'payments') {
@@ -651,4 +664,21 @@ Widget Function() _expensesScreenBuilder = () => const Scaffold(
 /// Call this once from main.dart to register the real ExpensesScreen.
 void registerExpensesScreen(Widget Function() builder) {
   _expensesScreenBuilder = builder;
+}
+
+// ── Proxy widget for CartScreen ──────────────────────────────────────────
+class _CartScreenProxy extends StatelessWidget {
+  const _CartScreenProxy();
+
+  @override
+  Widget build(BuildContext context) {
+    return _cartScreenBuilder();
+  }
+}
+
+Widget Function() _cartScreenBuilder = () =>
+    const Scaffold(body: Center(child: Text('Cart screen not registered yet')));
+
+void registerCartScreen(Widget Function() builder) {
+  _cartScreenBuilder = builder;
 }

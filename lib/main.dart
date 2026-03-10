@@ -11,7 +11,9 @@ import 'features/orders/screens/orders_screen.dart';
 import 'features/payments/screens/payments_screen.dart';
 import 'features/deliveries/screens/deliveries_screen.dart';
 import 'features/expenses/screens/expenses_screen.dart';
+import 'features/pos/screens/cart_screen.dart';
 import 'shared/widgets/main_layout.dart';
+import 'shared/services/cart_service.dart';
 
 void main() {
   SystemChrome.setSystemUIOverlayStyle(
@@ -39,6 +41,18 @@ void main() {
 
   // Wire up ExpensesScreen to AppDrawer proxy
   registerExpensesScreen(() => const ExpensesScreen());
+
+  // Wire up CartScreen to AppDrawer proxy
+  registerCartScreen(
+    () => ValueListenableBuilder<List<Map<String, dynamic>>>(
+      valueListenable: cartService,
+      builder: (context, cart, _) => CartScreen(
+        cart: cart,
+        crateDeposit: 0.0,
+        onCustomerChanged: (dynamic _) {},
+      ),
+    ),
+  );
 
   runApp(const BrewFlowApp());
 }
