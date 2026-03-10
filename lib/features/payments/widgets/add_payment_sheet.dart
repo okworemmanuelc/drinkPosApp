@@ -13,7 +13,7 @@ import '../data/services/payment_service.dart';
 import '../../../core/utils/currency_input_formatter.dart';
 import '../../inventory/data/models/supplier.dart';
 import '../../inventory/data/models/crate_group.dart';
-import '../../inventory/data/inventory_data.dart';
+import '../../inventory/data/services/supplier_service.dart';
 
 class AddPaymentSheet extends StatefulWidget {
   const AddPaymentSheet({super.key});
@@ -87,10 +87,11 @@ class _AddPaymentSheetState extends State<AddPaymentSheet> {
     final typedName = _supplierCtrl.text.trim();
     if (typedName.isEmpty) return;
 
+    // Check if supplier exists.
     Supplier? finalSupplier = _selectedSupplier;
     if (finalSupplier == null ||
         finalSupplier.name.toLowerCase() != typedName.toLowerCase()) {
-      final existing = kSuppliers.where(
+      final existing = supplierService.getAll().where(
         (s) => s.name.toLowerCase() == typedName.toLowerCase(),
       );
       if (existing.isNotEmpty) {
@@ -130,9 +131,9 @@ class _AddPaymentSheetState extends State<AddPaymentSheet> {
         finalSupplier = Supplier(
           id: DateTime.now().millisecondsSinceEpoch.toString(),
           name: typedName,
-          crateGroup: CrateGroup.premium, // Default to a standard crate group
+          crateGroup: CrateGroup.nbPlc, // Default or pick based on name?
         );
-        kSuppliers.add(finalSupplier); // Adds to memory
+        supplierService.addSupplier(finalSupplier); // Adds to memory
       }
     }
 
@@ -156,7 +157,7 @@ class _AddPaymentSheetState extends State<AddPaymentSheet> {
 
     // Update the specific supplier's balance (no interaction with Customers)
     finalSupplier.amountPaid += amount;
-    finalSupplier.outstandingBalance -= amount;
+    finalSupplier.supplierWallet -= amount;
 
     activityLogService.logAction(
       'Supplier Payment Recorded',
@@ -315,8 +316,8 @@ class _AddPaymentSheetState extends State<AddPaymentSheet> {
                           if (textEditingValue.text.isEmpty) {
                             return const Iterable<Supplier>.empty();
                           }
-                          return kSuppliers.where((Supplier c) {
-                            return c.name.toLowerCase().contains(
+                          return supplierService.getAll().where((Supplier s) {
+                            return s.name.toLowerCase().contains(
                               textEditingValue.text.toLowerCase(),
                             );
                           });

@@ -1,6 +1,6 @@
 import 'payment.dart';
 
-enum CustomerGroup { distributor, bulkBreaker, retailer }
+enum CustomerGroup { Distributor, BulkBreaker, Retailer }
 
 class Customer {
   final String id;
@@ -29,7 +29,7 @@ class Customer {
     List<Payment>? payments,
     List<String>? orderIds,
     DateTime? createdAt,
-    this.customerGroup = CustomerGroup.retailer,
+    this.customerGroup = CustomerGroup.Retailer,
     this.isWalkIn = false,
   }) : emptyCratesBalance = emptyCratesBalance ?? {},
        payments = payments ?? [],
@@ -82,4 +82,12 @@ class Customer {
       payments: [...payments, payment],
     );
   }
+
+  static Customer walkIn() => Customer(
+    id: 'walk-in',
+    name: 'Walk-in Customer',
+    addressText: 'N/A',
+    googleMapsLocation: 'N/A',
+    isWalkIn: true,
+  );
 }

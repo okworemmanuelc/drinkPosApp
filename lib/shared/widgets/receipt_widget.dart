@@ -3,6 +3,7 @@ import 'package:barcode_widget/barcode_widget.dart';
 import '../../core/utils/responsive.dart';
 import '../../core/utils/number_format.dart';
 import '../../core/theme/colors.dart';
+import '../../core/utils/stock_calculator.dart';
 
 class ReceiptWidget extends StatelessWidget {
   final String orderId;
@@ -107,7 +108,7 @@ class ReceiptWidget extends StatelessWidget {
           ...cart.map((item) {
             final qty = (item['qty'] as num).toDouble();
             final price = (item['price'] as num).toInt();
-            final lineTotal = (price * qty).toInt();
+            final lineTotal = stockValue(price.toDouble(), qty).toInt();
             return Padding(
               padding: EdgeInsets.symmetric(vertical: context.getRSize(4)),
               child: Row(

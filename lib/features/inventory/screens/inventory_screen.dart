@@ -7,6 +7,7 @@ import '../../../core/utils/responsive.dart'; // RESPONSIVE: utility imported
 import '../../../shared/widgets/app_drawer.dart';
 import '../data/models/crate_group.dart';
 import '../data/models/supplier.dart';
+import '../data/services/supplier_service.dart';
 import '../data/models/inventory_item.dart';
 import '../data/models/crate_stock.dart';
 import '../data/models/inventory_log.dart';
@@ -429,7 +430,7 @@ class _InventoryScreenState extends State<InventoryScreen>
         ),
         // Supplier List
         Expanded(
-          child: kSuppliers.isEmpty
+          child: supplierService.getAll().isEmpty
               ? Center(
                   child: Text(
                     'No suppliers added yet',
@@ -443,9 +444,9 @@ class _InventoryScreenState extends State<InventoryScreen>
                     context.getRSize(16),
                     context.getRSize(120),
                   ),
-                  itemCount: kSuppliers.length,
+                  itemCount: supplierService.getAll().length,
                   itemBuilder: (_, i) {
-                    final s = kSuppliers[i];
+                    final s = supplierService.getAll()[i];
                     return GestureDetector(
                       onTap: () => Navigator.push(
                         context,
@@ -538,7 +539,7 @@ class _InventoryScreenState extends State<InventoryScreen>
   List<CrateStock> get _activeCrateGroups {
     return kCrateStocks.where((cs) {
       return kInventoryItems.any((item) {
-        final supplier = kSuppliers.firstWhere(
+        final supplier = supplierService.getAll().firstWhere(
           (s) => s.id == item.supplierId,
           orElse: () =>
               Supplier(id: '', name: '', crateGroup: CrateGroup.nbPlc),
@@ -570,7 +571,7 @@ class _InventoryScreenState extends State<InventoryScreen>
               ), // RESPONSIVE
               children: [
                 _filterChip(context, 'All', 'all'),
-                ...kSuppliers.map(
+                ...supplierService.getAll().map(
                   (s) => _filterChip(context, s.name.split(' ').first, s.id),
                 ),
               ],
@@ -615,7 +616,7 @@ class _InventoryScreenState extends State<InventoryScreen>
   Widget _buildProductRow(BuildContext context, InventoryItem item) {
     final isLow = item.stock > 0 && item.stock <= item.lowStockThreshold;
     final isOut = item.stock == 0;
-    final supplier = kSuppliers.firstWhere(
+    final supplier = supplierService.getAll().firstWhere(
       (s) => s.id == item.supplierId,
       orElse: () =>
           Supplier(id: '', name: 'Unknown', crateGroup: CrateGroup.nbPlc),
@@ -907,7 +908,7 @@ class _InventoryScreenState extends State<InventoryScreen>
   Widget _buildCrateGroupCard(BuildContext context, CrateStock cs) {
     final linkedProducts = kInventoryItems
         .where((item) {
-          final supplier = kSuppliers.firstWhere(
+          final supplier = supplierService.getAll().firstWhere(
             (s) => s.id == item.supplierId,
             orElse: () =>
                 Supplier(id: '', name: 'Unknown', crateGroup: CrateGroup.nbPlc),
@@ -917,7 +918,8 @@ class _InventoryScreenState extends State<InventoryScreen>
         .map((i) => i.productName)
         .toList();
 
-    final linkedSuppliers = kSuppliers
+    final linkedSuppliers = supplierService
+        .getAll()
         .where((s) => s.crateGroup == cs.group)
         .map((s) => s.name)
         .toList();
@@ -1573,14 +1575,16 @@ class _InventoryScreenState extends State<InventoryScreen>
 
                           if (productData.isNotEmpty &&
                               productData['category'] == 'Glass Crates') {
-                            final supplier = kSuppliers.firstWhere(
-                              (s) => s.id == item.supplierId,
-                              orElse: () => Supplier(
-                                id: '',
-                                name: '',
-                                crateGroup: CrateGroup.premium,
-                              ),
-                            );
+                            final supplier = supplierService
+                                .getAll()
+                                .firstWhere(
+                                  (s) => s.id == item.supplierId,
+                                  orElse: () => Supplier(
+                                    id: '',
+                                    name: '',
+                                    crateGroup: CrateGroup.premium,
+                                  ),
+                                );
 
                             final cStockIndex = kCrateStocks.indexWhere(
                               (c) => c.group == supplier.crateGroup,
@@ -2061,7 +2065,7 @@ class _InventoryScreenState extends State<InventoryScreen>
   void _showAddProductDialog() {
     final nameCtrl = TextEditingController();
     final subtitleCtrl = TextEditingController();
-    String selectedSupplierId = kSuppliers.first.id;
+    String selectedSupplierId = supplierService.getAll().first.id;
     final stockCtrl = TextEditingController(text: '0');
     final retailPriceCtrl = TextEditingController();
     final wholesalePriceCtrl = TextEditingController();
@@ -2170,7 +2174,8 @@ class _InventoryScreenState extends State<InventoryScreen>
                               isExpanded: true,
                               onChanged: (v) =>
                                   setB(() => selectedSupplierId = v!),
-                              items: kSuppliers
+                              items: supplierService
+                                  .getAll()
                                   .map(
                                     (s) => DropdownMenuItem(
                                       value: s.id,
@@ -2396,7 +2401,7 @@ class _InventoryScreenState extends State<InventoryScreen>
                         trackInventory: true,
                         contactDetails: contactCtrl.text.trim(),
                         amountPaid: 0.0,
-                        outstandingBalance: 0.0,
+                        supplierWallet: 0.0,
                       );
                       final log = InventoryLog(
                         timestamp: DateTime.now(),
@@ -2409,7 +2414,7 @@ class _InventoryScreenState extends State<InventoryScreen>
                         note: 'Supplier added: ${newSupplier.name}',
                       );
                       setState(() {
-                        kSuppliers.add(newSupplier);
+                        supplierService.getAll().add(newSupplier);
                         kInventoryLogs.add(log);
                       });
                       Navigator.pop(ctx);

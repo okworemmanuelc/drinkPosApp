@@ -35,6 +35,7 @@ class CheckoutPage extends StatefulWidget {
   final double crateDeposit;
   final double total;
   final Customer? customer;
+  final VoidCallback? onCheckoutSuccess;
 
   const CheckoutPage({
     super.key,
@@ -43,6 +44,7 @@ class CheckoutPage extends StatefulWidget {
     required this.crateDeposit,
     required this.total,
     this.customer,
+    this.onCheckoutSuccess,
   });
 
   @override
@@ -65,7 +67,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
   double _amountPaid = 0;
   String _currentOrderId = '';
 
-  bool get _isWalkIn => widget.customer == null;
+  bool get _isWalkIn => widget.customer == null || widget.customer!.isWalkIn;
 
   bool get _isDark => themeNotifier.value == ThemeMode.dark;
   Color get _bg => _isDark ? dBg : lBg;
@@ -98,9 +100,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
   double get _cashReceivedValue => parseCurrency(_cashReceivedCtrl.text);
 
-  double get _dynamicNewBalance {
-    final oldBalance = _isWalkIn ? 0.0 : widget.customer!.customerWallet;
-    return oldBalance - widget.total + _cashReceivedValue;
+  double get _dynamicNewCustomerWallet {
+    final oldCustomerWallet = _isWalkIn ? 0.0 : widget.customer!.customerWallet;
+    return oldCustomerWallet - widget.total + _cashReceivedValue;
   }
 
   // ── build ──────────────────────────────────────────────────────────────────
@@ -297,15 +299,15 @@ class _CheckoutPageState extends State<CheckoutPage> {
                   ),
                   Builder(
                     builder: (context) {
-                      final newBalance = _dynamicNewBalance;
-                      final isDebt = newBalance < 0;
+                      final newCustomerWallet = _dynamicNewCustomerWallet;
+                      final isDebt = newCustomerWallet < 0;
                       final valText = isDebt
-                          ? '-₦${fmtNumber(newBalance.abs().toInt())}'
-                          : '+₦${fmtNumber(newBalance.toInt())}';
+                          ? '-₦${fmtNumber(newCustomerWallet.abs().toInt())}'
+                          : '+₦${fmtNumber(newCustomerWallet.toInt())}';
                       final valColor = isDebt ? Colors.amber.shade700 : success;
 
                       return Text(
-                        newBalance == 0 ? '₦0' : valText,
+                        newCustomerWallet == 0 ? '₦0' : valText,
                         style: TextStyle(
                           fontSize: context.getRFontSize(15),
                           fontWeight: FontWeight.w800,
@@ -518,7 +520,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
       crateDeposit: widget.crateDeposit,
       totalAmount: widget.total,
       amountPaid: amountPaid,
-      balance: orderRemaining,
+      customerWallet: orderRemaining,
       paymentMethod: _paymentLabel,
       createdAt: DateTime.now(),
       status: 'pending',
@@ -548,6 +550,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
       _paymentConfirmed = true;
       _currentOrderId = orderId;
     });
+
+    widget.onCheckoutSuccess?.call();
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

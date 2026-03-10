@@ -100,7 +100,13 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                   borderCol,
                 ),
                 SizedBox(height: context.getRSize(16)),
-                _buildBalanceSection(context, surfaceCol, textCol, borderCol),
+                _buildBalanceSection(
+                  context,
+                  surfaceCol,
+                  textCol,
+                  subtextCol,
+                  borderCol,
+                ),
                 SizedBox(height: context.getRSize(16)),
                 _buildOrdersSection(
                   context,
@@ -174,63 +180,81 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
     Color subtextCol,
     Color borderCol,
   ) {
-    return Container(
-      padding: EdgeInsets.all(context.getRSize(20)),
-      decoration: BoxDecoration(
-        color: surfaceCol,
-        border: Border(bottom: BorderSide(color: borderCol)),
-      ),
-      child: Column(
-        children: [
-          CircleAvatar(
-            radius: context.getRSize(40),
-            backgroundColor: blueMain.withValues(alpha: 0.1),
-            child: Text(
-              _customer!.name.substring(0, 1).toUpperCase(),
-              style: TextStyle(
-                color: blueMain,
-                fontSize: context.getRFontSize(32),
-                fontWeight: FontWeight.bold,
+    return Stack(
+      children: [
+        Container(
+          width: double.infinity,
+          padding: EdgeInsets.all(context.getRSize(20)),
+          decoration: BoxDecoration(
+            color: surfaceCol,
+            border: Border(bottom: BorderSide(color: borderCol)),
+          ),
+          child: Column(
+            children: [
+              CircleAvatar(
+                radius: context.getRSize(40),
+                backgroundColor: blueMain.withValues(alpha: 0.1),
+                child: Text(
+                  _customer!.name.substring(0, 1).toUpperCase(),
+                  style: TextStyle(
+                    color: blueMain,
+                    fontSize: context.getRFontSize(32),
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ),
-            ),
+              SizedBox(height: context.getRSize(16)),
+              Text(
+                _customer!.name,
+                style: TextStyle(
+                  fontSize: context.getRFontSize(22),
+                  fontWeight: FontWeight.w800,
+                  color: textCol,
+                ),
+              ),
+              SizedBox(height: context.getRSize(8)),
+              _infoRow(
+                context,
+                FontAwesomeIcons.locationDot,
+                _customer!.addressText,
+                textCol,
+                subtextCol,
+              ),
+              SizedBox(height: context.getRSize(8)),
+              _infoRow(
+                context,
+                FontAwesomeIcons.mapLocationDot,
+                _customer!.googleMapsLocation,
+                textCol,
+                subtextCol,
+              ),
+              if (_customer!.phone != null && _customer!.phone!.isNotEmpty) ...[
+                SizedBox(height: context.getRSize(8)),
+                _infoRow(
+                  context,
+                  FontAwesomeIcons.phone,
+                  _customer!.phone!,
+                  textCol,
+                  subtextCol,
+                ),
+              ],
+            ],
           ),
-          SizedBox(height: context.getRSize(16)),
-          Text(
-            _customer!.name,
+        ),
+        Positioned(
+          bottom: context.getRSize(12),
+          right: context.getRSize(16),
+          child: Text(
+            'Joined on: ${DateFormat('MMM d, y').format(_customer!.createdAt)}',
             style: TextStyle(
-              fontSize: context.getRFontSize(22),
-              fontWeight: FontWeight.w800,
-              color: textCol,
+              fontSize: context.getRFontSize(10),
+              color: subtextCol.withValues(alpha: 0.7),
+              fontWeight: FontWeight.w600,
+              fontStyle: FontStyle.italic,
             ),
           ),
-          SizedBox(height: context.getRSize(8)),
-          _infoRow(
-            context,
-            FontAwesomeIcons.locationDot,
-            _customer!.addressText,
-            textCol,
-            subtextCol,
-          ),
-          SizedBox(height: context.getRSize(8)),
-          _infoRow(
-            context,
-            FontAwesomeIcons.mapLocationDot,
-            _customer!.googleMapsLocation,
-            textCol,
-            subtextCol,
-          ),
-          if (_customer!.phone != null && _customer!.phone!.isNotEmpty) ...[
-            SizedBox(height: context.getRSize(8)),
-            _infoRow(
-              context,
-              FontAwesomeIcons.phone,
-              _customer!.phone!,
-              textCol,
-              subtextCol,
-            ),
-          ],
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -264,6 +288,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
     BuildContext context,
     Color surfaceCol,
     Color textCol,
+    Color subtextCol,
     Color borderCol,
   ) {
     final isNegative = _customer!.customerWallet < 0;
@@ -272,43 +297,79 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
         ? '-₦${fmtNumber(_customer!.customerWallet.abs().toInt())}'
         : '₦${fmtNumber(_customer!.customerWallet.toInt())}';
 
-    return Container(
-      margin: EdgeInsets.symmetric(horizontal: context.getRSize(16)),
-      padding: EdgeInsets.all(context.getRSize(20)),
-      decoration: BoxDecoration(
-        color: surfaceCol,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: borderCol),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+    return Stack(
+      children: [
+        Container(
+          width: double.infinity,
+          margin: EdgeInsets.symmetric(horizontal: context.getRSize(16)),
+          padding: EdgeInsets.all(context.getRSize(20)),
+          decoration: BoxDecoration(
+            color: surfaceCol,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: borderCol),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.02),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Text(
-            'Wallet balance',
-            style: TextStyle(
-              fontSize: context.getRFontSize(14),
-              fontWeight: FontWeight.w600,
-              color: textCol,
+          child: Column(
+            children: [
+              Text(
+                'Wallet balance',
+                style: TextStyle(
+                  fontSize: context.getRFontSize(14),
+                  fontWeight: FontWeight.w600,
+                  color: textCol,
+                ),
+              ),
+              SizedBox(height: context.getRSize(8)),
+              Text(
+                formattedBalance,
+                style: TextStyle(
+                  fontSize: context.getRFontSize(32),
+                  fontWeight: FontWeight.w800,
+                  color: balanceColor,
+                  letterSpacing: -1,
+                ),
+              ),
+              if (_customer!.walletLimit != 0) ...[
+                SizedBox(height: context.getRSize(4)),
+                Text(
+                  'Limit: -₦${fmtNumber(_customer!.walletLimit.abs().toInt())}',
+                  style: TextStyle(
+                    fontSize: context.getRFontSize(11),
+                    color: subtextCol,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+        Positioned(
+          top: context.getRSize(8),
+          right: context.getRSize(24),
+          child: IconButton(
+            icon: Container(
+              padding: EdgeInsets.all(context.getRSize(6)),
+              decoration: BoxDecoration(
+                color: blueMain.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                FontAwesomeIcons.sliders,
+                size: context.getRSize(12),
+                color: blueMain,
+              ),
             ),
+            onPressed: () => _showSetWalletLimitDialog(context),
+            tooltip: 'Set Wallet Limit',
           ),
-          SizedBox(height: context.getRSize(8)),
-          Text(
-            formattedBalance,
-            style: TextStyle(
-              fontSize: context.getRFontSize(32),
-              fontWeight: FontWeight.w800,
-              color: balanceColor,
-              letterSpacing: -1,
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -1842,6 +1903,160 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
               ),
             );
           },
+        );
+      },
+    );
+  }
+
+  void _showSetWalletLimitDialog(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (modalCtx) {
+        final isDark = themeNotifier.value == ThemeMode.dark;
+        final surfaceCol = isDark ? dSurface : lSurface;
+        final textCol = isDark ? dText : lText;
+        final subtextCol = isDark ? dSubtext : lSubtext;
+        final borderCol = isDark ? dBorder : lBorder;
+        final cardCol = isDark ? dCard : lCard;
+
+        final limitCtrl = TextEditingController(
+          text: _customer!.walletLimit.abs().toStringAsFixed(0),
+        );
+
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(modalCtx).viewInsets.bottom,
+          ),
+          child: Container(
+            decoration: BoxDecoration(
+              color: surfaceCol,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(28),
+              ),
+            ),
+            padding: EdgeInsets.fromLTRB(
+              modalCtx.getRSize(20),
+              modalCtx.getRSize(20),
+              modalCtx.getRSize(20),
+              modalCtx.getRSize(32),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: modalCtx.getRSize(40),
+                    height: modalCtx.getRSize(4),
+                    decoration: BoxDecoration(
+                      color: borderCol,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                SizedBox(height: modalCtx.getRSize(24)),
+                Row(
+                  children: [
+                    Container(
+                      padding: EdgeInsets.all(modalCtx.getRSize(10)),
+                      decoration: BoxDecoration(
+                        color: blueMain.withValues(alpha: 0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        FontAwesomeIcons.sliders,
+                        size: modalCtx.getRSize(16),
+                        color: blueMain,
+                      ),
+                    ),
+                    SizedBox(width: modalCtx.getRSize(14)),
+                    Text(
+                      'Wallet Debt Limit',
+                      style: TextStyle(
+                        fontSize: modalCtx.getRFontSize(18),
+                        fontWeight: FontWeight.w800,
+                        color: textCol,
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: modalCtx.getRSize(12)),
+                Text(
+                  'Set the maximum amount this customer can owe. Use a positive number here (it will represent a negative debt limit).',
+                  style: TextStyle(
+                    fontSize: modalCtx.getRFontSize(13),
+                    color: subtextCol,
+                  ),
+                ),
+                SizedBox(height: modalCtx.getRSize(24)),
+                TextField(
+                  controller: limitCtrl,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [CurrencyInputFormatter()],
+                  style: TextStyle(
+                    fontSize: modalCtx.getRFontSize(16),
+                    fontWeight: FontWeight.bold,
+                    color: textCol,
+                  ),
+                  decoration: InputDecoration(
+                    labelText: 'Maximum Debt Amount',
+                    labelStyle: TextStyle(color: subtextCol),
+                    hintText: 'e.g. 50,000',
+                    prefixIcon: Icon(
+                      FontAwesomeIcons.nairaSign,
+                      size: modalCtx.getRSize(14),
+                      color: subtextCol,
+                    ),
+                    filled: true,
+                    fillColor: cardCol,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      borderSide: BorderSide.none,
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      borderSide: const BorderSide(color: blueMain, width: 2),
+                    ),
+                  ),
+                ),
+                SizedBox(height: modalCtx.getRSize(32)),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      final val = parseCurrency(limitCtrl.text);
+                      // Limits are stored as negative (max debt)
+                      customerService.updateWalletLimit(
+                        _customer!.id,
+                        -val.abs(),
+                      );
+                      Navigator.pop(modalCtx);
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: blueMain,
+                      foregroundColor: Colors.white,
+                      padding: EdgeInsets.symmetric(
+                        vertical: modalCtx.getRSize(16),
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      elevation: 0,
+                    ),
+                    child: Text(
+                      'Save Limit',
+                      style: TextStyle(
+                        fontSize: modalCtx.getRFontSize(16),
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
         );
       },
     );

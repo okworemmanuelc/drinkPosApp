@@ -28,6 +28,7 @@ class _AddCustomerSheetState extends State<AddCustomerSheet> {
   final _addressCtrl = TextEditingController();
   final _locationCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
+  CustomerGroup _selectedGroup = CustomerGroup.Retailer;
   final _formKey = GlobalKey<FormState>();
 
   bool get _isDark => themeNotifier.value == ThemeMode.dark;
@@ -94,6 +95,67 @@ class _AddCustomerSheetState extends State<AddCustomerSheet> {
             }
             return null;
           },
+        ),
+        SizedBox(height: context.getRSize(16)),
+      ],
+    );
+  }
+
+  Widget _groupDropdown() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Customer Group',
+          style: TextStyle(
+            fontSize: context.getRFontSize(12),
+            fontWeight: FontWeight.w700,
+            color: _subtext,
+          ),
+        ),
+        SizedBox(height: context.getRSize(8)),
+        Container(
+          padding: EdgeInsets.symmetric(horizontal: context.getRSize(16)),
+          decoration: BoxDecoration(
+            color: _cardBg,
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<CustomerGroup>(
+              value: _selectedGroup,
+              isExpanded: true,
+              dropdownColor: _surface,
+              icon: Icon(Icons.keyboard_arrow_down, color: blueMain),
+              items: CustomerGroup.values.map((group) {
+                String label = '';
+                switch (group) {
+                  case CustomerGroup.Distributor:
+                    label = 'Distributor';
+                    break;
+                  case CustomerGroup.BulkBreaker:
+                    label = 'Bulk Breaker';
+                    break;
+                  case CustomerGroup.Retailer:
+                    label = 'Retailer';
+                    break;
+                }
+                return DropdownMenuItem(
+                  value: group,
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: context.getRFontSize(14),
+                      fontWeight: FontWeight.bold,
+                      color: _text,
+                    ),
+                  ),
+                );
+              }).toList(),
+              onChanged: (val) {
+                if (val != null) setState(() => _selectedGroup = val);
+              },
+            ),
+          ),
         ),
         SizedBox(height: context.getRSize(16)),
       ],
@@ -205,6 +267,7 @@ class _AddCustomerSheetState extends State<AddCustomerSheet> {
                   child: Column(
                     children: [
                       _inputField('Customer Name', _nameCtrl, 'e.g. John Doe'),
+                      _groupDropdown(),
                       _inputField(
                         'Address',
                         _addressCtrl,
@@ -273,7 +336,7 @@ class _AddCustomerSheetState extends State<AddCustomerSheet> {
                           phone: _phoneCtrl.text.trim().isEmpty
                               ? null
                               : _phoneCtrl.text.trim(),
-                          customerGroup: CustomerGroup.retailer,
+                          customerGroup: _selectedGroup,
                           isWalkIn: false,
                         );
                         customerService.addCustomer(newCustomer);

@@ -9,7 +9,7 @@ class Order {
   final double crateDeposit; // Included from old Order
   final double totalAmount;
   final double amountPaid;
-  final double balance;
+  final double customerWallet;
   final String paymentMethod;
   final DateTime createdAt;
   final DateTime? completedAt;
@@ -26,7 +26,7 @@ class Order {
     this.crateDeposit = 0.0,
     required this.totalAmount,
     required this.amountPaid,
-    required this.balance,
+    required this.customerWallet,
     required this.paymentMethod,
     required this.createdAt,
     this.completedAt,
@@ -44,7 +44,7 @@ class Order {
     double? crateDeposit,
     double? totalAmount,
     double? amountPaid,
-    double? balance,
+    double? customerWallet,
     String? paymentMethod,
     DateTime? createdAt,
     DateTime? completedAt,
@@ -61,7 +61,7 @@ class Order {
       crateDeposit: crateDeposit ?? this.crateDeposit,
       totalAmount: totalAmount ?? this.totalAmount,
       amountPaid: amountPaid ?? this.amountPaid,
-      balance: balance ?? this.balance,
+      customerWallet: customerWallet ?? this.customerWallet,
       paymentMethod: paymentMethod ?? this.paymentMethod,
       createdAt: createdAt ?? this.createdAt,
       completedAt: completedAt ?? this.completedAt,

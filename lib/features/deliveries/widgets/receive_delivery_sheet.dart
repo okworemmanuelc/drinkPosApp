@@ -5,12 +5,14 @@ import '../../../../core/theme/colors.dart';
 import '../../../../core/theme/theme_notifier.dart';
 import '../../../../core/utils/number_format.dart';
 import '../../../../core/utils/responsive.dart';
+import '../../../../core/utils/stock_calculator.dart';
 import '../../../../shared/services/activity_log_service.dart';
 import '../../inventory/data/inventory_data.dart';
 import '../../inventory/data/models/inventory_item.dart';
 import '../../inventory/data/models/inventory_log.dart';
 import '../../inventory/data/models/supplier.dart';
 import '../../inventory/data/models/crate_group.dart';
+import '../../inventory/data/services/supplier_service.dart';
 import '../../../core/utils/currency_input_formatter.dart';
 import '../../pos/data/products_data.dart';
 import '../data/models/delivery.dart';
@@ -35,7 +37,7 @@ class _DeliveryItemLine {
   double get lineTotal {
     final price = parseCurrency(priceCtrl.text);
     final qty = double.tryParse(qtyCtrl.text) ?? 0;
-    return price * qty;
+    return stockValue(price, qty);
   }
 
   void dispose() {
@@ -137,7 +139,7 @@ class _ReceiveDeliveryScreenState extends State<ReceiveDeliveryScreen> {
     for (var l in _lines) {
       final qty = double.tryParse(l.qtyCtrl.text) ?? 0;
       final price = parseCurrency(l.priceCtrl.text);
-      final lineTot = price * qty;
+      final lineTot = stockValue(price, qty);
       grandTotal += lineTot;
       totalQty += qty;
 
@@ -166,7 +168,7 @@ class _ReceiveDeliveryScreenState extends State<ReceiveDeliveryScreen> {
             productData['category'] == 'Glass Crates') {
           final sup =
               l.selectedSupplier ??
-              kSuppliers.firstWhere(
+              supplierService.getAll().firstWhere(
                 (s) => s.id == l.selectedProduct!.supplierId,
                 orElse: () =>
                     Supplier(id: '', name: '', crateGroup: CrateGroup.premium),
@@ -352,10 +354,10 @@ class _ReceiveDeliveryScreenState extends State<ReceiveDeliveryScreen> {
                   line.productCtrl.text = selection.productName;
 
                   // Auto-fill supplier
-                  final sup = kSuppliers.firstWhere(
+                  final sup = supplierService.getAll().firstWhere(
                     (s) => s.id == selection.supplierId,
-                    orElse: () => kSuppliers.isNotEmpty
-                        ? kSuppliers.first
+                    orElse: () => supplierService.getAll().isNotEmpty
+                        ? supplierService.getAll().first
                         : Supplier(
                             id: '',
                             name: '',
@@ -421,7 +423,7 @@ class _ReceiveDeliveryScreenState extends State<ReceiveDeliveryScreen> {
               value: line.selectedSupplier,
               isExpanded: true,
               underline: const SizedBox(),
-              items: kSuppliers.map((s) {
+              items: supplierService.getAll().map((s) {
                 return DropdownMenuItem(
                   value: s,
                   child: Text(s.name, style: TextStyle(color: _text)),

@@ -1,3 +1,5 @@
+import '../../../../core/utils/stock_calculator.dart';
+
 class DeliveryItem {
   final String productId; // InventoryItem.id (empty for manual)
   final String productName;
@@ -15,7 +17,7 @@ class DeliveryItem {
     required this.quantity,
   });
 
-  double get lineTotal => unitPrice * quantity;
+  double get lineTotal => stockValue(unitPrice, quantity);
 }
 
 class Delivery {
