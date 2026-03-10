@@ -7,10 +7,7 @@ import '../../../core/utils/responsive.dart';
 import '../../../shared/widgets/shared_scaffold.dart';
 import '../../../shared/widgets/menu_button.dart';
 import '../../../shared/widgets/app_bar_header.dart';
-import '../../../shared/widgets/app_bar_header.dart';
-import '../../../core/utils/responsive.dart';
 import '../../inventory/data/inventory_data.dart';
-import '../../../shared/widgets/shared_scaffold.dart';
 
 final Color warning = Color(0xFFF59E0B);
 
