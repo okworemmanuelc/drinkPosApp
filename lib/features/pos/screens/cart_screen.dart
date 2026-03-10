@@ -14,6 +14,10 @@ import '../../customers/data/services/customer_service.dart';
 import '../../inventory/data/inventory_data.dart';
 import '../../inventory/data/models/crate_group.dart';
 import '../../inventory/data/services/supplier_service.dart';
+import '../../../shared/services/cart_service.dart';
+import '../../../shared/widgets/shared_scaffold.dart';
+import '../../../shared/widgets/menu_button.dart';
+import '../../../shared/widgets/app_bar_header.dart';
 import 'checkout_page.dart';
 
 class CartScreen extends StatefulWidget {
@@ -408,7 +412,7 @@ class _CartScreenState extends State<CartScreen> {
           actions: [
             TextButton.icon(
               onPressed: () {
-                setState(() => widget.cart.remove(item));
+                cartService.removeItem(item['name']);
                 Navigator.pop(dCtx);
               },
               icon: Icon(
@@ -435,8 +439,9 @@ class _CartScreenState extends State<CartScreen> {
                 elevation: 0,
               ),
               onPressed: () {
-                setState(
-                  () => item['qty'] = double.tryParse(qtyCtrl.text) ?? 1.0,
+                cartService.updateQty(
+                  item['name'],
+                  double.tryParse(qtyCtrl.text) ?? 1.0,
                 );
                 Navigator.pop(dCtx);
               },
@@ -695,15 +700,16 @@ class _CartScreenState extends State<CartScreen> {
 
   @override
   Widget build(BuildContext context) {
-    widget.cart.sort((a, b) => b['qty'].compareTo(a['qty']));
-    final sub = widget.cart.fold<double>(
+    final cartItems = List<Map<String, dynamic>>.from(widget.cart);
+    cartItems.sort((a, b) => b['qty'].compareTo(a['qty']));
+    final sub = cartItems.fold<double>(
       0.0,
       (s, i) =>
           s + stockValue((i['price'] as int).toDouble(), i['qty'] as double),
     );
 
     // ── Glass detection & crate deposit computation ──
-    final glassItems = widget.cart
+    final glassItems = cartItems
         .where((i) => i['category'] == 'Glass Crates')
         .toList();
     final hasGlass = glassItems.isNotEmpty;
@@ -753,57 +759,32 @@ class _CartScreenState extends State<CartScreen> {
 
     return ValueListenableBuilder<ThemeMode>(
       valueListenable: themeNotifier,
-      builder: (_, mode, child) => Scaffold(
+      builder: (_, mode, child) => SharedScaffold(
+        activeRoute: 'cart',
         backgroundColor: _bg,
         appBar: AppBar(
           backgroundColor: _surface,
           elevation: 0,
-          leading: IconButton(
-            icon: Icon(
-              Icons.arrow_back_ios_new,
-              color: _text,
-              size: context.getRSize(20),
-            ),
-            onPressed: () => Navigator.pop(context),
-          ),
-          title: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                padding: EdgeInsets.all(context.getRSize(8)),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(colors: [blueLight, blueMain]),
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: blueMain.withValues(alpha: 0.3),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Icon(
-                  FontAwesomeIcons.cartShopping,
-                  color: Colors.white,
-                  size: context.getRSize(16),
-                ),
-              ),
-              SizedBox(width: context.getRSize(12)),
-              Text(
-                'Cart',
-                style: TextStyle(
-                  fontSize: context.getRFontSize(18),
-                  fontWeight: FontWeight.w800,
-                  color: _text,
-                ),
-              ),
-            ],
+          leading: Navigator.of(context).canPop()
+              ? IconButton(
+                  icon: Icon(
+                    Icons.arrow_back_ios_new,
+                    color: _text,
+                    size: context.getRSize(20),
+                  ),
+                  onPressed: () => Navigator.pop(context),
+                )
+              : const MenuButton(),
+          title: const AppBarHeader(
+            icon: FontAwesomeIcons.cartShopping,
+            title: 'Cart',
+            subtitle: 'Review Selection',
           ),
           actions: [
-            if (widget.cart.isNotEmpty)
+            if (cartItems.isNotEmpty)
               GestureDetector(
                 onTap: () {
-                  setState(() => widget.cart.clear());
+                  cartService.clear();
                 },
                 child: Container(
                   margin: EdgeInsets.symmetric(
@@ -950,7 +931,7 @@ class _CartScreenState extends State<CartScreen> {
               ),
               // ── Scrollable content: cart items + totals ──
               Expanded(
-                child: widget.cart.isEmpty
+                child: cartItems.isEmpty
                     ? Center(
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -983,11 +964,11 @@ class _CartScreenState extends State<CartScreen> {
                                 horizontal: context.getRSize(20),
                                 vertical: context.getRSize(8),
                               ),
-                              itemCount: widget.cart.length,
+                              itemCount: cartItems.length,
                               separatorBuilder: (_, idx) =>
                                   SizedBox(height: context.getRSize(12)),
                               itemBuilder: (_, i) {
-                                final item = widget.cart[i];
+                                final item = cartItems[i];
                                 final Color c = item['color'] as Color;
                                 return InkWell(
                                   borderRadius: BorderRadius.circular(14),
@@ -1076,7 +1057,7 @@ class _CartScreenState extends State<CartScreen> {
                                 context.getRSize(20),
                                 context.getRSize(20),
                                 context.getRSize(20),
-                                context.getRSize(16),
+                                context.getRSize(100),
                               ),
                               decoration: BoxDecoration(
                                 color: _surface,
@@ -1364,7 +1345,7 @@ class _CartScreenState extends State<CartScreen> {
                                           builder: (_) => CheckoutPage(
                                             cart:
                                                 List<Map<String, dynamic>>.from(
-                                                  widget.cart,
+                                                  cartItems,
                                                 ),
                                             subtotal: sub,
                                             crateDeposit: _crateDeposit,

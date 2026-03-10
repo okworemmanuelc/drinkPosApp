@@ -3,6 +3,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/theme_notifier.dart';
 import '../../core/utils/responsive.dart';
+import '../../shared/services/navigation_service.dart';
 
 class AppDrawer extends StatelessWidget {
   // Pass 'pos' or 'inventory' to highlight the correct nav item
@@ -136,6 +137,13 @@ class AppDrawer extends StatelessWidget {
         ),
         _navItem(
           context,
+          FontAwesomeIcons.cartShopping,
+          'Cart',
+          active: activeRoute == 'cart',
+          onTap: () => _navigateTo(context, 'cart'),
+        ),
+        _navItem(
+          context,
           FontAwesomeIcons.dolly,
           'Deliveries',
           active: activeRoute == 'deliveries',
@@ -170,94 +178,32 @@ class AppDrawer extends StatelessWidget {
     );
   }
 
-  // ── Navigation logic — all routing lives here ──────────────────────────────
+  // ── Navigation logic — now uses NavigationService shell ────────────────────
   void _navigateTo(BuildContext context, String route) {
     // Always close the drawer first
     Navigator.pop(context);
 
-    if (route == activeRoute) return; // already here
+    // Ensure we are at the root MainLayout shell
+    Navigator.of(context).popUntil((r) => r.isFirst);
 
     if (route == 'pos') {
-      // Pop back to POS (it's always the root)
-      Navigator.of(context).popUntil((r) => r.isFirst);
-      return;
-    }
-
-    // For all other top-level drawer items, we replace the current route
-    // (except POS which is the root) to prevent the navigation stack from growing infinitely.
-    // If we are currently on POS, we push. If we are on another drawer item, we replace.
-    final bool isPushReplacement = activeRoute != 'pos';
-
-    if (route == 'activity_logs') {
-      if (isPushReplacement) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const _ActivityLogScreenProxy()),
-        );
-      } else {
-        Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => const _ActivityLogScreenProxy()),
-        );
-      }
-    } else if (route == 'customers') {
-      if (isPushReplacement) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const _CustomersScreenProxy()),
-        );
-      } else {
-        Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => const _CustomersScreenProxy()),
-        );
-      }
-    } else if (route == 'orders') {
-      if (isPushReplacement) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const _OrdersScreenProxy()),
-        );
-      } else {
-        Navigator.of(
-          context,
-        ).push(MaterialPageRoute(builder: (_) => const _OrdersScreenProxy()));
-      }
-    } else if (route == 'payments') {
-      if (isPushReplacement) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const _PaymentsScreenProxy()),
-        );
-      } else {
-        Navigator.of(
-          context,
-        ).push(MaterialPageRoute(builder: (_) => const _PaymentsScreenProxy()));
-      }
-    } else if (route == 'deliveries') {
-      if (isPushReplacement) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const _DeliveriesScreenProxy()),
-        );
-      } else {
-        Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => const _DeliveriesScreenProxy()),
-        );
-      }
-    } else if (route == 'expenses') {
-      if (isPushReplacement) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const _ExpensesScreenProxy()),
-        );
-      } else {
-        Navigator.of(
-          context,
-        ).push(MaterialPageRoute(builder: (_) => const _ExpensesScreenProxy()));
-      }
+      navigationService.setIndex(0);
     } else if (route == 'inventory') {
-      if (isPushReplacement) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const _InventoryScreenProxy()),
-        );
-      } else {
-        Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => const _InventoryScreenProxy()),
-        );
-      }
+      navigationService.setIndex(1);
+    } else if (route == 'orders') {
+      navigationService.setIndex(2);
+    } else if (route == 'cart') {
+      navigationService.setIndex(3);
+    } else if (route == 'payments') {
+      navigationService.setIndex(4);
+    } else if (route == 'deliveries') {
+      navigationService.setIndex(5);
+    } else if (route == 'expenses') {
+      navigationService.setIndex(6);
+    } else if (route == 'customers') {
+      navigationService.setIndex(7);
+    } else if (route == 'activity_logs') {
+      navigationService.setIndex(8);
     }
   }
 
@@ -686,4 +632,21 @@ Widget Function() _expensesScreenBuilder = () => const Scaffold(
 /// Call this once from main.dart to register the real ExpensesScreen.
 void registerExpensesScreen(Widget Function() builder) {
   _expensesScreenBuilder = builder;
+}
+
+// ── Proxy widget for CartScreen ──────────────────────────────────────────
+class _CartScreenProxy extends StatelessWidget {
+  const _CartScreenProxy();
+
+  @override
+  Widget build(BuildContext context) {
+    return _cartScreenBuilder();
+  }
+}
+
+Widget Function() _cartScreenBuilder = () =>
+    const Scaffold(body: Center(child: Text('Cart screen not registered yet')));
+
+void registerCartScreen(Widget Function() builder) {
+  _cartScreenBuilder = builder;
 }

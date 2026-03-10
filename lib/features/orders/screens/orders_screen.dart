@@ -8,8 +8,10 @@ import '../../../core/utils/responsive.dart';
 import '../../../shared/models/order.dart';
 import '../../../shared/services/activity_log_service.dart';
 import '../../../shared/services/order_service.dart';
-import '../../../shared/widgets/app_drawer.dart';
 import '../../../shared/widgets/receipt_widget.dart';
+import '../../../shared/widgets/shared_scaffold.dart';
+import '../../../shared/widgets/menu_button.dart';
+import '../../../shared/widgets/app_bar_header.dart';
 import '../../customers/data/services/customer_service.dart';
 
 class OrdersScreen extends StatefulWidget {
@@ -48,9 +50,9 @@ class _OrdersScreenState extends State<OrdersScreen>
     return ValueListenableBuilder<ThemeMode>(
       valueListenable: themeNotifier,
       builder: (context, mode, child) {
-        return Scaffold(
+        return SharedScaffold(
+          activeRoute: 'orders',
           backgroundColor: _bg,
-          drawer: const AppDrawer(activeRoute: 'orders'),
           appBar: _buildAppBar(context),
           body: ValueListenableBuilder<List<Order>>(
             valueListenable: orderService,
@@ -96,52 +98,11 @@ class _OrdersScreenState extends State<OrdersScreen>
       backgroundColor: _surface,
       elevation: 0,
       iconTheme: IconThemeData(color: _text),
-      leading: Builder(
-        builder: (ctx) => InkWell(
-          borderRadius: BorderRadius.circular(12),
-          onTap: () => Scaffold.of(ctx).openDrawer(),
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  height: 2.5,
-                  width: context.getRSize(22),
-                  decoration: BoxDecoration(
-                    color: _text,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                Container(
-                  height: 2.5,
-                  width: context.getRSize(16),
-                  decoration: BoxDecoration(
-                    color: blueMain,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                Container(
-                  height: 2.5,
-                  width: context.getRSize(22),
-                  decoration: BoxDecoration(
-                    color: _text,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-      title: Text(
-        'Orders',
-        style: TextStyle(
-          color: _text,
-          fontSize: context.getRFontSize(18),
-          fontWeight: FontWeight.bold,
-        ),
+      leading: const MenuButton(),
+      title: const AppBarHeader(
+        icon: FontAwesomeIcons.receipt,
+        title: 'Orders',
+        subtitle: 'Sales History',
       ),
       centerTitle: true,
       bottom: TabBar(
@@ -257,7 +218,12 @@ class _OrdersScreenState extends State<OrdersScreen>
     }
 
     return ListView.builder(
-      padding: EdgeInsets.all(context.getRSize(16)),
+      padding: EdgeInsets.fromLTRB(
+        context.getRSize(16),
+        context.getRSize(16),
+        context.getRSize(16),
+        context.getRSize(100),
+      ),
       itemCount: list.length,
       itemBuilder: (context, index) {
         return _OrderCard(
