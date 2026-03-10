@@ -797,6 +797,12 @@ class _PosHomeScreenState extends State<PosHomeScreen>
               _activeCustomer = customer;
             });
           },
+          onCheckoutSuccess: () {
+            setState(() {
+              _cart.clear();
+              _activeCustomer = null;
+            });
+          },
         ),
       ),
     ).then((_) {

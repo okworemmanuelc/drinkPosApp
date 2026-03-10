@@ -6,8 +6,9 @@ import '../../../core/theme/colors.dart';
 import '../../../core/theme/theme_notifier.dart';
 import '../../../core/utils/responsive.dart';
 import '../../../shared/services/activity_log_service.dart';
-import '../../customers/data/models/customer.dart';
-import '../../customers/data/services/customer_service.dart';
+import '../../inventory/data/models/supplier.dart';
+import '../../inventory/data/models/crate_group.dart';
+import '../../inventory/data/services/supplier_service.dart';
 
 import '../../deliveries/data/services/delivery_service.dart';
 import '../data/models/payment.dart';
@@ -40,7 +41,7 @@ class _AddPaymentSheetState extends State<AddPaymentSheet> {
   String _paymentMethod = 'Cash';
   DateTime _selectedDate = DateTime.now();
   String? _selectedDeliveryId;
-  Customer? _selectedSupplier;
+  Supplier? _selectedSupplier;
 
   bool get _isDark => themeNotifier.value == ThemeMode.dark;
   Color get _surface => _isDark ? dSurface : lSurface;
@@ -86,13 +87,12 @@ class _AddPaymentSheetState extends State<AddPaymentSheet> {
     final typedName = _supplierCtrl.text.trim();
     if (typedName.isEmpty) return;
 
-    // Check if supplier exists. By convention suppliers are in customerService right now.
-    // If not, we prompt to create.
-    Customer? finalSupplier = _selectedSupplier;
+    // Check if supplier exists.
+    Supplier? finalSupplier = _selectedSupplier;
     if (finalSupplier == null ||
         finalSupplier.name.toLowerCase() != typedName.toLowerCase()) {
-      final existing = customerService.getAll().where(
-        (c) => c.name.toLowerCase() == typedName.toLowerCase(),
+      final existing = supplierService.getAll().where(
+        (s) => s.name.toLowerCase() == typedName.toLowerCase(),
       );
       if (existing.isNotEmpty) {
         finalSupplier = existing.first;
@@ -128,13 +128,12 @@ class _AddPaymentSheetState extends State<AddPaymentSheet> {
         );
         if (create != true) return; // User cancelled
 
-        finalSupplier = Customer(
+        finalSupplier = Supplier(
           id: DateTime.now().millisecondsSinceEpoch.toString(),
           name: typedName,
-          addressText: '',
-          googleMapsLocation: '',
+          crateGroup: CrateGroup.nbPlc, // Default or pick based on name?
         );
-        customerService.addCustomer(finalSupplier); // Adds to memory
+        supplierService.addSupplier(finalSupplier); // Adds to memory
       }
     }
 
@@ -306,19 +305,19 @@ class _AddPaymentSheetState extends State<AddPaymentSheet> {
                     children: [
                       // Supplier Autocomplete
                       _buildLabel('Supplier Name'),
-                      Autocomplete<Customer>(
+                      Autocomplete<Supplier>(
                         displayStringForOption: (item) => item.name,
                         optionsBuilder: (TextEditingValue textEditingValue) {
                           if (textEditingValue.text.isEmpty) {
-                            return const Iterable<Customer>.empty();
+                            return const Iterable<Supplier>.empty();
                           }
-                          return customerService.getAll().where((Customer c) {
-                            return c.name.toLowerCase().contains(
+                          return supplierService.getAll().where((Supplier s) {
+                            return s.name.toLowerCase().contains(
                               textEditingValue.text.toLowerCase(),
                             );
                           });
                         },
-                        onSelected: (Customer selection) {
+                        onSelected: (Supplier selection) {
                           _selectedSupplier = selection;
                           _supplierCtrl.text = selection.name;
                         },

@@ -13,6 +13,7 @@ import '../../../core/utils/currency_input_formatter.dart';
 import '../../customers/data/services/customer_service.dart';
 import '../../inventory/data/inventory_data.dart';
 import '../../inventory/data/models/crate_group.dart';
+import '../../inventory/data/services/supplier_service.dart';
 import 'checkout_page.dart';
 
 class CartScreen extends StatefulWidget {
@@ -20,6 +21,7 @@ class CartScreen extends StatefulWidget {
   final double crateDeposit;
   final Customer? activeCustomer;
   final Function(Customer?) onCustomerChanged;
+  final VoidCallback? onCheckoutSuccess;
 
   const CartScreen({
     super.key,
@@ -27,6 +29,7 @@ class CartScreen extends StatefulWidget {
     required this.crateDeposit,
     this.activeCustomer,
     required this.onCustomerChanged,
+    this.onCheckoutSuccess,
   });
 
   @override
@@ -225,8 +228,8 @@ class _CartScreenState extends State<CartScreen> {
   Widget _buildCustomerTile(Customer? customer, BuildContext modalCtx) {
     final bool isSelected = _activeCustomer?.id == customer?.id;
     final name = customer?.name ?? 'Walk-in Customer';
-    final balance = customer?.customerWallet ?? 0.0;
-    final isOwe = balance < 0;
+    final customerWallet = customer?.customerWallet ?? 0.0;
+    final isOwe = customerWallet < 0;
 
     return InkWell(
       onTap: () {
@@ -291,15 +294,15 @@ class _CartScreenState extends State<CartScreen> {
                         Icon(
                           FontAwesomeIcons.nairaSign,
                           size: modalCtx.getRSize(10),
-                          color: balance == 0
+                          color: customerWallet == 0
                               ? success
                               : (isOwe ? danger : success),
                         ),
                         Text(
-                          ' Bal: ₦${balance.abs().toStringAsFixed(0)} ${balance == 0 ? "clear" : (isOwe ? "overdue" : "credit")}',
+                          ' Bal: ₦${customerWallet.abs().toStringAsFixed(0)} ${customerWallet == 0 ? "clear" : (isOwe ? "overdue" : "credit")}',
                           style: TextStyle(
                             fontSize: modalCtx.getRFontSize(12),
-                            color: balance == 0
+                            color: customerWallet == 0
                                 ? success
                                 : (isOwe ? danger : success),
                             fontWeight: FontWeight.w600,
@@ -712,9 +715,9 @@ class _CartScreenState extends State<CartScreen> {
         (inv) => inv.productName == item['name'],
         orElse: () => kInventoryItems.first,
       );
-      final supplier = kSuppliers.firstWhere(
+      final supplier = supplierService.getAll().firstWhere(
         (s) => s.id == invItem.supplierId,
-        orElse: () => kSuppliers.first,
+        orElse: () => supplierService.getAll().first,
       );
       final group = supplier.crateGroup;
       crateQtyMap[group] = (crateQtyMap[group] ?? 0) + (item['qty'] as double);
@@ -745,8 +748,8 @@ class _CartScreenState extends State<CartScreen> {
     final tot = sub + _crateDeposit;
 
     final customerName = _activeCustomer?.name ?? 'Walk-in Customer';
-    final customerBalance = _activeCustomer?.customerWallet ?? 0.0;
-    final isOwe = customerBalance < 0;
+    final customerWallet = _activeCustomer?.customerWallet ?? 0.0;
+    final isOwe = customerWallet < 0;
 
     return ValueListenableBuilder<ThemeMode>(
       valueListenable: themeNotifier,
@@ -896,16 +899,16 @@ class _CartScreenState extends State<CartScreen> {
                                 Icon(
                                   FontAwesomeIcons.nairaSign,
                                   size: context.getRSize(11),
-                                  color: customerBalance == 0
+                                  color: customerWallet == 0
                                       ? success
                                       : (isOwe ? danger : success),
                                 ),
                                 Flexible(
                                   child: Text(
-                                    ' Bal: ₦${customerBalance.abs().toStringAsFixed(0)} ${customerBalance == 0 ? "clear" : (isOwe ? "overdue" : "credit")}',
+                                    ' Bal: ₦${customerWallet.abs().toStringAsFixed(0)} ${customerWallet == 0 ? "clear" : (isOwe ? "overdue" : "credit")}',
                                     style: TextStyle(
                                       fontSize: context.getRFontSize(12),
-                                      color: customerBalance == 0
+                                      color: customerWallet == 0
                                           ? success
                                           : (isOwe ? danger : success),
                                       fontWeight: FontWeight.w600,
@@ -1367,6 +1370,8 @@ class _CartScreenState extends State<CartScreen> {
                                             crateDeposit: _crateDeposit,
                                             total: tot,
                                             customer: _activeCustomer,
+                                            onCheckoutSuccess:
+                                                widget.onCheckoutSuccess,
                                           ),
                                         ),
                                       );

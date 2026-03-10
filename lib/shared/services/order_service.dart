@@ -34,7 +34,7 @@ class OrderService extends ValueNotifier<List<Order>> {
       totalAmount: 24000.0,
       paymentMethod: 'Partial Cash',
       amountPaid: 10000.0,
-      balance: 14000.0,
+      customerWallet: 14000.0,
       status: 'completed',
     ),
     Order(
@@ -57,7 +57,7 @@ class OrderService extends ValueNotifier<List<Order>> {
       totalAmount: 21000.0,
       paymentMethod: 'Credit Sale',
       amountPaid: 0.0,
-      balance: 21000.0,
+      customerWallet: 21000.0,
       status: 'completed',
     ),
     Order(
@@ -80,7 +80,7 @@ class OrderService extends ValueNotifier<List<Order>> {
       totalAmount: 12000.0,
       paymentMethod: 'Card',
       amountPaid: 12000.0,
-      balance: 0.0,
+      customerWallet: 0.0,
       status: 'pending',
     ),
   ];

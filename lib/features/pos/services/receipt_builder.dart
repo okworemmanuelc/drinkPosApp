@@ -1,6 +1,7 @@
 import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart';
 
 import '../../../core/utils/number_format.dart'; // assuming fmtNumber is exported here
+import '../../../core/utils/stock_calculator.dart';
 
 class ThermalReceiptService {
   /// Builds a byte array of ESC/POS commands formatted for 58mm (32 chars/line)
@@ -73,7 +74,7 @@ class ThermalReceiptService {
       final String name = item['name'].toString();
       final double qty = item['qty'] as double;
       final double price = (item['price'] as int).toDouble();
-      final double lineTotal = qty * price;
+      final double lineTotal = stockValue(price, qty);
 
       final String qtyStr = '${qty.toStringAsFixed(1)}x ';
       final String priceStr = 'N${fmtNumber(lineTotal.toInt())}';

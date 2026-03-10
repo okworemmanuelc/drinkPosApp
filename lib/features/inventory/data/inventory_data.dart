@@ -3,24 +3,9 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'models/crate_group.dart';
-import 'models/supplier.dart';
 import 'models/inventory_item.dart';
 import 'models/crate_stock.dart';
 import 'models/inventory_log.dart';
-
-final List<Supplier> kSuppliers = [
-  Supplier(
-    id: 's1',
-    name: 'Nigerian Breweries Plc',
-    crateGroup: CrateGroup.nbPlc,
-  ),
-  Supplier(id: 's2', name: 'Guinness Nigeria', crateGroup: CrateGroup.guinness),
-  Supplier(
-    id: 's3',
-    name: 'Coca-Cola Nigeria',
-    crateGroup: CrateGroup.cocaCola,
-  ),
-];
 
 final List<CrateStock> kCrateStocks = [
   CrateStock(group: CrateGroup.nbPlc, available: 24),

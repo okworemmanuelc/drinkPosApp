@@ -500,7 +500,7 @@ class _OrderCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final balanceColor = order.balance < 0 ? danger : success;
+    final balanceColor = order.customerWallet < 0 ? danger : success;
 
     // Formatting date
     final time = status == 'pending'
@@ -729,7 +729,7 @@ class _OrderCard extends StatelessWidget {
                         ),
                       ),
                       child: Text(
-                        'Balance: ₦${fmtNumber(order.balance.toInt())}',
+                        'Balance: ₦${fmtNumber(order.customerWallet.toInt())}',
                         style: TextStyle(
                           color: balanceColor,
                           fontWeight: FontWeight.bold,

@@ -13,7 +13,7 @@ class CustomerService extends ValueNotifier<List<Customer>> {
       addressText: '12 Borno Way, Maiduguri',
       googleMapsLocation: '12 Borno Way',
       customerWallet: 15000.0,
-      customerGroup: CustomerGroup.retailer,
+      customerGroup: CustomerGroup.Retailer,
       isWalkIn: false,
     ),
     Customer(
@@ -22,7 +22,7 @@ class CustomerService extends ValueNotifier<List<Customer>> {
       addressText: '45 Market Road, Maiduguri',
       googleMapsLocation: '45 Market Road',
       customerWallet: 0.0,
-      customerGroup: CustomerGroup.retailer,
+      customerGroup: CustomerGroup.Retailer,
       isWalkIn: false,
     ),
     Customer(
@@ -31,7 +31,7 @@ class CustomerService extends ValueNotifier<List<Customer>> {
       addressText: '8 Industrial Layout, Maiduguri',
       googleMapsLocation: '8 Industrial Layout',
       customerWallet: -7500.0,
-      customerGroup: CustomerGroup.retailer,
+      customerGroup: CustomerGroup.Retailer,
       isWalkIn: false,
     ),
   ];
@@ -127,6 +127,24 @@ class CustomerService extends ValueNotifier<List<Customer>> {
       activityLogService.logAction(
         'Crates Returned',
         'Updated empty crates balance for ${customer.name}',
+        relatedEntityId: customer.id,
+        relatedEntityType: 'customer',
+      );
+    }
+  }
+
+  void updateWalletLimit(String customerId, double newLimit) {
+    final customer = getById(customerId);
+    if (customer != null) {
+      final updatedCustomer = customer.copyWith(walletLimit: newLimit);
+      final index = value.indexWhere((c) => c.id == customerId);
+      final newList = List<Customer>.from(value);
+      newList[index] = updatedCustomer;
+      value = newList;
+
+      activityLogService.logAction(
+        'Limit Updated',
+        'Updated wallet limit to ₦${newLimit.abs().toStringAsFixed(0)} for ${customer.name}',
         relatedEntityId: customer.id,
         relatedEntityType: 'customer',
       );

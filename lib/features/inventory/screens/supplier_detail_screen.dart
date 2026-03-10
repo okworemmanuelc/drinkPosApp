@@ -5,6 +5,7 @@ import '../../../core/theme/colors.dart';
 import '../../../core/theme/theme_notifier.dart';
 import '../../../core/utils/number_format.dart';
 import '../../../core/utils/responsive.dart';
+import '../../../core/utils/stock_calculator.dart';
 import '../data/inventory_data.dart';
 import '../data/models/supplier.dart';
 import '../data/models/inventory_item.dart';
@@ -117,7 +118,7 @@ class _SupplierDetailScreenState extends State<SupplierDetailScreen> {
   }
 
   Widget _buildFinancials(BuildContext context) {
-    final outstanding = widget.supplier.outstandingBalance;
+    final outstanding = widget.supplier.supplierWallet;
     // Owed (negative balance) -> Red, Credit (positive balance) -> Green
     final balanceColor = outstanding < 0 ? danger : success;
     final balanceLabel = outstanding < 0 ? 'Amount Owed' : 'Credit Balance';
@@ -346,7 +347,7 @@ class _SupplierDetailScreenState extends State<SupplierDetailScreen> {
       );
       final buyingPrice = (product['wholesale_price'] as int?) ?? 0;
       final qty = (log.newValue - log.previousValue).abs();
-      totalValue += (qty * buyingPrice);
+      totalValue += stockValue(buyingPrice.toDouble(), qty);
     }
 
     return Column(

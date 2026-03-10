@@ -8,6 +8,7 @@ import '../../../core/utils/responsive.dart';
 import '../../../core/utils/stock_calculator.dart';
 import '../data/models/inventory_item.dart';
 import '../data/models/supplier.dart';
+import '../data/services/supplier_service.dart';
 import '../data/models/crate_group.dart';
 import '../data/models/crate_stock.dart';
 import '../data/models/inventory_log.dart';
@@ -188,7 +189,7 @@ class ProductDetailScreen extends StatelessWidget {
 
   Widget _buildBody(BuildContext context) {
     // Look up related data
-    final supplier = kSuppliers.firstWhere(
+    final supplier = supplierService.getAll().firstWhere(
       (s) => s.id == item.supplierId,
       orElse: () =>
           Supplier(id: '', name: 'Unknown', crateGroup: CrateGroup.nbPlc),
