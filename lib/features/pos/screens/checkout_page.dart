@@ -24,6 +24,8 @@ import '../../../core/utils/number_format.dart';
 import '../../customers/data/services/customer_service.dart';
 import '../../../core/utils/currency_input_formatter.dart';
 import '../../../core/utils/stock_calculator.dart';
+import '../../../shared/services/cart_service.dart';
+import '../../../shared/services/navigation_service.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CheckoutPage — shown after "Proceed to Checkout" in the cart.
@@ -101,9 +103,21 @@ class _CheckoutPageState extends State<CheckoutPage> {
   double get _cashReceivedValue => parseCurrency(_cashReceivedCtrl.text);
 
   double get _dynamicNewCustomerWallet {
-    final oldCustomerWallet = _isWalkIn ? 0.0 : 
-        (widget.customer?.customerWallet ?? 0.0);
-    return oldCustomerWallet - widget.total + _cashReceivedValue;
+    final oldCustomerWallet =
+        _isWalkIn ? 0.0 : (widget.customer?.customerWallet ?? 0.0);
+    double effectiveCash;
+    switch (_paymentType) {
+      case PaymentType.fullCash:
+        effectiveCash = widget.total;
+        break;
+      case PaymentType.partialCash:
+        effectiveCash = _cashReceivedValue;
+        break;
+      case PaymentType.credit:
+        effectiveCash = 0;
+        break;
+    }
+    return oldCustomerWallet - widget.total + effectiveCash;
   }
 
   // ── build ──────────────────────────────────────────────────────────────────
@@ -220,7 +234,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                       if (!_isWalkIn && widget.customer != null) ...[
                         SizedBox(height: context.getRSize(2)),
                         Text(
-                          'Balance: ₦${fmtNumber(widget.customer!.customerWallet.abs().toInt())} ${widget.customer!.customerWallet < 0
+                          'Wallet Balance: ${widget.customer!.customerWallet < 0 ? '-' : ''}₦${fmtNumber(widget.customer!.customerWallet.abs().toInt())} ${widget.customer!.customerWallet < 0
                               ? "(overdue)"
                               : widget.customer!.customerWallet > 0
                               ? "(credit)"
@@ -291,7 +305,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'Remaining Balance',
+                    'Remaining Wallet Balance',
                     style: TextStyle(
                       fontSize: context.getRFontSize(13),
                       fontWeight: FontWeight.w700,
@@ -312,7 +326,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                         style: TextStyle(
                           fontSize: context.getRFontSize(15),
                           fontWeight: FontWeight.w800,
-                          color: valColor,
+                          color: newCustomerWallet < 0 ? danger : valColor,
                         ),
                       );
                     },
@@ -519,6 +533,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
     // ── Create & store unified order ─────────────────────────────────────────
     final orderId = DateTime.now().millisecondsSinceEpoch.toString();
+    final resultingWalletBalance = _isWalkIn ? 0.0 : _dynamicNewCustomerWallet;
+    
     final order = Order(
       id: orderId,
       customerId: widget.customer?.id,
@@ -529,7 +545,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
       crateDeposit: widget.crateDeposit,
       totalAmount: widget.total,
       amountPaid: amountPaid,
-      customerWallet: orderRemaining,
+      customerWallet: resultingWalletBalance,
       paymentMethod: _paymentLabel,
       createdAt: DateTime.now(),
       status: 'pending',
@@ -542,7 +558,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
       'Order $orderId completed for $_customerDisplayName. '
           'Method: $_paymentLabel. '
           'Amount paid: ₦${fmtNumber(amountPaid.toInt())}. '
-          'Balance: ₦${fmtNumber(orderRemaining.toInt())}',
+          'Wallet Balance: ${resultingWalletBalance < 0 ? '-' : ''}₦${fmtNumber(resultingWalletBalance.abs().toInt())}',
       relatedEntityId: widget.customer?.id,
       relatedEntityType: 'customer',
     );
@@ -559,6 +575,10 @@ class _CheckoutPageState extends State<CheckoutPage> {
       _paymentConfirmed = true;
       _currentOrderId = orderId;
     });
+    
+    // ── Clear cart for next sale ──────────────────────────────────────
+    cartService.clear();
+    cartService.setActiveCustomer(null);
 
     widget.onCheckoutSuccess?.call();
   }
@@ -584,9 +604,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 customerName: _customerDisplayName,
                 customerAddress: widget.customer?.addressText,
                 customerPhone: widget.customer?.phone,
-                cashReceived: _paymentType == PaymentType.partialCash
-                    ? _amountPaid
-                    : null,
+                cashReceived: _amountPaid,
+                walletBalance: _isWalkIn ? null : _dynamicNewCustomerWallet,
               ),
             ),
           ),
@@ -645,6 +664,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
             width: double.infinity,
             child: TextButton(
               onPressed: () {
+                navigationService.setIndex(1);
                 Navigator.of(context).popUntil((r) => r.isFirst);
               },
               child: Text(
@@ -745,9 +765,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
       customerName: _customerDisplayName,
       customerAddress: widget.customer?.addressText,
       customerPhone: widget.customer?.phone,
-      cashReceived: _paymentType == PaymentType.partialCash
-          ? _amountPaid
-          : null,
+      cashReceived: _amountPaid,
+      walletBalance: _isWalkIn ? null : _dynamicNewCustomerWallet,
     );
 
     if (!mounted) return;

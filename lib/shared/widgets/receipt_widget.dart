@@ -16,6 +16,7 @@ class ReceiptWidget extends StatelessWidget {
   final String? customerAddress;
   final String? customerPhone;
   final double? cashReceived;
+  final double? walletBalance;
 
   const ReceiptWidget({
     super.key,
@@ -29,6 +30,7 @@ class ReceiptWidget extends StatelessWidget {
     this.customerAddress,
     this.customerPhone,
     this.cashReceived,
+    this.walletBalance,
   });
 
   @override
@@ -183,12 +185,12 @@ class ReceiptWidget extends StatelessWidget {
               ),
             ),
           ),
-          if (cashReceived != null) ...[
+          if (walletBalance != null) ...[
             SizedBox(height: context.getRSize(4)),
             Align(
               alignment: Alignment.centerLeft,
               child: Text(
-                'Amount Paid: ₦${fmtNumber(cashReceived!.toInt())}',
+                'Amount Paid: ₦${fmtNumber((cashReceived ?? total).toInt())}',
                 style: TextStyle(
                   fontSize: context.getRFontSize(13),
                   color: sub,
@@ -198,32 +200,10 @@ class ReceiptWidget extends StatelessWidget {
             Align(
               alignment: Alignment.centerLeft,
               child: Text(
-                'Balance: ₦${fmtNumber((total - cashReceived!).clamp(0, total).toInt())}',
+                'Wallet Balance: ${walletBalance! < 0 ? '-' : ''}₦${fmtNumber(walletBalance!.abs().toInt())}',
                 style: TextStyle(
                   fontSize: context.getRFontSize(13),
-                  color: sub,
-                ),
-              ),
-            ),
-          ] else if (paymentMethod == 'Register as Credit Sale') ...[
-            SizedBox(height: context.getRSize(4)),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                'Amount Paid: ₦0',
-                style: TextStyle(
-                  fontSize: context.getRFontSize(13),
-                  color: sub,
-                ),
-              ),
-            ),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                'Balance: ₦${fmtNumber(total.toInt())}',
-                style: TextStyle(
-                  fontSize: context.getRFontSize(13),
-                  color: sub,
+                  color: walletBalance! < 0 ? danger : success,
                 ),
               ),
             ),
@@ -232,17 +212,7 @@ class ReceiptWidget extends StatelessWidget {
             Align(
               alignment: Alignment.centerLeft,
               child: Text(
-                'Amount Paid: ₦${fmtNumber(total.toInt())}',
-                style: TextStyle(
-                  fontSize: context.getRFontSize(13),
-                  color: sub,
-                ),
-              ),
-            ),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                'Balance: ₦0',
+                'Amount Paid: ₦${fmtNumber((cashReceived ?? total).toInt())}',
                 style: TextStyle(
                   fontSize: context.getRFontSize(13),
                   color: sub,

@@ -241,6 +241,7 @@ class _CartScreenState extends State<CartScreen> {
           _activeCustomer = customer;
         });
         widget.onCustomerChanged(customer);
+        cartService.setActiveCustomer(customer);
 
         activityLogService.logAction(
           'Customer Assigned to Cart',

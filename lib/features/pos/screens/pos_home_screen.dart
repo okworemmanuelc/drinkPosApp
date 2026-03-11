@@ -7,6 +7,7 @@ import '../../../core/utils/number_format.dart';
 import '../../../core/utils/responsive.dart';
 import '../../inventory/data/models/inventory_item.dart';
 import '../../inventory/data/inventory_data.dart';
+import '../../inventory/data/services/supplier_service.dart';
 import '../data/products_data.dart';
 import '../../customers/data/models/customer.dart';
 import '../../../shared/services/cart_service.dart';
@@ -23,22 +24,32 @@ class PosHomeScreen extends StatefulWidget {
 class _PosHomeScreenState extends State<PosHomeScreen>
     with TickerProviderStateMixin {
   String _filter = 'All';
+  String _selectedSupplierId = 'All';
   CustomerGroup _selectedGroup = CustomerGroup.Retailer;
   String _searchQuery = '';
   bool _isSearching = false;
   final TextEditingController _searchController = TextEditingController();
-
-  // Global cart service replaces local _cart
 
   final List<String> _filters = ['All', 'Glass Crates', 'Cans & PET', 'Kegs'];
 
   @override
   void initState() {
     super.initState();
+    cartService.activeCustomer.addListener(_onCustomerSelected);
+  }
+
+  void _onCustomerSelected() {
+    final customer = cartService.activeCustomer.value;
+    if (customer != null) {
+      setState(() {
+        _selectedGroup = customer.customerGroup;
+      });
+    }
   }
 
   @override
   void dispose() {
+    cartService.activeCustomer.removeListener(_onCustomerSelected);
     _searchController.dispose();
     super.dispose();
   }
@@ -137,79 +148,106 @@ class _PosHomeScreenState extends State<PosHomeScreen>
         context.getRSize(4),
         context.getRSize(16),
         context.getRSize(16),
-      ), // RESPONSIVE
-      child: Row(
-        children: [
-          Flexible(
-            child: GestureDetector(
-              onTap: () {},
+      ),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            // Pricing Tier Dropdown
+            _buildDropdown<CustomerGroup>(
+              value: _selectedGroup,
+              items: CustomerGroup.values.map((g) {
+                String label = g == CustomerGroup.Retailer ? 'Retail' : (g == CustomerGroup.BulkBreaker ? 'Bulk Breaker' : 'Distributor');
+                return DropdownMenuItem(
+                  value: g,
+                  child: Text(label),
+                );
+              }).toList(),
+              onChanged: (val) {
+                if (val != null) setState(() => _selectedGroup = val);
+              },
+            ),
+            SizedBox(width: context.getRSize(12)),
+            
+            // Supplier Filter Dropdown
+            _buildDropdown<String>(
+              value: _selectedSupplierId,
+              items: [
+                const DropdownMenuItem(value: 'All', child: Text('All Suppliers')),
+                ...supplierService.getAll().map((s) => DropdownMenuItem(
+                  value: s.id,
+                  child: Text(s.name),
+                )),
+              ],
+              onChanged: (val) {
+                if (val != null) setState(() => _selectedSupplierId = val);
+              },
+            ),
+            SizedBox(width: context.getRSize(12)),
+
+            // Quick Sale Button
+            GestureDetector(
+              onTap: () => _showQuickSaleModal(),
               child: Container(
                 padding: EdgeInsets.symmetric(
                   horizontal: context.getRSize(16),
                   vertical: context.getRSize(10),
-                ), // RESPONSIVE
+                ),
                 decoration: BoxDecoration(
                   color: blueMain.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: blueMain.withOpacity(0.2)),
                 ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      FontAwesomeIcons.bolt,
-                      size: context.getRSize(14),
-                      color: blueMain,
-                    ), // RESPONSIVE
-                    SizedBox(width: context.getRSize(4)),
-                    Icon(
-                      FontAwesomeIcons.bolt,
-                      size: context.getRSize(14),
-                      color: blueMain,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          const Spacer(),
-          Container(
-            padding: EdgeInsets.symmetric(horizontal: context.getRSize(12)),
-            decoration: BoxDecoration(
-              color: _cardBg,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: _border),
-            ),
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<CustomerGroup>(
-                value: _selectedGroup,
-                icon: Icon(
-                  FontAwesomeIcons.chevronDown,
-                  size: context.getRSize(12),
+                child: Icon(
+                  FontAwesomeIcons.bolt,
+                  size: context.getRSize(18),
                   color: blueMain,
                 ),
-                dropdownColor: _surface,
-                borderRadius: BorderRadius.circular(12),
-                items: CustomerGroup.values.map((group) {
-                  return DropdownMenuItem(
-                    value: group,
-                    child: Text(
-                      group.name, // Retailer, BulkBreaker, etc.
-                      style: TextStyle(
-                        fontSize: context.getRFontSize(12),
-                        fontWeight: FontWeight.bold,
-                        color: _text,
-                      ),
-                    ),
-                  );
-                }).toList(),
-                onChanged: (val) {
-                  if (val != null) setState(() => _selectedGroup = val);
-                },
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDropdown<T>({
+    required T value,
+    required List<DropdownMenuItem<T>> items,
+    required ValueChanged<T?> onChanged,
+  }) {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: context.getRSize(12)),
+      decoration: BoxDecoration(
+        color: _cardBg,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _border),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<T>(
+          value: value,
+          icon: Icon(
+            FontAwesomeIcons.chevronDown,
+            size: context.getRSize(12),
+            color: blueMain,
           ),
-        ],
+          dropdownColor: _surface,
+          borderRadius: BorderRadius.circular(12),
+          items: items.map((item) {
+            return DropdownMenuItem<T>(
+              value: item.value,
+              child: DefaultTextStyle.merge(
+                style: TextStyle(
+                  fontSize: context.getRFontSize(12),
+                  fontWeight: FontWeight.bold,
+                  color: _text,
+                ),
+                child: item.child,
+              ),
+            );
+          }).toList(),
+          onChanged: onChanged,
+        ),
       ),
     );
   }
@@ -281,19 +319,33 @@ class _PosHomeScreenState extends State<PosHomeScreen>
     // Match against kProducts by name to get price info
     final existing = kProducts.firstWhere(
       (p) => p['name'] == item.productName,
-      orElse: () => {'price': 0, 'wholesale_price': 0, 'category': 'Other'},
+      orElse: () => {
+        'sellingPrice': 0,
+        'bulkBreakerPrice': 0,
+        'distributorPrice': 0,
+        'category': 'Other'
+      },
     );
+
+    double price = (existing['sellingPrice'] ?? 0).toDouble();
+    if (_selectedGroup == CustomerGroup.BulkBreaker) {
+      price = (existing['bulkBreakerPrice'] ?? price).toDouble();
+    } else if (_selectedGroup == CustomerGroup.Distributor) {
+      price = (existing['distributorPrice'] ?? price).toDouble();
+    }
+
     return {
       'name': item.productName,
       'subtitle': item.subtitle,
-      'price': (_selectedGroup == CustomerGroup.Retailer)
-          ? (existing['price'] ?? 0)
-          : (existing['wholesale_price'] ?? existing['price'] ?? 0),
-      'wholesale_price': existing['wholesale_price'] ?? 0,
+      'price': price,
+      'sellingPrice': existing['sellingPrice'] ?? 0,
+      'bulkBreakerPrice': existing['bulkBreakerPrice'] ?? 0,
+      'distributorPrice': existing['distributorPrice'] ?? 0,
       'category': existing['category'] ?? 'Other',
       'icon': item.icon,
       'color': item.color,
       'stock': item.totalStock,
+      'supplierId': item.supplierId,
     };
   }
 
@@ -306,6 +358,12 @@ class _PosHomeScreenState extends State<PosHomeScreen>
     var shown = _filter == 'All'
         ? allProducts
         : allProducts.where((p) => p['category'] == _filter).toList();
+
+    if (_selectedSupplierId != 'All') {
+      shown = shown
+          .where((p) => p['supplierId'] == _selectedSupplierId)
+          .toList();
+    }
 
     if (_searchQuery.isNotEmpty) {
       final q = _searchQuery.toLowerCase();
@@ -557,6 +615,80 @@ class _PosHomeScreenState extends State<PosHomeScreen>
             vertical: context.getRSize(12),
           ), // RESPONSIVE
         ),
+      ),
+    );
+  }
+
+  // ── QUICK SALE MODAL ─────────────────────────────────────────────────────
+  void _showQuickSaleModal() {
+    final nameCtrl = TextEditingController();
+    final qtyCtrl = TextEditingController();
+    final priceCtrl = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: _surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: Text(
+          'Quick Sale ⚡',
+          style: TextStyle(color: _text, fontWeight: FontWeight.bold),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _modalField(nameCtrl, 'Item Name', FontAwesomeIcons.tag),
+            SizedBox(height: ctx.getRSize(12)),
+            _modalField(qtyCtrl, 'Quantity', FontAwesomeIcons.cubes, isNumber: true),
+            SizedBox(height: ctx.getRSize(12)),
+            _modalField(priceCtrl, 'Price', FontAwesomeIcons.nairaSign, isNumber: true),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('Cancel', style: TextStyle(color: _subtext)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: blueMain,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            onPressed: () {
+              if (nameCtrl.text.isNotEmpty && qtyCtrl.text.isNotEmpty && priceCtrl.text.isNotEmpty) {
+                final product = {
+                  'name': nameCtrl.text,
+                  'subtitle': 'Quick Sale',
+                  'price': double.tryParse(priceCtrl.text) ?? 0.0,
+                  'icon': FontAwesomeIcons.bolt,
+                  'color': blueMain,
+                  'category': 'Other',
+                };
+                cartService.addItem(product, qty: double.tryParse(qtyCtrl.text) ?? 1.0);
+                Navigator.pop(ctx);
+              }
+            },
+            child: const Text('Send to Cart'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _modalField(TextEditingController ctrl, String hint, IconData icon, {bool isNumber = false}) {
+    return TextField(
+      controller: ctrl,
+      keyboardType: isNumber ? const TextInputType.numberWithOptions(decimal: true) : TextInputType.text,
+      style: TextStyle(color: _text, fontSize: context.getRFontSize(14)),
+      decoration: InputDecoration(
+        hintText: hint,
+        hintStyle: TextStyle(color: _subtext),
+        prefixIcon: Icon(icon, size: context.getRSize(16), color: _subtext),
+        filled: true,
+        fillColor: _isDark ? dCard : lCard,
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+        contentPadding: EdgeInsets.symmetric(horizontal: context.getRSize(16), vertical: context.getRSize(12)),
       ),
     );
   }

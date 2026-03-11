@@ -16,6 +16,7 @@ class ThermalReceiptService {
     String? customerAddress,
     String? customerPhone,
     double? cashReceived,
+    double? walletBalance,
   }) async {
     // Generate profile for 58mm printer
     final profile = await CapabilityProfile.load();
@@ -136,32 +137,23 @@ class ThermalReceiptService {
       styles: const PosStyles(bold: true),
     );
 
-    if (cashReceived != null) {
+    if (walletBalance != null) {
       bytes += _buildTwoColumnRow(
         generator,
         'Amount Paid:',
-        'N${fmtNumber(cashReceived.toInt())}',
+        'N${fmtNumber((cashReceived ?? total).toInt())}',
       );
-      final remainder = (total - cashReceived).clamp(0, total);
       bytes += _buildTwoColumnRow(
         generator,
-        'Balance:',
-        'N${fmtNumber(remainder.toInt())}',
-      );
-    } else if (paymentMethod == 'Register as Credit Sale') {
-      bytes += _buildTwoColumnRow(generator, 'Amount Paid:', 'N0');
-      bytes += _buildTwoColumnRow(
-        generator,
-        'Balance:',
-        'N${fmtNumber(total.toInt())}',
+        'Wallet Balance:',
+        '${walletBalance < 0 ? '-' : ''}N${fmtNumber(walletBalance.abs().toInt())}',
       );
     } else {
       bytes += _buildTwoColumnRow(
         generator,
         'Amount Paid:',
-        'N${fmtNumber(total.toInt())}',
+        'N${fmtNumber((cashReceived ?? total).toInt())}',
       );
-      bytes += _buildTwoColumnRow(generator, 'Balance:', 'N0');
     }
 
     bytes += generator.text('');

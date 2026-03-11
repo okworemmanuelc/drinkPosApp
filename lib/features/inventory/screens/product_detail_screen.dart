@@ -19,7 +19,7 @@ import '../../pos/data/products_data.dart';
 // ProductDetailScreen — full-screen product information view
 // ─────────────────────────────────────────────────────────────────────────────
 
-class ProductDetailScreen extends StatelessWidget {
+class ProductDetailScreen extends StatefulWidget {
   final InventoryItem item;
   final VoidCallback onUpdateStock;
 
@@ -28,6 +28,26 @@ class ProductDetailScreen extends StatelessWidget {
     required this.item,
     required this.onUpdateStock,
   });
+
+  @override
+  State<ProductDetailScreen> createState() => _ProductDetailScreenState();
+}
+
+class _ProductDetailScreenState extends State<ProductDetailScreen> {
+  late TextEditingController _monthlyTargetController;
+  int _monthlyTarget = 200; // Default or from item if it had one
+
+  @override
+  void initState() {
+    super.initState();
+    _monthlyTargetController = TextEditingController(text: _monthlyTarget.toString());
+  }
+
+  @override
+  void dispose() {
+    _monthlyTargetController.dispose();
+    super.dispose();
+  }
 
   // ── Theme helpers ─────────────────────────────────────────────────────────
   bool get _isDark => themeNotifier.value == ThemeMode.dark;
@@ -57,8 +77,8 @@ class ProductDetailScreen extends StatelessWidget {
   // ═══════════════════════════════════════════════════════════════════════════
 
   Widget _buildSliverAppBar(BuildContext context) {
-    final isLow = item.totalStock > 0 && item.totalStock <= item.lowStockThreshold;
-    final isOut = item.totalStock == 0;
+    final isLow = widget.item.totalStock > 0 && widget.item.totalStock <= widget.item.lowStockThreshold;
+    final isOut = widget.item.totalStock == 0;
     Color statusColor = success;
     String statusLabel = 'In Stock';
     if (isOut) {
@@ -93,8 +113,8 @@ class ProductDetailScreen extends StatelessWidget {
           decoration: BoxDecoration(
             gradient: LinearGradient(
               colors: [
-                item.color.withValues(alpha: 0.8),
-                item.color.withValues(alpha: 0.4),
+                widget.item.color.withValues(alpha: 0.8),
+                widget.item.color.withValues(alpha: 0.4),
                 _bg,
               ],
               begin: Alignment.topCenter,
@@ -119,7 +139,7 @@ class ProductDetailScreen extends StatelessWidget {
                     ),
                   ),
                   child: Icon(
-                    item.icon,
+                    widget.item.icon,
                     color: Colors.white,
                     size: context.getRSize(36),
                   ),
@@ -127,7 +147,7 @@ class ProductDetailScreen extends StatelessWidget {
                 SizedBox(height: context.getRSize(14)),
                 // Product name
                 Text(
-                  item.productName,
+                  widget.item.productName,
                   style: TextStyle(
                     fontSize: context.getRFontSize(24),
                     fontWeight: FontWeight.w800,
@@ -141,7 +161,7 @@ class ProductDetailScreen extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
-                      item.subtitle,
+                      widget.item.subtitle,
                       style: TextStyle(
                         fontSize: context.getRFontSize(14),
                         color: Colors.white.withValues(alpha: 0.8),
@@ -187,7 +207,7 @@ class ProductDetailScreen extends StatelessWidget {
   Widget _buildBody(BuildContext context) {
     // Look up related data
     final supplier = supplierService.getAll().firstWhere(
-      (s) => s.id == item.supplierId,
+      (s) => s.id == widget.item.supplierId,
       orElse: () =>
           Supplier(id: '', name: 'Unknown', crateGroup: CrateGroup.nbPlc),
     );
@@ -196,20 +216,20 @@ class ProductDetailScreen extends StatelessWidget {
       orElse: () => CrateStock(group: CrateGroup.nbPlc),
     );
     final product = kProducts.firstWhere(
-      (p) => p['name'] == item.productName,
+      (p) => p['name'] == widget.item.productName,
       orElse: () => <String, dynamic>{},
     );
-    final int sellingPrice = (product['price'] as num?)?.toInt() ?? 0;
-    final int buyingPrice = (product['wholesale_price'] as num?)?.toInt() ?? 0;
+    final int sellingPrice = (product['sellingPrice'] as num?)?.toInt() ?? 0;
+    final int buyingPrice = (product['bulkBreakerPrice'] as num?)?.toInt() ?? 0;
     final double totalStockValue = stockValue(
       sellingPrice.toDouble(),
-      item.totalStock,
+      widget.item.totalStock,
     );
 
     // Last delivery from logs
     final deliveryLogs =
         kInventoryLogs
-            .where((l) => l.itemId == item.id && l.action == 'restock')
+            .where((l) => l.itemId == widget.item.id && l.action == 'restock')
             .toList()
           ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
 
@@ -229,7 +249,7 @@ class ProductDetailScreen extends StatelessWidget {
               context,
               FontAwesomeIcons.cubesStacked,
               'Total Quantity',
-              item.totalStock.toStringAsFixed(item.totalStock % 1 == 0 ? 0 : 1),
+              widget.item.totalStock.toStringAsFixed(widget.item.totalStock % 1 == 0 ? 0 : 1),
               blueMain,
             ),
             _divider(context),
@@ -348,7 +368,7 @@ class ProductDetailScreen extends StatelessWidget {
                 fontSize: context.getRFontSize(16),
               ),
             ),
-            onPressed: onUpdateStock,
+            onPressed: widget.onUpdateStock,
           ),
         ),
       ),
@@ -459,13 +479,17 @@ class ProductDetailScreen extends StatelessWidget {
 
   // ── Sales Target Grid ─────────────────────────────────────────────────────
   Widget _buildTargetGrid(BuildContext context) {
-    // Mock data — replace with real target tracking later
+    // Mock current sales (Quantity Sold)
+    final int currentMonthly = 62;
+    final int currentWeekly = 18;
+    final int currentDaily = 4;
+
     return _infoCard(context, [
-      _targetRow(context, 'Daily', 4, 10),
+      _targetRow(context, 'Daily', currentDaily, _monthlyTarget ~/ 30),
       _divider(context),
-      _targetRow(context, 'Weekly', 18, 50),
+      _targetRow(context, 'Weekly', currentWeekly, _monthlyTarget ~/ 4),
       _divider(context),
-      _targetRow(context, 'Monthly', 62, 200),
+      _targetRow(context, 'Monthly', currentMonthly, _monthlyTarget, isEditable: true),
     ]);
   }
 
@@ -496,7 +520,7 @@ class ProductDetailScreen extends StatelessWidget {
           Expanded(
             flex: 2,
             child: Text(
-              qty,
+              qty, // Quantity Sold (Read-Only)
               style: TextStyle(
                 fontSize: context.getRFontSize(13),
                 fontWeight: FontWeight.bold,
@@ -526,8 +550,9 @@ class ProductDetailScreen extends StatelessWidget {
     BuildContext context,
     String period,
     int current,
-    int target,
-  ) {
+    int target, {
+    bool isEditable = false,
+  }) {
     final progress = target > 0 ? (current / target).clamp(0.0, 1.0) : 0.0;
     final pct = (progress * 100).toInt();
 
@@ -550,14 +575,59 @@ class ProductDetailScreen extends StatelessWidget {
                   color: _subtext,
                 ),
               ),
-              Text(
-                '$current / $target units  ($pct%)',
-                style: TextStyle(
-                  fontSize: context.getRFontSize(12),
-                  fontWeight: FontWeight.bold,
-                  color: _text,
+              if (isEditable)
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      '$current / ',
+                      style: TextStyle(
+                        fontSize: context.getRFontSize(12),
+                        fontWeight: FontWeight.bold,
+                        color: _text,
+                      ),
+                    ),
+                    SizedBox(
+                      width: context.getRSize(40),
+                      child: TextField(
+                        controller: _monthlyTargetController,
+                        keyboardType: TextInputType.number,
+                        style: TextStyle(
+                          fontSize: context.getRFontSize(12),
+                          fontWeight: FontWeight.bold,
+                          color: blueMain,
+                        ),
+                        decoration: const InputDecoration(
+                          isDense: true,
+                          contentPadding: EdgeInsets.zero,
+                          border: InputBorder.none,
+                        ),
+                        onChanged: (val) {
+                          setState(() {
+                            _monthlyTarget = int.tryParse(val) ?? 0;
+                          });
+                        },
+                      ),
+                    ),
+                    Text(
+                      ' units ($pct%)',
+                      style: TextStyle(
+                        fontSize: context.getRFontSize(12),
+                        fontWeight: FontWeight.bold,
+                        color: _text,
+                      ),
+                    ),
+                  ],
+                )
+              else
+                Text(
+                  '$current / $target units  ($pct%)',
+                  style: TextStyle(
+                    fontSize: context.getRFontSize(12),
+                    fontWeight: FontWeight.bold,
+                    color: _text,
+                  ),
                 ),
-              ),
             ],
           ),
           SizedBox(height: context.getRSize(8)),

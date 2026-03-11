@@ -318,7 +318,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
           child: Column(
             children: [
               Text(
-                'Wallet balance',
+                'Wallet Balance',
                 style: TextStyle(
                   fontSize: context.getRFontSize(14),
                   fontWeight: FontWeight.w600,

@@ -13,6 +13,8 @@ import '../../features/deliveries/screens/deliveries_screen.dart';
 import '../../shared/widgets/activity_log_screen.dart';
 import '../../shared/services/cart_service.dart';
 import '../../shared/services/navigation_service.dart';
+import '../../shared/services/order_service.dart';
+import '../../shared/models/order.dart';
 import '../../core/theme/colors.dart';
 
 class MainLayout extends StatefulWidget {
@@ -97,8 +99,20 @@ class _MainLayoutState extends State<MainLayout> {
                         icon: Icon(Icons.inventory_2),
                         label: 'Inventory',
                       ),
-                      const BottomNavigationBarItem(
-                        icon: Icon(Icons.receipt_long),
+                      BottomNavigationBarItem(
+                        icon: ValueListenableBuilder<List<Order>>(
+                          valueListenable: orderService,
+                          builder: (context, orders, _) {
+                            final pendingCount =
+                                orders.where((o) => o.status == 'pending').length;
+                            return Badge(
+                              label: Text(pendingCount.toString()),
+                              isLabelVisible: pendingCount > 0,
+                              backgroundColor: danger,
+                              child: const Icon(Icons.receipt_long),
+                            );
+                          },
+                        ),
                         label: 'Orders',
                       ),
                       BottomNavigationBarItem(

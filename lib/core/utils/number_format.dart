@@ -1,17 +1,24 @@
-/// Formats an integer with comma separators.
+/// Formats a number with comma separators.
+/// Handles negative numbers by prepending the minus sign.
 /// e.g. fmtNumber(5000) → '5,000'
-String fmtNumber(int n) {
-  if (n >= 1000) {
-    final s = n.toString();
+/// e.g. fmtNumber(-5000) → '-5,000'
+String fmtNumber(num n) {
+  final isNegative = n < 0;
+  final val = n.abs().toInt();
+  String result;
+  if (val >= 1000) {
+    final s = val.toString();
     final buf = StringBuffer();
     final offset = s.length % 3;
     for (int i = 0; i < s.length; i++) {
       if (i > 0 && (i - offset) % 3 == 0) buf.write(',');
       buf.write(s[i]);
     }
-    return buf.toString();
+    result = buf.toString();
+  } else {
+    result = val.toString();
   }
-  return n.toString();
+  return isNegative ? '-$result' : result;
 }
 
 /// Formats a double as currency with Nair sign.

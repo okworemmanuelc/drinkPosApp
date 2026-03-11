@@ -1,7 +1,15 @@
 import 'package:flutter/material.dart';
 
+import '../../features/customers/data/models/customer.dart';
+
 class CartService extends ValueNotifier<List<Map<String, dynamic>>> {
+  final ValueNotifier<Customer?> activeCustomer = ValueNotifier<Customer?>(null);
+
   CartService() : super([]);
+
+  void setActiveCustomer(Customer? customer) {
+    activeCustomer.value = customer;
+  }
 
   void addItem(Map<String, dynamic> product, {double qty = 1.0}) {
     final index = value.indexWhere((item) => item['name'] == product['name']);

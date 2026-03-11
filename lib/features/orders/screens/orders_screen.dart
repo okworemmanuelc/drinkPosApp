@@ -399,9 +399,10 @@ class _OrdersScreenState extends State<OrdersScreen>
                     paymentMethod: order.paymentMethod,
                     customerName: order.customerName,
                     customerAddress: order.customerAddress,
-                    cashReceived: order.amountPaid > 0
-                        ? order.amountPaid
-                        : null,
+                    cashReceived: order.amountPaid,
+                    walletBalance: (order.customerName == 'Walk-in Customer') 
+                        ? null 
+                        : order.customerWallet,
                   ),
                 ),
               ),
@@ -661,27 +662,30 @@ class _OrderCard extends StatelessWidget {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Total: ₦${fmtNumber(order.totalAmount.toInt())}',
-                          style: TextStyle(
-                            color: _text,
-                            fontWeight: FontWeight.w600,
-                            fontSize: context.getRFontSize(13),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Total: ₦${fmtNumber(order.totalAmount.toInt())}',
+                            style: TextStyle(
+                              color: _text,
+                              fontWeight: FontWeight.w600,
+                              fontSize: context.getRFontSize(13),
+                            ),
                           ),
-                        ),
-                        SizedBox(height: context.getRSize(4)),
-                        Text(
-                          'Paid: ₦${fmtNumber(order.amountPaid.toInt())} • ${order.paymentMethod}',
-                          style: TextStyle(
-                            color: _subtext,
-                            fontSize: context.getRFontSize(12),
+                          SizedBox(height: context.getRSize(4)),
+                          Text(
+                            'Paid: ₦${fmtNumber(order.amountPaid.toInt())} • ${order.paymentMethod}',
+                            style: TextStyle(
+                              color: _subtext,
+                              fontSize: context.getRFontSize(12),
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
+                    SizedBox(width: context.getRSize(8)),
                     Container(
                       padding: EdgeInsets.symmetric(
                         horizontal: context.getRSize(10),
@@ -695,11 +699,11 @@ class _OrderCard extends StatelessWidget {
                         ),
                       ),
                       child: Text(
-                        'Balance: ₦${fmtNumber(order.customerWallet.toInt())}',
+                        'Wallet Balance: ${order.customerWallet < 0 ? '-' : ''}₦${fmtNumber(order.customerWallet.abs().toInt())}',
                         style: TextStyle(
                           color: balanceColor,
                           fontWeight: FontWeight.bold,
-                          fontSize: context.getRFontSize(12),
+                          fontSize: context.getRFontSize(11),
                         ),
                       ),
                     ),
@@ -710,9 +714,11 @@ class _OrderCard extends StatelessWidget {
               // Footer Actions for Pending
               if (status == 'pending')
                 Container(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: context.getRSize(16),
-                    vertical: context.getRSize(12),
+                  padding: EdgeInsets.fromLTRB(
+                    context.getRSize(16),
+                    context.getRSize(16),
+                    context.getRSize(16),
+                    context.getRSize(16),
                   ),
                   decoration: BoxDecoration(
                     color: _surface,
