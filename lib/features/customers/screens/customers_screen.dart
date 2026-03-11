@@ -3,6 +3,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/theme_notifier.dart';
+import '../../../core/utils/number_format.dart';
 import '../../../core/utils/responsive.dart';
 import '../../../shared/widgets/app_drawer.dart';
 import '../data/models/customer.dart';
@@ -228,8 +229,8 @@ class _CustomersScreenState extends State<CustomersScreen> {
     final isNegative = customer.customerWallet < 0;
     final balanceColor = isNegative ? danger : success;
     final formattedBalance = isNegative
-        ? '-₦${customer.customerWallet.abs().toStringAsFixed(0)}'
-        : '₦${customer.customerWallet.toStringAsFixed(0)}';
+        ? formatCurrency(customer.customerWallet)
+        : formatCurrency(customer.customerWallet);
 
     return InkWell(
       onTap: () {

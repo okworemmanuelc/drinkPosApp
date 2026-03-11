@@ -234,11 +234,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
                       if (!_isWalkIn && widget.customer != null) ...[
                         SizedBox(height: context.getRSize(2)),
                         Text(
-                          'Wallet Balance: ${widget.customer!.customerWallet < 0 ? '-' : ''}₦${fmtNumber(widget.customer!.customerWallet.abs().toInt())} ${widget.customer!.customerWallet < 0
-                              ? "(overdue)"
-                              : widget.customer!.customerWallet > 0
-                              ? "(credit)"
-                              : "(clear)"}',
+                          'Wallet Balance: ${formatCurrency(widget.customer!.customerWallet)} ${widget.customer!.customerWallet < 0
+                              ? "(debt)"
+                              : "(credit)"}',
                           style: TextStyle(
                             fontSize: context.getRFontSize(12),
                             color: widget.customer!.customerWallet < 0
@@ -316,13 +314,11 @@ class _CheckoutPageState extends State<CheckoutPage> {
                     builder: (context) {
                       final newCustomerWallet = _dynamicNewCustomerWallet;
                       final isDebt = newCustomerWallet < 0;
-                      final valText = isDebt
-                          ? '-₦${fmtNumber(newCustomerWallet.abs().toInt())}'
-                          : '+₦${fmtNumber(newCustomerWallet.toInt())}';
+                      final balStr = formatCurrency(newCustomerWallet);
                       final valColor = isDebt ? Colors.amber.shade700 : success;
 
                       return Text(
-                        newCustomerWallet == 0 ? '₦0' : valText,
+                        newCustomerWallet == 0 ? formatCurrency(0) : balStr,
                         style: TextStyle(
                           fontSize: context.getRFontSize(15),
                           fontWeight: FontWeight.w800,
@@ -477,7 +473,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'Transaction denied: Exceeds wallet limit of -₦${fmtNumber(customer.walletLimit.abs().toInt())}',
+              'Transaction denied: Exceeds wallet limit of ${formatCurrency(customer.walletLimit)}',
             ),
             backgroundColor: danger,
           ),
@@ -557,8 +553,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
       'Sale Completed',
       'Order $orderId completed for $_customerDisplayName. '
           'Method: $_paymentLabel. '
-          'Amount paid: ₦${fmtNumber(amountPaid.toInt())}. '
-          'Wallet Balance: ${resultingWalletBalance < 0 ? '-' : ''}₦${fmtNumber(resultingWalletBalance.abs().toInt())}',
+          'Amount paid: ${formatCurrency(amountPaid)}. '
+          'Wallet Balance: ${formatCurrency(resultingWalletBalance)}',
       relatedEntityId: widget.customer?.id,
       relatedEntityType: 'customer',
     );
@@ -986,7 +982,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                   overflow: TextOverflow.ellipsis,
                 ),
                 Text(
-                  '${((item['qty'] as num?)?.toDouble() ?? 0.0).toStringAsFixed(1)} × ₦${fmtNumber(((item['price'] as num?)?.toInt() ?? 0))}',
+                  '${((item['qty'] as num?)?.toDouble() ?? 0.0).toStringAsFixed(1)} × ${formatCurrency(((item['price'] as num?)?.toDouble() ?? 0.0))}',
                   style: TextStyle(
                     fontSize: context.getRFontSize(12),
                     color: _subtext,
@@ -998,7 +994,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
           FittedBox(
             fit: BoxFit.scaleDown,
             child: Text(
-              '₦${fmtNumber(lineTotal)}',
+              formatCurrency(lineTotal),
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: context.getRFontSize(14),
@@ -1034,7 +1030,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
             ),
           ),
           Text(
-            '₦${fmtNumber(value.toInt())}',
+            formatCurrency(value),
             style: TextStyle(
               fontSize: context.getRFontSize(bold ? 18 : 14),
               fontWeight: FontWeight.w800,

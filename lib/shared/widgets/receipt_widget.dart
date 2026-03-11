@@ -17,6 +17,7 @@ class ReceiptWidget extends StatelessWidget {
   final String? customerPhone;
   final double? cashReceived;
   final double? walletBalance;
+  final DateTime? reprintDate;
 
   const ReceiptWidget({
     super.key,
@@ -31,6 +32,7 @@ class ReceiptWidget extends StatelessWidget {
     this.customerPhone,
     this.cashReceived,
     this.walletBalance,
+    this.reprintDate,
   });
 
   @override
@@ -58,6 +60,29 @@ class ReceiptWidget extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
+          if (reprintDate != null) ...[
+            Container(
+              padding: EdgeInsets.symmetric(
+                horizontal: context.getRSize(12),
+                vertical: context.getRSize(4),
+              ),
+              decoration: BoxDecoration(
+                color: Colors.red.withOpacity(0.1),
+                border: Border.all(color: Colors.red.withOpacity(0.5)),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                'REPRINTED',
+                style: TextStyle(
+                  fontSize: context.getRFontSize(16),
+                  fontWeight: FontWeight.w900,
+                  color: Colors.red,
+                  letterSpacing: 2,
+                ),
+              ),
+            ),
+            SizedBox(height: context.getRSize(12)),
+          ],
           Text(
             'BrewFlow POS',
             style: TextStyle(
@@ -97,9 +122,27 @@ class ReceiptWidget extends StatelessWidget {
           SizedBox(height: context.getRSize(8)),
           Align(
             alignment: Alignment.centerLeft,
-            child: Text(
-              'Order: #$orderId\nDate: ${_formatDate(DateTime.now())}',
-              style: TextStyle(fontSize: context.getRFontSize(12), color: sub),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Order: #$orderId',
+                  style: TextStyle(fontSize: context.getRFontSize(12), color: sub),
+                ),
+                Text(
+                  'Date: ${_formatDate(DateTime.now())}',
+                  style: TextStyle(fontSize: context.getRFontSize(12), color: sub),
+                ),
+                if (reprintDate != null)
+                  Text(
+                    'Reprinted: ${_formatDate(reprintDate!)}',
+                    style: TextStyle(
+                      fontSize: context.getRFontSize(12),
+                      color: Colors.red.shade700,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+              ],
             ),
           ),
 
@@ -125,7 +168,7 @@ class ReceiptWidget extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    '₦${fmtNumber(lineTotal)}',
+                    formatCurrency(lineTotal),
                     style: TextStyle(
                       fontSize: context.getRFontSize(13),
                       fontWeight: FontWeight.w600,
@@ -160,7 +203,7 @@ class ReceiptWidget extends StatelessWidget {
                 ),
               ),
               Text(
-                '₦${fmtNumber(total.toInt())}',
+                formatCurrency(total),
                 style: TextStyle(
                   fontSize: context.getRFontSize(18),
                   fontWeight: FontWeight.w800,
@@ -190,7 +233,7 @@ class ReceiptWidget extends StatelessWidget {
             Align(
               alignment: Alignment.centerLeft,
               child: Text(
-                'Amount Paid: ₦${fmtNumber((cashReceived ?? total).toInt())}',
+                'Amount Paid: ${formatCurrency(cashReceived ?? total)}',
                 style: TextStyle(
                   fontSize: context.getRFontSize(13),
                   color: sub,
@@ -200,7 +243,7 @@ class ReceiptWidget extends StatelessWidget {
             Align(
               alignment: Alignment.centerLeft,
               child: Text(
-                'Wallet Balance: ${walletBalance! < 0 ? '-' : ''}₦${fmtNumber(walletBalance!.abs().toInt())}',
+                'Wallet Balance: ${formatCurrency(walletBalance!)}',
                 style: TextStyle(
                   fontSize: context.getRFontSize(13),
                   color: walletBalance! < 0 ? danger : success,
@@ -212,7 +255,7 @@ class ReceiptWidget extends StatelessWidget {
             Align(
               alignment: Alignment.centerLeft,
               child: Text(
-                'Amount Paid: ₦${fmtNumber((cashReceived ?? total).toInt())}',
+                'Amount Paid: ${formatCurrency(cashReceived ?? total)}',
                 style: TextStyle(
                   fontSize: context.getRFontSize(13),
                   color: sub,
@@ -264,7 +307,7 @@ class ReceiptWidget extends StatelessWidget {
             style: TextStyle(fontSize: context.getRFontSize(13), color: col),
           ),
           Text(
-            '₦${fmtNumber(value.toInt())}',
+            formatCurrency(value),
             style: TextStyle(
               fontSize: context.getRFontSize(13),
               fontWeight: FontWeight.w600,

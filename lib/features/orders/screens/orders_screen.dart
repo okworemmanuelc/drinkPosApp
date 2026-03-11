@@ -1,5 +1,12 @@
+import 'dart:io';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:print_bluetooth_thermal/print_bluetooth_thermal.dart';
+import 'package:screenshot/screenshot.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:path_provider/path_provider.dart';
 
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/theme_notifier.dart';
@@ -13,6 +20,7 @@ import '../../../shared/widgets/shared_scaffold.dart';
 import '../../../shared/widgets/menu_button.dart';
 import '../../../shared/widgets/app_bar_header.dart';
 import '../../customers/data/services/customer_service.dart';
+import '../../pos/services/receipt_builder.dart';
 
 class OrdersScreen extends StatefulWidget {
   const OrdersScreen({super.key});
@@ -24,6 +32,7 @@ class OrdersScreen extends StatefulWidget {
 class _OrdersScreenState extends State<OrdersScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  final ScreenshotController _screenshotCtrl = ScreenshotController();
   String _completedFilter = 'All Time';
 
   bool get _isDark => themeNotifier.value == ThemeMode.dark;
@@ -364,81 +373,208 @@ class _OrdersScreenState extends State<OrdersScreen>
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) {
-        return Container(
-          height: MediaQuery.of(context).size.height * 0.85,
-          decoration: BoxDecoration(
-            color: _surface,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          child: Column(
-            children: [
-              // Handle bump
-              Container(
-                margin: EdgeInsets.symmetric(vertical: context.getRSize(12)),
-                width: context.getRSize(40),
-                height: context.getRSize(5),
-                decoration: BoxDecoration(
-                  color: _border,
-                  borderRadius: BorderRadius.circular(10),
-                ),
+        return ValueListenableBuilder<List<Order>>(
+          valueListenable: orderService,
+          builder: (context, allOrders, _) {
+            final currentOrder = allOrders.firstWhere(
+              (o) => o.id == order.id,
+              orElse: () => order,
+            );
+
+            return Container(
+              height: MediaQuery.of(context).size.height * 0.85,
+              decoration: BoxDecoration(
+                color: _surface,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
               ),
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: EdgeInsets.fromLTRB(
-                    context.getRSize(20),
-                    context.getRSize(10),
-                    context.getRSize(20),
-                    context.getRSize(30),
+              child: Column(
+                children: [
+                  Container(
+                    margin: EdgeInsets.symmetric(vertical: context.getRSize(12)),
+                    width: context.getRSize(40),
+                    height: context.getRSize(5),
+                    decoration: BoxDecoration(
+                      color: _border,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
                   ),
-                  child: ReceiptWidget(
-                    orderId: order.id,
-                    cart: order.items,
-                    subtotal: order.subtotal,
-                    crateDeposit: order.crateDeposit,
-                    total: order.totalAmount,
-                    paymentMethod: order.paymentMethod,
-                    customerName: order.customerName,
-                    customerAddress: order.customerAddress,
-                    cashReceived: order.amountPaid,
-                    walletBalance: (order.customerName == 'Walk-in Customer') 
-                        ? null 
-                        : order.customerWallet,
-                  ),
-                ),
-              ),
-              SafeArea(
-                top: false,
-                child: Padding(
-                  padding: EdgeInsets.all(context.getRSize(16)),
-                  child: SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: blueMain,
-                        padding: EdgeInsets.symmetric(
-                          vertical: context.getRSize(16),
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      padding: EdgeInsets.fromLTRB(
+                        context.getRSize(20),
+                        context.getRSize(10),
+                        context.getRSize(20),
+                        context.getRSize(30),
                       ),
-                      onPressed: () => Navigator.pop(context),
-                      child: Text(
-                        'Close',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: context.getRFontSize(16),
-                          fontWeight: FontWeight.bold,
+                      child: Screenshot(
+                        controller: _screenshotCtrl,
+                        child: ReceiptWidget(
+                          orderId: currentOrder.id,
+                          cart: currentOrder.items,
+                          subtotal: currentOrder.subtotal,
+                          crateDeposit: currentOrder.crateDeposit,
+                          total: currentOrder.totalAmount,
+                          paymentMethod: currentOrder.paymentMethod,
+                          customerName: currentOrder.customerName,
+                          customerAddress: currentOrder.customerAddress,
+                          cashReceived: currentOrder.amountPaid,
+                          walletBalance: (currentOrder.customerName == 'Walk-in Customer') 
+                              ? null 
+                              : currentOrder.customerWallet,
+                          reprintDate: currentOrder.reprints.isNotEmpty
+                              ? currentOrder.reprints.last
+                              : null,
                         ),
                       ),
                     ),
                   ),
-                ),
+                  SafeArea(
+                    top: false,
+                    child: Padding(
+                      padding: EdgeInsets.all(context.getRSize(16)),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: blueMain,
+                                padding: EdgeInsets.symmetric(
+                                  vertical: context.getRSize(16),
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              onPressed: () => _printReceipt(context, currentOrder),
+                              icon: const Icon(FontAwesomeIcons.print, color: Colors.white, size: 18),
+                              label: Text(
+                                'Print',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: context.getRFontSize(14),
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ),
+                          SizedBox(width: context.getRSize(12)),
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: success,
+                                padding: EdgeInsets.symmetric(
+                                  vertical: context.getRSize(16),
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              onPressed: () => _shareReceipt(context, currentOrder),
+                              icon: const Icon(FontAwesomeIcons.shareNodes, color: Colors.white, size: 18),
+                              label: Text(
+                                'Share',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: context.getRFontSize(14),
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            );
+          },
         );
       },
+    );
+  }
+
+  Future<void> _printReceipt(BuildContext context, Order order) async {
+    orderService.addReprint(order.id);
+    final updatedOrder = orderService.value.firstWhere((o) => o.id == order.id);
+    final reprintDate = updatedOrder.reprints.last;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Printing reprint...')),
+    );
+
+    try {
+      final bytes = await ThermalReceiptService.buildReceipt(
+        orderId: updatedOrder.id,
+        cart: updatedOrder.items,
+        subtotal: updatedOrder.subtotal,
+        crateDeposit: updatedOrder.crateDeposit,
+        total: updatedOrder.totalAmount,
+        paymentMethod: updatedOrder.paymentMethod,
+        customerName: updatedOrder.customerName,
+        customerAddress: updatedOrder.customerAddress,
+        cashReceived: updatedOrder.amountPaid,
+        walletBalance: (updatedOrder.customerName == 'Walk-in Customer')
+            ? null
+            : updatedOrder.customerWallet,
+        reprintDate: reprintDate,
+      );
+
+      await PrintBluetoothThermal.writeBytes(bytes);
+      _logReprint(order.id);
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error printing: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  Future<void> _shareReceipt(BuildContext context, Order order) async {
+    orderService.addReprint(order.id);
+    
+    // Wait for UI to update with 'REPRINTED' stamp before taking screenshot
+    await Future.delayed(const Duration(milliseconds: 100));
+
+    try {
+      final Uint8List? imageBytes = await _screenshotCtrl.capture(
+        delay: const Duration(milliseconds: 50),
+        pixelRatio: 3.0,
+      );
+      
+      if (imageBytes == null) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Failed to capture receipt')),
+          );
+        }
+        return;
+      }
+
+      final dir = await getTemporaryDirectory();
+      final file = File(
+        '${dir.path}/brewflow_reprint_${order.id}_${DateTime.now().millisecondsSinceEpoch}.png',
+      );
+      await file.writeAsBytes(imageBytes);
+
+      await Share.shareXFiles([XFile(file.path)], text: 'BrewFlow Receipt Reprint #${order.id}');
+      _logReprint(order.id);
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error sharing: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  void _logReprint(String orderId) {
+    activityLogService.logAction(
+      'Receipt Reprinted',
+      'Receipt for order #$orderId was reprinted',
+      relatedEntityId: orderId,
+      relatedEntityType: 'order',
     );
   }
 }
@@ -640,7 +776,7 @@ class _OrderCard extends StatelessWidget {
                             ),
                           ),
                           Text(
-                            '₦${fmtNumber((item['price'] * item['qty']).toInt())}',
+                            formatCurrency(item['price'] * item['qty']),
                             style: TextStyle(
                               color: _text,
                               fontWeight: FontWeight.w600,
@@ -667,7 +803,7 @@ class _OrderCard extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Total: ₦${fmtNumber(order.totalAmount.toInt())}',
+                            'Total: ${formatCurrency(order.totalAmount)}',
                             style: TextStyle(
                               color: _text,
                               fontWeight: FontWeight.w600,
@@ -676,7 +812,7 @@ class _OrderCard extends StatelessWidget {
                           ),
                           SizedBox(height: context.getRSize(4)),
                           Text(
-                            'Paid: ₦${fmtNumber(order.amountPaid.toInt())} • ${order.paymentMethod}',
+                            'Paid: ${formatCurrency(order.amountPaid)} • ${order.paymentMethod}',
                             style: TextStyle(
                               color: _subtext,
                               fontSize: context.getRFontSize(12),
@@ -699,7 +835,7 @@ class _OrderCard extends StatelessWidget {
                         ),
                       ),
                       child: Text(
-                        'Wallet Balance: ${order.customerWallet < 0 ? '-' : ''}₦${fmtNumber(order.customerWallet.abs().toInt())}',
+                        'Wallet Balance: ${formatCurrency(order.customerWallet)}',
                         style: TextStyle(
                           color: balanceColor,
                           fontWeight: FontWeight.bold,

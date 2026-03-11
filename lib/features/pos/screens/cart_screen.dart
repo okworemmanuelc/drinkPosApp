@@ -304,7 +304,7 @@ class _CartScreenState extends State<CartScreen> {
                               : (isOwe ? danger : success),
                         ),
                         Text(
-                          ' Bal: ₦${customerWallet.abs().toStringAsFixed(0)} ${customerWallet == 0 ? "clear" : (isOwe ? "overdue" : "credit")}',
+                                    ' Bal: ${formatCurrency(customerWallet)}',
                           style: TextStyle(
                             fontSize: modalCtx.getRFontSize(12),
                             color: customerWallet == 0
@@ -688,7 +688,7 @@ class _CartScreenState extends State<CartScreen> {
           ),
         ),
         Text(
-          '₦${fmtNumber(value.toInt())}',
+          formatCurrency(value),
           style: TextStyle(
             fontSize: context.getRFontSize(large ? 22 : 15),
             fontWeight: FontWeight.w800,
@@ -1019,7 +1019,7 @@ class _CartScreenState extends State<CartScreen> {
                                                 height: context.getRSize(4),
                                               ),
                                               Text(
-                                                '${((item['qty'] as num?)?.toDouble() ?? 0.0).toStringAsFixed(1)} × ₦${fmtNumber(((item['price'] as num?)?.toInt() ?? 0))}',
+                                                '${((item['qty'] as num?)?.toDouble() ?? 0.0).toStringAsFixed(1)} × ${formatCurrency(((item['price'] as num?)?.toDouble() ?? 0.0))}',
                                                 style: TextStyle(
                                                   fontSize: context.getRFontSize(
                                                     13,
@@ -1034,7 +1034,7 @@ class _CartScreenState extends State<CartScreen> {
                                         FittedBox(
                                           fit: BoxFit.scaleDown,
                                           child: Text(
-                                            '₦${fmtNumber((((item['qty'] as num?)?.toDouble() ?? 0.0) * ((item['price'] as num?)?.toDouble() ?? 0.0)).toInt())}',
+                                            formatCurrency((((item['qty'] as num?)?.toDouble() ?? 0.0) * ((item['price'] as num?)?.toDouble() ?? 0.0))),
                                             style: TextStyle(
                                               fontWeight: FontWeight.w900,
                                               fontSize: context.getRFontSize(16),
@@ -1165,7 +1165,7 @@ class _CartScreenState extends State<CartScreen> {
                                                     ],
                                                   ),
                                                   Text(
-                                                    '₦${fmtNumber(line.amount.toInt())}',
+                                                    formatCurrency(line.amount),
                                                     style: TextStyle(
                                                       fontSize: context
                                                           .getRFontSize(13),
@@ -1194,7 +1194,7 @@ class _CartScreenState extends State<CartScreen> {
                                                 ),
                                               ),
                                               Text(
-                                                '₦${fmtNumber(computedDeposit.toInt())}',
+                                                formatCurrency(computedDeposit),
                                                 style: TextStyle(
                                                   fontSize: context
                                                       .getRFontSize(14),
@@ -1223,7 +1223,7 @@ class _CartScreenState extends State<CartScreen> {
                                                   ),
                                                 ),
                                                 Text(
-                                                  '-₦${fmtNumber(customerCrateCredit.toInt())}',
+                                                  formatCurrency(-customerCrateCredit),
                                                   style: TextStyle(
                                                     fontSize: context
                                                         .getRFontSize(12),
@@ -1306,7 +1306,7 @@ class _CartScreenState extends State<CartScreen> {
                                           Row(
                                             children: [
                                               Text(
-                                                '₦${fmtNumber(_crateDeposit.toInt())}',
+                                                formatCurrency(_crateDeposit),
                                                 style: TextStyle(
                                                   fontSize: context
                                                       .getRFontSize(15),

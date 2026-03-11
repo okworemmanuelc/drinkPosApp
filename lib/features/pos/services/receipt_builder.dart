@@ -17,6 +17,7 @@ class ThermalReceiptService {
     String? customerPhone,
     double? cashReceived,
     double? walletBalance,
+    DateTime? reprintDate,
   }) async {
     // Generate profile for 58mm printer
     final profile = await CapabilityProfile.load();
@@ -24,6 +25,18 @@ class ThermalReceiptService {
     List<int> bytes = [];
 
     // --- 1. HEADER ---
+    if (reprintDate != null) {
+      bytes += generator.text(
+        'REPRINTED',
+        styles: const PosStyles(
+          align: PosAlign.center,
+          height: PosTextSize.size2,
+          width: PosTextSize.size2,
+          bold: true,
+        ),
+      );
+      bytes += generator.hr();
+    }
     bytes += generator.text(
       'BREWFLOW POS',
       styles: const PosStyles(
@@ -67,6 +80,11 @@ class ThermalReceiptService {
 
     bytes += generator.text('Order #$orderId');
     bytes += generator.text('Date: $dateStr');
+    if (reprintDate != null) {
+      final rDateStr =
+          '${reprintDate.day.toString().padLeft(2, '0')}/${reprintDate.month.toString().padLeft(2, '0')}/${reprintDate.year} ${reprintDate.hour.toString().padLeft(2, '0')}:${reprintDate.minute.toString().padLeft(2, '0')}';
+      bytes += generator.text('Reprinted: $rDateStr');
+    }
     bytes += generator.hr();
 
     // --- 3. ITEMS LIST ---
@@ -78,7 +96,7 @@ class ThermalReceiptService {
       final double lineTotal = stockValue(price, qty);
 
       final String qtyStr = '${qty.toStringAsFixed(1)}x ';
-      final String priceStr = 'N${fmtNumber(lineTotal.toInt())}';
+      final String priceStr = formatCurrency(lineTotal).replaceAll('₦', 'N');
 
       // Calculate max length for product name to fit in 32 characters
       int maxNameLen =
@@ -104,14 +122,14 @@ class ThermalReceiptService {
     bytes += _buildTwoColumnRow(
       generator,
       'Subtotal',
-      'N${fmtNumber(subtotal.toInt())}',
+      formatCurrency(subtotal).replaceAll('₦', 'N'),
     );
 
     if (crateDeposit > 0) {
       bytes += _buildTwoColumnRow(
         generator,
         'Crate Deposit',
-        'N${fmtNumber(crateDeposit.toInt())}',
+        formatCurrency(crateDeposit).replaceAll('₦', 'N'),
       );
     }
     bytes += generator.hr();
@@ -124,7 +142,7 @@ class ThermalReceiptService {
         styles: const PosStyles(bold: true, align: PosAlign.left),
       ),
       PosColumn(
-        text: 'N${fmtNumber(total.toInt())}',
+        text: formatCurrency(total).replaceAll('₦', 'N'),
         width: 6,
         styles: const PosStyles(bold: true, align: PosAlign.right),
       ),
@@ -141,18 +159,18 @@ class ThermalReceiptService {
       bytes += _buildTwoColumnRow(
         generator,
         'Amount Paid:',
-        'N${fmtNumber((cashReceived ?? total).toInt())}',
+        formatCurrency(cashReceived ?? total).replaceAll('₦', 'N'),
       );
       bytes += _buildTwoColumnRow(
         generator,
         'Wallet Balance:',
-        '${walletBalance < 0 ? '-' : ''}N${fmtNumber(walletBalance.abs().toInt())}',
+        formatCurrency(walletBalance).replaceAll('₦', 'N'),
       );
     } else {
       bytes += _buildTwoColumnRow(
         generator,
         'Amount Paid:',
-        'N${fmtNumber((cashReceived ?? total).toInt())}',
+        formatCurrency(cashReceived ?? total).replaceAll('₦', 'N'),
       );
     }
 

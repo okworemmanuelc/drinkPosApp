@@ -440,7 +440,7 @@ class _DeliveryCard extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  '₦${fmtNumber(delivery.totalValue.toInt())}',
+                  formatCurrency(delivery.totalValue),
                   style: TextStyle(
                     color: _text,
                     fontWeight: FontWeight.w800,

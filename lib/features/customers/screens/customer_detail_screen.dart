@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/theme_notifier.dart';
+import '../../../core/utils/number_format.dart';
 import '../../../core/utils/responsive.dart';
 import '../../inventory/data/models/crate_group.dart';
 import '../data/models/customer.dart';
@@ -13,7 +14,6 @@ import '../../../shared/models/order.dart';
 import '../../../shared/services/order_service.dart';
 import '../../../shared/widgets/receipt_widget.dart';
 import '../../../core/utils/currency_input_formatter.dart';
-import '../../../core/utils/number_format.dart';
 
 class CustomerDetailScreen extends StatefulWidget {
   final String customerId;
@@ -293,9 +293,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
   ) {
     final isNegative = _customer!.customerWallet < 0;
     final balanceColor = isNegative ? danger : success;
-    final formattedBalance = isNegative
-        ? '-₦${fmtNumber(_customer!.customerWallet.abs().toInt())}'
-        : '₦${fmtNumber(_customer!.customerWallet.toInt())}';
+    final walletStr = formatCurrency(_customer!.customerWallet);
 
     return Stack(
       children: [
@@ -326,9 +324,9 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                 ),
               ),
               SizedBox(height: context.getRSize(8)),
-              Text(
-                formattedBalance,
-                style: TextStyle(
+                Text(
+                  walletStr,
+                  style: TextStyle(
                   fontSize: context.getRFontSize(32),
                   fontWeight: FontWeight.w800,
                   color: balanceColor,
@@ -338,7 +336,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
               if (_customer!.walletLimit != 0) ...[
                 SizedBox(height: context.getRSize(4)),
                 Text(
-                  'Limit: -₦${fmtNumber(_customer!.walletLimit.abs().toInt())}',
+                  'Limit: ${formatCurrency(_customer!.walletLimit)}',
                   style: TextStyle(
                     fontSize: context.getRFontSize(11),
                     color: subtextCol,
@@ -473,7 +471,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                                     ),
                                     SizedBox(height: context.getRSize(4)),
                                     Text(
-                                      '₦${NumberFormat('#,###').format(order.totalAmount)} • ${order.paymentMethod}',
+                                      '${formatCurrency(order.totalAmount)} • ${order.paymentMethod}',
                                       style: TextStyle(
                                         fontSize: context.getRFontSize(12),
                                         color: subtextCol,
@@ -930,7 +928,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                '+₦${fmtNumber(payment.amount.toInt())}',
+                                formatCurrency(payment.amount),
                                 style: TextStyle(
                                   fontSize: context.getRFontSize(15),
                                   fontWeight: FontWeight.w700,
@@ -1171,7 +1169,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                                               CrossAxisAlignment.start,
                                           children: [
                                             Text(
-                                              '+₦${fmtNumber(payment.amount.toInt())}',
+                                              formatCurrency(payment.amount),
                                               style: TextStyle(
                                                 fontSize: context.getRFontSize(
                                                   15,

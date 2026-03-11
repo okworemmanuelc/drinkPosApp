@@ -521,7 +521,7 @@ class _PosHomeScreenState extends State<PosHomeScreen>
                       // RESPONSIVE
                       fit: BoxFit.scaleDown,
                       child: Text(
-                        '₦${fmtNumber(price)}',
+                        formatCurrency(price),
                         style: TextStyle(
                           fontSize: context.getRFontSize(11), // RESPONSIVE
                           fontWeight: FontWeight.w800,

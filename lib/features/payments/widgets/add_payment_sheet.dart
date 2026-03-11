@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/theme_notifier.dart';
+import '../../../core/utils/number_format.dart';
 import '../../../core/utils/responsive.dart';
 import '../../../shared/services/activity_log_service.dart';
 
@@ -161,7 +162,7 @@ class _AddPaymentSheetState extends State<AddPaymentSheet> {
 
     activityLogService.logAction(
       'Supplier Payment Recorded',
-      'Payment of ₦${amount.toStringAsFixed(2)} to ${finalSupplier.name} via $_paymentMethod',
+      'Payment of ${formatCurrency(amount)} to ${finalSupplier.name} via $_paymentMethod',
       relatedEntityId: payment.id,
       relatedEntityType: 'payment',
     );
@@ -362,7 +363,7 @@ class _AddPaymentSheetState extends State<AddPaymentSheet> {
                       SizedBox(height: context.getRSize(16)),
 
                       // Amount
-                      _buildLabel('Amount ₦'),
+                      _buildLabel('Amount'),
                       TextFormField(
                         controller: _amountCtrl,
                         keyboardType: TextInputType.number,

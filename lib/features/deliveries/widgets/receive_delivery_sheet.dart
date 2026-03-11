@@ -487,7 +487,7 @@ class _ReceiveDeliveryScreenState extends State<ReceiveDeliveryScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Unit Cost ₦',
+                        'Unit Cost',
                         style: TextStyle(
                           color: _subtext,
                           fontSize: context.getRFontSize(12),
@@ -541,7 +541,7 @@ class _ReceiveDeliveryScreenState extends State<ReceiveDeliveryScreen> {
             Align(
               alignment: Alignment.centerRight,
               child: Text(
-                'Line Total: ₦${fmtNumber(line.lineTotal.toInt())}',
+                'Line Total: ${formatCurrency(line.lineTotal)}',
                 style: TextStyle(
                   color: _subtext,
                   fontWeight: FontWeight.bold,
@@ -592,7 +592,7 @@ class _ReceiveDeliveryScreenState extends State<ReceiveDeliveryScreen> {
                       ),
                     ),
                     Text(
-                      '₦${fmtNumber(grandTotal.toInt())}',
+                      formatCurrency(grandTotal),
                       style: TextStyle(
                         color: _text,
                         fontWeight: FontWeight.w800,

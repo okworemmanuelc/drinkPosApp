@@ -14,6 +14,7 @@ class Order {
   final DateTime createdAt;
   final DateTime? completedAt;
   final String status;
+  final List<DateTime> reprints;
 
   Order({
     required this.id,
@@ -31,6 +32,7 @@ class Order {
     required this.createdAt,
     this.completedAt,
     this.status = 'pending',
+    this.reprints = const [],
   });
 
   Order copyWith({
@@ -49,6 +51,7 @@ class Order {
     DateTime? createdAt,
     DateTime? completedAt,
     String? status,
+    List<DateTime>? reprints,
   }) {
     return Order(
       id: id ?? this.id,
@@ -66,6 +69,7 @@ class Order {
       createdAt: createdAt ?? this.createdAt,
       completedAt: completedAt ?? this.completedAt,
       status: status ?? this.status,
+      reprints: reprints ?? this.reprints,
     );
   }
 }

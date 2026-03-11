@@ -245,7 +245,7 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
               ),
               SizedBox(height: context.getRSize(4)),
               Text(
-                '₦${fmtNumber(totalAmount.toInt())}',
+                formatCurrency(totalAmount),
                 style: TextStyle(
                   color: _text,
                   fontSize: context.getRFontSize(24),
@@ -456,7 +456,7 @@ class _PaymentCard extends StatelessWidget {
                         ),
                       ),
                       Text(
-                        '₦${fmtNumber(payment.amount.toInt())}',
+                        formatCurrency(payment.amount),
                         style: TextStyle(
                           color: textCol,
                           fontWeight: FontWeight.bold,

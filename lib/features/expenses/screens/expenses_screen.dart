@@ -262,7 +262,7 @@ class _ExpensesScreenState extends State<ExpensesScreen>
               ),
               SizedBox(height: context.getRSize(4)),
               Text(
-                '₦${fmtNumber(totalAmount.toInt())}',
+                formatCurrency(totalAmount),
                 style: TextStyle(
                   color: _text,
                   fontSize: context.getRFontSize(24),
@@ -383,7 +383,7 @@ class _ExpensesScreenState extends State<ExpensesScreen>
                     ),
                   ),
                   Text(
-                    '₦${fmtNumber(catSum.toInt())}',
+                    formatCurrency(catSum),
                     style: TextStyle(
                       color: _subtext,
                       fontSize: context.getRFontSize(13),
@@ -506,7 +506,7 @@ class _ExpensesScreenState extends State<ExpensesScreen>
                         ),
                       ),
                       Text(
-                        '₦${fmtNumber(amt.toInt())}',
+                        formatCurrency(amt),
                         style: TextStyle(
                           color: _text,
                           fontSize: context.getRFontSize(14),
@@ -577,7 +577,7 @@ class _ExpensesScreenState extends State<ExpensesScreen>
           ),
           SizedBox(height: context.getRSize(16)),
           Text(
-            '₦${fmtNumber(projection.toInt())}',
+            formatCurrency(projection),
             style: TextStyle(
               color: Colors.white,
               fontSize: context.getRFontSize(28),
@@ -689,7 +689,7 @@ class _ExpenseCard extends StatelessWidget {
                         ),
                       ),
                       Text(
-                        '₦${fmtNumber(expense.amount.toInt())}',
+                        formatCurrency(expense.amount),
                         style: TextStyle(
                           color: textCol,
                           fontWeight: FontWeight.bold,

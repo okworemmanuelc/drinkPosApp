@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/theme_notifier.dart';
+import '../../../core/utils/number_format.dart';
 import '../../../core/utils/responsive.dart';
 import '../../../shared/services/activity_log_service.dart';
 import '../../../core/utils/currency_input_formatter.dart';
@@ -121,7 +122,7 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
 
     activityLogService.logAction(
       'Expense Recorded',
-      'Logged $_selectedCategory expense of ₦${amount.toStringAsFixed(2)} via $_paymentMethod',
+      'Logged $_selectedCategory expense of ${formatCurrency(amount)} via $_paymentMethod',
       relatedEntityId: expense.id,
       relatedEntityType: 'expense',
     );
@@ -305,7 +306,7 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
                       SizedBox(height: context.getRSize(20)),
 
                       // Amount
-                      _buildLabel('Amount ₦'),
+                      _buildLabel('Amount'),
                       TextFormField(
                         controller: _amountCtrl,
                         keyboardType: TextInputType.number,

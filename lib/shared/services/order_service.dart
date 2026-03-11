@@ -115,6 +115,18 @@ class OrderService extends ValueNotifier<List<Order>> {
     }
   }
 
+  void addReprint(String orderId) {
+    final idx = value.indexWhere((o) => o.id == orderId);
+    if (idx != -1) {
+      final updated = value[idx].copyWith(
+        reprints: [...value[idx].reprints, DateTime.now()],
+      );
+      final newList = List<Order>.from(value);
+      newList[idx] = updated;
+      value = newList;
+    }
+  }
+
   List<Order> getPending() {
     final pending = value.where((o) => o.status == 'pending').toList();
     pending.sort((a, b) => b.createdAt.compareTo(a.createdAt));

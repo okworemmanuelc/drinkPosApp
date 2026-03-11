@@ -280,7 +280,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               context,
               FontAwesomeIcons.tags,
               'Selling Price',
-              '₦${fmtNumber(sellingPrice)}',
+              formatCurrency(sellingPrice),
               success,
             ),
             _divider(context),
@@ -288,7 +288,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               context,
               FontAwesomeIcons.dollarSign,
               'Buying Price',
-              '₦${fmtNumber(buyingPrice)}',
+              formatCurrency(buyingPrice),
               const Color(0xFFF59E0B),
             ),
             _divider(context),
@@ -296,7 +296,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               context,
               FontAwesomeIcons.chartLine,
               'Total Stock Value',
-              '₦${fmtNumber(totalStockValue.toInt())}',
+              formatCurrency(totalStockValue),
               blueMain,
             ),
           ]),
@@ -469,11 +469,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   Widget _buildSalesGrid(BuildContext context) {
     // Mock data — replace with real sales tracking later
     return _infoCard(context, [
-      _statRow(context, 'Today', '4 units', '₦${fmtNumber(20000)}'),
+      _statRow(context, 'Today', '4 units', formatCurrency(20000)),
       _divider(context),
-      _statRow(context, 'This Week', '18 units', '₦${fmtNumber(90000)}'),
+      _statRow(context, 'This Week', '18 units', formatCurrency(90000)),
       _divider(context),
-      _statRow(context, 'This Month', '62 units', '₦${fmtNumber(310000)}'),
+      _statRow(context, 'This Month', '62 units', formatCurrency(310000)),
     ]);
   }
 
@@ -678,7 +678,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           context,
           FontAwesomeIcons.dollarSign,
           'Price Per Unit',
-          '₦${fmtNumber(buyingPrice)}',
+          formatCurrency(buyingPrice),
           const Color(0xFFF59E0B),
         ),
         _divider(context),
@@ -686,7 +686,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           context,
           FontAwesomeIcons.receipt,
           'Total Delivery Cost',
-          '₦${fmtNumber(buyingPrice * mockQty)}',
+          formatCurrency(buyingPrice * mockQty),
           success,
         ),
       ]);
@@ -715,7 +715,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         context,
         FontAwesomeIcons.dollarSign,
         'Price Per Unit',
-        '₦${fmtNumber(buyingPrice)}',
+          formatCurrency(buyingPrice),
         const Color(0xFFF59E0B),
       ),
       _divider(context),
@@ -723,7 +723,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         context,
         FontAwesomeIcons.receipt,
         'Total Delivery Cost',
-        '₦${fmtNumber(buyingPrice * qty)}',
+        formatCurrency(buyingPrice * qty),
         success,
       ),
     ]);

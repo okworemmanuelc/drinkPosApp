@@ -1,28 +1,20 @@
+import 'package:intl/intl.dart';
+
 /// Formats a number with comma separators.
 /// Handles negative numbers by prepending the minus sign.
 /// e.g. fmtNumber(5000) → '5,000'
 /// e.g. fmtNumber(-5000) → '-5,000'
 String fmtNumber(num n) {
-  final isNegative = n < 0;
-  final val = n.abs().toInt();
-  String result;
-  if (val >= 1000) {
-    final s = val.toString();
-    final buf = StringBuffer();
-    final offset = s.length % 3;
-    for (int i = 0; i < s.length; i++) {
-      if (i > 0 && (i - offset) % 3 == 0) buf.write(',');
-      buf.write(s[i]);
-    }
-    result = buf.toString();
-  } else {
-    result = val.toString();
-  }
-  return isNegative ? '-$result' : result;
+  final formatter = NumberFormat('#,###', 'en_US');
+  return formatter.format(n);
 }
 
-/// Formats a double as currency with Nair sign.
-/// e.g. formatCurrency(5000.5) → '₦5,000'
+/// Formats a double as currency with Naira sign and exactly 2 decimal places.
+/// e.g. formatCurrency(5000.5) → '₦5,000.50'
+/// e.g. formatCurrency(-5000.5) → '-₦5,000.50'
 String formatCurrency(num n) {
-  return '₦${fmtNumber(n.toInt())}';
+  final isNegative = n < 0;
+  final formatter = NumberFormat('#,##0.00', 'en_US');
+  final formatted = formatter.format(n.abs());
+  return isNegative ? '-₦$formatted' : '₦$formatted';
 }

@@ -135,14 +135,14 @@ class _SupplierDetailScreenState extends State<SupplierDetailScreen> {
           _finRow(
             context,
             'Amount Paid',
-            '₦${fmtNumber(widget.supplier.amountPaid.toInt())}',
+            formatCurrency(widget.supplier.amountPaid),
             _text,
           ),
           Divider(height: context.getRSize(24), color: _border),
           _finRow(
             context,
             balanceLabel,
-            '₦${fmtNumber(outstanding.abs().toInt())}',
+            formatCurrency(outstanding),
             balanceColor,
           ),
         ],
@@ -365,7 +365,7 @@ class _SupplierDetailScreenState extends State<SupplierDetailScreen> {
               ),
             ),
             Text(
-              'Total: ₦${fmtNumber(totalValue.toInt())}',
+              'Total: ${formatCurrency(totalValue)}',
               style: TextStyle(
                 fontSize: context.getRFontSize(15),
                 fontWeight: FontWeight.w800,
@@ -443,7 +443,7 @@ class _SupplierDetailScreenState extends State<SupplierDetailScreen> {
                         ),
                         SizedBox(height: context.getRSize(4)),
                         Text(
-                          '${log.timestamp.day}/${log.timestamp.month}/${log.timestamp.year} • ₦${fmtNumber(buyingPrice)}/unit',
+                          '${log.timestamp.day}/${log.timestamp.month}/${log.timestamp.year} • ${formatCurrency(buyingPrice)}/unit',
                           style: TextStyle(
                             fontSize: context.getRFontSize(12),
                             color: _subtext,
