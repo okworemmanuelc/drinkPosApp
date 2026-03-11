@@ -8,6 +8,7 @@ class Expense {
   final DateTime createdAt;
   final String recordedBy;
   final String? reference;
+  final String? receiptPath;
 
   Expense({
     required this.id,
@@ -19,6 +20,7 @@ class Expense {
     required this.createdAt,
     required this.recordedBy,
     this.reference,
+    this.receiptPath,
   });
 
   Expense copyWith({
@@ -31,6 +33,7 @@ class Expense {
     DateTime? createdAt,
     String? recordedBy,
     String? reference,
+    String? receiptPath,
   }) {
     return Expense(
       id: id ?? this.id,
@@ -42,6 +45,7 @@ class Expense {
       createdAt: createdAt ?? this.createdAt,
       recordedBy: recordedBy ?? this.recordedBy,
       reference: reference ?? this.reference,
+      receiptPath: receiptPath ?? this.receiptPath,
     );
   }
 }

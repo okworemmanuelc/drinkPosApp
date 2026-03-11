@@ -10,6 +10,7 @@ import '../../../shared/widgets/app_drawer.dart';
 import '../data/models/expense.dart';
 import '../data/services/expense_service.dart';
 import '../widgets/add_expense_sheet.dart';
+import '../../../core/utils/constants.dart';
 
 class ExpensesScreen extends StatefulWidget {
   const ExpensesScreen({super.key});
@@ -240,78 +241,97 @@ class _ExpensesScreenState extends State<ExpensesScreen>
   Widget _buildHeaderArea(BuildContext context, double totalAmount) {
     return Container(
       color: _surface,
-      padding: EdgeInsets.fromLTRB(
-        context.getRSize(16),
-        context.getRSize(8),
-        context.getRSize(16),
-        context.getRSize(16),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      padding: EdgeInsets.symmetric(vertical: context.getRSize(16)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Total Expenses',
-                style: TextStyle(
-                  color: _subtext,
-                  fontSize: context.getRFontSize(13),
-                  fontWeight: FontWeight.w600,
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: context.getRSize(16)),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Total Expenses',
+                      style: TextStyle(
+                        color: _subtext,
+                        fontSize: context.getRFontSize(13),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    SizedBox(height: context.getRSize(4)),
+                    Text(
+                      formatCurrency(totalAmount),
+                      style: TextStyle(
+                        color: _text,
+                        fontSize: context.getRFontSize(24),
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: -0.5,
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-              SizedBox(height: context.getRSize(4)),
-              Text(
-                formatCurrency(totalAmount),
-                style: TextStyle(
-                  color: _text,
-                  fontSize: context.getRFontSize(24),
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: -0.5,
+                Container(
+                  width: context.getRSize(130), // Increased width
+                  padding: EdgeInsets.symmetric(
+                    horizontal: context.getRSize(12),
+                  ),
+                  decoration: BoxDecoration(
+                    color: _bg,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: _border),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.03),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      value: _periodFilter,
+                      isExpanded: true, // Make it fill the container
+                      icon: Padding(
+                        padding: EdgeInsets.only(left: context.getRSize(8)), // Responsive spacing
+                        child: Icon(
+                          FontAwesomeIcons.chevronDown,
+                          size: context.getRSize(10),
+                          color: danger,
+                        ),
+                      ),
+                      dropdownColor: _surface,
+                      borderRadius: BorderRadius.circular(16),
+                      style: TextStyle(
+                        color: _text,
+                        fontSize: context.getRFontSize(13),
+                        fontWeight: FontWeight.w700,
+                      ),
+                      items: [
+                        'Today',
+                        'This Week',
+                        'This Month',
+                        'This Year',
+                        'All Time',
+                      ].map((String val) {
+                        return DropdownMenuItem<String>(
+                          value: val,
+                          child: Text(val),
+                        );
+                      }).toList(),
+                      onChanged: (val) {
+                        if (val != null) setState(() => _periodFilter = val);
+                      },
+                    ),
+                  ),
                 ),
-              ),
-            ],
-          ),
-          Container(
-            padding: EdgeInsets.symmetric(horizontal: context.getRSize(12)),
-            decoration: BoxDecoration(
-              color: _bg,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: _border),
+              ],
             ),
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<String>(
-                value: _periodFilter,
-                icon: Icon(
-                  FontAwesomeIcons.chevronDown,
-                  size: context.getRSize(12),
-                  color: _text,
-                ),
-                dropdownColor: _surface,
-                style: TextStyle(
-                  color: _text,
-                  fontSize: context.getRFontSize(13),
-                  fontWeight: FontWeight.w600,
-                ),
-                items:
-                    [
-                      'Today',
-                      'This Week',
-                      'This Month',
-                      'This Year',
-                      'All Time',
-                    ].map((String val) {
-                      return DropdownMenuItem<String>(
-                        value: val,
-                        child: Text(val),
-                      );
-                    }).toList(),
-                onChanged: (val) {
-                  if (val != null) setState(() => _periodFilter = val);
-                },
-              ),
-            ),
           ),
+          _buildBudgetTracker(totalAmount),
         ],
       ),
     );
@@ -592,6 +612,108 @@ class _ExpensesScreenState extends State<ExpensesScreen>
               color: Colors.white.withValues(alpha: 0.9),
               fontSize: context.getRFontSize(12),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBudgetTracker(double totalSpent) {
+    double budget = 0;
+    switch (_periodFilter) {
+      case 'Today':
+        budget = BUDGET_TODAY;
+        break;
+      case 'This Week':
+        budget = BUDGET_WEEK;
+        break;
+      case 'This Month':
+        budget = BUDGET_MONTH;
+        break;
+      case 'This Year':
+        budget = BUDGET_YEAR;
+        break;
+      default:
+        // No specific budget for "All Time", so we'll hide it or show a placeholder
+        return const SizedBox();
+    }
+
+    final double percent = (totalSpent / budget).clamp(0.0, 1.2); // Cap visually at 120%
+    final bool isOver = totalSpent > budget;
+
+    return Container(
+      margin: EdgeInsets.symmetric(horizontal: context.getRSize(16), vertical: context.getRSize(8)),
+      padding: EdgeInsets.all(context.getRSize(12)),
+      decoration: BoxDecoration(
+        color: _bg,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    FontAwesomeIcons.bullseye,
+                    size: context.getRSize(12),
+                    color: isOver ? danger : success,
+                  ),
+                  SizedBox(width: context.getRSize(8)),
+                  Text(
+                    'Budget Activity',
+                    style: TextStyle(
+                      color: _subtext,
+                      fontSize: context.getRFontSize(12),
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+              Text(
+                '${(percent * 100).toStringAsFixed(0)}%',
+                style: TextStyle(
+                  color: isOver ? danger : success,
+                  fontSize: context.getRFontSize(12),
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: context.getRSize(10)),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: percent > 1.0 ? 1.0 : percent,
+              backgroundColor: _border,
+              valueColor: AlwaysStoppedAnimation<Color>(isOver ? danger : success),
+              minHeight: context.getRSize(6),
+            ),
+          ),
+          SizedBox(height: context.getRSize(8)),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Spent: ${formatCurrency(totalSpent)}',
+                style: TextStyle(
+                  color: _text,
+                  fontSize: context.getRFontSize(11),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              Text(
+                'Goal: ${formatCurrency(budget)}',
+                style: TextStyle(
+                  color: _subtext,
+                  fontSize: context.getRFontSize(11),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
           ),
         ],
       ),

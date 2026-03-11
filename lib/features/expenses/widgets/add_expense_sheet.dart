@@ -10,6 +10,9 @@ import '../../../shared/services/activity_log_service.dart';
 import '../../../core/utils/currency_input_formatter.dart';
 import '../data/models/expense.dart';
 import '../data/services/expense_service.dart';
+import '../../../shared/services/auth_service.dart';
+import '../../../core/utils/constants.dart';
+import 'package:file_picker/file_picker.dart';
 
 class AddExpenseSheet extends StatefulWidget {
   const AddExpenseSheet({super.key});
@@ -28,11 +31,38 @@ class AddExpenseSheet extends StatefulWidget {
 }
 
 class _AddExpenseSheetState extends State<AddExpenseSheet> {
+  @override
+  void initState() {
+    super.initState();
+    _amountCtrl.addListener(_onAmountChanged);
+  }
+
+  void _onAmountChanged() {
+    final amt = parseCurrency(_amountCtrl.text);
+    if (amt != _currentAmount) {
+      setState(() => _currentAmount = amt);
+    }
+  }
+
+  Future<void> _pickReceipt() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['jpg', 'png', 'pdf'],
+    );
+
+    if (result != null) {
+      setState(() => _receiptFile = result.files.first);
+    }
+  }
+
   final _amountCtrl = TextEditingController();
   final _descCtrl = TextEditingController();
   final _refCtrl = TextEditingController();
-  final _recordedByCtrl = TextEditingController(text: 'Admin');
+  final _recordedByCtrl = TextEditingController(text: authService.currentUser?.name ?? 'Admin');
   final _formKey = GlobalKey<FormState>();
+
+  PlatformFile? _receiptFile;
+  double _currentAmount = 0;
 
   String _paymentMethod = 'Cash';
   DateTime _selectedDate = DateTime.now();
@@ -104,6 +134,18 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
       return;
     }
 
+    final needsReceipt = amount >= LARGE_EXPENSE_THRESHOLD;
+    if (needsReceipt && _receiptFile == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Receipt upload is required for expenses of 20,000 and above.'),
+          backgroundColor: danger,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
     final expense = Expense(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       category: _selectedCategory,
@@ -112,10 +154,9 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
       description: desc.isEmpty ? null : desc,
       date: _selectedDate,
       createdAt: DateTime.now(),
-      recordedBy: _recordedByCtrl.text.trim().isEmpty
-          ? 'Admin'
-          : _recordedByCtrl.text.trim(),
+      recordedBy: _recordedByCtrl.text.trim(),
       reference: _refCtrl.text.trim().isEmpty ? null : _refCtrl.text.trim(),
+      receiptPath: _receiptFile?.name,
     );
 
     expenseService.addExpense(expense);
@@ -405,14 +446,73 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
                       ),
                       SizedBox(height: context.getRSize(16)),
 
+                      // Receipt Upload (Large Expenses)
+                      if (_currentAmount >= LARGE_EXPENSE_THRESHOLD) ...[
+                        _buildLabel('Receipt (Required for large expenses)'),
+                        InkWell(
+                          onTap: _pickReceipt,
+                          child: Container(
+                            padding: EdgeInsets.all(context.getRSize(16)),
+                            decoration: BoxDecoration(
+                              color: _cardBg,
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
+                                color: _receiptFile == null ? danger.withValues(alpha: 0.5) : success,
+                                width: 1,
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  _receiptFile == null
+                                      ? FontAwesomeIcons.fileArrowUp
+                                      : FontAwesomeIcons.fileCircleCheck,
+                                  size: context.getRSize(18),
+                                  color: _receiptFile == null ? danger : success,
+                                ),
+                                SizedBox(width: context.getRSize(12)),
+                                Expanded(
+                                  child: Text(
+                                    _receiptFile?.name ?? 'Upload Receipt (JPG, PNG, PDF)',
+                                    style: TextStyle(
+                                      fontSize: context.getRFontSize(14),
+                                      fontWeight: FontWeight.bold,
+                                      color: _receiptFile == null ? _subtext : _text,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                if (_receiptFile != null)
+                                  Icon(
+                                    FontAwesomeIcons.check,
+                                    size: context.getRSize(14),
+                                    color: success,
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        if (_receiptFile == null)
+                          Padding(
+                            padding: EdgeInsets.only(top: context.getRSize(4), left: context.getRSize(4)),
+                            child: Text(
+                              'Please upload a receipt to continue',
+                              style: TextStyle(color: danger, fontSize: context.getRFontSize(11)),
+                            ),
+                          ),
+                        SizedBox(height: context.getRSize(16)),
+                      ],
+
                       // Recorded By
                       _buildLabel('Recorded By'),
                       TextFormField(
                         controller: _recordedByCtrl,
+                        enabled: false,
                         style: TextStyle(
                           fontSize: context.getRFontSize(14),
                           fontWeight: FontWeight.bold,
-                          color: _text,
+                          color: _text.withValues(alpha: 0.7),
                         ),
                         decoration: _inputDeco('Name of staff'),
                       ),

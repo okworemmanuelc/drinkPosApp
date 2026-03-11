@@ -4,6 +4,7 @@ import '../../core/theme/colors.dart';
 import '../../core/theme/theme_notifier.dart';
 import '../../core/utils/responsive.dart';
 import '../../shared/services/navigation_service.dart';
+import '../../shared/services/auth_service.dart';
 
 class AppDrawer extends StatelessWidget {
   // Pass 'pos' or 'inventory' to highlight the correct nav item
@@ -69,7 +70,7 @@ class AppDrawer extends StatelessWidget {
           ),
           SizedBox(height: context.getRSize(16)),
           Text(
-            'John Cashier',
+            authService.currentUser?.name ?? 'John Cashier',
             style: TextStyle(
               color: Colors.white,
               fontSize: context.getRFontSize(18), // Responsive font
