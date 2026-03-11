@@ -149,9 +149,9 @@ class _PosHomeScreenState extends State<PosHomeScreen>
                   vertical: context.getRSize(10),
                 ), // RESPONSIVE
                 decoration: BoxDecoration(
-                  color: blueMain.withValues(alpha: 0.1),
+                  color: blueMain.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: blueMain.withValues(alpha: 0.2)),
+                  border: Border.all(color: blueMain.withOpacity(0.2)),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -396,8 +396,8 @@ class _PosHomeScreenState extends State<PosHomeScreen>
           boxShadow: [
             BoxShadow(
               color: inCart
-                  ? blueMain.withValues(alpha: 0.15)
-                  : Colors.black.withValues(alpha: 0.02),
+                  ? blueMain.withOpacity(0.15)
+                  : Colors.black.withOpacity(0.02),
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),
@@ -418,7 +418,7 @@ class _PosHomeScreenState extends State<PosHomeScreen>
                     child: Container(
                       width: double.infinity,
                       decoration: BoxDecoration(
-                        color: accent.withValues(alpha: 0.1),
+                        color: accent.withOpacity(0.1),
                         shape: BoxShape.circle,
                       ),
                       child: Icon(

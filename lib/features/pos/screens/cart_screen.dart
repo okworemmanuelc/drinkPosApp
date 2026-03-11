@@ -130,8 +130,8 @@ class _CartScreenState extends State<CartScreen> {
                             children: [
                               TextButton.icon(
                                 style: TextButton.styleFrom(
-                                  backgroundColor: blueMain.withValues(
-                                    alpha: 0.1,
+                                  backgroundColor: blueMain.withOpacity(
+                                    0.1,
                                   ),
                                 ),
                                 onPressed: () {
@@ -259,7 +259,7 @@ class _CartScreenState extends State<CartScreen> {
         ),
         decoration: BoxDecoration(
           border: Border(
-            bottom: BorderSide(color: _border.withValues(alpha: 0.5)),
+            bottom: BorderSide(color: _border.withOpacity(0.5)),
           ),
         ),
         child: Row(
@@ -267,7 +267,7 @@ class _CartScreenState extends State<CartScreen> {
             Container(
               padding: EdgeInsets.all(modalCtx.getRSize(10)),
               decoration: BoxDecoration(
-                color: blueMain.withValues(alpha: 0.15),
+                color: blueMain.withOpacity(0.15),
                 shape: BoxShape.circle,
               ),
               child: Icon(
@@ -464,9 +464,9 @@ class _CartScreenState extends State<CartScreen> {
         height: context.getRSize(46),
         margin: EdgeInsets.symmetric(horizontal: context.getRSize(10)),
         decoration: BoxDecoration(
-          color: blueMain.withValues(alpha: 0.1),
+          color: blueMain.withOpacity(0.1),
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: blueMain.withValues(alpha: 0.3)),
+          border: Border.all(color: blueMain.withOpacity(0.3)),
         ),
         child: Icon(icon, size: context.getRSize(16), color: blueMain),
       ),
@@ -573,7 +573,7 @@ class _CartScreenState extends State<CartScreen> {
                     hintStyle: TextStyle(
                       fontSize: context.getRFontSize(20),
                       fontWeight: FontWeight.bold,
-                      color: _subtext.withValues(alpha: 0.4),
+                      color: _subtext.withOpacity(0.4),
                     ),
                     filled: true,
                     fillColor: _isDark ? dCard : lCard,
@@ -640,7 +640,7 @@ class _CartScreenState extends State<CartScreen> {
                             borderRadius: BorderRadius.circular(14),
                             boxShadow: [
                               BoxShadow(
-                                color: blueMain.withValues(alpha: 0.3),
+                                color: blueMain.withOpacity(0.3),
                                 blurRadius: 10,
                                 offset: const Offset(0, 4),
                               ),
@@ -730,7 +730,8 @@ class _CartScreenState extends State<CartScreen> {
         orElse: () => supplierService.getAll().first,
       );
       final group = supplier.crateGroup;
-      crateQtyMap[group] = (crateQtyMap[group] ?? 0) + (item['qty'] as double);
+      crateQtyMap[group] = (crateQtyMap[group] ?? 0) + 
+          (item['qty'] as num).toDouble();
     }
 
     // Compute deposit per group
@@ -791,9 +792,9 @@ class _CartScreenState extends State<CartScreen> {
                     vertical: context.getRSize(4),
                   ),
                   decoration: BoxDecoration(
-                    color: danger.withValues(alpha: 0.1),
+                    color: danger.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: danger.withValues(alpha: 0.2)),
+                    border: Border.all(color: danger.withOpacity(0.2)),
                   ),
                   child: Row(
                     children: [
@@ -845,7 +846,7 @@ class _CartScreenState extends State<CartScreen> {
                       Container(
                         padding: EdgeInsets.all(context.getRSize(10)),
                         decoration: BoxDecoration(
-                          color: blueMain.withValues(alpha: 0.15),
+                          color: blueMain.withOpacity(0.15),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Icon(
@@ -976,7 +977,7 @@ class _CartScreenState extends State<CartScreen> {
                                       color: _cardBg,
                                       borderRadius: BorderRadius.circular(14),
                                       border: Border.all(
-                                        color: _border.withValues(alpha: 0.5),
+                                        color: _border.withOpacity(0.5),
                                       ),
                                     ),
                                     child: Row(
@@ -985,7 +986,7 @@ class _CartScreenState extends State<CartScreen> {
                                           width: context.getRSize(48),
                                           height: context.getRSize(48),
                                           decoration: BoxDecoration(
-                                            color: c.withValues(alpha: 0.15),
+                                            color: c.withOpacity(0.15),
                                             borderRadius: BorderRadius.circular(
                                               12,
                                             ),
@@ -1017,10 +1018,12 @@ class _CartScreenState extends State<CartScreen> {
                                                 height: context.getRSize(4),
                                               ),
                                               Text(
-                                                '${item['qty'].toStringAsFixed(1)} × ₦${fmtNumber(item['price'])}',
+                                                '${((item['qty'] as num?)?.toDouble() ?? 0.0).toStringAsFixed(1)} × ₦${fmtNumber(((item['price'] as num?)?.toInt() ?? 0))}',
                                                 style: TextStyle(
-                                                  fontSize: context
-                                                      .getRFontSize(13),
+                                                  fontSize: context.getRFontSize(
+                                                    13,
+                                                  ),
+                                                  fontWeight: FontWeight.w600,
                                                   color: _subtext,
                                                 ),
                                               ),
@@ -1030,13 +1033,11 @@ class _CartScreenState extends State<CartScreen> {
                                         FittedBox(
                                           fit: BoxFit.scaleDown,
                                           child: Text(
-                                            '₦${fmtNumber(stockValue((item['price'] as int).toDouble(), item['qty'] as double).toInt())}',
+                                            '₦${fmtNumber((((item['qty'] as num?)?.toDouble() ?? 0.0) * ((item['price'] as num?)?.toDouble() ?? 0.0)).toInt())}',
                                             style: TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: context.getRFontSize(
-                                                15,
-                                              ),
-                                              color: _text,
+                                              fontWeight: FontWeight.w900,
+                                              fontSize: context.getRFontSize(16),
+                                              color: blueMain,
                                             ),
                                           ),
                                         ),
@@ -1249,14 +1250,14 @@ class _CartScreenState extends State<CartScreen> {
                                       decoration: BoxDecoration(
                                         gradient: LinearGradient(
                                           colors: [
-                                            blueMain.withValues(alpha: 0.08),
-                                            blueMain.withValues(alpha: 0.04),
+                                            blueMain.withOpacity(0.08),
+                                            blueMain.withOpacity(0.04),
                                           ],
                                         ),
                                         borderRadius: BorderRadius.circular(14),
                                         border: Border.all(
-                                          color: blueMain.withValues(
-                                            alpha: 0.25,
+                                          color: blueMain.withOpacity(
+                                            0.12,
                                           ),
                                         ),
                                       ),
@@ -1366,8 +1367,8 @@ class _CartScreenState extends State<CartScreen> {
                                         borderRadius: BorderRadius.circular(16),
                                         boxShadow: [
                                           BoxShadow(
-                                            color: blueMain.withValues(
-                                              alpha: 0.3,
+                                            color: blueMain.withOpacity(
+                                              0.3,
                                             ),
                                             blurRadius: 14,
                                             offset: const Offset(0, 6),

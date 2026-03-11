@@ -101,7 +101,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
   double get _cashReceivedValue => parseCurrency(_cashReceivedCtrl.text);
 
   double get _dynamicNewCustomerWallet {
-    final oldCustomerWallet = _isWalkIn ? 0.0 : widget.customer!.customerWallet;
+    final oldCustomerWallet = _isWalkIn ? 0.0 : 
+        (widget.customer?.customerWallet ?? 0.0);
     return oldCustomerWallet - widget.total + _cashReceivedValue;
   }
 
@@ -192,7 +193,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 Container(
                   padding: EdgeInsets.all(context.getRSize(10)),
                   decoration: BoxDecoration(
-                    color: blueMain.withValues(alpha: 0.12),
+                    color: blueMain.withOpacity(0.12),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Icon(
@@ -216,7 +217,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                           color: _text,
                         ),
                       ),
-                      if (!_isWalkIn) ...[
+                      if (!_isWalkIn && widget.customer != null) ...[
                         SizedBox(height: context.getRSize(2)),
                         Text(
                           'Balance: ₦${fmtNumber(widget.customer!.customerWallet.abs().toInt())} ${widget.customer!.customerWallet < 0
@@ -282,9 +283,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 vertical: context.getRSize(12),
               ),
               decoration: BoxDecoration(
-                color: blueMain.withValues(alpha: 0.07),
+                color: blueMain.withOpacity(0.07),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: blueMain.withValues(alpha: 0.2)),
+                border: Border.all(color: blueMain.withOpacity(0.2)),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -373,7 +374,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: [
                   BoxShadow(
-                    color: blueMain.withValues(alpha: 0.3),
+                    color: blueMain.withOpacity(0.3),
                     blurRadius: 14,
                     offset: const Offset(0, 6),
                   ),
@@ -672,9 +673,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
       child: Container(
         padding: EdgeInsets.symmetric(vertical: context.getRSize(14)),
         decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.1),
+          color: color.withOpacity(0.1),
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: color.withValues(alpha: 0.25)),
+          border: Border.all(color: color.withOpacity(0.25)),
         ),
         child: Column(
           children: [
@@ -924,9 +925,12 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
   Widget _orderItemTile(Map<String, dynamic> item) {
     final lineTotal = stockValue(
-      (item['price'] as num).toDouble(),
-      (item['qty'] as num).toDouble(),
+      (item['price'] as num?)?.toDouble() ?? 0.0,
+      (item['qty'] as num?)?.toDouble() ?? 0.0,
     ).toInt();
+    final itemColor = (item['color'] as Color?) ?? blueMain;
+    final itemIcon = (item['icon'] as IconData?) ?? FontAwesomeIcons.box;
+
     return Padding(
       padding: EdgeInsets.symmetric(
         horizontal: context.getRSize(16),
@@ -938,12 +942,12 @@ class _CheckoutPageState extends State<CheckoutPage> {
             width: context.getRSize(38),
             height: context.getRSize(38),
             decoration: BoxDecoration(
-              color: (item['color'] as Color).withValues(alpha: 0.12),
+              color: itemColor.withOpacity(0.12),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(
-              item['icon'] as IconData,
-              color: item['color'],
+              itemIcon,
+              color: itemColor,
               size: context.getRSize(18),
             ),
           ),
@@ -963,7 +967,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                   overflow: TextOverflow.ellipsis,
                 ),
                 Text(
-                  '${(item['qty'] as num).toDouble().toStringAsFixed(1)} × ₦${fmtNumber((item['price'] as num).toInt())}',
+                  '${((item['qty'] as num?)?.toDouble() ?? 0.0).toStringAsFixed(1)} × ₦${fmtNumber(((item['price'] as num?)?.toInt() ?? 0))}',
                   style: TextStyle(
                     fontSize: context.getRFontSize(12),
                     color: _subtext,
@@ -1044,14 +1048,14 @@ class _CheckoutPageState extends State<CheckoutPage> {
         padding: EdgeInsets.all(context.getRSize(14)),
         decoration: BoxDecoration(
           color: disabled
-              ? _border.withValues(alpha: 0.10)
+              ? _border.withOpacity(0.10)
               : active
-              ? blueMain.withValues(alpha: 0.08)
+              ? blueMain.withOpacity(0.08)
               : _surface,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: disabled
-                ? _border.withValues(alpha: 0.4)
+                ? _border.withOpacity(0.4)
                 : active
                 ? blueMain
                 : _border,
@@ -1064,7 +1068,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
               width: context.getRSize(42),
               height: context.getRSize(42),
               decoration: BoxDecoration(
-                color: iconColor.withValues(alpha: 0.12),
+                color: iconColor.withOpacity(0.12),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(icon, size: context.getRSize(18), color: iconColor),
@@ -1104,7 +1108,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 shape: BoxShape.circle,
                 border: Border.all(
                   color: disabled
-                      ? _border.withValues(alpha: 0.4)
+                      ? _border.withOpacity(0.4)
                       : active
                       ? blueMain
                       : _border,
