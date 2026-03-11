@@ -28,6 +28,8 @@ class CartService extends ValueNotifier<List<Map<String, dynamic>>> {
           'icon': product['icon'],
           'color': product['color'],
           'category': product['category'],
+          'crateGroupName': product['crateGroupName'],
+          'needsEmptyCrate': product['needsEmptyCrate'],
         },
       ];
     }

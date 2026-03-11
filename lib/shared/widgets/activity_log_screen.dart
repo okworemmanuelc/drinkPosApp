@@ -79,7 +79,7 @@ class ActivityLogScreen extends StatelessWidget {
                     borderRadius: BorderRadius.circular(12),
                     boxShadow: [
                       BoxShadow(
-                        color: blueMain.withOpacity(0.3),
+                        color: blueMain.withValues(alpha: 0.3),
                         blurRadius: 8,
                         offset: const Offset(0, 2),
                       ),
@@ -168,13 +168,13 @@ class ActivityLogScreen extends StatelessWidget {
           Container(
             padding: context.rPadding(20),
             decoration: BoxDecoration(
-              color: textCol.withOpacity(0.05),
+              color: textCol.withValues(alpha: 0.05),
               shape: BoxShape.circle,
             ),
             child: Icon(
               FontAwesomeIcons.clockRotateLeft,
               size: context.getRSize(48),
-              color: subtextCol.withOpacity(0.5),
+              color: subtextCol.withValues(alpha: 0.5),
             ),
           ),
           SizedBox(height: context.getRSize(24)),
@@ -232,7 +232,7 @@ class ActivityLogScreen extends StatelessWidget {
         border: Border.all(color: borderCol),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.02),
+            color: Colors.black.withValues(alpha: 0.02),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -246,7 +246,7 @@ class ActivityLogScreen extends StatelessWidget {
             Container(
               padding: context.rPadding(12),
               decoration: BoxDecoration(
-                color: iconColor.withOpacity(0.1),
+                color: iconColor.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(context.getRSize(12)),
               ),
               child: Icon(icon, size: context.getRSize(18), color: iconColor),
@@ -296,7 +296,7 @@ class ActivityLogScreen extends StatelessWidget {
                     style: TextStyle(
                       fontSize: context.getRFontSize(11),
                       fontWeight: FontWeight.w500,
-                      color: subtextCol.withOpacity(0.5),
+                      color: subtextCol.withValues(alpha: 0.5),
                     ),
                   ),
                 ],

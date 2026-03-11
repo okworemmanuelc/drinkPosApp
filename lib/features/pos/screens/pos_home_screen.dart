@@ -25,7 +25,7 @@ class _PosHomeScreenState extends State<PosHomeScreen>
     with TickerProviderStateMixin {
   String _filter = 'All';
   String _selectedSupplierId = 'All';
-  CustomerGroup _selectedGroup = CustomerGroup.Retailer;
+  CustomerGroup _selectedGroup = CustomerGroup.retailer;
   String _searchQuery = '';
   bool _isSearching = false;
   final TextEditingController _searchController = TextEditingController();
@@ -157,7 +157,7 @@ class _PosHomeScreenState extends State<PosHomeScreen>
             _buildDropdown<CustomerGroup>(
               value: _selectedGroup,
               items: CustomerGroup.values.map((g) {
-                String label = g == CustomerGroup.Retailer ? 'Retail' : (g == CustomerGroup.BulkBreaker ? 'Bulk Breaker' : 'Distributor');
+                String label = g == CustomerGroup.retailer ? 'Retail' : (g == CustomerGroup.bulkBreaker ? 'Bulk Breaker' : 'Distributor');
                 return DropdownMenuItem(
                   value: g,
                   child: Text(label),
@@ -194,9 +194,9 @@ class _PosHomeScreenState extends State<PosHomeScreen>
                   vertical: context.getRSize(10),
                 ),
                 decoration: BoxDecoration(
-                  color: blueMain.withOpacity(0.1),
+                  color: blueMain.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: blueMain.withOpacity(0.2)),
+                  border: Border.all(color: blueMain.withValues(alpha: 0.2)),
                 ),
                 child: Icon(
                   FontAwesomeIcons.bolt,
@@ -328,9 +328,9 @@ class _PosHomeScreenState extends State<PosHomeScreen>
     );
 
     double price = (existing['sellingPrice'] ?? 0).toDouble();
-    if (_selectedGroup == CustomerGroup.BulkBreaker) {
+    if (_selectedGroup == CustomerGroup.bulkBreaker) {
       price = (existing['bulkBreakerPrice'] ?? price).toDouble();
-    } else if (_selectedGroup == CustomerGroup.Distributor) {
+    } else if (_selectedGroup == CustomerGroup.distributor) {
       price = (existing['distributorPrice'] ?? price).toDouble();
     }
 
@@ -346,6 +346,8 @@ class _PosHomeScreenState extends State<PosHomeScreen>
       'color': item.color,
       'stock': item.totalStock,
       'supplierId': item.supplierId,
+      'crateGroupName': item.crateGroupName,
+      'needsEmptyCrate': item.needsEmptyCrate,
     };
   }
 
@@ -430,7 +432,7 @@ class _PosHomeScreenState extends State<PosHomeScreen>
     Map<String, dynamic> product,
     List<Map<String, dynamic>> cart,
   ) {
-    final price = (_selectedGroup == CustomerGroup.Retailer)
+    final price = (_selectedGroup == CustomerGroup.retailer)
         ? product['price']
         : (product['wholesale_price'] ?? product['price']);
     final cartIdx = cart.indexWhere((c) => c['name'] == product['name']);
@@ -454,8 +456,8 @@ class _PosHomeScreenState extends State<PosHomeScreen>
           boxShadow: [
             BoxShadow(
               color: inCart
-                  ? blueMain.withOpacity(0.15)
-                  : Colors.black.withOpacity(0.02),
+                  ? blueMain.withValues(alpha: 0.15)
+                  : Colors.black.withValues(alpha: 0.02),
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),
@@ -476,7 +478,7 @@ class _PosHomeScreenState extends State<PosHomeScreen>
                     child: Container(
                       width: double.infinity,
                       decoration: BoxDecoration(
-                        color: accent.withOpacity(0.1),
+                        color: accent.withValues(alpha: 0.1),
                         shape: BoxShape.circle,
                       ),
                       child: Icon(

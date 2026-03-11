@@ -28,7 +28,7 @@ class _AddCustomerSheetState extends State<AddCustomerSheet> {
   final _addressCtrl = TextEditingController();
   final _locationCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
-  CustomerGroup _selectedGroup = CustomerGroup.Retailer;
+  CustomerGroup _selectedGroup = CustomerGroup.retailer;
   final _formKey = GlobalKey<FormState>();
 
   bool get _isDark => themeNotifier.value == ThemeMode.dark;
@@ -129,13 +129,13 @@ class _AddCustomerSheetState extends State<AddCustomerSheet> {
               items: CustomerGroup.values.map((group) {
                 String label = '';
                 switch (group) {
-                  case CustomerGroup.Distributor:
+                  case CustomerGroup.distributor:
                     label = 'Distributor';
                     break;
-                  case CustomerGroup.BulkBreaker:
+                  case CustomerGroup.bulkBreaker:
                     label = 'Bulk Breaker';
                     break;
-                  case CustomerGroup.Retailer:
+                  case CustomerGroup.retailer:
                     label = 'Retailer';
                     break;
                 }

@@ -15,33 +15,33 @@ double _scaleFactor(double screenWidth) {
 /// On a 375px-wide device, returns [baseSize] unchanged.
 /// On wider/narrower screens, scales linearly (capped at ${_kMaxScale}x).
 double rFontSize(BuildContext context, double baseSize) {
-  final sw = MediaQuery.of(context).size.width;
+  final sw = MediaQuery.maybeOf(context)?.size.width ?? _kBaseWidth;
   return baseSize * _scaleFactor(sw);
 }
 
 /// Returns a fraction of the screen width.
 double rWidth(BuildContext context, double fraction) {
-  return MediaQuery.of(context).size.width * fraction;
+  return (MediaQuery.maybeOf(context)?.size.width ?? _kBaseWidth) * fraction;
 }
 
 /// Returns a fraction of the screen height.
 double rHeight(BuildContext context, double fraction) {
-  return MediaQuery.of(context).size.height * fraction;
+  return (MediaQuery.maybeOf(context)?.size.height ?? 812.0) * fraction;
 }
 
 /// Scales a fixed pixel value by the screen-width ratio (capped).
 double rSize(BuildContext context, double basePixels) {
-  final sw = MediaQuery.of(context).size.width;
+  final sw = MediaQuery.maybeOf(context)?.size.width ?? _kBaseWidth;
   return basePixels * _scaleFactor(sw);
 }
 
 /// Extension on BuildContext to easily access responsive dimensions
 extension ResponsiveHelper on BuildContext {
   /// Returns the width of the screen.
-  double get screenWidth => MediaQuery.of(this).size.width;
+  double get screenWidth => MediaQuery.maybeOf(this)?.size.width ?? _kBaseWidth;
 
   /// Returns the height of the screen.
-  double get screenHeight => MediaQuery.of(this).size.height;
+  double get screenHeight => MediaQuery.maybeOf(this)?.size.height ?? 812.0;
 
   /// Clamped scale ratio for this context.
   double get _scale => _scaleFactor(screenWidth);

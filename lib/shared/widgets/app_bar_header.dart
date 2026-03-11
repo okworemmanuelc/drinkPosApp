@@ -19,7 +19,7 @@ class AppBarHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return ValueListenableBuilder<ThemeMode>(
       valueListenable: themeNotifier,
-      builder: (_, mode, __) {
+      builder: (context, mode, _) {
         final bool isDark = mode == ThemeMode.dark;
         final Color text = isDark ? dText : lText;
 
@@ -32,7 +32,7 @@ class AppBarHeader extends StatelessWidget {
                 borderRadius: BorderRadius.circular(12),
                 boxShadow: [
                   BoxShadow(
-                    color: blueMain.withOpacity(0.3),
+                    color: blueMain.withValues(alpha: 0.3),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),

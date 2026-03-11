@@ -18,6 +18,10 @@ class ReceiptWidget extends StatelessWidget {
   final double? cashReceived;
   final double? walletBalance;
   final DateTime? reprintDate;
+  final String? riderName;
+  final String? deliveryRef;
+  final String? orderStatus;
+  final double? refundAmount;
 
   const ReceiptWidget({
     super.key,
@@ -33,6 +37,10 @@ class ReceiptWidget extends StatelessWidget {
     this.cashReceived,
     this.walletBalance,
     this.reprintDate,
+    this.riderName,
+    this.deliveryRef,
+    this.orderStatus,
+    this.refundAmount,
   });
 
   @override
@@ -51,7 +59,7 @@ class ReceiptWidget extends StatelessWidget {
         border: Border.all(color: divCol),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -67,8 +75,8 @@ class ReceiptWidget extends StatelessWidget {
                 vertical: context.getRSize(4),
               ),
               decoration: BoxDecoration(
-                color: Colors.red.withOpacity(0.1),
-                border: Border.all(color: Colors.red.withOpacity(0.5)),
+                color: Colors.red.withValues(alpha: 0.1),
+                border: Border.all(color: Colors.red.withValues(alpha: 0.5)),
                 borderRadius: BorderRadius.circular(4),
               ),
               child: Text(
@@ -83,6 +91,29 @@ class ReceiptWidget extends StatelessWidget {
             ),
             SizedBox(height: context.getRSize(12)),
           ],
+          if (orderStatus == 'Refunded') ...[
+            Container(
+              padding: EdgeInsets.symmetric(
+                horizontal: context.getRSize(12),
+                vertical: context.getRSize(4),
+              ),
+              decoration: BoxDecoration(
+                color: blueMain.withValues(alpha: 0.1),
+                border: Border.all(color: blueMain.withValues(alpha: 0.5)),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                'REFUNDED ${formatCurrency(refundAmount ?? total)}',
+                style: TextStyle(
+                  fontSize: context.getRFontSize(14),
+                  fontWeight: FontWeight.w900,
+                  color: blueMain,
+                  letterSpacing: 1,
+                ),
+              ),
+            ),
+            SizedBox(height: context.getRSize(12)),
+          ],
           Text(
             'BrewFlow POS',
             style: TextStyle(
@@ -92,9 +123,20 @@ class ReceiptWidget extends StatelessWidget {
             ),
           ),
           Text(
-            'Sales Receipt',
+            deliveryRef != null ? 'Delivery Receipt' : 'Sales Receipt',
             style: TextStyle(fontSize: context.getRFontSize(12), color: sub),
           ),
+          if (deliveryRef != null) ...[
+            SizedBox(height: context.getRSize(4)),
+            Text(
+              'Ref: $deliveryRef',
+              style: TextStyle(
+                fontSize: context.getRFontSize(13),
+                fontWeight: FontWeight.bold,
+                color: blueMain,
+              ),
+            ),
+          ],
           SizedBox(height: context.getRSize(16)),
           Container(height: 1, color: divCol),
           SizedBox(height: context.getRSize(12)),
@@ -265,6 +307,15 @@ class ReceiptWidget extends StatelessWidget {
           ],
 
           SizedBox(height: context.getRSize(24)),
+          Text(
+            'Rider: ${riderName ?? 'Pick-up'}',
+            style: TextStyle(
+              fontSize: context.getRFontSize(13),
+              fontWeight: FontWeight.bold,
+              color: textCol,
+            ),
+          ),
+          SizedBox(height: context.getRSize(8)),
           BarcodeWidget(
             barcode: Barcode.code128(),
             data: orderId,

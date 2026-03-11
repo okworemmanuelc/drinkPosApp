@@ -207,7 +207,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 Container(
                   padding: EdgeInsets.all(context.getRSize(10)),
                   decoration: BoxDecoration(
-                    color: blueMain.withOpacity(0.12),
+                    color: blueMain.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Icon(
@@ -295,9 +295,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 vertical: context.getRSize(12),
               ),
               decoration: BoxDecoration(
-                color: blueMain.withOpacity(0.07),
+                color: blueMain.withValues(alpha: 0.07),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: blueMain.withOpacity(0.2)),
+                border: Border.all(color: blueMain.withValues(alpha: 0.2)),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -384,7 +384,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: [
                   BoxShadow(
-                    color: blueMain.withOpacity(0.3),
+                    color: blueMain.withValues(alpha: 0.3),
                     blurRadius: 14,
                     offset: const Offset(0, 6),
                   ),
@@ -560,7 +560,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
     );
     activityLogService.logAction(
       'Order Dispatched',
-      'Order $orderId for $_customerDisplayName added to pending deliveries',
+      'Order $orderId for $_customerDisplayName added to pending deliveries. Rider: Pick-up Order',
       relatedEntityId: orderId,
       relatedEntityType: 'order',
     );
@@ -602,6 +602,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 customerPhone: widget.customer?.phone,
                 cashReceived: _amountPaid,
                 walletBalance: _isWalkIn ? null : _dynamicNewCustomerWallet,
+                riderName: 'Pick-up Order',
               ),
             ),
           ),
@@ -689,9 +690,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
       child: Container(
         padding: EdgeInsets.symmetric(vertical: context.getRSize(14)),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
+          color: color.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: color.withOpacity(0.25)),
+          border: Border.all(color: color.withValues(alpha: 0.25)),
         ),
         child: Column(
           children: [
@@ -763,6 +764,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
       customerPhone: widget.customer?.phone,
       cashReceived: _amountPaid,
       walletBalance: _isWalkIn ? null : _dynamicNewCustomerWallet,
+      riderName: 'Pick-up Order',
     );
 
     if (!mounted) return;
@@ -957,7 +959,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
             width: context.getRSize(38),
             height: context.getRSize(38),
             decoration: BoxDecoration(
-              color: itemColor.withOpacity(0.12),
+              color: itemColor.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(
@@ -1063,14 +1065,14 @@ class _CheckoutPageState extends State<CheckoutPage> {
         padding: EdgeInsets.all(context.getRSize(14)),
         decoration: BoxDecoration(
           color: disabled
-              ? _border.withOpacity(0.10)
+              ? _border.withValues(alpha: 0.10)
               : active
-              ? blueMain.withOpacity(0.08)
+              ? blueMain.withValues(alpha: 0.08)
               : _surface,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: disabled
-                ? _border.withOpacity(0.4)
+                ? _border.withValues(alpha: 0.4)
                 : active
                 ? blueMain
                 : _border,
@@ -1083,7 +1085,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
               width: context.getRSize(42),
               height: context.getRSize(42),
               decoration: BoxDecoration(
-                color: iconColor.withOpacity(0.12),
+                color: iconColor.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(icon, size: context.getRSize(18), color: iconColor),
@@ -1123,7 +1125,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 shape: BoxShape.circle,
                 border: Border.all(
                   color: disabled
-                      ? _border.withOpacity(0.4)
+                      ? _border.withValues(alpha: 0.4)
                       : active
                       ? blueMain
                       : _border,

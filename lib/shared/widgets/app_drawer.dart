@@ -57,9 +57,9 @@ class AppDrawer extends StatelessWidget {
           Container(
             padding: EdgeInsets.all(context.getRSize(12)),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.15),
+              color: Colors.white.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: Colors.white.withOpacity(0.2)),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
             ),
             child: Icon(
               FontAwesomeIcons.user,
@@ -83,7 +83,7 @@ class AppDrawer extends StatelessWidget {
               vertical: context.getRSize(4),
             ),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.15),
+              color: Colors.white.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(20),
             ),
             child: Text(
@@ -248,7 +248,7 @@ class AppDrawer extends StatelessWidget {
     return Container(
       margin: EdgeInsets.only(bottom: context.getRSize(6)),
       child: Material(
-        color: active ? blueMain.withOpacity(0.1) : Colors.transparent,
+        color: active ? blueMain.withValues(alpha: 0.1) : Colors.transparent,
         borderRadius: BorderRadius.circular(14),
         child: InkWell(
           borderRadius: BorderRadius.circular(14),
@@ -264,7 +264,7 @@ class AppDrawer extends StatelessWidget {
                   width: context.getRSize(36),
                   height: context.getRSize(36),
                   decoration: BoxDecoration(
-                    color: active ? blueMain.withOpacity(0.2) : _cardCol,
+                    color: active ? blueMain.withValues(alpha: 0.2) : _cardCol,
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Icon(
@@ -382,7 +382,7 @@ class AppDrawer extends StatelessWidget {
                   borderRadius: BorderRadius.circular(14),
                   boxShadow: [
                     BoxShadow(
-                      color: blueMain.withOpacity(0.3),
+                      color: blueMain.withValues(alpha: 0.3),
                       blurRadius: 8,
                       offset: const Offset(0, 4),
                     ),
@@ -394,7 +394,7 @@ class AppDrawer extends StatelessWidget {
                       width: context.getRSize(32),
                       height: context.getRSize(32),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
+                        color: Colors.white.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Icon(
@@ -419,7 +419,7 @@ class AppDrawer extends StatelessWidget {
                     Icon(
                       FontAwesomeIcons.chevronUp,
                       size: context.getRSize(14),
-                      color: Colors.white.withOpacity(0.8),
+                      color: Colors.white.withValues(alpha: 0.8),
                     ),
                   ],
                 ),
@@ -478,9 +478,9 @@ class AppDrawer extends StatelessWidget {
       child: Container(
         padding: EdgeInsets.symmetric(vertical: context.getRSize(14)),
         decoration: BoxDecoration(
-          color: danger.withOpacity(0.1),
+          color: danger.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: danger.withOpacity(0.2)),
+          border: Border.all(color: danger.withValues(alpha: 0.2)),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,

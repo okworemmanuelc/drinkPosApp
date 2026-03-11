@@ -1581,19 +1581,14 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
   }
 
   void _showReturnCratesDialog(BuildContext context) {
+    final allGroups = CrateGroup.values.map((g) => g.label).toList();
     final List<Map<String, dynamic>> rows = [
-      {'group': CrateGroup.nbPlc.label, 'qty': 0},
+      {'group': allGroups.first, 'qty': 0},
     ];
-    final owableGroups = _customer!.emptyCratesBalance.entries
-        .where((e) => e.value > 0)
-        .map((e) => e.key)
-        .toList();
-    if (owableGroups.isEmpty) {
-      return;
-    }
 
     showModalBottomSheet(
       context: context,
+      useSafeArea: true,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (modalCtx) {
@@ -1690,12 +1685,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                                             height: modalCtx.getRSize(8),
                                           ),
                                           DropdownButtonFormField<String>(
-                                            initialValue:
-                                                owableGroups.contains(
-                                                  rowData['group'],
-                                                )
-                                                ? rowData['group']
-                                                : owableGroups.first,
+                                            initialValue: rowData['group'],
                                             dropdownColor: cardCol,
                                             style: TextStyle(
                                               fontSize: 14,
@@ -1716,7 +1706,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                                                     vertical: 14,
                                                   ),
                                             ),
-                                            items: owableGroups.map((g) {
+                                            items: allGroups.map((g) {
                                               return DropdownMenuItem(
                                                 value: g,
                                                 child: Text(g),
@@ -1820,7 +1810,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                               onPressed: () {
                                 setDialogState(() {
                                   rows.add({
-                                    'group': owableGroups.first,
+                                    'group': allGroups.first,
                                     'qty': 0,
                                   });
                                 });

@@ -399,7 +399,7 @@ class _StockTransferScreenState extends State<StockTransferScreen> {
                                     vertical: 2,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: blueMain.withOpacity(0.1),
+                                    color: blueMain.withValues(alpha: 0.1),
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: Text(

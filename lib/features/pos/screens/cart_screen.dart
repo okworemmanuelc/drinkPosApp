@@ -8,7 +8,6 @@ import '../../../core/utils/responsive.dart';
 import '../../customers/data/models/customer.dart';
 import '../../customers/widgets/add_customer_sheet.dart';
 import '../../../core/utils/stock_calculator.dart';
-import '../../../shared/services/activity_log_service.dart';
 import '../../../core/utils/currency_input_formatter.dart';
 import '../../customers/data/services/customer_service.dart';
 import '../../inventory/data/inventory_data.dart';
@@ -130,8 +129,8 @@ class _CartScreenState extends State<CartScreen> {
                             children: [
                               TextButton.icon(
                                 style: TextButton.styleFrom(
-                                  backgroundColor: blueMain.withOpacity(
-                                    0.1,
+                                  backgroundColor: blueMain.withValues(
+                                    alpha: 0.1,
                                   ),
                                 ),
                                 onPressed: () {
@@ -243,13 +242,6 @@ class _CartScreenState extends State<CartScreen> {
         widget.onCustomerChanged(customer);
         cartService.setActiveCustomer(customer);
 
-        activityLogService.logAction(
-          'Customer Assigned to Cart',
-          'Cart assigned to $name',
-          relatedEntityId: customer?.id,
-          relatedEntityType: 'customer',
-        );
-
         Navigator.pop(modalCtx);
       },
       borderRadius: BorderRadius.circular(12),
@@ -260,7 +252,7 @@ class _CartScreenState extends State<CartScreen> {
         ),
         decoration: BoxDecoration(
           border: Border(
-            bottom: BorderSide(color: _border.withOpacity(0.5)),
+            bottom: BorderSide(color: _border.withValues(alpha: 0.5)),
           ),
         ),
         child: Row(
@@ -268,7 +260,7 @@ class _CartScreenState extends State<CartScreen> {
             Container(
               padding: EdgeInsets.all(modalCtx.getRSize(10)),
               decoration: BoxDecoration(
-                color: blueMain.withOpacity(0.15),
+                color: blueMain.withValues(alpha: 0.15),
                 shape: BoxShape.circle,
               ),
               child: Icon(
@@ -465,9 +457,9 @@ class _CartScreenState extends State<CartScreen> {
         height: context.getRSize(46),
         margin: EdgeInsets.symmetric(horizontal: context.getRSize(10)),
         decoration: BoxDecoration(
-          color: blueMain.withOpacity(0.1),
+          color: blueMain.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: blueMain.withOpacity(0.3)),
+          border: Border.all(color: blueMain.withValues(alpha: 0.3)),
         ),
         child: Icon(icon, size: context.getRSize(16), color: blueMain),
       ),
@@ -574,7 +566,7 @@ class _CartScreenState extends State<CartScreen> {
                     hintStyle: TextStyle(
                       fontSize: context.getRFontSize(20),
                       fontWeight: FontWeight.bold,
-                      color: _subtext.withOpacity(0.4),
+                      color: _subtext.withValues(alpha: 0.4),
                     ),
                     filled: true,
                     fillColor: _isDark ? dCard : lCard,
@@ -641,7 +633,7 @@ class _CartScreenState extends State<CartScreen> {
                             borderRadius: BorderRadius.circular(14),
                             boxShadow: [
                               BoxShadow(
-                                color: blueMain.withOpacity(0.3),
+                                color: blueMain.withValues(alpha: 0.3),
                                 blurRadius: 10,
                                 offset: const Offset(0, 4),
                               ),
@@ -793,9 +785,9 @@ class _CartScreenState extends State<CartScreen> {
                     vertical: context.getRSize(4),
                   ),
                   decoration: BoxDecoration(
-                    color: danger.withOpacity(0.1),
+                    color: danger.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: danger.withOpacity(0.2)),
+                    border: Border.all(color: danger.withValues(alpha: 0.2)),
                   ),
                   child: Row(
                     children: [
@@ -847,7 +839,7 @@ class _CartScreenState extends State<CartScreen> {
                       Container(
                         padding: EdgeInsets.all(context.getRSize(10)),
                         decoration: BoxDecoration(
-                          color: blueMain.withOpacity(0.15),
+                          color: blueMain.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Icon(
@@ -978,7 +970,7 @@ class _CartScreenState extends State<CartScreen> {
                                       color: _cardBg,
                                       borderRadius: BorderRadius.circular(14),
                                       border: Border.all(
-                                        color: _border.withOpacity(0.5),
+                                        color: _border.withValues(alpha: 0.5),
                                       ),
                                     ),
                                     child: Row(
@@ -987,7 +979,7 @@ class _CartScreenState extends State<CartScreen> {
                                           width: context.getRSize(48),
                                           height: context.getRSize(48),
                                           decoration: BoxDecoration(
-                                            color: c.withOpacity(0.15),
+                                            color: c.withValues(alpha: 0.15),
                                             borderRadius: BorderRadius.circular(
                                               12,
                                             ),
@@ -1251,14 +1243,14 @@ class _CartScreenState extends State<CartScreen> {
                                       decoration: BoxDecoration(
                                         gradient: LinearGradient(
                                           colors: [
-                                            blueMain.withOpacity(0.08),
-                                            blueMain.withOpacity(0.04),
+                                            blueMain.withValues(alpha: 0.08),
+                                            blueMain.withValues(alpha: 0.04),
                                           ],
                                         ),
                                         borderRadius: BorderRadius.circular(14),
                                         border: Border.all(
-                                          color: blueMain.withOpacity(
-                                            0.12,
+                                          color: blueMain.withValues(
+                                            alpha: 0.12,
                                           ),
                                         ),
                                       ),
@@ -1368,8 +1360,8 @@ class _CartScreenState extends State<CartScreen> {
                                         borderRadius: BorderRadius.circular(16),
                                         boxShadow: [
                                           BoxShadow(
-                                            color: blueMain.withOpacity(
-                                              0.3,
+                                            color: blueMain.withValues(
+                                              alpha: 0.3,
                                             ),
                                             blurRadius: 14,
                                             offset: const Offset(0, 6),

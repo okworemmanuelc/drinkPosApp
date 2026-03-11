@@ -18,11 +18,33 @@ class ThermalReceiptService {
     double? cashReceived,
     double? walletBalance,
     DateTime? reprintDate,
+    String? riderName,
+    String? deliveryRef,
+    String? orderStatus,
+    double? refundAmount,
   }) async {
     // Generate profile for 58mm printer
     final profile = await CapabilityProfile.load();
     final generator = Generator(PaperSize.mm58, profile);
     List<int> bytes = [];
+
+    // --- 0. REFUND STAMP ---
+    if (orderStatus == 'Refunded') {
+      bytes += generator.text(
+        'REFUNDED',
+        styles: const PosStyles(
+          align: PosAlign.center,
+          height: PosTextSize.size2,
+          width: PosTextSize.size2,
+          bold: true,
+        ),
+      );
+      bytes += generator.text(
+        'Amount: ${formatCurrency(refundAmount ?? total).replaceAll('₦', 'N')}',
+        styles: const PosStyles(align: PosAlign.center, bold: true),
+      );
+      bytes += generator.hr();
+    }
 
     // --- 1. HEADER ---
     if (reprintDate != null) {
@@ -79,6 +101,9 @@ class ThermalReceiptService {
         '${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')}/${now.year} ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
 
     bytes += generator.text('Order #$orderId');
+    if (deliveryRef != null) {
+      bytes += generator.text('Delivery Ref: $deliveryRef', styles: const PosStyles(bold: true));
+    }
     bytes += generator.text('Date: $dateStr');
     if (reprintDate != null) {
       final rDateStr =
@@ -192,6 +217,11 @@ class ThermalReceiptService {
     bytes += generator.text('');
 
     // --- 7. FOOTER ---
+    bytes += generator.text(
+      'Rider: ${riderName ?? 'Pick-up'}',
+      styles: const PosStyles(align: PosAlign.center, bold: true),
+    );
+    bytes += generator.text('');
     bytes += generator.text(
       'Goods received in good condition',
       styles: const PosStyles(align: PosAlign.center),

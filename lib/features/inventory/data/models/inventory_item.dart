@@ -7,6 +7,8 @@ class InventoryItem {
   String productName;
   String subtitle;
   String supplierId;
+  String? crateGroupName;
+  bool needsEmptyCrate;
   IconData icon;
   Color color;
   Map<String, double> warehouseStock; // warehouseId -> quantity
@@ -17,6 +19,8 @@ class InventoryItem {
     required this.productName,
     required this.subtitle,
     required this.supplierId,
+    this.crateGroupName,
+    this.needsEmptyCrate = false,
     required this.icon,
     required this.color,
     this.warehouseStock = const {},

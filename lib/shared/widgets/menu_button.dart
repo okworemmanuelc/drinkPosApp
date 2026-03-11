@@ -10,7 +10,7 @@ class MenuButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return ValueListenableBuilder<ThemeMode>(
       valueListenable: themeNotifier,
-      builder: (_, mode, __) {
+      builder: (context, mode, _) {
         final bool isDark = mode == ThemeMode.dark;
         final Color text = isDark ? dText : lText;
 

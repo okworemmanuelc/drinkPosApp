@@ -1,6 +1,6 @@
 import 'payment.dart';
 
-enum CustomerGroup { Distributor, BulkBreaker, Retailer }
+enum CustomerGroup { distributor, bulkBreaker, retailer }
 
 class Customer {
   final String id;
@@ -29,7 +29,7 @@ class Customer {
     List<Payment>? payments,
     List<String>? orderIds,
     DateTime? createdAt,
-    this.customerGroup = CustomerGroup.Retailer,
+    this.customerGroup = CustomerGroup.retailer,
     this.isWalkIn = false,
   }) : emptyCratesBalance = emptyCratesBalance ?? {},
        payments = payments ?? [],

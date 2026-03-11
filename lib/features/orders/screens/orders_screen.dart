@@ -14,9 +14,11 @@ import '../../../core/utils/number_format.dart';
 import '../../../core/utils/responsive.dart';
 import '../../../shared/models/order.dart';
 import '../../../shared/services/activity_log_service.dart';
+import '../../staff/models/staff.dart';
 import '../../../shared/services/order_service.dart';
 import '../../../shared/widgets/receipt_widget.dart';
 import '../../../shared/widgets/shared_scaffold.dart';
+import '../../deliveries/data/models/delivery_receipt.dart';
 import '../../../shared/widgets/menu_button.dart';
 import '../../../shared/widgets/app_bar_header.dart';
 import '../../customers/data/services/customer_service.dart';
@@ -244,6 +246,10 @@ class _OrdersScreenState extends State<OrdersScreen>
           onCancel: status == 'pending'
               ? () => _cancelOrder(list[index])
               : null,
+          onAssignRider: status == 'pending'
+              ? (orderId) => _showRiderSelection(context, orderId)
+              : null,
+          onRefund: status == 'cancelled' ? () => _showRefundChoice(context, list[index]) : null,
           onViewReceipt: () => _viewReceipt(context, list[index]),
         );
       },
@@ -306,10 +312,22 @@ class _OrdersScreenState extends State<OrdersScreen>
       }
     }
 
-    // 3. Log action
+    // 3. Generate Delivery Receipt (Step D)
+    final receipt = DeliveryReceipt(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      orderId: order.id,
+      referenceNumber: deliveryService.generateReference(),
+      riderName: order.riderName,
+      outstandingAmount: order.totalAmount - order.amountPaid,
+      paidAmount: order.amountPaid,
+      createdAt: DateTime.now(),
+    );
+    deliveryService.addReceipt(receipt);
+
+    // 4. Log action
     activityLogService.logAction(
       'Order Completed',
-      'Order ${order.id} for ${order.customerName} marked as completed',
+      'Order ${order.id} for ${order.customerName} marked as completed. Delivery Receipt: ${receipt.referenceNumber}',
       relatedEntityId: order.id,
       relatedEntityType: 'order',
     );
@@ -367,12 +385,163 @@ class _OrdersScreenState extends State<OrdersScreen>
     );
   }
 
+  void _showRefundChoice(BuildContext context, Order order) {
+    final isPartial = order.amountPaid < order.totalAmount;
+
+    if (isPartial) {
+      // Force wallet refund for partial payments, no choice modal needed but maybe a confirmation
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: _surface,
+          title: Text('Refund Payment', style: TextStyle(color: _text, fontWeight: FontWeight.bold)),
+          content: Text(
+            'Partial payment was made (${formatCurrency(order.amountPaid)} of ${formatCurrency(order.totalAmount)}). '
+            'The refund will be credited to ${order.customerName}\'s wallet.',
+            style: TextStyle(color: _subtext),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text('Cancel', style: TextStyle(color: _subtext)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: blueMain, foregroundColor: Colors.white),
+              onPressed: () {
+                Navigator.pop(ctx);
+                _processRefund(order, toWallet: true);
+              },
+              child: const Text('Confirm Refund'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
+    // Full payment choice modal
+    showModalBottomSheet(
+      context: context,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => SafeArea(
+        child: Container(
+          decoration: BoxDecoration(
+            color: _surface,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+            Padding(
+              padding: EdgeInsets.all(context.getRSize(16)),
+              child: Text(
+                'Refund Method',
+                style: TextStyle(fontSize: context.getRFontSize(18), fontWeight: FontWeight.bold, color: _text),
+              ),
+            ),
+            Text(
+              'Select how you want to refund ${formatCurrency(order.amountPaid)}',
+              style: TextStyle(color: _subtext, fontSize: 13),
+            ),
+            const SizedBox(height: 16),
+            ListTile(
+              leading: Icon(FontAwesomeIcons.wallet, color: success, size: context.getRSize(18)),
+              title: Text('Refund to Wallet', style: TextStyle(color: _text)),
+              subtitle: Text('Add balance to customer\'s wallet', style: TextStyle(color: _subtext, fontSize: 12)),
+              onTap: () {
+                Navigator.pop(ctx);
+                _processRefund(order, toWallet: true);
+              },
+            ),
+            ListTile(
+              leading: Icon(FontAwesomeIcons.moneyBillWave, color: blueMain, size: context.getRSize(18)),
+              title: Text('Refund to Cash', style: TextStyle(color: _text)),
+              subtitle: Text('Record as cash payout', style: TextStyle(color: _subtext, fontSize: 12)),
+              onTap: () {
+                Navigator.pop(ctx);
+                _processRefund(order, toWallet: false);
+              },
+            ),
+            SizedBox(height: context.getRSize(20)),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+  void _processRefund(Order order, {required bool toWallet}) {
+    orderService.refundOrder(order.id, toWallet: toWallet);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Refund of ${formatCurrency(order.amountPaid)} processed to ${toWallet ? 'Wallet' : 'Cash'}.'),
+        backgroundColor: success,
+      ),
+    );
+  }
+
+  void _showRiderSelection(BuildContext context, String orderId) {
+    final riders = staffService.getRiders();
+    showModalBottomSheet(
+      context: context,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return SafeArea(
+          child: Container(
+            decoration: BoxDecoration(
+              color: _surface,
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+              Padding(
+                padding: EdgeInsets.all(context.getRSize(16)),
+                child: Text(
+                  'Assign Rider',
+                  style: TextStyle(
+                    fontSize: context.getRFontSize(18),
+                    fontWeight: FontWeight.bold,
+                    color: _text,
+                  ),
+                ),
+              ),
+              ListTile(
+                leading: Icon(FontAwesomeIcons.store, color: _subtext, size: context.getRSize(18)),
+                title: Text('Pick-up Order', style: TextStyle(color: _text)),
+                onTap: () {
+                  orderService.assignRider(orderId, 'Pick-up Order');
+                  Navigator.pop(ctx);
+                },
+              ),
+              ...riders.map((staff) => ListTile(
+                    leading: Icon(FontAwesomeIcons.motorcycle, color: blueMain, size: context.getRSize(18)),
+                    title: Text(staff.name, style: TextStyle(color: _text)),
+                    subtitle: Text(staff.role, style: TextStyle(color: _subtext, fontSize: 12)),
+                    onTap: () {
+                      orderService.assignRider(orderId, staff.name);
+                      Navigator.pop(ctx);
+                    },
+                  )),
+              SizedBox(height: context.getRSize(20)),
+            ],
+          ),
+        ),
+      );
+    },
+  );
+}
+
   void _viewReceipt(BuildContext context, Order order) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       backgroundColor: Colors.transparent,
-      builder: (_) {
+      builder: (modalCtx) {
         return ValueListenableBuilder<List<Order>>(
           valueListenable: orderService,
           builder: (context, allOrders, _) {
@@ -380,6 +549,7 @@ class _OrdersScreenState extends State<OrdersScreen>
               (o) => o.id == order.id,
               orElse: () => order,
             );
+            final deliveryReceipt = deliveryService.getByOrderId(currentOrder.id);
 
             return Container(
               height: MediaQuery.of(context).size.height * 0.85,
@@ -424,6 +594,10 @@ class _OrdersScreenState extends State<OrdersScreen>
                           reprintDate: currentOrder.reprints.isNotEmpty
                               ? currentOrder.reprints.last
                               : null,
+                          riderName: currentOrder.riderName,
+                          deliveryRef: deliveryReceipt?.referenceNumber,
+                          orderStatus: currentOrder.status,
+                          refundAmount: currentOrder.amountPaid,
                         ),
                       ),
                     ),
@@ -458,6 +632,38 @@ class _OrdersScreenState extends State<OrdersScreen>
                             ),
                           ),
                           SizedBox(width: context.getRSize(12)),
+                          if (currentOrder.status == 'cancelled')
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: danger,
+                                  padding: EdgeInsets.symmetric(
+                                    vertical: context.getRSize(16),
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                                onPressed: (currentOrder.paymentMethod == 'Credit')
+                                    ? null
+                                    : () {
+                                        Navigator.pop(modalCtx);
+                                        _showRefundChoice(context, currentOrder);
+                                      },
+                                icon: const Icon(FontAwesomeIcons.rotateLeft,
+                                    color: Colors.white, size: 18),
+                                label: Text(
+                                  'Refund',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: context.getRFontSize(14),
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          if (currentOrder.status == 'cancelled')
+                            SizedBox(width: context.getRSize(12)),
                           Expanded(
                             child: ElevatedButton.icon(
                               style: ElevatedButton.styleFrom(
@@ -498,6 +704,7 @@ class _OrdersScreenState extends State<OrdersScreen>
     orderService.addReprint(order.id);
     final updatedOrder = orderService.value.firstWhere((o) => o.id == order.id);
     final reprintDate = updatedOrder.reprints.last;
+    final deliveryReceipt = deliveryService.getByOrderId(updatedOrder.id);
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Printing reprint...')),
@@ -518,6 +725,10 @@ class _OrdersScreenState extends State<OrdersScreen>
             ? null
             : updatedOrder.customerWallet,
         reprintDate: reprintDate,
+        riderName: order.riderName,
+        deliveryRef: deliveryReceipt?.referenceNumber,
+        orderStatus: order.status,
+        refundAmount: order.amountPaid,
       );
 
       await PrintBluetoothThermal.writeBytes(bytes);
@@ -584,6 +795,8 @@ class _OrderCard extends StatelessWidget {
   final String status; // 'pending', 'completed', 'cancelled'
   final VoidCallback? onMarkAsDelivered;
   final VoidCallback? onCancel;
+  final Function(String)? onAssignRider;
+  final VoidCallback? onRefund;
   final VoidCallback onViewReceipt;
 
   const _OrderCard({
@@ -591,6 +804,8 @@ class _OrderCard extends StatelessWidget {
     required this.status,
     this.onMarkAsDelivered,
     this.onCancel,
+    this.onAssignRider,
+    this.onRefund,
     required this.onViewReceipt,
   });
 
@@ -684,6 +899,30 @@ class _OrderCard extends StatelessWidget {
                         ],
                       ),
                     ),
+                    if (status == 'pending')
+                      Column(
+                        children: [
+                          IconButton(
+                            icon: Icon(
+                              FontAwesomeIcons.motorcycle,
+                              size: context.getRSize(20),
+                              color: blueMain,
+                            ),
+                            onPressed: () => onAssignRider?.call(order.id),
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                          ),
+                          SizedBox(height: context.getRSize(4)),
+                          Text(
+                            order.riderName,
+                            style: TextStyle(
+                              fontSize: context.getRFontSize(10),
+                              color: _subtext,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
                     if (status != 'pending')
                       Container(
                         padding: EdgeInsets.symmetric(
@@ -691,11 +930,19 @@ class _OrderCard extends StatelessWidget {
                           vertical: context.getRSize(6),
                         ),
                         decoration: BoxDecoration(
-                          color: (status == 'completed' ? success : danger)
+                          color: (order.status == 'completed'
+                                  ? success
+                                  : (order.status == 'Refunded'
+                                      ? blueMain
+                                      : danger))
                               .withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(
-                            color: (status == 'completed' ? success : danger)
+                            color: (order.status == 'completed'
+                                    ? success
+                                    : (order.status == 'Refunded'
+                                        ? blueMain
+                                        : danger))
                                 .withValues(alpha: 0.2),
                           ),
                         ),
@@ -703,17 +950,27 @@ class _OrderCard extends StatelessWidget {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(
-                              status == 'completed'
+                              order.status == 'completed'
                                   ? FontAwesomeIcons.check
-                                  : FontAwesomeIcons.ban,
+                                  : (order.status == 'Refunded'
+                                      ? FontAwesomeIcons.rotateLeft
+                                      : FontAwesomeIcons.ban),
                               size: context.getRSize(10),
-                              color: status == 'completed' ? success : danger,
+                              color: order.status == 'completed'
+                                  ? success
+                                  : (order.status == 'Refunded'
+                                      ? blueMain
+                                      : danger),
                             ),
                             SizedBox(width: context.getRSize(6)),
                             Text(
-                              status == 'completed' ? 'Completed' : 'Cancelled',
+                              order.status.toUpperCase(),
                               style: TextStyle(
-                                color: status == 'completed' ? success : danger,
+                                color: order.status == 'completed'
+                                    ? success
+                                    : (order.status == 'Refunded'
+                                        ? blueMain
+                                        : danger),
                                 fontWeight: FontWeight.bold,
                                 fontSize: context.getRFontSize(11),
                               ),
@@ -911,13 +1168,41 @@ class _OrderCard extends StatelessWidget {
                               size: context.getRSize(14),
                             ),
                             label: Text(
-                              'Mark Completed',
+                              'Confirm Delivery',
                               style: TextStyle(
                                 fontSize: context.getRFontSize(13),
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
                             onPressed: onMarkAsDelivered,
+                          ),
+                        ),
+                      if (status == 'cancelled' && onRefund != null)
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: danger,
+                              foregroundColor: Colors.white,
+                              elevation: 0,
+                              padding: EdgeInsets.symmetric(
+                                vertical: context.getRSize(12),
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                            icon: Icon(
+                              FontAwesomeIcons.rotateLeft,
+                              size: context.getRSize(14),
+                            ),
+                            label: Text(
+                              'Initiate Refund',
+                              style: TextStyle(
+                                fontSize: context.getRFontSize(13),
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            onPressed: onRefund,
                           ),
                         ),
                     ],

@@ -13,7 +13,7 @@ class CustomerService extends ValueNotifier<List<Customer>> {
       addressText: '12 Borno Way, Maiduguri',
       googleMapsLocation: '12 Borno Way',
       customerWallet: 15000.0,
-      customerGroup: CustomerGroup.Retailer,
+      customerGroup: CustomerGroup.retailer,
       isWalkIn: false,
     ),
     Customer(
@@ -22,7 +22,7 @@ class CustomerService extends ValueNotifier<List<Customer>> {
       addressText: '45 Market Road, Maiduguri',
       googleMapsLocation: '45 Market Road',
       customerWallet: 0.0,
-      customerGroup: CustomerGroup.Retailer,
+      customerGroup: CustomerGroup.retailer,
       isWalkIn: false,
     ),
     Customer(
@@ -31,7 +31,7 @@ class CustomerService extends ValueNotifier<List<Customer>> {
       addressText: '8 Industrial Layout, Maiduguri',
       googleMapsLocation: '8 Industrial Layout',
       customerWallet: -7500.0,
-      customerGroup: CustomerGroup.Retailer,
+      customerGroup: CustomerGroup.retailer,
       isWalkIn: false,
     ),
   ];
@@ -97,6 +97,39 @@ class CustomerService extends ValueNotifier<List<Customer>> {
     }
   }
 
+  void addCratesToBalance(
+    String customerId,
+    Map<String, int> cratesAdded,
+  ) {
+    final customer = getById(customerId);
+    if (customer != null) {
+      final newCratesBalance = Map<String, int>.from(
+        customer.emptyCratesBalance,
+      );
+
+      cratesAdded.forEach((crateGroup, qty) {
+        final currentQty = newCratesBalance[crateGroup] ?? 0;
+        newCratesBalance[crateGroup] = currentQty + qty;
+      });
+
+      final updatedCustomer = customer.copyWith(
+        emptyCratesBalance: newCratesBalance,
+      );
+
+      final index = value.indexWhere((c) => c.id == customerId);
+      final newList = List<Customer>.from(value);
+      newList[index] = updatedCustomer;
+      value = newList;
+
+      activityLogService.logAction(
+        'Crates Dispatched',
+        'Added $cratesAdded empty crates to balance for ${customer.name}',
+        relatedEntityId: customer.id,
+        relatedEntityType: 'customer',
+      );
+    }
+  }
+
   void updateEmptyCratesBalance(
     String customerId,
     Map<String, int> cratesReturned,
@@ -145,6 +178,23 @@ class CustomerService extends ValueNotifier<List<Customer>> {
       activityLogService.logAction(
         'Limit Updated',
         'Updated wallet limit to ₦${newLimit.abs().toStringAsFixed(0)} for ${customer.name}',
+        relatedEntityId: customer.id,
+        relatedEntityType: 'customer',
+      );
+    }
+  }
+
+  void refundToWallet(String customerId, double amount, String note) {
+    final customer = getById(customerId);
+    if (customer != null) {
+      final updatedCustomer = customer.copyWith(
+        customerWallet: customer.customerWallet + amount,
+      );
+      updateCustomer(updatedCustomer);
+
+      activityLogService.logAction(
+        'Wallet Refunded',
+        'Refunded ₦${amount.toStringAsFixed(2)} to ${customer.name}. Note: $note',
         relatedEntityId: customer.id,
         relatedEntityType: 'customer',
       );
