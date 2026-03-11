@@ -293,13 +293,13 @@ class _PosHomeScreenState extends State<PosHomeScreen>
       'category': existing['category'] ?? 'Other',
       'icon': item.icon,
       'color': item.color,
-      'stock': item.stock,
+      'stock': item.totalStock,
     };
   }
 
   Widget _buildGrid() {
     final allProducts = kInventoryItems
-        .where((i) => i.stock > 0) // only show in-stock items on POS
+        .where((i) => i.totalStock > 0) // only show in-stock items on POS
         .map(_inventoryItemToProduct)
         .toList();
 

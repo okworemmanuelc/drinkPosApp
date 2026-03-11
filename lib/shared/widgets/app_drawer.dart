@@ -130,38 +130,10 @@ class AppDrawer extends StatelessWidget {
         ),
         _navItem(
           context,
-          FontAwesomeIcons.moneyBillWave,
-          'Payments',
-          active: activeRoute == 'payments',
-          onTap: () => _navigateTo(context, 'payments'),
-        ),
-        _navItem(
-          context,
           FontAwesomeIcons.truckFast,
           'Orders',
           active: activeRoute == 'orders',
           onTap: () => _navigateTo(context, 'orders'),
-        ),
-        _navItem(
-          context,
-          FontAwesomeIcons.cartShopping,
-          'Cart',
-          active: activeRoute == 'cart',
-          onTap: () => _navigateTo(context, 'cart'),
-        ),
-        _navItem(
-          context,
-          FontAwesomeIcons.dolly,
-          'Deliveries',
-          active: activeRoute == 'deliveries',
-          onTap: () => _navigateTo(context, 'deliveries'),
-        ),
-        _navItem(
-          context,
-          FontAwesomeIcons.fileInvoiceDollar,
-          'Expenses',
-          active: activeRoute == 'expenses',
-          onTap: () => _navigateTo(context, 'expenses'),
         ),
         _navItem(
           context,
@@ -172,10 +144,56 @@ class AppDrawer extends StatelessWidget {
         ),
         _navItem(
           context,
+          FontAwesomeIcons.moneyBillWave,
+          'Supplier Accounts',
+          active:
+              activeRoute == 'supplier_accounts' || activeRoute == 'payments',
+          onTap: () => _navigateTo(context, 'supplier_accounts'),
+        ),
+        _navItem(
+          context,
+          FontAwesomeIcons.fileInvoiceDollar,
+          'Expenses',
+          active: activeRoute == 'expenses',
+          onTap: () => _navigateTo(context, 'expenses'),
+        ),
+        _navItem(
+          context,
+          FontAwesomeIcons.warehouse,
+          'Manage Warehouse',
+          active: activeRoute == 'warehouse',
+          onTap: () => _navigateTo(context, 'warehouse'),
+        ),
+        _navItem(
+          context,
+          FontAwesomeIcons.userGroup,
+          'Staff',
+          active: activeRoute == 'staff',
+          onTap: () => _navigateTo(context, 'staff'),
+        ),
+        SizedBox(height: context.getRSize(12)),
+        Divider(color: _border),
+        SizedBox(height: context.getRSize(12)),
+        _navItem(
+          context,
           FontAwesomeIcons.clockRotateLeft,
           'Activity Logs',
           active: activeRoute == 'activity_logs',
           onTap: () => _navigateTo(context, 'activity_logs'),
+        ),
+        _navItem(
+          context,
+          FontAwesomeIcons.truckArrowRight,
+          'Deliveries',
+          active: activeRoute == 'deliveries',
+          onTap: () => _navigateTo(context, 'deliveries'),
+        ),
+        _navItem(
+          context,
+          FontAwesomeIcons.cartShopping,
+          'Cart',
+          active: activeRoute == 'cart',
+          onTap: () => _navigateTo(context, 'cart'),
         ),
         SizedBox(height: context.getRSize(12)),
         Divider(color: _border),
@@ -201,18 +219,22 @@ class AppDrawer extends StatelessWidget {
       navigationService.setIndex(2);
     } else if (route == 'orders') {
       navigationService.setIndex(3);
-    } else if (route == 'cart') {
-      navigationService.setIndex(4);
-    } else if (route == 'payments') {
-      navigationService.setIndex(5);
-    } else if (route == 'deliveries') {
-      navigationService.setIndex(6);
-    } else if (route == 'expenses') {
-      navigationService.setIndex(7);
     } else if (route == 'customers') {
+      navigationService.setIndex(4);
+    } else if (route == 'supplier_accounts' || route == 'payments') {
+      navigationService.setIndex(5);
+    } else if (route == 'expenses') {
+      navigationService.setIndex(6);
+    } else if (route == 'warehouse') {
+      navigationService.setIndex(7);
+    } else if (route == 'staff') {
       navigationService.setIndex(8);
-    } else if (route == 'activity_logs') {
+    } else if (route == 'cart') {
       navigationService.setIndex(9);
+    } else if (route == 'deliveries') {
+      navigationService.setIndex(10);
+    } else if (route == 'activity_logs') {
+      navigationService.setIndex(11);
     }
   }
 

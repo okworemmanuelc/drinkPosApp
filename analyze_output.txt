@@ -1,12 +1,9 @@
 Analyzing drink_pos_app...                                      
 
-   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\orders\screens\orders_screen.dart:725:45 - deprecated_member_use
-   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\orders\screens\orders_screen.dart:728:47 - deprecated_member_use
-   info - Unnecessary use of multiple underscores - lib\features\pos\screens\cart_screen.dart:749:20 - unnecessary_underscores
-   info - Unnecessary use of multiple underscores - lib\features\pos\screens\cart_screen.dart:749:24 - unnecessary_underscores
-   info - Unnecessary use of multiple underscores - lib\features\pos\screens\cart_screen.dart:980:53 - unnecessary_underscores
-   info - Unnecessary use of multiple underscores - lib\features\pos\screens\checkout_page.dart:106:20 - unnecessary_underscores
-   info - Unnecessary use of multiple underscores - lib\features\pos\screens\checkout_page.dart:106:24 - unnecessary_underscores
-   info - The private field _crateDeposit could be 'final' - lib\features\pos\screens\pos_home_screen.dart:29:10 - prefer_final_fields
-   info - Don't invoke 'print' in production code - test_pos.dart:1:76 - avoid_print
+   info - The constant name 'Distributor' isn't a lowerCamelCase identifier - lib\features\customers\data\models\customer.dart:3:22 - constant_identifier_names
+   info - The constant name 'BulkBreaker' isn't a lowerCamelCase identifier - lib\features\customers\data\models\customer.dart:3:35 - constant_identifier_names
+   info - The constant name 'Retailer' isn't a lowerCamelCase identifier - lib\features\customers\data\models\customer.dart:3:48 - constant_identifier_names
+   info - Unnecessary use of multiple underscores - lib\shared\widgets\app_bar_header.dart:22:26 - unnecessary_underscores
+   info - Unnecessary use of multiple underscores - lib\shared\widgets\menu_button.dart:13:26 - unnecessary_underscores
 
+5 issues found. (ran in 11.7s)

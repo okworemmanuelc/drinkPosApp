@@ -17,11 +17,11 @@ import '../../../core/utils/responsive.dart';
 import '../services/receipt_builder.dart';
 import '../../customers/data/models/customer.dart';
 import '../../customers/data/models/payment.dart';
+import '../../inventory/data/inventory_data.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/theme_notifier.dart';
 import '../../../core/utils/number_format.dart';
 import '../../customers/data/services/customer_service.dart';
-import '../../inventory/data/inventory_data.dart';
 import '../../../core/utils/currency_input_formatter.dart';
 import '../../../core/utils/stock_calculator.dart';
 
@@ -472,15 +472,23 @@ class _CheckoutPageState extends State<CheckoutPage> {
     }
 
     // ── Inventory deduction ───────────────────────────────────────────
-    for (final item in widget.cart) {
-      final name = item['name'] as String;
-      final qty = item['qty'] as double;
-      final idx = kInventoryItems.indexWhere((inv) => inv.productName == name);
+    for (final itemEntry in widget.cart) {
+      final name = itemEntry['name'] as String;
+      final qty = (itemEntry['qty'] as num).toDouble();
+      final idx =
+          kInventoryItems.indexWhere((inv) => inv.productName == name);
       if (idx != -1) {
-        kInventoryItems[idx].stock -= qty;
-        if (kInventoryItems[idx].stock < 0) {
-          kInventoryItems[idx].stock = 0;
-        }
+        final item = kInventoryItems[idx];
+        // Determine warehouseId, default to 'w1' if no specific warehouse is set for the item
+        final warehouseId = item.warehouseStock.keys.isNotEmpty
+            ? item.warehouseStock.keys.first
+            : 'w1';
+
+        final currentQty = item.warehouseStock[warehouseId] ?? 0.0;
+        final newStockMap = Map<String, double>.from(item.warehouseStock);
+        newStockMap[warehouseId] = currentQty - qty;
+        if (newStockMap[warehouseId]! < 0) newStockMap[warehouseId] = 0;
+        item.warehouseStock = newStockMap;
       }
     }
 
@@ -955,7 +963,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                   overflow: TextOverflow.ellipsis,
                 ),
                 Text(
-                  '${(item['qty'] as double).toStringAsFixed(1)} × ₦${fmtNumber(item['price'])}',
+                  '${(item['qty'] as num).toDouble().toStringAsFixed(1)} × ₦${fmtNumber((item['price'] as num).toInt())}',
                   style: TextStyle(
                     fontSize: context.getRFontSize(12),
                     color: _subtext,

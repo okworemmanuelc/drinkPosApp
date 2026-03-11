@@ -6,6 +6,12 @@ import 'models/crate_group.dart';
 import 'models/inventory_item.dart';
 import 'models/crate_stock.dart';
 import 'models/inventory_log.dart';
+import '../../warehouse/data/models/warehouse.dart';
+
+final List<Warehouse> kWarehouses = [
+  Warehouse(id: 'w1', name: 'Main Warehouse', location: 'Lagos'),
+  Warehouse(id: 'w2', name: 'Store Room', location: 'Ikeja'),
+];
 
 final List<CrateStock> kCrateStocks = [
   CrateStock(group: CrateGroup.nbPlc, available: 24),
@@ -22,7 +28,7 @@ final List<InventoryItem> kInventoryItems = [
     supplierId: 's1',
     icon: FontAwesomeIcons.beerMugEmpty,
     color: Color(0xFFF59E0B),
-    stock: 18,
+    warehouseStock: {'w1': 10, 'w2': 8},
     lowStockThreshold: 5,
   ),
   InventoryItem(
@@ -32,7 +38,7 @@ final List<InventoryItem> kInventoryItems = [
     supplierId: 's1',
     icon: FontAwesomeIcons.wineBottle,
     color: Color(0xFF10B981),
-    stock: 42,
+    warehouseStock: {'w1': 20, 'w2': 22},
     lowStockThreshold: 10,
   ),
   InventoryItem(
@@ -42,7 +48,7 @@ final List<InventoryItem> kInventoryItems = [
     supplierId: 's2',
     icon: FontAwesomeIcons.wineGlassEmpty,
     color: Color(0xFF334155),
-    stock: 6,
+    warehouseStock: {'w1': 3, 'w2': 3},
     lowStockThreshold: 8,
   ),
   InventoryItem(
@@ -52,7 +58,7 @@ final List<InventoryItem> kInventoryItems = [
     supplierId: 's1',
     icon: FontAwesomeIcons.database,
     color: Color(0xFFD97706),
-    stock: 3,
+    warehouseStock: {'w1': 1, 'w2': 2},
     lowStockThreshold: 4,
   ),
   InventoryItem(
@@ -62,7 +68,7 @@ final List<InventoryItem> kInventoryItems = [
     supplierId: 's1',
     icon: FontAwesomeIcons.wineBottle,
     color: Color(0xFF3B82F6),
-    stock: 30,
+    warehouseStock: {'w1': 15, 'w2': 15},
     lowStockThreshold: 10,
   ),
   InventoryItem(
@@ -72,7 +78,7 @@ final List<InventoryItem> kInventoryItems = [
     supplierId: 's1',
     icon: FontAwesomeIcons.beerMugEmpty,
     color: Color(0xFFEA580C),
-    stock: 2,
+    warehouseStock: {'w1': 2, 'w2': 0},
     lowStockThreshold: 5,
   ),
   InventoryItem(
@@ -82,7 +88,7 @@ final List<InventoryItem> kInventoryItems = [
     supplierId: 's1',
     icon: FontAwesomeIcons.wineBottle,
     color: Color(0xFFE11D48),
-    stock: 14,
+    warehouseStock: {'w1': 7, 'w2': 7},
     lowStockThreshold: 6,
   ),
   InventoryItem(
@@ -92,7 +98,7 @@ final List<InventoryItem> kInventoryItems = [
     supplierId: 's2',
     icon: FontAwesomeIcons.database,
     color: Color(0xFF475569),
-    stock: 1,
+    warehouseStock: {'w1': 1, 'w2': 0},
     lowStockThreshold: 3,
   ),
   InventoryItem(
@@ -102,7 +108,7 @@ final List<InventoryItem> kInventoryItems = [
     supplierId: 's1',
     icon: FontAwesomeIcons.beerMugEmpty,
     color: Color(0xFFEAB308),
-    stock: 9,
+    warehouseStock: {'w1': 9, 'w2': 0},
     lowStockThreshold: 5,
   ),
   InventoryItem(
@@ -112,7 +118,7 @@ final List<InventoryItem> kInventoryItems = [
     supplierId: 's1',
     icon: FontAwesomeIcons.wineBottle,
     color: Color(0xFF78350F),
-    stock: 22,
+    warehouseStock: {'w1': 11, 'w2': 11},
     lowStockThreshold: 8,
   ),
   InventoryItem(
@@ -122,7 +128,7 @@ final List<InventoryItem> kInventoryItems = [
     supplierId: 's1',
     icon: FontAwesomeIcons.wineBottle,
     color: Color(0xFFC2410C),
-    stock: 17,
+    warehouseStock: {'w1': 10, 'w2': 7},
     lowStockThreshold: 8,
   ),
 ];

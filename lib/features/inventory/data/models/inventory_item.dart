@@ -9,7 +9,7 @@ class InventoryItem {
   String supplierId;
   IconData icon;
   Color color;
-  double stock;
+  Map<String, double> warehouseStock; // warehouseId -> quantity
   double lowStockThreshold;
 
   InventoryItem({
@@ -19,7 +19,14 @@ class InventoryItem {
     required this.supplierId,
     required this.icon,
     required this.color,
-    this.stock = 0,
+    this.warehouseStock = const {},
     this.lowStockThreshold = 5,
   });
+
+  double get totalStock =>
+      warehouseStock.values.fold(0.0, (sum, val) => sum + val);
+
+  // Helper to get stock for a specific warehouse
+  double getStockForWarehouse(String warehouseId) =>
+      warehouseStock[warehouseId] ?? 0.0;
 }

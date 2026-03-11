@@ -40,18 +40,15 @@ class ProductDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<ThemeMode>(
-      valueListenable: themeNotifier,
-      builder: (_, _, _) => Scaffold(
-        backgroundColor: _bg,
-        body: CustomScrollView(
-          slivers: [
-            _buildSliverAppBar(context),
-            SliverToBoxAdapter(child: _buildBody(context)),
-          ],
-        ),
-        bottomNavigationBar: _buildBottomBar(context),
+    return Scaffold(
+      backgroundColor: _bg,
+      body: CustomScrollView(
+        slivers: [
+          _buildSliverAppBar(context),
+          SliverToBoxAdapter(child: _buildBody(context)),
+        ],
       ),
+      bottomNavigationBar: _buildBottomBar(context),
     );
   }
 
@@ -60,8 +57,8 @@ class ProductDetailScreen extends StatelessWidget {
   // ═══════════════════════════════════════════════════════════════════════════
 
   Widget _buildSliverAppBar(BuildContext context) {
-    final isLow = item.stock > 0 && item.stock <= item.lowStockThreshold;
-    final isOut = item.stock == 0;
+    final isLow = item.totalStock > 0 && item.totalStock <= item.lowStockThreshold;
+    final isOut = item.totalStock == 0;
     Color statusColor = success;
     String statusLabel = 'In Stock';
     if (isOut) {
@@ -112,7 +109,7 @@ class ProductDetailScreen extends StatelessWidget {
                 // Product icon
                 Container(
                   width: context.getRSize(80),
-                  height: context.getRSize(80),
+                   height: context.getRSize(80),
                   decoration: BoxDecoration(
                     color: Colors.white.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(24),
@@ -202,11 +199,11 @@ class ProductDetailScreen extends StatelessWidget {
       (p) => p['name'] == item.productName,
       orElse: () => <String, dynamic>{},
     );
-    final int sellingPrice = (product['price'] as int?) ?? 0;
-    final int buyingPrice = (product['wholesale_price'] as int?) ?? 0;
+    final int sellingPrice = (product['price'] as num?)?.toInt() ?? 0;
+    final int buyingPrice = (product['wholesale_price'] as num?)?.toInt() ?? 0;
     final double totalStockValue = stockValue(
       sellingPrice.toDouble(),
-      item.stock,
+      item.totalStock,
     );
 
     // Last delivery from logs
@@ -232,7 +229,7 @@ class ProductDetailScreen extends StatelessWidget {
               context,
               FontAwesomeIcons.cubesStacked,
               'Total Quantity',
-              item.stock.toStringAsFixed(item.stock % 1 == 0 ? 0 : 1),
+              item.totalStock.toStringAsFixed(item.totalStock % 1 == 0 ? 0 : 1),
               blueMain,
             ),
             _divider(context),

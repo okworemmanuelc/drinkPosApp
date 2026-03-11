@@ -36,7 +36,7 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
       builder: (context, mode, child) {
         return Scaffold(
           backgroundColor: _bg,
-          drawer: const AppDrawer(activeRoute: 'payments'),
+          drawer: const AppDrawer(activeRoute: 'supplier_accounts'),
           appBar: _buildAppBar(context),
           body: ValueListenableBuilder<List<Payment>>(
             valueListenable: paymentService,
@@ -174,7 +174,7 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
                 FittedBox(
                   fit: BoxFit.scaleDown,
                   child: Text(
-                    'Payments',
+                    'Supplier Accounts',
                     style: TextStyle(
                       fontSize: context.getRFontSize(18),
                       fontWeight: FontWeight.w800,

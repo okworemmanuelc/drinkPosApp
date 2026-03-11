@@ -3,11 +3,13 @@ import '../../features/dashboard/screens/dashboard_screen.dart';
 import '../../features/pos/screens/pos_home_screen.dart';
 import '../../features/inventory/screens/inventory_screen.dart';
 import '../../features/orders/screens/orders_screen.dart';
-import '../../features/pos/screens/cart_screen.dart';
-import '../../features/payments/screens/payments_screen.dart';
-import '../../features/deliveries/screens/deliveries_screen.dart';
-import '../../features/expenses/screens/expenses_screen.dart';
 import '../../features/customers/screens/customers_screen.dart';
+import '../../features/payments/screens/payments_screen.dart';
+import '../../features/expenses/screens/expenses_screen.dart';
+import '../../features/warehouse/screens/warehouse_screen.dart';
+import '../../features/staff/screens/staff_screen.dart';
+import '../../features/pos/screens/cart_screen.dart';
+import '../../features/deliveries/screens/deliveries_screen.dart';
 import '../../shared/widgets/activity_log_screen.dart';
 import '../../shared/services/cart_service.dart';
 import '../../shared/services/navigation_service.dart';
@@ -29,8 +31,13 @@ class _MainLayoutState extends State<MainLayout> {
     const PosHomeScreen(), // 1
     const InventoryScreen(), // 2
     const OrdersScreen(), // 3
+    const CustomersScreen(), // 4
+    const PaymentsScreen(), // 5 (Supplier Accounts)
+    const ExpensesScreen(), // 6
+    const WarehouseScreen(), // 7
+    const StaffScreen(), // 8
     ValueListenableBuilder<List<Map<String, dynamic>>>(
-      // 4
+      // 9
       valueListenable: cartService,
       builder: (context, cart, _) => CartScreen(
         cart: cart,
@@ -38,11 +45,8 @@ class _MainLayoutState extends State<MainLayout> {
         onCustomerChanged: _voidOnCustomerChanged,
       ),
     ),
-    const PaymentsScreen(), // 5
-    const DeliveriesScreen(), // 6
-    const ExpensesScreen(), // 7
-    const CustomersScreen(), // 8
-    const ActivityLogScreen(), // 9
+    const DeliveriesScreen(), // 10
+    const ActivityLogScreen(), // 11
   ];
 
   @override
@@ -64,14 +68,22 @@ class _MainLayoutState extends State<MainLayout> {
                 ValueListenableBuilder<List<Map<String, dynamic>>>(
                   valueListenable: cartService,
                   builder: (context, cart, _) => BottomNavigationBar(
-                    currentIndex: (currentIndex >= 1 && currentIndex <= 4)
+                    currentIndex: (currentIndex >= 1 && currentIndex <= 3)
                         ? (currentIndex - 1)
-                        : 0,
+                        : (currentIndex == 9 ? 3 : 0),
                     onTap: (index) {
-                      navigationService.setIndex(index + 1);
+                      if (index == 3) {
+                        navigationService.setIndex(9); // Cart
+                      } else {
+                        navigationService.setIndex(
+                          index + 1,
+                        ); // POS, Inventory, Orders
+                      }
                     },
                     type: BottomNavigationBarType.fixed,
-                    selectedItemColor: (currentIndex >= 1 && currentIndex <= 4)
+                    selectedItemColor:
+                        (currentIndex >= 1 && currentIndex <= 3) ||
+                            currentIndex == 9
                         ? blueMain
                         : Colors.grey,
                     unselectedItemColor: Colors.grey,

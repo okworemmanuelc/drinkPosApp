@@ -31,9 +31,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Color get _border => _isDark ? dBorder : lBorder;
 
   double get _totalStockValue {
-    return kInventoryItems.fold(0, (sum, item) {
+    return kInventoryItems.fold(0.0, (sum, item) {
       // Mock price logic or lookup
-      return sum + (item.stock * 5000); // Using 5000 as a base mock price
+      return sum + (item.totalStock * 5000); // Using 5000 as a base mock price
     });
   }
 
@@ -144,7 +144,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
         _metricCard(
           'Customer Wallet',
-          'Cr: ' + formatCurrency(25000) + '\nDr: ' + formatCurrency(12000),
+          'Cr: ${formatCurrency(25000)}\nDr: ${formatCurrency(12000)}',
           FontAwesomeIcons.wallet,
           blueMain,
         ),

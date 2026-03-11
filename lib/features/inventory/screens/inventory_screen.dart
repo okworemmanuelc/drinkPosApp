@@ -103,9 +103,9 @@ class _InventoryScreenState extends State<InventoryScreen>
   Widget _buildSummaryCards(BuildContext context) {
     final totalItems = kInventoryItems.length;
     final lowStock = kInventoryItems
-        .where((i) => i.stock <= i.lowStockThreshold)
+        .where((i) => i.totalStock <= i.lowStockThreshold)
         .length;
-    final outOfStock = kInventoryItems.where((i) => i.stock == 0).length;
+    final outOfStock = kInventoryItems.where((i) => i.totalStock == 0).length;
     final totalCrates = _activeCrateGroups.fold<double>(
       0,
       (s, c) => s + c.available,
@@ -442,32 +442,29 @@ class _InventoryScreenState extends State<InventoryScreen>
 
     if (_stockFilter == 'low') {
       return list
-          .where((i) => i.stock > 0 && i.stock <= i.lowStockThreshold)
+          .where((i) => i.totalStock > 0 && i.totalStock <= i.lowStockThreshold)
           .toList();
     } else if (_stockFilter == 'out') {
-      return list.where((i) => i.stock == 0).toList();
+      return list.where((i) => i.totalStock == 0).toList();
     }
     return list;
   }
 
   List<CrateStock> get _activeCrateGroups {
-    return kCrateStocks.where((cs) {
-      return kInventoryItems.any((item) {
-        final supplier = supplierService.getAll().firstWhere(
-          (s) => s.id == item.supplierId,
-          orElse: () =>
-              Supplier(id: '', name: '', crateGroup: CrateGroup.nbPlc),
-        );
-        final isGlass =
-            item.subtitle.toLowerCase() == 'crate' ||
-            kProducts.any(
-              (p) =>
-                  p['name'] == item.productName &&
-                  p['category'] == 'Glass Crates',
-            );
-        return supplier.crateGroup == cs.group && isGlass;
-      });
-    }).toList();
+    // 1. Get all unique crate groups used by current inventory items
+    final Set<CrateGroup> usedGroups = {};
+    for (final item in kInventoryItems) {
+      final isGlass = item.subtitle.toLowerCase() == 'crate';
+      if (!isGlass) continue;
+
+      final supplier = supplierService.getById(item.supplierId);
+      if (supplier != null) {
+        usedGroups.add(supplier.crateGroup);
+      }
+    }
+
+    // 2. Filter kCrateStocks by those groups
+    return kCrateStocks.where((cs) => usedGroups.contains(cs.group)).toList();
   }
 
   Widget _buildSupplierFilter(BuildContext context) {
@@ -528,8 +525,8 @@ class _InventoryScreenState extends State<InventoryScreen>
   }
 
   Widget _buildProductRow(BuildContext context, InventoryItem item) {
-    final isLow = item.stock > 0 && item.stock <= item.lowStockThreshold;
-    final isOut = item.stock == 0;
+    final isLow = item.totalStock > 0 && item.totalStock <= item.lowStockThreshold;
+    final isOut = item.totalStock == 0;
     final supplier = supplierService.getAll().firstWhere(
       (s) => s.id == item.supplierId,
       orElse: () =>
@@ -679,7 +676,7 @@ class _InventoryScreenState extends State<InventoryScreen>
                     // RESPONSIVE: Prevent quantity overflow
                     fit: BoxFit.scaleDown,
                     child: Text(
-                      item.stock.toStringAsFixed(item.stock % 1 == 0 ? 0 : 1),
+                      item.totalStock.toStringAsFixed(item.totalStock % 1 == 0 ? 0 : 1),
                       style: TextStyle(
                         fontSize: context.getRFontSize(22), // RESPONSIVE
                         fontWeight: FontWeight.w800,
@@ -1460,10 +1457,16 @@ class _InventoryScreenState extends State<InventoryScreen>
                       ),
                       onPressed: () {
                         final entered = double.tryParse(ctrl.text) ?? 0;
-                        final newQty = action == 'restock'
-                            ? item.stock + entered
+                        // For now, we update the first warehouse available
+                        final warehouseId = item.warehouseStock.keys.isNotEmpty 
+                            ? item.warehouseStock.keys.first 
+                            : 'w1';
+                        final currentWarehouseStock = item.warehouseStock[warehouseId] ?? 0.0;
+                        
+                        final newWarehouseQty = action == 'restock'
+                            ? currentWarehouseStock + entered
                             : entered;
-                        final diff = newQty - item.stock;
+                        final diff = newWarehouseQty - currentWarehouseStock;
 
                         final log = InventoryLog(
                           timestamp: DateTime.now(),
@@ -1471,8 +1474,8 @@ class _InventoryScreenState extends State<InventoryScreen>
                           itemId: item.id,
                           itemName: item.productName,
                           action: action,
-                          previousValue: item.stock,
-                          newValue: newQty,
+                          previousValue: item.totalStock,
+                          newValue: item.totalStock + diff,
                           note: noteCtrl.text.isEmpty ? null : noteCtrl.text,
                         );
 
@@ -1484,7 +1487,11 @@ class _InventoryScreenState extends State<InventoryScreen>
                         );
 
                         setState(() {
-                          item.stock = newQty;
+                          // Update the specific warehouse stock
+                          final newStockMap = Map<String, double>.from(item.warehouseStock);
+                          newStockMap[warehouseId] = newWarehouseQty;
+                          item.warehouseStock = newStockMap;
+                          
                           kInventoryLogs.add(log);
 
                           if (productData.isNotEmpty &&
@@ -2100,6 +2107,42 @@ class _InventoryScreenState extends State<InventoryScreen>
                             ),
                           ),
                         ),
+                        const SizedBox(height: 12),
+                        _inputField(
+                          'Initial Stock',
+                          stockCtrl,
+                          'e.g. 50',
+                          isNumber: true,
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _inputField(
+                                'Retail Price',
+                                retailPriceCtrl,
+                                'e.g. 500',
+                                isNumber: true,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: _inputField(
+                                'Wholesale Price',
+                                wholesalePriceCtrl,
+                                'e.g. 450',
+                                isNumber: true,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        _inputField(
+                          'Buying Price',
+                          buyingPriceCtrl,
+                          'e.g. 400',
+                          isNumber: true,
+                        ),
                       ],
                     ),
                   ),
@@ -2129,7 +2172,9 @@ class _InventoryScreenState extends State<InventoryScreen>
                           supplierId: selectedSupplierId,
                           icon: FontAwesomeIcons.wineBottle,
                           color: blueMain,
-                          stock: double.tryParse(stockCtrl.text) ?? 0,
+                          warehouseStock: {
+                            'w1': double.tryParse(stockCtrl.text) ?? 0
+                          },
                         );
                         final log = InventoryLog(
                           timestamp: DateTime.now(),
@@ -2138,7 +2183,7 @@ class _InventoryScreenState extends State<InventoryScreen>
                           itemName: newItem.productName,
                           action: 'restock',
                           previousValue: 0,
-                          newValue: newItem.stock,
+                          newValue: newItem.totalStock,
                           note: 'New product added to inventory',
                         );
                         setState(() {
@@ -2149,17 +2194,18 @@ class _InventoryScreenState extends State<InventoryScreen>
                           kProducts.add({
                             'name': newItem.productName,
                             'subtitle': newItem.subtitle,
+                            'category': 'Other',
                             'price': int.tryParse(retailPriceCtrl.text) ?? 0,
                             'wholesale_price':
                                 int.tryParse(wholesalePriceCtrl.text) ?? 0,
                             'buying_price':
                                 int.tryParse(buyingPriceCtrl.text) ?? 0,
-                            'category': 'Other',
                             'icon': newItem.icon,
                             'color': newItem.color,
+                            'image': '',
                           });
                         });
-                        Navigator.pop(ctx);
+                        Navigator.pop(context);
                       },
                       child: const Text(
                         'Add to Inventory & POS',
@@ -2328,7 +2374,7 @@ class _InventoryScreenState extends State<InventoryScreen>
                         note: 'Supplier added: ${newSupplier.name}',
                       );
                       setState(() {
-                        supplierService.getAll().add(newSupplier);
+                        supplierService.addSupplier(newSupplier);
                         kInventoryLogs.add(log);
                       });
                       Navigator.pop(ctx);

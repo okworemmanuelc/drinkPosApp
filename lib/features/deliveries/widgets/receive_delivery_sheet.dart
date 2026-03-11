@@ -144,7 +144,15 @@ class _ReceiveDeliveryScreenState extends State<ReceiveDeliveryScreen> {
       totalQty += qty;
 
       if (l.selectedProduct != null) {
-        l.selectedProduct!.stock += qty;
+        final warehouseId = l.selectedProduct!.warehouseStock.keys.isNotEmpty
+            ? l.selectedProduct!.warehouseStock.keys.first
+            : 'w1';
+
+        final currentQty = l.selectedProduct!.warehouseStock[warehouseId] ?? 0.0;
+        final newStockMap =
+            Map<String, double>.from(l.selectedProduct!.warehouseStock);
+        newStockMap[warehouseId] = currentQty + qty;
+        l.selectedProduct!.warehouseStock = newStockMap;
 
         kInventoryLogs.add(
           InventoryLog(
@@ -153,8 +161,8 @@ class _ReceiveDeliveryScreenState extends State<ReceiveDeliveryScreen> {
             itemId: l.selectedProduct!.id,
             itemName: l.selectedProduct!.productName,
             action: 'restock',
-            previousValue: l.selectedProduct!.stock - qty,
-            newValue: l.selectedProduct!.stock,
+            previousValue: l.selectedProduct!.totalStock - qty,
+            newValue: l.selectedProduct!.totalStock,
             note: 'Delivery Received',
           ),
         );
