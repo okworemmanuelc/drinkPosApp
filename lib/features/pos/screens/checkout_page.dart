@@ -11,6 +11,7 @@ import 'package:path_provider/path_provider.dart';
 
 import '../../../shared/models/order.dart';
 import '../../../shared/services/activity_log_service.dart';
+import '../../../shared/services/notification_service.dart';
 import '../../../shared/services/order_service.dart';
 import '../../../shared/widgets/receipt_widget.dart';
 import '../../../core/utils/responsive.dart';
@@ -470,6 +471,11 @@ class _CheckoutPageState extends State<CheckoutPage> {
           customer.customerWallet - orderRemaining + extraPayment;
 
       if (projectedBalance < customer.walletLimit) {
+        notificationService.createNotification(
+          'failed_transaction',
+          'Transaction failed for ${customer.name}: Wallet limit of ${formatCurrency(customer.walletLimit)} exceeded.',
+          linkedRecordId: customer.id,
+        );
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
@@ -480,6 +486,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
         );
         return;
       }
+
     }
 
     // ── Inventory deduction ───────────────────────────────────────────
@@ -496,10 +503,19 @@ class _CheckoutPageState extends State<CheckoutPage> {
             : 'w1';
 
         final currentQty = item.warehouseStock[warehouseId] ?? 0.0;
+        final newStock = currentQty - qty;
         final newStockMap = Map<String, double>.from(item.warehouseStock);
-        newStockMap[warehouseId] = currentQty - qty;
-        if (newStockMap[warehouseId]! < 0) newStockMap[warehouseId] = 0;
+        newStockMap[warehouseId] = newStock < 0 ? 0 : newStock;
         item.warehouseStock = newStockMap;
+
+        // Low Stock Notification
+        if (newStock <= item.lowStockThreshold) {
+          notificationService.createNotification(
+            'low_stock',
+            'Low stock warning: ${item.productName} has only $newStock remaining.',
+            linkedRecordId: item.id,
+          );
+        }
       }
     }
 

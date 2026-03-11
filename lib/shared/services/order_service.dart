@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import '../../core/utils/number_format.dart';
 import '../../features/customers/data/services/customer_service.dart';
 import '../../shared/services/activity_log_service.dart';
+import '../../shared/services/notification_service.dart';
 import '../models/order.dart';
 
 class OrderService extends ValueNotifier<List<Order>> {
@@ -92,6 +93,11 @@ class OrderService extends ValueNotifier<List<Order>> {
 
   void addOrder(Order order) {
     value = [...value, order];
+    notificationService.createNotification(
+      'new_order',
+      'New order #${order.id} received for ${order.customerName}',
+      linkedRecordId: order.id,
+    );
   }
 
   void markAsCompleted(String orderId) {

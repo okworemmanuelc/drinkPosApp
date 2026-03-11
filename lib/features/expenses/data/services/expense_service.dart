@@ -1,5 +1,7 @@
-import 'package:flutter/widgets.dart';
+import 'package:flutter/foundation.dart';
 import '../models/expense.dart';
+import '../../../../shared/services/notification_service.dart';
+import '../../../../core/utils/number_format.dart';
 
 class ExpenseService extends ValueNotifier<List<Expense>> {
   ExpenseService() : super(_initialExpenses);
@@ -56,6 +58,13 @@ class ExpenseService extends ValueNotifier<List<Expense>> {
 
   void addExpense(Expense expense) {
     value = [...value, expense];
+    if (expense.amount >= 50000) {
+      notificationService.createNotification(
+        'large_expense',
+        'Large expense recorded: ${formatCurrency(expense.amount)} for ${expense.category}',
+        linkedRecordId: expense.id,
+      );
+    }
   }
 
   void deleteExpense(String id) {

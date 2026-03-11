@@ -65,7 +65,26 @@ class _MainLayoutState extends State<MainLayout> {
             }
           },
           child: Scaffold(
-            body: IndexedStack(index: currentIndex, children: _screens),
+            body: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 250),
+              transitionBuilder: (child, animation) {
+                return FadeTransition(
+                  opacity: animation,
+                  child: SlideTransition(
+                    position: Tween<Offset>(
+                      begin: const Offset(0, 0.02),
+                      end: Offset.zero,
+                    ).animate(animation),
+                    child: child,
+                  ),
+                );
+              },
+              child: IndexedStack(
+                key: ValueKey<int>(currentIndex),
+                index: currentIndex,
+                children: _screens,
+              ),
+            ),
             bottomNavigationBar:
                 ValueListenableBuilder<List<Map<String, dynamic>>>(
                   valueListenable: cartService,
@@ -116,11 +135,21 @@ class _MainLayoutState extends State<MainLayout> {
                         label: 'Orders',
                       ),
                       BottomNavigationBarItem(
-                        icon: Badge(
-                          label: Text(cart.length.toString()),
-                          isLabelVisible: cart.isNotEmpty,
-                          backgroundColor: danger,
-                          child: const Icon(Icons.shopping_cart),
+                        icon: AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 300),
+                          transitionBuilder: (child, animation) {
+                            return ScaleTransition(
+                              scale: animation,
+                              child: child,
+                            );
+                          },
+                          child: Badge(
+                            key: ValueKey<int>(cart.length),
+                            label: Text(cart.length.toString()),
+                            isLabelVisible: cart.isNotEmpty,
+                            backgroundColor: danger,
+                            child: const Icon(Icons.shopping_cart),
+                          ),
                         ),
                         label: 'Cart',
                       ),

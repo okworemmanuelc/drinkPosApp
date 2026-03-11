@@ -9,6 +9,7 @@ import '../../../shared/widgets/app_drawer.dart';
 import '../data/models/delivery.dart';
 import '../data/services/delivery_service.dart';
 import '../widgets/receive_delivery_sheet.dart';
+import '../../../shared/widgets/notification_bell.dart';
 
 class DeliveriesScreen extends StatefulWidget {
   const DeliveriesScreen({super.key});
@@ -74,10 +75,7 @@ class _DeliveriesScreenState extends State<DeliveriesScreen> {
             child: FloatingActionButton.extended(
               heroTag: 'deliveries_fab',
               onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const ReceiveDeliveryScreen()),
-                );
+                ReceiveDeliverySheet.show(context);
               },
               backgroundColor: Colors.transparent,
               elevation: 0,
@@ -157,6 +155,10 @@ class _DeliveriesScreenState extends State<DeliveriesScreen> {
         ),
       ),
       centerTitle: true,
+      actions: [
+        const NotificationBell(),
+        SizedBox(width: context.getRSize(8)),
+      ],
     );
   }
 

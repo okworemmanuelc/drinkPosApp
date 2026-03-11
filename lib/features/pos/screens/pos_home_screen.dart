@@ -14,6 +14,8 @@ import '../../../shared/services/cart_service.dart';
 import '../../../shared/widgets/shared_scaffold.dart';
 import '../../../shared/widgets/menu_button.dart';
 import '../../../shared/widgets/app_bar_header.dart';
+import '../../../shared/widgets/notification_bell.dart';
+import '../../../core/theme/design_tokens.dart';
 
 class PosHomeScreen extends StatefulWidget {
   const PosHomeScreen({super.key});
@@ -112,7 +114,8 @@ class _PosHomeScreenState extends State<PosHomeScreen>
           }),
           size: 17,
         ),
-        SizedBox(width: context.getRSize(8)), // RESPONSIVE
+        const NotificationBell(),
+        SizedBox(width: context.spacingS),
       ],
     );
   }
@@ -127,8 +130,8 @@ class _PosHomeScreenState extends State<PosHomeScreen>
       borderRadius: BorderRadius.circular(12),
       onTap: onTap,
       child: Container(
-        width: context.getRSize(40), // RESPONSIVE
-        height: context.getRSize(40), // RESPONSIVE
+        width: context.getRSize(40),
+        height: context.getRSize(40),
         alignment: Alignment.center,
         child: Icon(
           icon,
@@ -144,10 +147,10 @@ class _PosHomeScreenState extends State<PosHomeScreen>
     return Container(
       color: _surface,
       padding: EdgeInsets.fromLTRB(
-        context.getRSize(16),
-        context.getRSize(4),
-        context.getRSize(16),
-        context.getRSize(16),
+        context.spacingM,
+        context.spacingXs,
+        context.spacingM,
+        context.spacingM,
       ),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
@@ -167,7 +170,7 @@ class _PosHomeScreenState extends State<PosHomeScreen>
                 if (val != null) setState(() => _selectedGroup = val);
               },
             ),
-            SizedBox(width: context.getRSize(12)),
+            SizedBox(width: context.spacingM),
             
             // Supplier Filter Dropdown
             _buildDropdown<String>(
@@ -183,19 +186,19 @@ class _PosHomeScreenState extends State<PosHomeScreen>
                 if (val != null) setState(() => _selectedSupplierId = val);
               },
             ),
-            SizedBox(width: context.getRSize(12)),
+            SizedBox(width: context.spacingM),
 
             // Quick Sale Button
             GestureDetector(
               onTap: () => _showQuickSaleModal(),
               child: Container(
                 padding: EdgeInsets.symmetric(
-                  horizontal: context.getRSize(16),
-                  vertical: context.getRSize(10),
+                  horizontal: context.spacingM,
+                  vertical: context.spacingS,
                 ),
                 decoration: BoxDecoration(
                   color: blueMain.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(context.radiusM),
                   border: Border.all(color: blueMain.withValues(alpha: 0.2)),
                 ),
                 child: Icon(
@@ -217,10 +220,10 @@ class _PosHomeScreenState extends State<PosHomeScreen>
     required ValueChanged<T?> onChanged,
   }) {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: context.getRSize(12)),
+      padding: EdgeInsets.symmetric(horizontal: context.spacingM),
       decoration: BoxDecoration(
         color: _cardBg,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(context.radiusM),
         border: Border.all(color: _border),
       ),
       child: DropdownButtonHideUnderline(
@@ -264,27 +267,27 @@ class _PosHomeScreenState extends State<PosHomeScreen>
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
               padding: EdgeInsets.symmetric(
-                horizontal: context.getRSize(16),
-                vertical: context.getRSize(10),
-              ), // RESPONSIVE
+                horizontal: context.spacingM,
+                vertical: context.spacingS,
+              ),
               itemCount: _filters.length,
               itemBuilder: (_, i) {
                 final active = _filter == _filters[i];
                 return Padding(
                   padding: EdgeInsets.only(
-                    right: context.getRSize(10),
-                  ), // RESPONSIVE
+                    right: context.spacingS,
+                  ),
                   child: GestureDetector(
                     onTap: () => setState(() => _filter = _filters[i]),
                     child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 180),
+                      duration: const Duration(milliseconds: 150),
                       padding: EdgeInsets.symmetric(
-                        horizontal: context.getRSize(18),
-                        vertical: context.getRSize(6),
-                      ), // RESPONSIVE
+                        horizontal: context.spacingM,
+                        vertical: context.spacingXs,
+                      ),
                       decoration: BoxDecoration(
                         color: active ? blueMain : (_isDark ? dCard : lCard),
-                        borderRadius: BorderRadius.circular(20),
+                        borderRadius: BorderRadius.circular(context.radiusL),
                         border: Border.all(
                           color: active ? blueMain : _border,
                           width: 1,
@@ -383,8 +386,8 @@ class _PosHomeScreenState extends State<PosHomeScreen>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(FontAwesomeIcons.magnifyingGlass, size: 48, color: _border),
-            const SizedBox(height: 16),
+            Icon(FontAwesomeIcons.magnifyingGlass, size: context.getRSize(48), color: _border),
+            SizedBox(height: context.spacingM),
             Text(
               'No products found',
               style: TextStyle(
@@ -393,10 +396,10 @@ class _PosHomeScreenState extends State<PosHomeScreen>
                 fontSize: 16,
               ),
             ),
-            const SizedBox(height: 6),
+            SizedBox(height: context.spacingXs),
             Text(
               'Try a different search term',
-              style: TextStyle(color: _subtext, fontSize: 13),
+              style: context.bodySmall.copyWith(color: _subtext),
             ),
           ],
         ),
@@ -409,16 +412,16 @@ class _PosHomeScreenState extends State<PosHomeScreen>
 
     return GridView.builder(
       padding: EdgeInsets.fromLTRB(
-        context.getRSize(16),
-        context.getRSize(16),
-        context.getRSize(16),
+        context.spacingM,
+        context.spacingM,
+        context.spacingM,
         context.getRSize(100),
-      ), // RESPONSIVE
+      ),
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: crossAxisCount,
         childAspectRatio: aspect,
-        crossAxisSpacing: context.getRSize(12), // RESPONSIVE
-        mainAxisSpacing: context.getRSize(12), // RESPONSIVE
+        crossAxisSpacing: context.spacingM,
+        mainAxisSpacing: context.spacingM,
       ),
       itemCount: shown.length,
       itemBuilder: (_, i) => ValueListenableBuilder<List<Map<String, dynamic>>>(
@@ -443,6 +446,26 @@ class _PosHomeScreenState extends State<PosHomeScreen>
     return GestureDetector(
       onTap: () {
         cartService.addItem(product, qty: 1.0);
+        ScaffoldMessenger.of(context).clearSnackBars();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                Icon(FontAwesomeIcons.circleCheck, color: Colors.white, size: context.getRSize(16)),
+                SizedBox(width: context.getRSize(12)),
+                Text(
+                  '${product['name']} added to cart',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+            backgroundColor: blueMain,
+            duration: const Duration(seconds: 1),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            margin: EdgeInsets.all(context.getRSize(16)),
+          ),
+        );
       },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),

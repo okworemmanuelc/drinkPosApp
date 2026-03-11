@@ -33,6 +33,12 @@ class AppTheme {
       bodyMedium: TextStyle(color: lText),
       bodySmall: TextStyle(color: lSubtext),
     ),
+    pageTransitionsTheme: const PageTransitionsTheme(
+      builders: {
+        TargetPlatform.android: FadeUpwardsPageTransitionsBuilder(),
+        TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+      },
+    ),
   );
 
   static ThemeData dark() => ThemeData(
@@ -65,6 +71,12 @@ class AppTheme {
       displayLarge: TextStyle(color: dText, fontWeight: FontWeight.w700),
       bodyMedium: TextStyle(color: dText),
       bodySmall: TextStyle(color: dSubtext),
+    ),
+    pageTransitionsTheme: const PageTransitionsTheme(
+      builders: {
+        TargetPlatform.android: FadeUpwardsPageTransitionsBuilder(),
+        TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+      },
     ),
   );
 }

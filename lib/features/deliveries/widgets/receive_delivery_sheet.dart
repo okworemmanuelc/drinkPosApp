@@ -18,11 +18,20 @@ import '../../pos/data/products_data.dart';
 import '../data/models/delivery.dart';
 import '../data/services/delivery_service.dart';
 
-class ReceiveDeliveryScreen extends StatefulWidget {
-  const ReceiveDeliveryScreen({super.key});
+class ReceiveDeliverySheet extends StatefulWidget {
+  const ReceiveDeliverySheet({super.key});
+
+  static void show(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => const ReceiveDeliverySheet(),
+    );
+  }
 
   @override
-  State<ReceiveDeliveryScreen> createState() => _ReceiveDeliveryScreenState();
+  State<ReceiveDeliverySheet> createState() => _ReceiveDeliverySheetState();
 }
 
 class _DeliveryItemLine {
@@ -47,9 +56,8 @@ class _DeliveryItemLine {
   }
 }
 
-class _ReceiveDeliveryScreenState extends State<ReceiveDeliveryScreen> {
+class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
   final List<_DeliveryItemLine> _lines = [];
-  final _scrollController = ScrollController();
 
   bool get _isDark => themeNotifier.value == ThemeMode.dark;
   Color get _bg => _isDark ? dBg : lBg;
@@ -62,7 +70,7 @@ class _ReceiveDeliveryScreenState extends State<ReceiveDeliveryScreen> {
   @override
   void initState() {
     super.initState();
-    _addLine();
+    _addLine(null);
   }
 
   @override
@@ -70,26 +78,25 @@ class _ReceiveDeliveryScreenState extends State<ReceiveDeliveryScreen> {
     for (var l in _lines) {
       l.dispose();
     }
-    _scrollController.dispose();
     super.dispose();
   }
 
-  void _addLine() {
+  void _addLine(ScrollController? scrollController) {
     setState(() {
       final line = _DeliveryItemLine();
       line.priceCtrl.addListener(_updateScope);
       line.qtyCtrl.addListener(_updateScope);
       _lines.add(line);
     });
-    Future.delayed(const Duration(milliseconds: 100), () {
-      if (_scrollController.hasClients) {
-        _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
+    if (scrollController != null && scrollController.hasClients) {
+      Future.delayed(const Duration(milliseconds: 100), () {
+        scrollController.animateTo(
+          scrollController.position.maxScrollExtent,
           duration: const Duration(milliseconds: 300),
           curve: Curves.easeOut,
         );
-      }
-    });
+      });
+    }
   }
 
   void _removeLine(int index) {
@@ -249,42 +256,74 @@ class _ReceiveDeliveryScreenState extends State<ReceiveDeliveryScreen> {
 
   @override
   Widget build(BuildContext context) {
-    double grandTotal = 0;
-    for (var l in _lines) {
-      grandTotal += l.lineTotal;
-    }
+    return DraggableScrollableSheet(
+      initialChildSize: 0.5,
+      minChildSize: 0.5,
+      maxChildSize: 0.9,
+      snap: true,
+      snapSizes: const [0.5, 0.9],
+      builder: (context, scrollController) {
+        double grandTotal = 0;
+        for (var l in _lines) {
+          grandTotal += l.lineTotal;
+        }
 
-    return Scaffold(
-      backgroundColor: _bg,
-      appBar: AppBar(
-        backgroundColor: _surface,
-        elevation: 0,
-        iconTheme: IconThemeData(color: _text),
-        title: Text(
-          'Receive Delivery',
-          style: TextStyle(
-            color: _text,
-            fontSize: context.getRFontSize(18),
-            fontWeight: FontWeight.bold,
+        return Container(
+          decoration: BoxDecoration(
+            color: _bg,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
           ),
-        ),
-        centerTitle: true,
-      ),
-      body: Column(
-        children: [
-          Expanded(
-            child: ListView.builder(
-              controller: _scrollController,
-              padding: EdgeInsets.all(context.getRSize(16)),
-              itemCount: _lines.length,
-              itemBuilder: (context, index) {
-                return _buildProductCard(context, index);
-              },
-            ),
+          child: Column(
+            children: [
+              // Handle
+              Padding(
+                padding: EdgeInsets.symmetric(vertical: context.getRSize(12)),
+                child: Container(
+                  width: context.getRSize(40),
+                  height: context.getRSize(4),
+                  decoration: BoxDecoration(
+                    color: _border,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              // Header
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: context.getRSize(20)),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Receive Delivery',
+                      style: TextStyle(
+                        color: _text,
+                        fontSize: context.getRFontSize(18),
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.pop(context),
+                      icon: Icon(Icons.close, color: _subtext),
+                    ),
+                  ],
+                ),
+              ),
+              Divider(height: 1, color: _border),
+              Expanded(
+                child: ListView.builder(
+                  controller: scrollController,
+                  padding: EdgeInsets.all(context.getRSize(16)),
+                  itemCount: _lines.length,
+                  itemBuilder: (context, index) {
+                    return _buildProductCard(context, index);
+                  },
+                ),
+              ),
+              _buildSummaryBar(context, grandTotal, scrollController),
+            ],
           ),
-          _buildSummaryBar(context, grandTotal),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -385,7 +424,7 @@ class _ReceiveDeliveryScreenState extends State<ReceiveDeliveryScreen> {
                     line.priceCtrl.text = productData['wholesale_price']
                         .toString();
                   } else {
-                    line.priceCtrl.text = '0';
+                    line.priceCtrl.text = '0.0';
                   }
 
                   if (line.qtyCtrl.text.isEmpty) {
@@ -555,7 +594,7 @@ class _ReceiveDeliveryScreenState extends State<ReceiveDeliveryScreen> {
     );
   }
 
-  Widget _buildSummaryBar(BuildContext context, double grandTotal) {
+  Widget _buildSummaryBar(BuildContext context, double grandTotal, ScrollController scrollController) {
     return Container(
       padding: EdgeInsets.fromLTRB(
         context.getRSize(16),
@@ -602,7 +641,7 @@ class _ReceiveDeliveryScreenState extends State<ReceiveDeliveryScreen> {
                   ],
                 ),
                 TextButton.icon(
-                  onPressed: _addLine,
+                  onPressed: () => _addLine(scrollController),
                   icon: Icon(FontAwesomeIcons.plus, size: context.getRSize(14)),
                   label: const Text(
                     'Add Item',

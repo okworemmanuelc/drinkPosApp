@@ -134,7 +134,7 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
       return;
     }
 
-    final needsReceipt = amount >= LARGE_EXPENSE_THRESHOLD;
+    final needsReceipt = amount >= largeExpenseThreshold;
     if (needsReceipt && _receiptFile == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -205,38 +205,33 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.only(
-        bottom:
-            MediaQuery.of(context).viewInsets.bottom +
-            MediaQuery.of(context).padding.bottom,
-      ),
-      child: Container(
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(context).size.height * 0.9,
-        ),
-        decoration: BoxDecoration(
-          color: _surface,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-        ),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: EdgeInsets.fromLTRB(
-                  context.getRSize(20),
-                  context.getRSize(20),
-                  context.getRSize(20),
-                  0,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Center(
-                      child: Container(
+    return DraggableScrollableSheet(
+      initialChildSize: 0.5,
+      minChildSize: 0.5,
+      maxChildSize: 0.9,
+      snap: true,
+      snapSizes: const [0.5, 0.9],
+      builder: (context, scrollController) {
+        return Container(
+          decoration: BoxDecoration(
+            color: _surface,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+          ),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              children: [
+                // Handle & Header
+                Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    context.getRSize(20),
+                    context.getRSize(12),
+                    context.getRSize(20),
+                    0,
+                  ),
+                  child: Column(
+                    children: [
+                      Container(
                         width: context.getRSize(40),
                         height: context.getRSize(4),
                         decoration: BoxDecoration(
@@ -244,69 +239,70 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
                           borderRadius: BorderRadius.circular(2),
                         ),
                       ),
-                    ),
-                    SizedBox(height: context.getRSize(20)),
-                    Row(
-                      children: [
-                        Container(
-                          width: context.getRSize(44),
-                          height: context.getRSize(44),
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [danger.withValues(alpha: 0.8), danger],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
+                      SizedBox(height: context.getRSize(20)),
+                      Row(
+                        children: [
+                          Container(
+                            width: context.getRSize(44),
+                            height: context.getRSize(44),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [danger.withValues(alpha: 0.8), danger],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              borderRadius: BorderRadius.circular(12),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: danger.withValues(alpha: 0.3),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
                             ),
-                            borderRadius: BorderRadius.circular(12),
-                            boxShadow: [
-                              BoxShadow(
-                                color: danger.withValues(alpha: 0.3),
-                                blurRadius: 8,
-                                offset: const Offset(0, 2),
+                            child: Icon(
+                              FontAwesomeIcons.fileInvoiceDollar,
+                              color: Colors.white,
+                              size: context.getRSize(20),
+                            ),
+                          ),
+                          SizedBox(width: context.getRSize(14)),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Record Expense',
+                                style: TextStyle(
+                                  fontSize: context.getRFontSize(18),
+                                  fontWeight: FontWeight.w800,
+                                  color: _text,
+                                ),
+                              ),
+                              Text(
+                                'Log operating costs',
+                                style: TextStyle(
+                                  fontSize: context.getRFontSize(13),
+                                  color: danger,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                             ],
                           ),
-                          child: Icon(
-                            FontAwesomeIcons.fileInvoiceDollar,
-                            color: Colors.white,
-                            size: context.getRSize(20),
-                          ),
-                        ),
-                        SizedBox(width: context.getRSize(14)),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Record Expense',
-                              style: TextStyle(
-                                fontSize: context.getRFontSize(18),
-                                fontWeight: FontWeight.w800,
-                                color: _text,
-                              ),
-                            ),
-                            Text(
-                              'Log operating costs',
-                              style: TextStyle(
-                                fontSize: context.getRFontSize(13),
-                                color: danger,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                    SizedBox(height: context.getRSize(24)),
-                  ],
-                ),
-              ),
-              Flexible(
-                child: SingleChildScrollView(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: context.getRSize(20),
+                        ],
+                      ),
+                      SizedBox(height: context.getRSize(10)),
+                    ],
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                ),
+
+                // Scrollable Content
+                Expanded(
+                  child: ListView(
+                    controller: scrollController,
+                    padding: EdgeInsets.symmetric(
+                      horizontal: context.getRSize(20),
+                      vertical: context.getRSize(10),
+                    ),
                     children: [
                       // Categories
                       _buildLabel('Category'),
@@ -447,7 +443,7 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
                       SizedBox(height: context.getRSize(16)),
 
                       // Receipt Upload (Large Expenses)
-                      if (_currentAmount >= LARGE_EXPENSE_THRESHOLD) ...[
+                      if (_currentAmount >= largeExpenseThreshold) ...[
                         _buildLabel('Receipt (Required for large expenses)'),
                         InkWell(
                           onTap: _pickReceipt,
@@ -520,59 +516,61 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
                     ],
                   ),
                 ),
-              ),
-              Padding(
-                padding: EdgeInsets.fromLTRB(
-                  context.getRSize(20),
-                  context.getRSize(16),
-                  context.getRSize(20),
-                  context.getRSize(32),
-                ),
-                child: Container(
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [danger.withValues(alpha: 0.8), danger],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: danger.withValues(alpha: 0.3),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
+
+                // Button
+                Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    context.getRSize(20),
+                    context.getRSize(16),
+                    context.getRSize(20),
+                    context.getRSize(MediaQuery.of(context).padding.bottom + 16),
                   ),
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.transparent,
-                      foregroundColor: Colors.white,
-                      shadowColor: Colors.transparent,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
+                  child: Container(
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [danger.withValues(alpha: 0.8), danger],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
                       ),
-                      padding: EdgeInsets.symmetric(
-                        vertical: context.getRSize(16),
-                      ),
-                      elevation: 0,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: danger.withValues(alpha: 0.3),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
                     ),
-                    onPressed: _submit,
-                    child: Text(
-                      'Save Expense',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: context.getRFontSize(15),
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.transparent,
+                        foregroundColor: Colors.white,
+                        shadowColor: Colors.transparent,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        padding: EdgeInsets.symmetric(
+                          vertical: context.getRSize(16),
+                        ),
+                        elevation: 0,
+                      ),
+                      onPressed: _submit,
+                      child: Text(
+                        'Save Expense',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: context.getRFontSize(15),
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }

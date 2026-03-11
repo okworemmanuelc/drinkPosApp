@@ -7,7 +7,9 @@ import '../../../core/utils/responsive.dart';
 import '../../../shared/widgets/shared_scaffold.dart';
 import '../../../shared/widgets/menu_button.dart';
 import '../../../shared/widgets/app_bar_header.dart';
+import '../../../shared/widgets/notification_bell.dart';
 import '../../inventory/data/inventory_data.dart';
+import '../../../core/theme/design_tokens.dart';
 
 final Color warning = Color(0xFFF59E0B);
 
@@ -52,16 +54,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
           subtitle: 'Business Overview',
         ),
         actions: [
-          _buildPeriodDropdown(),
-          SizedBox(width: context.getRSize(16)),
+          const NotificationBell(),
+          SizedBox(width: context.getRSize(8)),
         ],
       ),
       body: SafeArea(
         child: ListView(
-          padding: EdgeInsets.all(context.getRSize(16)),
+          padding: EdgeInsets.all(context.spacingM),
           children: [
+            _buildPeriodHeader(),
+            SizedBox(height: context.spacingM),
             _buildMetricsGrid(),
-            SizedBox(height: context.getRSize(24)),
+            SizedBox(height: context.spacingL),
             _buildExpenseTotal(),
           ],
         ),
@@ -69,21 +73,54 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
+  Widget _buildPeriodHeader() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Performance Overview',
+              style: context.bodyLarge.copyWith(
+                fontWeight: FontWeight.bold,
+                color: _text,
+              ),
+            ),
+            Text(
+              'Analytics for the selected period',
+              style: TextStyle(
+                fontSize: context.getRFontSize(12),
+                color: _subtext,
+              ),
+            ),
+          ],
+        ),
+        _buildPeriodDropdown(),
+      ],
+    );
+  }
+
   Widget _buildPeriodDropdown() {
     return Container(
+      width: context.getRSize(120),
       padding: EdgeInsets.symmetric(horizontal: context.getRSize(12)),
       decoration: BoxDecoration(
         color: _cardBg,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(context.radiusM),
         border: Border.all(color: _border),
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
           value: _selectedPeriod,
-          icon: Icon(
-            FontAwesomeIcons.chevronDown,
-            size: context.getRSize(12),
-            color: blueMain,
+          isExpanded: true,
+          icon: Padding(
+            padding: EdgeInsets.only(left: context.getRSize(8)),
+            child: Icon(
+              FontAwesomeIcons.chevronDown,
+              size: context.getRSize(10),
+              color: blueMain,
+            ),
           ),
           dropdownColor: _surface,
           borderRadius: BorderRadius.circular(12),
@@ -113,8 +150,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       crossAxisCount: 2,
-      crossAxisSpacing: context.getRSize(16),
-      mainAxisSpacing: context.getRSize(16),
+      crossAxisSpacing: context.spacingM,
+      mainAxisSpacing: context.spacingM,
       childAspectRatio: 1.1,
       children: [
         _metricCard(
@@ -154,10 +191,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _metricCard(String label, String value, IconData icon, Color color) {
     return Container(
-      padding: EdgeInsets.all(context.getRSize(16)),
+      padding: EdgeInsets.all(context.spacingM),
       decoration: BoxDecoration(
         color: _surface,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(context.radiusL),
         border: Border.all(color: _border),
         boxShadow: [
           BoxShadow(
@@ -171,10 +208,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            padding: EdgeInsets.all(context.getRSize(8)),
+            padding: EdgeInsets.all(context.spacingS),
             decoration: BoxDecoration(
               color: color.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(context.radiusS),
             ),
             child: Icon(icon, color: color, size: context.getRSize(16)),
           ),
@@ -206,10 +243,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _buildExpenseTotal() {
     return Container(
-      padding: EdgeInsets.all(context.getRSize(20)),
+      padding: EdgeInsets.all(context.spacingL),
       decoration: BoxDecoration(
         color: _surface,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(context.radiusL),
         border: Border.all(color: _border),
       ),
       child: Row(

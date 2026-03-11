@@ -3,6 +3,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../../shared/widgets/shared_scaffold.dart';
 import '../../../shared/widgets/menu_button.dart';
 import '../../../shared/widgets/app_bar_header.dart';
+import '../../../shared/widgets/notification_bell.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/theme_notifier.dart';
 import '../../../core/utils/responsive.dart';
@@ -39,6 +40,10 @@ class WarehouseScreen extends StatelessWidget {
           title: 'Warehouse',
           subtitle: 'Inventory Management',
         ),
+        actions: [
+          const NotificationBell(),
+          SizedBox(width: context.getRSize(8)),
+        ],
       ),
       floatingActionButton: Container(
         decoration: BoxDecoration(

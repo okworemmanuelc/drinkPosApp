@@ -10,6 +10,7 @@ import '../../../shared/widgets/app_drawer.dart';
 import '../data/models/payment.dart';
 import '../data/services/payment_service.dart';
 import '../widgets/add_payment_sheet.dart';
+import '../../../shared/widgets/notification_bell.dart';
 
 class PaymentsScreen extends StatefulWidget {
   const PaymentsScreen({super.key});
@@ -164,6 +165,10 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
           ),
         ),
       ),
+      actions: [
+        const NotificationBell(),
+        SizedBox(width: context.getRSize(8)),
+      ],
       title: Row(
         children: [
           Container(

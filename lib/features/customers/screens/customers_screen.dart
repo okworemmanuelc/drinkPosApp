@@ -6,6 +6,7 @@ import '../../../core/theme/theme_notifier.dart';
 import '../../../core/utils/number_format.dart';
 import '../../../core/utils/responsive.dart';
 import '../../../shared/widgets/app_drawer.dart';
+import '../../../shared/widgets/notification_bell.dart';
 import '../data/models/customer.dart';
 import '../data/services/customer_service.dart';
 import '../widgets/add_customer_sheet.dart';
@@ -122,6 +123,10 @@ class _CustomersScreenState extends State<CustomersScreen> {
     return AppBar(
       backgroundColor: surfaceCol,
       elevation: 0,
+      actions: [
+        const NotificationBell(),
+        SizedBox(width: context.getRSize(8)),
+      ],
       leading: Builder(
         builder: (ctx) => InkWell(
           borderRadius: BorderRadius.circular(12),

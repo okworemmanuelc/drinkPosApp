@@ -15,9 +15,11 @@ import '../data/inventory_data.dart';
 import '../../../shared/widgets/shared_scaffold.dart';
 import '../../../shared/widgets/menu_button.dart';
 import '../../../shared/widgets/app_bar_header.dart';
+import '../../../shared/widgets/notification_bell.dart';
 import '../../pos/data/products_data.dart';
 import 'product_detail_screen.dart';
 import 'supplier_detail_screen.dart';
+import '../../../core/theme/design_tokens.dart';
 
 class InventoryScreen extends StatefulWidget {
   const InventoryScreen({super.key});
@@ -113,6 +115,7 @@ class _InventoryScreenState extends State<InventoryScreen>
         title: 'Inventory',
         subtitle: 'Stock Management',
       ),
+      actions: const [NotificationBell(), SizedBox(width: AppSpacing.s)],
     );
   }
 
@@ -199,8 +202,8 @@ class _InventoryScreenState extends State<InventoryScreen>
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         padding: EdgeInsets.symmetric(
-          horizontal: context.getRSize(16),
-        ), // RESPONSIVE: edge padding
+          horizontal: context.spacingM,
+      ),
         child: Row(
           children: cards.asMap().entries.map((entry) {
             final int index = entry.key;
@@ -234,12 +237,10 @@ class _InventoryScreenState extends State<InventoryScreen>
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: EdgeInsets.all(
-          context.getRSize(12),
-        ), // RESPONSIVE: dynamic padding
+        padding: EdgeInsets.all(context.spacingM),
         decoration: BoxDecoration(
           color: _isDark ? dCard : lCard,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(context.radiusM),
           border: Border.all(
             color: isActive ? color : color.withValues(alpha: 0.2),
             width: isActive ? 2 : 1,
@@ -266,11 +267,10 @@ class _InventoryScreenState extends State<InventoryScreen>
                 ),
               ),
             ),
-            SizedBox(height: context.getRSize(2)),
+            SizedBox(height: context.spacingS),
             Text(
               label,
-              style: TextStyle(
-                fontSize: context.getRFontSize(10), // RESPONSIVE: scaled font
+              style: context.bodySmall.copyWith(
                 color: _subtext,
                 fontWeight: FontWeight.w600,
               ),
@@ -631,7 +631,7 @@ class _InventoryScreenState extends State<InventoryScreen>
         ),
       ).then((_) => setState(() {})), // refresh after returning
       child: Container(
-        margin: EdgeInsets.only(bottom: context.getRSize(10)), // RESPONSIVE
+        margin: EdgeInsets.only(bottom: context.spacingS),
         decoration: BoxDecoration(
           color: _cardBg,
           borderRadius: BorderRadius.circular(16),

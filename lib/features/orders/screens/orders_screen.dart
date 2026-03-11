@@ -21,6 +21,7 @@ import '../../../shared/widgets/shared_scaffold.dart';
 import '../../deliveries/data/models/delivery_receipt.dart';
 import '../../../shared/widgets/menu_button.dart';
 import '../../../shared/widgets/app_bar_header.dart';
+import '../../../shared/widgets/notification_bell.dart';
 import '../../customers/data/services/customer_service.dart';
 import '../../pos/services/receipt_builder.dart';
 
@@ -116,6 +117,7 @@ class _OrdersScreenState extends State<OrdersScreen>
         subtitle: 'Sales History',
       ),
       centerTitle: true,
+      actions: const [NotificationBell(), SizedBox(width: 8)],
       bottom: TabBar(
         controller: _tabController,
         labelColor: blueMain,

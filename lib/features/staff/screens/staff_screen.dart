@@ -3,6 +3,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../../shared/widgets/shared_scaffold.dart';
 import '../../../shared/widgets/menu_button.dart';
 import '../../../shared/widgets/app_bar_header.dart';
+import '../../../shared/widgets/notification_bell.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/theme_notifier.dart';
 
@@ -27,6 +28,10 @@ class StaffScreen extends StatelessWidget {
           title: 'Staff',
           subtitle: 'Management',
         ),
+        actions: [
+          const NotificationBell(),
+          SizedBox(width: 8),
+        ],
       ),
       body: Center(
         child: Column(

@@ -11,6 +11,7 @@ import '../data/models/expense.dart';
 import '../data/services/expense_service.dart';
 import '../widgets/add_expense_sheet.dart';
 import '../../../core/utils/constants.dart';
+import '../../../shared/widgets/notification_bell.dart';
 
 class ExpensesScreen extends StatefulWidget {
   const ExpensesScreen({super.key});
@@ -165,6 +166,10 @@ class _ExpensesScreenState extends State<ExpensesScreen>
           ),
         ),
       ),
+      actions: [
+        const NotificationBell(),
+        SizedBox(width: context.getRSize(8)),
+      ],
       title: Row(
         children: [
           Container(
@@ -622,16 +627,16 @@ class _ExpensesScreenState extends State<ExpensesScreen>
     double budget = 0;
     switch (_periodFilter) {
       case 'Today':
-        budget = BUDGET_TODAY;
+        budget = budgetToday;
         break;
       case 'This Week':
-        budget = BUDGET_WEEK;
+        budget = budgetWeek;
         break;
       case 'This Month':
-        budget = BUDGET_MONTH;
+        budget = budgetMonth;
         break;
       case 'This Year':
-        budget = BUDGET_YEAR;
+        budget = budgetYear;
         break;
       default:
         // No specific budget for "All Time", so we'll hide it or show a placeholder

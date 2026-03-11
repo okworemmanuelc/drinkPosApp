@@ -7,6 +7,7 @@ import '../../core/utils/responsive.dart';
 import '../models/activity_log.dart';
 import '../services/activity_log_service.dart';
 import 'app_drawer.dart';
+import 'notification_bell.dart';
 
 class ActivityLogScreen extends StatelessWidget {
   const ActivityLogScreen({super.key});
@@ -123,6 +124,10 @@ class ActivityLogScreen extends StatelessWidget {
                 ),
               ],
             ),
+            actions: [
+              const NotificationBell(),
+              SizedBox(width: context.getRSize(8)),
+            ],
           ),
           drawer: const AppDrawer(activeRoute: 'activity_logs'),
           body: ValueListenableBuilder<List<ActivityLog>>(

@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:drink_pos_app/features/deliveries/data/models/delivery.dart';
+import '../../../../shared/services/notification_service.dart';
 
 class DeliveryService extends ValueNotifier<List<Delivery>> {
   DeliveryService() : super(_initialDeliveries);
@@ -8,6 +9,11 @@ class DeliveryService extends ValueNotifier<List<Delivery>> {
 
   void addDelivery(Delivery delivery) {
     value = [...value, delivery];
+    notificationService.createNotification(
+      'new_delivery',
+      'New delivery received from ${delivery.supplierName}',
+      linkedRecordId: delivery.id,
+    );
   }
 
   List<Delivery> getAll() {

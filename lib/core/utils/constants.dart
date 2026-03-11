@@ -1,7 +1,7 @@
-const double LARGE_EXPENSE_THRESHOLD = 20000.0;
+const double largeExpenseThreshold = 20000.0;
 
 // Mock Budgets for different periods
-const double BUDGET_TODAY = 5000.0;
-const double BUDGET_WEEK = 30000.0;
-const double BUDGET_MONTH = 120000.0;
-const double BUDGET_YEAR = 1500000.0;
+const double budgetToday = 5000.0;
+const double budgetWeek = 30000.0;
+const double budgetMonth = 120000.0;
+const double budgetYear = 1500000.0;
