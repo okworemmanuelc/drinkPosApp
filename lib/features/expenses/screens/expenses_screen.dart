@@ -76,24 +76,43 @@ class _ExpensesScreenState extends State<ExpensesScreen>
               );
             },
           ),
-          floatingActionButton: FloatingActionButton.extended(
-            onPressed: () => AddExpenseSheet.show(context),
-            backgroundColor: danger,
-            icon: Icon(
-              FontAwesomeIcons.plus,
-              size: context.getRSize(16),
-              color: Colors.white,
-            ),
-            label: Text(
-              'Add Expense',
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: context.getRFontSize(14),
+          floatingActionButton: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [danger, danger.withValues(alpha: 0.8)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
               ),
-            ),
-            shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: danger.withValues(alpha: 0.3),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: FloatingActionButton.extended(
+              heroTag: 'expenses_fab',
+              onPressed: () => AddExpenseSheet.show(context),
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              icon: Icon(
+                FontAwesomeIcons.plus,
+                size: context.getRSize(16),
+                color: Colors.white,
+              ),
+              label: Text(
+                'Add Expense',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: context.getRFontSize(14),
+                ),
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
             ),
           ),
         );

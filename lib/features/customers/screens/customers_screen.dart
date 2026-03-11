@@ -37,58 +37,6 @@ class _CustomersScreenState extends State<CustomersScreen> {
           drawer: const AppDrawer(activeRoute: 'customers'),
           body: Column(
             children: [
-              Padding(
-                padding: EdgeInsets.fromLTRB(
-                  context.getRSize(16),
-                  context.getRSize(16),
-                  context.getRSize(16),
-                  0,
-                ),
-                child: Container(
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [blueLight, blueDark],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: blueMain.withValues(alpha: 0.3),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.transparent,
-                      foregroundColor: Colors.white,
-                      shadowColor: Colors.transparent,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      padding: EdgeInsets.symmetric(
-                        vertical: context.getRSize(14),
-                      ),
-                      elevation: 0,
-                    ),
-                    onPressed: () => AddCustomerSheet.show(context),
-                    icon: Icon(
-                      FontAwesomeIcons.userPlus,
-                      size: context.getRSize(16),
-                    ),
-                    label: Text(
-                      'Add New Customer',
-                      style: TextStyle(
-                        fontSize: context.getRFontSize(15),
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
               Expanded(
                 child: ValueListenableBuilder<List<Customer>>(
                   valueListenable: customerService,
@@ -97,7 +45,9 @@ class _CustomersScreenState extends State<CustomersScreen> {
                       return const Center(child: Text('No customers found.'));
                     }
                     return ListView.separated(
-                      padding: context.rPadding(16),
+                      padding: context.rPadding(16).copyWith(
+                            bottom: context.getRSize(100),
+                          ),
                       itemCount: customers.length,
                       separatorBuilder: (context, index) =>
                           SizedBox(height: context.getRSize(12)),
@@ -117,6 +67,45 @@ class _CustomersScreenState extends State<CustomersScreen> {
                 ),
               ),
             ],
+          ),
+          floatingActionButton: Container(
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [blueLight, blueDark],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: blueMain.withValues(alpha: 0.3),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: FloatingActionButton.extended(
+              heroTag: 'customers_fab',
+              onPressed: () => AddCustomerSheet.show(context),
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              icon: Icon(
+                FontAwesomeIcons.userPlus,
+                size: context.getRSize(16),
+                color: Colors.white,
+              ),
+              label: Text(
+                'Add New Customer',
+                style: TextStyle(
+                  fontSize: context.getRFontSize(15),
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+            ),
           ),
         );
       },

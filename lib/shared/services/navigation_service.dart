@@ -6,6 +6,7 @@ class NavigationService {
   NavigationService._internal();
 
   final ValueNotifier<int> currentIndex = ValueNotifier<int>(0);
+  final ValueNotifier<String?> selectedWarehouseId = ValueNotifier<String?>(null);
 
   void setIndex(int index) {
     currentIndex.value = index;

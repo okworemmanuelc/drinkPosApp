@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import '../../../shared/services/navigation_service.dart';
 
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/theme_notifier.dart';
@@ -28,6 +29,7 @@ class _InventoryScreenState extends State<InventoryScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   String _selectedSupplierId = 'all';
+  String _selectedWarehouseId = 'all';
   String _stockFilter = 'all'; // 'all' | 'low' | 'out' | 'empty_crates'
 
   bool get _isDark => themeNotifier.value == ThemeMode.dark;
@@ -42,10 +44,25 @@ class _InventoryScreenState extends State<InventoryScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
+    
+    // Listen for cross-screen warehouse selection
+    navigationService.selectedWarehouseId.addListener(_handleWarehouseNavigation);
+  }
+
+  void _handleWarehouseNavigation() {
+    final id = navigationService.selectedWarehouseId.value;
+    if (id != null) {
+      setState(() {
+        _selectedWarehouseId = id;
+      });
+      // Clear it so it doesn't trigger again on subsequent rebuilds/navigations unless set again
+      navigationService.selectedWarehouseId.value = null;
+    }
   }
 
   @override
   void dispose() {
+    navigationService.selectedWarehouseId.removeListener(_handleWarehouseNavigation);
     _tabController.dispose();
     super.dispose();
   }
@@ -101,11 +118,23 @@ class _InventoryScreenState extends State<InventoryScreen>
 
   // ── SUMMARY CARDS ─────────────────────────────────────────────────────────────
   Widget _buildSummaryCards(BuildContext context) {
-    final totalItems = kInventoryItems.length;
-    final lowStock = kInventoryItems
-        .where((i) => i.totalStock <= i.lowStockThreshold)
+    final filteredByWarehouse = _selectedWarehouseId == 'all'
+        ? kInventoryItems
+        : kInventoryItems.where((i) => i.warehouseStock.containsKey(_selectedWarehouseId)).toList();
+
+    final totalItems = filteredByWarehouse.length;
+    final lowStock = filteredByWarehouse
+        .where((i) {
+          final stock = _selectedWarehouseId == 'all' ? i.totalStock : i.getStockForWarehouse(_selectedWarehouseId);
+          return stock <= i.lowStockThreshold;
+        })
         .length;
-    final outOfStock = kInventoryItems.where((i) => i.totalStock == 0).length;
+    final outOfStock = filteredByWarehouse
+        .where((i) {
+          final stock = _selectedWarehouseId == 'all' ? i.totalStock : i.getStockForWarehouse(_selectedWarehouseId);
+          return stock == 0;
+        })
+        .length;
     final totalCrates = _activeCrateGroups.fold<double>(
       0,
       (s, c) => s + c.available,
@@ -231,7 +260,7 @@ class _InventoryScreenState extends State<InventoryScreen>
               child: Text(
                 value,
                 style: TextStyle(
-                  fontSize: context.getRFontSize(20), // RESPONSIVE: scaled font
+                  fontSize: rFontSize(context, 20), // RESPONSIVE: scaled font
                   fontWeight: FontWeight.w800,
                   color: _text,
                 ),
@@ -440,12 +469,22 @@ class _InventoryScreenState extends State<InventoryScreen>
               .where((i) => i.supplierId == _selectedSupplierId)
               .toList();
 
+    if (_selectedWarehouseId != 'all') {
+      list = list.where((i) => i.warehouseStock.containsKey(_selectedWarehouseId)).toList();
+    }
+
     if (_stockFilter == 'low') {
       return list
-          .where((i) => i.totalStock > 0 && i.totalStock <= i.lowStockThreshold)
+          .where((i) {
+            final stock = _selectedWarehouseId == 'all' ? i.totalStock : i.getStockForWarehouse(_selectedWarehouseId);
+            return stock > 0 && stock <= i.lowStockThreshold;
+          })
           .toList();
     } else if (_stockFilter == 'out') {
-      return list.where((i) => i.totalStock == 0).toList();
+      return list.where((i) {
+        final stock = _selectedWarehouseId == 'all' ? i.totalStock : i.getStockForWarehouse(_selectedWarehouseId);
+        return stock == 0;
+      }).toList();
     }
     return list;
   }
@@ -469,64 +508,98 @@ class _InventoryScreenState extends State<InventoryScreen>
 
   Widget _buildSupplierFilter(BuildContext context) {
     return Container(
+      padding: EdgeInsets.fromLTRB(
+        context.getRSize(16),
+        context.getRSize(12),
+        context.getRSize(16),
+        context.getRSize(16),
+      ),
       color: _surface,
-      child: Column(
+      child: Row(
         children: [
-          SizedBox(
-            height: context.getRSize(58), // RESPONSIVE
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              padding: EdgeInsets.symmetric(
-                horizontal: context.getRSize(16),
-                vertical: context.getRSize(12),
-              ), // RESPONSIVE
-              children: [
-                _filterChip(context, 'All', 'all'),
-                ...supplierService.getAll().map(
-                  (s) => _filterChip(context, s.name.split(' ').first, s.id),
-                ),
+          // Warehouse Dropdown
+          Expanded(
+            child: _buildFilterDropdown(
+              label: 'Warehouse',
+              value: _selectedWarehouseId,
+              items: [
+                const DropdownMenuItem(value: 'all', child: Text('All Warehouses')),
+                ...kWarehouses.map((w) => DropdownMenuItem(value: w.id, child: Text(w.name))),
               ],
+              onChanged: (val) => setState(() => _selectedWarehouseId = val!),
             ),
           ),
-          Divider(height: 1, color: _border),
+          SizedBox(width: context.getRSize(12)),
+          // Supplier Dropdown
+          Expanded(
+            child: _buildFilterDropdown(
+              label: 'Supplier',
+              value: _selectedSupplierId,
+              items: [
+                const DropdownMenuItem(value: 'all', child: Text('All Suppliers')),
+                ...supplierService.getAll().map(
+                  (s) => DropdownMenuItem(value: s.id, child: Text(s.name)),
+                ),
+              ],
+              onChanged: (val) => setState(() => _selectedSupplierId = val!),
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _filterChip(BuildContext context, String label, String id) {
-    final active = _selectedSupplierId == id;
-    return Padding(
-      padding: EdgeInsets.only(right: context.getRSize(8)), // RESPONSIVE
-      child: GestureDetector(
-        onTap: () => setState(() => _selectedSupplierId = id),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          padding: EdgeInsets.symmetric(
-            horizontal: context.getRSize(18),
-            vertical: context.getRSize(6),
-          ), // RESPONSIVE
-          decoration: BoxDecoration(
-            color: active ? blueMain : (_isDark ? dCard : lCard),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: active ? blueMain : _border),
+  Widget _buildFilterDropdown({
+    required String label,
+    required String value,
+    required List<DropdownMenuItem<String>> items,
+    required ValueChanged<String?> onChanged,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: context.getRFontSize(11),
+            fontWeight: FontWeight.w700,
+            color: _subtext,
+            letterSpacing: 0.5,
           ),
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: context.getRFontSize(13), // RESPONSIVE
-              fontWeight: active ? FontWeight.w700 : FontWeight.w600,
-              color: active ? Colors.white : _subtext,
+        ),
+        SizedBox(height: context.getRSize(6)),
+        Container(
+          padding: EdgeInsets.symmetric(horizontal: context.getRSize(12)),
+          decoration: BoxDecoration(
+            color: _isDark ? dCard : lCard,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: _border),
+          ),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<String>(
+              value: value,
+              items: items,
+              onChanged: onChanged,
+              isExpanded: true,
+              icon: Icon(Icons.keyboard_arrow_down, color: blueMain, size: context.getRSize(18)),
+              style: TextStyle(
+                fontSize: context.getRFontSize(13),
+                fontWeight: FontWeight.w600,
+                color: _text,
+              ),
+              dropdownColor: _surface,
+              borderRadius: BorderRadius.circular(12),
             ),
           ),
         ),
-      ),
+      ],
     );
   }
 
   Widget _buildProductRow(BuildContext context, InventoryItem item) {
-    final isLow = item.totalStock > 0 && item.totalStock <= item.lowStockThreshold;
-    final isOut = item.totalStock == 0;
+    final currentStock = _selectedWarehouseId == 'all' ? item.totalStock : item.getStockForWarehouse(_selectedWarehouseId);
+    final isLow = currentStock > 0 && currentStock <= item.lowStockThreshold;
+    final isOut = currentStock == 0;
     final supplier = supplierService.getAll().firstWhere(
       (s) => s.id == item.supplierId,
       orElse: () =>
@@ -676,7 +749,7 @@ class _InventoryScreenState extends State<InventoryScreen>
                     // RESPONSIVE: Prevent quantity overflow
                     fit: BoxFit.scaleDown,
                     child: Text(
-                      item.totalStock.toStringAsFixed(item.totalStock % 1 == 0 ? 0 : 1),
+                      currentStock.toStringAsFixed(currentStock % 1 == 0 ? 0 : 1),
                       style: TextStyle(
                         fontSize: context.getRFontSize(22), // RESPONSIVE
                         fontWeight: FontWeight.w800,
@@ -1140,46 +1213,49 @@ class _InventoryScreenState extends State<InventoryScreen>
 
   // ── FAB ───────────────────────────────────────────────────────────────────────
   Widget _buildAddFab(BuildContext context) {
-    return GestureDetector(
-      onTap: _showAddProductDialog,
-      child: Container(
-        padding: EdgeInsets.symmetric(
-          horizontal: context.getRSize(20),
-          vertical: context.getRSize(14),
-        ), // RESPONSIVE
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [blueLight, blueMain],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(24),
-          boxShadow: [
-            BoxShadow(
-              color: blueMain.withValues(alpha: 0.4),
-              blurRadius: 16,
-              offset: const Offset(0, 6),
+    return Hero(
+      tag: 'inventory_fab',
+      child: GestureDetector(
+        onTap: _showAddProductDialog,
+        child: Container(
+          padding: EdgeInsets.symmetric(
+            horizontal: context.getRSize(20),
+            vertical: context.getRSize(14),
+          ), // RESPONSIVE
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [blueLight, blueDark],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
-          ],
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              FontAwesomeIcons.plus,
-              color: Colors.white,
-              size: context.getRSize(16),
-            ), // RESPONSIVE
-            SizedBox(width: context.getRSize(10)), // RESPONSIVE
-            Text(
-              'Add Product',
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w800,
-                fontSize: context.getRFontSize(13), // RESPONSIVE
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: blueMain.withValues(alpha: 0.4),
+                blurRadius: 16,
+                offset: const Offset(0, 6),
               ),
-            ),
-          ],
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                FontAwesomeIcons.plus,
+                color: Colors.white,
+                size: context.getRSize(16),
+              ), // RESPONSIVE
+              SizedBox(width: context.getRSize(10)), // RESPONSIVE
+              Text(
+                'Add Product',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w800,
+                  fontSize: context.getRFontSize(13), // RESPONSIVE
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

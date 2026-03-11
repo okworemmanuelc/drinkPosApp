@@ -38,7 +38,6 @@ class _DeliveriesScreenState extends State<DeliveriesScreen> {
           appBar: _buildAppBar(context),
           body: Column(
             children: [
-              _buildReceiveDeliveryButton(context),
               _buildFilterChips(context),
               Expanded(
                 child: ValueListenableBuilder<List<Delivery>>(
@@ -55,6 +54,50 @@ class _DeliveriesScreenState extends State<DeliveriesScreen> {
                 ),
               ),
             ],
+          ),
+          floatingActionButton: Container(
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [blueLight, blueDark],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: blueMain.withValues(alpha: 0.3),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: FloatingActionButton.extended(
+              heroTag: 'deliveries_fab',
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const ReceiveDeliveryScreen()),
+                );
+              },
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              icon: Icon(
+                FontAwesomeIcons.truckRampBox,
+                size: context.getRSize(16),
+                color: Colors.white,
+              ),
+              label: Text(
+                'Receive Delivery',
+                style: TextStyle(
+                  fontSize: context.getRFontSize(15),
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+            ),
           ),
         );
       },
@@ -117,60 +160,6 @@ class _DeliveriesScreenState extends State<DeliveriesScreen> {
     );
   }
 
-  Widget _buildReceiveDeliveryButton(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.fromLTRB(
-        context.getRSize(16),
-        context.getRSize(16),
-        context.getRSize(16),
-        0,
-      ),
-      child: Container(
-        width: double.infinity,
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [blueLight, blueDark],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: blueMain.withValues(alpha: 0.3),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: ElevatedButton.icon(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.transparent,
-            foregroundColor: Colors.white,
-            shadowColor: Colors.transparent,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            padding: EdgeInsets.symmetric(vertical: context.getRSize(14)),
-            elevation: 0,
-          ),
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const ReceiveDeliveryScreen()),
-            );
-          },
-          icon: Icon(FontAwesomeIcons.truckRampBox, size: context.getRSize(16)),
-          label: Text(
-            'Receive Delivery',
-            style: TextStyle(
-              fontSize: context.getRFontSize(15),
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 
   Widget _buildFilterChips(BuildContext context) {
     final filters = ['Today', 'This Week', 'This Month', 'This Year', 'All'];
@@ -275,7 +264,7 @@ class _DeliveriesScreenState extends State<DeliveriesScreen> {
         context.getRSize(16),
         0,
         context.getRSize(16),
-        context.getRSize(16),
+        context.getRSize(100),
       ),
       itemCount: listItems.length,
       itemBuilder: (context, index) {
