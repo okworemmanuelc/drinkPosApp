@@ -389,6 +389,9 @@ class _AddPaymentSheetState extends State<AddPaymentSheet> {
                           DropdownButton<String>(
                             value: _paymentMethod,
                             isExpanded: true,
+                            alignment: AlignmentDirectional.bottomStart,
+                            menuMaxHeight: 350,
+                            borderRadius: BorderRadius.circular(12),
                             underline: const SizedBox(),
                             items: ['Cash', 'Transfer', 'Cheque', 'POS']
                                 .map(
@@ -450,6 +453,9 @@ class _AddPaymentSheetState extends State<AddPaymentSheet> {
                           DropdownButton<String?>(
                             value: _selectedDeliveryId,
                             isExpanded: true,
+                            alignment: AlignmentDirectional.bottomStart,
+                            menuMaxHeight: 350,
+                            borderRadius: BorderRadius.circular(12),
                             underline: const SizedBox(),
                             items: [
                               DropdownMenuItem<String?>(

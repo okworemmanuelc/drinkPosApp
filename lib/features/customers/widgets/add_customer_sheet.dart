@@ -124,6 +124,9 @@ class _AddCustomerSheetState extends State<AddCustomerSheet> {
             child: DropdownButton<CustomerGroup>(
               value: _selectedGroup,
               isExpanded: true,
+              alignment: AlignmentDirectional.bottomStart,
+              menuMaxHeight: 350,
+              borderRadius: BorderRadius.circular(12),
               dropdownColor: _surface,
               icon: Icon(Icons.keyboard_arrow_down, color: blueMain),
               items: CustomerGroup.values.map((group) {

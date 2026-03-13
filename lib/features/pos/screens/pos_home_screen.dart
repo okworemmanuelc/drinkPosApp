@@ -237,6 +237,8 @@ class _PosHomeScreenState extends State<PosHomeScreen>
         child: DropdownButton<T>(
           value: value,
           isExpanded: true,
+          alignment: AlignmentDirectional.bottomStart,
+          menuMaxHeight: 350,
           icon: Icon(
             FontAwesomeIcons.chevronDown,
             size: context.getRSize(10),

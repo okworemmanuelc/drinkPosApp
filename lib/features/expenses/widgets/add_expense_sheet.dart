@@ -376,6 +376,9 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
                           DropdownButton<String>(
                             value: _paymentMethod,
                             isExpanded: true,
+                            alignment: AlignmentDirectional.bottomStart,
+                            menuMaxHeight: 350,
+                            borderRadius: BorderRadius.circular(12),
                             underline: const SizedBox(),
                             items: ['Cash', 'Transfer', 'POS', 'Credit']
                                 .map(

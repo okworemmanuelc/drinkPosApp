@@ -11,6 +11,12 @@ import '../data/models/payment.dart';
 import '../data/services/payment_service.dart';
 import '../widgets/add_payment_sheet.dart';
 import '../../../shared/widgets/notification_bell.dart';
+import '../../inventory/data/models/supplier.dart';
+import '../../inventory/data/services/supplier_service.dart';
+import '../../inventory/screens/supplier_detail_screen.dart';
+import '../../inventory/data/models/inventory_log.dart';
+import '../../inventory/data/inventory_data.dart';
+import '../../inventory/data/models/crate_group.dart';
 
 class PaymentsScreen extends StatefulWidget {
   const PaymentsScreen({super.key});
@@ -19,7 +25,8 @@ class PaymentsScreen extends StatefulWidget {
   State<PaymentsScreen> createState() => _PaymentsScreenState();
 }
 
-class _PaymentsScreenState extends State<PaymentsScreen> {
+class _PaymentsScreenState extends State<PaymentsScreen> with SingleTickerProviderStateMixin {
+  late TabController _tabController;
   String _periodFilter = 'This Month';
   String _supplierFilter = 'All';
 
@@ -29,6 +36,19 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
   Color get _text => _isDark ? dText : lText;
   Color get _subtext => _isDark ? dSubtext : lSubtext;
   Color get _border => _isDark ? dBorder : lBorder;
+  Color get _cardBg => _isDark ? dCard : lSurface;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -39,43 +59,19 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
           backgroundColor: _bg,
           drawer: const AppDrawer(activeRoute: 'supplier_accounts'),
           appBar: _buildAppBar(context),
-          body: ValueListenableBuilder<List<Payment>>(
-            valueListenable: paymentService,
-            builder: (context, payments, child) {
-              final periodPayments = paymentService.getByPeriod(_periodFilter);
-
-              // Compute unique suppliers for chips
-              final Set<String> supplierNames = {};
-              for (var p in periodPayments) {
-                supplierNames.add(p.supplierName);
-              }
-              final supplierList = supplierNames.toList()..sort();
-              supplierList.insert(0, 'All');
-
-              // Apply supplier filter
-              final filteredPayments = periodPayments.where((p) {
-                if (_supplierFilter == 'All') return true;
-                return p.supplierName == _supplierFilter;
-              }).toList();
-
-              filteredPayments.sort((a, b) => b.date.compareTo(a.date));
-
-              final totalForPeriod = filteredPayments.fold(
-                0.0,
-                (sum, p) => sum + p.amount,
-              );
-
-              return Column(
-                children: [
-                  _buildHeaderArea(context, totalForPeriod),
-                  if (supplierList.length > 1)
-                    _buildFilterChips(context, supplierList),
-                  Expanded(
-                    child: _buildPaymentsList(context, filteredPayments),
-                  ),
-                ],
-              );
-            },
+          body: Column(
+            children: [
+              _buildTabBar(context),
+              Expanded(
+                child: TabBarView(
+                  controller: _tabController,
+                  children: [
+                    _buildPaymentsTab(context),
+                    _buildSuppliersTab(context),
+                  ],
+                ),
+              ),
+            ],
           ),
           floatingActionButton: Container(
             decoration: BoxDecoration(
@@ -260,16 +256,22 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
               ),
             ],
           ),
-          Container(
-            padding: EdgeInsets.symmetric(horizontal: context.getRSize(12)),
-            decoration: BoxDecoration(
-              color: _bg,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: _border),
-            ),
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<String>(
-                value: _periodFilter,
+          SizedBox(
+            width: context.getRSize(130),
+            child: Container(
+              padding: EdgeInsets.symmetric(horizontal: context.getRSize(12)),
+              decoration: BoxDecoration(
+                color: _bg,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: _border),
+              ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  isExpanded: true,
+                  alignment: AlignmentDirectional.bottomStart,
+                  menuMaxHeight: 350,
+                  borderRadius: BorderRadius.circular(12),
+                  value: _periodFilter,
                 icon: Icon(
                   FontAwesomeIcons.chevronDown,
                   size: context.getRSize(12),
@@ -306,10 +308,11 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
               ),
             ),
           ),
-        ],
-      ),
-    );
-  }
+        ),
+      ],
+    ),
+  );
+}
 
   Widget _buildFilterChips(BuildContext context, List<String> suppliers) {
     return Container(
@@ -352,6 +355,347 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
           );
         },
       ),
+    );
+  }
+
+  Widget _buildTabBar(BuildContext context) {
+    return Container(
+      color: _surface,
+      child: TabBar(
+        controller: _tabController,
+        labelColor: blueMain,
+        unselectedLabelColor: _subtext,
+        indicatorColor: blueMain,
+        indicatorWeight: 3,
+        labelStyle: TextStyle(
+          fontWeight: FontWeight.bold,
+          fontSize: context.getRFontSize(14),
+        ),
+        tabs: const [
+          Tab(text: 'Payments'),
+          Tab(text: 'Suppliers'),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPaymentsTab(BuildContext context) {
+    return ValueListenableBuilder<List<Payment>>(
+      valueListenable: paymentService,
+      builder: (context, payments, child) {
+        final periodPayments = paymentService.getByPeriod(_periodFilter);
+
+        // Compute unique suppliers for chips
+        final Set<String> supplierNames = {};
+        for (var p in periodPayments) {
+          supplierNames.add(p.supplierName);
+        }
+        final supplierList = supplierNames.toList()..sort();
+        supplierList.insert(0, 'All');
+
+        // Apply supplier filter
+        final filteredPayments = periodPayments.where((p) {
+          if (_supplierFilter == 'All') return true;
+          return p.supplierName == _supplierFilter;
+        }).toList();
+
+        filteredPayments.sort((a, b) => b.date.compareTo(a.date));
+
+        final totalForPeriod = filteredPayments.fold(
+          0.0,
+          (sum, p) => sum + p.amount,
+        );
+
+        return Column(
+          children: [
+            _buildHeaderArea(context, totalForPeriod),
+            if (supplierList.length > 1) _buildFilterChips(context, supplierList),
+            Expanded(child: _buildPaymentsList(context, filteredPayments)),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildSuppliersTab(BuildContext context) {
+    return Column(
+      children: [
+        Padding(
+          padding: EdgeInsets.all(context.getRSize(16)),
+          child: SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: blueMain.withValues(alpha: 0.1),
+                foregroundColor: blueMain,
+                elevation: 0,
+                padding: EdgeInsets.symmetric(vertical: context.getRSize(16)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  side: BorderSide(color: blueMain.withValues(alpha: 0.3)),
+                ),
+              ),
+              icon: Icon(FontAwesomeIcons.plus, size: context.getRSize(16)),
+              label: Text(
+                'Add Supplier',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: context.getRFontSize(15),
+                ),
+              ),
+              onPressed: _showAddSupplierDialog,
+            ),
+          ),
+        ),
+        Expanded(
+          child: supplierService.getAll().isEmpty
+              ? Center(
+                  child: Text(
+                    'No suppliers added yet',
+                    style: TextStyle(color: _subtext),
+                  ),
+                )
+              : ListView.builder(
+                  padding: EdgeInsets.fromLTRB(
+                    context.getRSize(16),
+                    0,
+                    context.getRSize(16),
+                    context.getRSize(120),
+                  ),
+                  itemCount: supplierService.getAll().length,
+                  itemBuilder: (_, i) {
+                    final s = supplierService.getAll()[i];
+                    return GestureDetector(
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => SupplierDetailScreen(supplier: s),
+                        ),
+                      ).then((_) => setState(() {})),
+                      child: Container(
+                        margin: EdgeInsets.only(bottom: context.getRSize(12)),
+                        padding: EdgeInsets.all(context.getRSize(16)),
+                        decoration: BoxDecoration(
+                          color: _cardBg,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: _border),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: context.getRSize(48),
+                              height: context.getRSize(48),
+                              decoration: BoxDecoration(
+                                color: blueMain.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Icon(
+                                FontAwesomeIcons.buildingColumns,
+                                color: blueMain,
+                                size: context.getRSize(20),
+                              ),
+                            ),
+                            SizedBox(width: context.getRSize(16)),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    s.name,
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: context.getRFontSize(16),
+                                      color: _text,
+                                    ),
+                                  ),
+                                  if (s.contactDetails.isNotEmpty) ...[
+                                    SizedBox(height: context.getRSize(4)),
+                                    Text(
+                                      s.contactDetails,
+                                      style: TextStyle(
+                                        color: _subtext,
+                                        fontSize: context.getRFontSize(13),
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                            Icon(
+                              Icons.chevron_right,
+                              color: _subtext,
+                              size: context.getRSize(20),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+        ),
+      ],
+    );
+  }
+
+  void _showAddSupplierDialog() {
+    final nameCtrl = TextEditingController();
+    final contactCtrl = TextEditingController();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => StatefulBuilder(
+        builder: (ctx, setB) => Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(ctx).viewInsets.bottom + MediaQuery.of(ctx).padding.bottom,
+          ),
+          child: Container(
+            decoration: BoxDecoration(
+              color: _isDark ? dSurface : lSurface,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+            ),
+            padding: EdgeInsets.fromLTRB(
+              ctx.getRSize(20),
+              ctx.getRSize(20),
+              ctx.getRSize(20),
+              ctx.getRSize(32),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: _border,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                SizedBox(height: ctx.getRSize(20)),
+                Text(
+                  'Add New Supplier',
+                  style: TextStyle(
+                    fontSize: ctx.getRFontSize(20),
+                    fontWeight: FontWeight.w800,
+                    color: _text,
+                  ),
+                ),
+                SizedBox(height: ctx.getRSize(4)),
+                Text(
+                  'Enter the company and contact details',
+                  style: TextStyle(
+                    fontSize: ctx.getRFontSize(13),
+                    color: _subtext,
+                  ),
+                ),
+                SizedBox(height: ctx.getRSize(20)),
+                _inputField(
+                  'Supplier / Company Name',
+                  nameCtrl,
+                  'e.g. SABMiller Nigeria',
+                ),
+                SizedBox(height: ctx.getRSize(16)),
+                _inputField(
+                  'Contact Details / Rep Info',
+                  contactCtrl,
+                  'e.g. John Doe, 08012345678',
+                ),
+                SizedBox(height: ctx.getRSize(32)),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: blueMain,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      padding: EdgeInsets.symmetric(vertical: ctx.getRSize(16)),
+                      elevation: 0,
+                    ),
+                    onPressed: () {
+                      if (nameCtrl.text.trim().isEmpty) return;
+                      final newSupplier = Supplier(
+                        id: 's${DateTime.now().millisecondsSinceEpoch}',
+                        name: nameCtrl.text.trim(),
+                        crateGroup: CrateGroup.nbPlc,
+                        trackInventory: true,
+                        contactDetails: contactCtrl.text.trim(),
+                        amountPaid: 0.0,
+                        supplierWallet: 0.0,
+                      );
+                      final log = InventoryLog(
+                        timestamp: DateTime.now(),
+                        user: 'John Cashier',
+                        itemId: newSupplier.id,
+                        itemName: newSupplier.name,
+                        action: 'new_supplier',
+                        previousValue: 0,
+                        newValue: 0,
+                        note: 'Supplier added: ${newSupplier.name}',
+                      );
+                      setState(() {
+                        supplierService.addSupplier(newSupplier);
+                        kInventoryLogs.add(log);
+                      });
+                      Navigator.pop(ctx);
+                    },
+                    child: Text(
+                      'Add Supplier',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: ctx.getRFontSize(15),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _inputField(String label, TextEditingController ctrl, String hint) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: context.getRFontSize(12),
+            fontWeight: FontWeight.bold,
+            color: _subtext,
+          ),
+        ),
+        SizedBox(height: context.getRSize(8)),
+        TextField(
+          controller: ctrl,
+          style: TextStyle(color: _text, fontWeight: FontWeight.w600),
+          decoration: InputDecoration(
+            hintText: hint,
+            hintStyle: TextStyle(color: _subtext.withValues(alpha: 0.5)),
+            filled: true,
+            fillColor: _bg,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: _border),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: _border),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: blueMain),
+            ),
+            contentPadding: EdgeInsets.all(context.getRSize(16)),
+          ),
+        ),
+      ],
     );
   }
 

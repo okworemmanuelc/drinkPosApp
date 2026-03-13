@@ -164,6 +164,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
         child: DropdownButton<String>(
           value: _selectedPeriod,
           isExpanded: true,
+          alignment: AlignmentDirectional.bottomStart,
+          menuMaxHeight: 350,
+          borderRadius: BorderRadius.circular(12),
           icon: Padding(
             padding: EdgeInsets.only(left: context.getRSize(8)),
             child: Icon(
@@ -173,7 +176,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ),
           dropdownColor: _surface,
-          borderRadius: BorderRadius.circular(12),
           items: _periods.map((p) {
             return DropdownMenuItem(
               value: p,

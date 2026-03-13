@@ -273,6 +273,9 @@ class _StockTransferScreenState extends State<StockTransferScreen> {
           DropdownButton<Warehouse>(
             value: _sourceWarehouse,
             isExpanded: true,
+            alignment: AlignmentDirectional.bottomStart,
+            menuMaxHeight: 350,
+            borderRadius: BorderRadius.circular(12),
             underline: const SizedBox(),
             items: kWarehouses.map((w) {
               return DropdownMenuItem(
@@ -301,6 +304,9 @@ class _StockTransferScreenState extends State<StockTransferScreen> {
           DropdownButton<Warehouse>(
             value: _destinationWarehouse,
             isExpanded: true,
+            alignment: AlignmentDirectional.bottomStart,
+            menuMaxHeight: 350,
+            borderRadius: BorderRadius.circular(12),
             underline: const SizedBox(),
             items: kWarehouses.map((w) {
               return DropdownMenuItem(

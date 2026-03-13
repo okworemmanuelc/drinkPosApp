@@ -300,6 +300,8 @@ class _ExpensesScreenState extends State<ExpensesScreen>
                     child: DropdownButton<String>(
                       value: _periodFilter,
                       isExpanded: true, // Make it fill the container
+                      alignment: AlignmentDirectional.bottomStart,
+                      menuMaxHeight: 350,
                       icon: Padding(
                         padding: EdgeInsets.only(left: context.getRSize(8)), // Responsive spacing
                         child: Icon(

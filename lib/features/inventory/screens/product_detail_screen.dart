@@ -138,10 +138,36 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       width: 2,
                     ),
                   ),
-                  child: Icon(
-                    widget.item.icon,
-                    color: Colors.white,
-                    size: context.getRSize(36),
+                  child: Stack(
+                    children: [
+                      Center(
+                        child: Icon(
+                          widget.item.icon,
+                          color: Colors.white,
+                          size: context.getRSize(36),
+                        ),
+                      ),
+                      Positioned(
+                        right: 0,
+                        bottom: 0,
+                        child: GestureDetector(
+                          onTap: _pickImage,
+                          child: Container(
+                            padding: EdgeInsets.all(context.getRSize(4)),
+                            decoration: BoxDecoration(
+                              color: blueMain,
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.white, width: 2),
+                            ),
+                            child: Icon(
+                              Icons.edit,
+                              color: Colors.white,
+                              size: context.getRSize(12),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 SizedBox(height: context.getRSize(14)),
@@ -223,14 +249,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             (c) => c.group == supplier!.crateGroup,
             orElse: () => CrateStock(group: CrateGroup.nbPlc),
           );
-    final product = kProducts.firstWhere(
-      (p) => p['name'] == widget.item.productName,
-      orElse: () => <String, dynamic>{},
-    );
-    final int sellingPrice = (product['sellingPrice'] as num?)?.toInt() ?? 0;
-    final int buyingPrice = (product['bulkBreakerPrice'] as num?)?.toInt() ?? 0;
     final double totalStockValue = stockValue(
-      sellingPrice.toDouble(),
+      (widget.item.sellingPrice ?? 0).toDouble(),
       widget.item.totalStock,
     );
 
@@ -259,6 +279,19 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               'Total Quantity',
               widget.item.totalStock.toStringAsFixed(widget.item.totalStock % 1 == 0 ? 0 : 1),
               blueMain,
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    icon: Icon(FontAwesomeIcons.circleMinus, size: context.getRSize(16), color: danger),
+                    onPressed: () => _updateQuantity(-1),
+                  ),
+                  IconButton(
+                    icon: Icon(FontAwesomeIcons.circlePlus, size: context.getRSize(16), color: success),
+                    onPressed: () => _updateQuantity(1),
+                  ),
+                ],
+              ),
             ),
             _divider(context),
             _infoRow(
@@ -296,16 +329,45 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               context,
               FontAwesomeIcons.tags,
               'Selling Price',
-              formatCurrency(sellingPrice),
+              formatCurrency(widget.item.sellingPrice ?? 0),
               success,
+              onTap: () => _editPrice('sellingPrice'),
             ),
             _divider(context),
             _infoRow(
               context,
               FontAwesomeIcons.dollarSign,
               'Buying Price',
-              formatCurrency(buyingPrice),
+              formatCurrency(widget.item.buyingPrice ?? 0),
               const Color(0xFFF59E0B),
+              onTap: () => _editPrice('buyingPrice'),
+            ),
+            _divider(context),
+            _infoRow(
+              context,
+              FontAwesomeIcons.tag,
+              'Retail Price',
+              formatCurrency(widget.item.retailPrice ?? 0),
+              blueMain,
+              onTap: () => _editPrice('retailPrice'),
+            ),
+            _divider(context),
+            _infoRow(
+              context,
+              FontAwesomeIcons.users,
+              'Bulk Breaker Price',
+              formatCurrency(widget.item.bulkBreakerPrice ?? 0),
+              const Color(0xFF8B5CF6),
+              onTap: () => _editPrice('bulkBreakerPrice'),
+            ),
+            _divider(context),
+            _infoRow(
+              context,
+              FontAwesomeIcons.truck,
+              'Distributor Price',
+              formatCurrency(widget.item.distributorPrice ?? 0),
+              const Color(0xFFEC4899),
+              onTap: () => _editPrice('distributorPrice'),
             ),
             _divider(context),
             _infoRow(
@@ -336,7 +398,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           // ── Last Delivery ───────────────────────────────────────────
           _sectionTitle(context, 'Last Delivery'),
           SizedBox(height: context.getRSize(12)),
-          _buildDeliveryCard(context, deliveryLogs, buyingPrice),
+          _buildDeliveryCard(context, deliveryLogs, (widget.item.buyingPrice ?? 0).toInt()),
 
           SizedBox(height: context.getRSize(40)),
         ],
@@ -374,17 +436,17 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               elevation: 0,
             ),
             icon: Icon(
-              FontAwesomeIcons.penToSquare,
+              FontAwesomeIcons.trashCan,
               size: context.getRSize(16),
             ),
             label: Text(
-              'Update Stock',
+              'Delete Product',
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: context.getRFontSize(16),
               ),
             ),
-            onPressed: widget.onUpdateStock,
+            onPressed: () => _confirmDelete(context),
           ),
         ),
       ),
@@ -745,7 +807,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         context,
         FontAwesomeIcons.dollarSign,
         'Price Per Unit',
-          formatCurrency(buyingPrice),
+          formatCurrency(widget.item.buyingPrice ?? 0),
         const Color(0xFFF59E0B),
       ),
       _divider(context),
@@ -753,7 +815,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         context,
         FontAwesomeIcons.receipt,
         'Total Delivery Cost',
-        formatCurrency(buyingPrice * qty),
+        formatCurrency((widget.item.buyingPrice ?? 0) * qty),
         success,
       ),
     ]);
@@ -862,6 +924,118 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  void _pickImage() {
+    // In a real app, this would use image_picker
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Image picking not implemented (Mock)')),
+    );
+  }
+
+  void _updateQuantity(double delta) {
+    setState(() {
+      final warehouseId = widget.item.warehouseStock.keys.isNotEmpty
+          ? widget.item.warehouseStock.keys.first
+          : 'w1';
+      final current = widget.item.warehouseStock[warehouseId] ?? 0;
+      widget.item.warehouseStock[warehouseId] = current + delta;
+
+      kInventoryLogs.add(
+        InventoryLog(
+          timestamp: DateTime.now(),
+          user: 'John Cashier',
+          itemId: widget.item.id,
+          itemName: widget.item.productName,
+          action: delta > 0 ? 'restock' : 'adjustment',
+          previousValue: current,
+          newValue: widget.item.warehouseStock[warehouseId]!,
+          note: 'Direct manual adjustment from detail screen',
+        ),
+      );
+    });
+  }
+
+  void _editPrice(String field) {
+    final controller = TextEditingController(
+      text: field == 'sellingPrice' ? (widget.item.sellingPrice ?? 0).toString() :
+            field == 'buyingPrice' ? (widget.item.buyingPrice ?? 0).toString() :
+            field == 'retailPrice' ? (widget.item.retailPrice ?? 0).toString() :
+            field == 'bulkBreakerPrice' ? (widget.item.bulkBreakerPrice ?? 0).toString() :
+            (widget.item.distributorPrice ?? 0).toString(),
+    );
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: _surface,
+        title: Text('Edit ${field.replaceAll('Price', ' Price')}', style: TextStyle(color: _text)),
+        content: TextField(
+          controller: controller,
+          keyboardType: TextInputType.number,
+          style: TextStyle(color: _text),
+          decoration: InputDecoration(
+            hintText: 'Enter new price',
+            hintStyle: TextStyle(color: _subtext),
+            enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: _border)),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () {
+              setState(() {
+                final newValue = double.tryParse(controller.text) ?? 0;
+                if (field == 'sellingPrice') {
+                  widget.item.sellingPrice = newValue;
+                } else if (field == 'buyingPrice') {
+                  widget.item.buyingPrice = newValue;
+                } else if (field == 'retailPrice') {
+                  widget.item.retailPrice = newValue;
+                } else if (field == 'bulkBreakerPrice') {
+                  widget.item.bulkBreakerPrice = newValue;
+                } else if (field == 'distributorPrice') {
+                  widget.item.distributorPrice = newValue;
+                }
+              });
+              Navigator.pop(ctx);
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _confirmDelete(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: _surface,
+        title: Text('Delete Product', style: TextStyle(color: _text)),
+        content: Text(
+          'Are you sure you want to delete ${widget.item.productName}? This action cannot be undone.',
+          style: TextStyle(color: _text),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () {
+              setState(() {
+                kInventoryItems.removeWhere((p) => p.id == widget.item.id);
+                kProducts.removeWhere((p) => p['name'] == widget.item.productName);
+              });
+              Navigator.pop(ctx); // close dialog
+              Navigator.pop(context); // close detail screen
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('${widget.item.productName} deleted')),
+              );
+            },
+            child: const Text('Delete', style: TextStyle(color: danger)),
+          ),
+        ],
       ),
     );
   }

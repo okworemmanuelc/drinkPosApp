@@ -583,6 +583,8 @@ class _InventoryScreenState extends State<InventoryScreen>
               items: items,
               onChanged: onChanged,
               isExpanded: true,
+              alignment: AlignmentDirectional.bottomStart,
+              menuMaxHeight: 350,
               icon: Icon(Icons.keyboard_arrow_down, color: blueMain, size: context.getRSize(18)),
               style: TextStyle(
                 fontSize: context.getRFontSize(13),
@@ -2070,8 +2072,10 @@ class _InventoryScreenState extends State<InventoryScreen>
     String? selectedSupplierId;
     final stockCtrl = TextEditingController(text: '0');
     final retailPriceCtrl = TextEditingController();
-    final wholesalePriceCtrl = TextEditingController();
-    final buyingPriceCtrl = TextEditingController();
+    final bulkBreakerPriceCtrl = TextEditingController();
+    final distributorPriceCtrl = TextEditingController();
+    String selectedCategory = 'Other';
+    CrateGroup? selectedCrateGroup;
 
     showModalBottomSheet(
       context: context,
@@ -2150,6 +2154,75 @@ class _InventoryScreenState extends State<InventoryScreen>
                         ),
                         const SizedBox(height: 12),
                         Text(
+                          'Category',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: _subtext,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          decoration: BoxDecoration(
+                            color: _isDark ? dCard : lCard,
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: DropdownButtonHideUnderline(
+                            child: DropdownButton<String>(
+                              value: selectedCategory,
+                              dropdownColor: _isDark ? dCard : lSurface,
+                              style: TextStyle(
+                                color: _text,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              isExpanded: true,
+                              onChanged: (v) => setB(() => selectedCategory = v!),
+                              items: ['Glass Crates', 'Cans & PET', 'Kegs', 'Other'].map(
+                                (c) => DropdownMenuItem(value: c, child: Text(c)),
+                              ).toList(),
+                            ),
+                          ),
+                        ),
+                        if (selectedCategory == 'Glass Crates') ...[
+                          const SizedBox(height: 12),
+                          Text(
+                            'Pair with Empty Crate',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: _subtext,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            decoration: BoxDecoration(
+                              color: _isDark ? dCard : lCard,
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: DropdownButtonHideUnderline(
+                              child: DropdownButton<CrateGroup>(
+                                value: selectedCrateGroup,
+                                dropdownColor: _isDark ? dCard : lSurface,
+                                style: TextStyle(
+                                  color: _text,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                                isExpanded: true,
+                                hint: Text('Select Crate Group', style: TextStyle(color: _subtext, fontSize: 14)),
+                                onChanged: (v) => setB(() => selectedCrateGroup = v),
+                                items: CrateGroup.values.map(
+                                  (cg) => DropdownMenuItem(value: cg, child: Text(cg.label)),
+                                ).toList(),
+                              ),
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 12),
+                        Text(
                           'Supplier',
                           style: TextStyle(
                             fontSize: 12,
@@ -2223,8 +2296,8 @@ class _InventoryScreenState extends State<InventoryScreen>
                             const SizedBox(width: 12),
                             Expanded(
                               child: _inputField(
-                                'Wholesale Price',
-                                wholesalePriceCtrl,
+                                'Bulk Breaker',
+                                bulkBreakerPriceCtrl,
                                 'e.g. 450',
                                 isNumber: true,
                               ),
@@ -2233,9 +2306,9 @@ class _InventoryScreenState extends State<InventoryScreen>
                         ),
                         const SizedBox(height: 12),
                         _inputField(
-                          'Buying Price',
-                          buyingPriceCtrl,
-                          'e.g. 400',
+                          'Distributor Price',
+                          distributorPriceCtrl,
+                          'e.g. 420',
                           isNumber: true,
                         ),
                       ],
@@ -2270,6 +2343,13 @@ class _InventoryScreenState extends State<InventoryScreen>
                           warehouseStock: {
                             'w1': double.tryParse(stockCtrl.text) ?? 0
                           },
+                          category: selectedCategory,
+                          retailPrice: double.tryParse(retailPriceCtrl.text),
+                          bulkBreakerPrice: double.tryParse(bulkBreakerPriceCtrl.text),
+                          distributorPrice: double.tryParse(distributorPriceCtrl.text),
+                          sellingPrice: double.tryParse(retailPriceCtrl.text), // Use retail as default selling
+                          needsEmptyCrate: selectedCategory == 'Glass Crates',
+                          crateGroupName: selectedCrateGroup?.label,
                         );
                         final log = InventoryLog(
                           timestamp: DateTime.now(),
@@ -2289,12 +2369,11 @@ class _InventoryScreenState extends State<InventoryScreen>
                           kProducts.add({
                             'name': newItem.productName,
                             'subtitle': newItem.subtitle,
-                            'category': 'Other',
-                            'price': int.tryParse(retailPriceCtrl.text) ?? 0,
-                            'wholesale_price':
-                                int.tryParse(wholesalePriceCtrl.text) ?? 0,
-                            'buying_price':
-                                int.tryParse(buyingPriceCtrl.text) ?? 0,
+                            'category': selectedCategory,
+                            'sellingPrice': newItem.sellingPrice ?? 0,
+                            'retailPrice': newItem.retailPrice ?? 0,
+                            'bulkBreakerPrice': newItem.bulkBreakerPrice ?? 0,
+                            'distributorPrice': newItem.distributorPrice ?? 0,
                             'icon': newItem.icon,
                             'color': newItem.color,
                             'image': '',

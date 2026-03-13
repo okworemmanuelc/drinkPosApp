@@ -5,7 +5,6 @@ import '../../../../core/theme/colors.dart';
 import '../../../../core/theme/theme_notifier.dart';
 import '../../../../core/utils/number_format.dart';
 import '../../../../core/utils/responsive.dart';
-import '../../../../core/utils/stock_calculator.dart';
 import '../../../../shared/services/activity_log_service.dart';
 import '../../inventory/data/inventory_data.dart';
 import '../../inventory/data/models/inventory_item.dart';
@@ -13,7 +12,6 @@ import '../../inventory/data/models/inventory_log.dart';
 import '../../inventory/data/models/supplier.dart';
 import '../../inventory/data/models/crate_group.dart';
 import '../../inventory/data/services/supplier_service.dart';
-import '../../../core/utils/currency_input_formatter.dart';
 import '../../pos/data/products_data.dart';
 import '../data/models/delivery.dart';
 import '../data/services/delivery_service.dart';
@@ -36,7 +34,6 @@ class ReceiveDeliverySheet extends StatefulWidget {
 
 class _DeliveryItemLine {
   final TextEditingController productCtrl = TextEditingController();
-  final TextEditingController priceCtrl = TextEditingController();
   final TextEditingController qtyCtrl = TextEditingController();
 
   InventoryItem? selectedProduct;
@@ -44,14 +41,13 @@ class _DeliveryItemLine {
   CrateGroup? selectedCrateGroup;
 
   double get lineTotal {
-    final price = parseCurrency(priceCtrl.text);
+    final price = selectedProduct?.buyingPrice ?? 0;
     final qty = double.tryParse(qtyCtrl.text) ?? 0;
-    return stockValue(price, qty);
+    return price * qty;
   }
 
   void dispose() {
     productCtrl.dispose();
-    priceCtrl.dispose();
     qtyCtrl.dispose();
   }
 }
@@ -84,7 +80,6 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
   void _addLine(ScrollController? scrollController) {
     setState(() {
       final line = _DeliveryItemLine();
-      line.priceCtrl.addListener(_updateScope);
       line.qtyCtrl.addListener(_updateScope);
       _lines.add(line);
     });
@@ -145,8 +140,8 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
 
     for (var l in _lines) {
       final qty = double.tryParse(l.qtyCtrl.text) ?? 0;
-      final price = parseCurrency(l.priceCtrl.text);
-      final lineTot = stockValue(price, qty);
+      final price = l.selectedProduct?.buyingPrice ?? 0;
+      final lineTot = price * qty;
       grandTotal += lineTot;
       totalQty += qty;
 
@@ -426,19 +421,6 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
                   line.selectedSupplier = sup;
                   line.selectedCrateGroup = sup.crateGroup;
 
-                  // Pull wholesale price if available from products list
-                  final productData = kProducts.firstWhere(
-                    (p) => p['name'] == selection.productName,
-                    orElse: () => <String, dynamic>{},
-                  );
-                  if (productData.isNotEmpty &&
-                      productData['wholesale_price'] != null) {
-                    line.priceCtrl.text = productData['wholesale_price']
-                        .toString();
-                  } else {
-                    line.priceCtrl.text = '0.0';
-                  }
-
                   if (line.qtyCtrl.text.isEmpty) {
                     line.qtyCtrl.text = '1';
                   }
@@ -481,6 +463,9 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
             DropdownButton<Supplier>(
               value: line.selectedSupplier,
               isExpanded: true,
+              alignment: AlignmentDirectional.bottomStart,
+              menuMaxHeight: 350,
+              borderRadius: BorderRadius.circular(12),
               underline: const SizedBox(),
               items: supplierService.getAll().map((s) {
                 return DropdownMenuItem(
@@ -514,6 +499,9 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
             DropdownButton<CrateGroup>(
               value: line.selectedCrateGroup,
               isExpanded: true,
+              alignment: AlignmentDirectional.bottomStart,
+              menuMaxHeight: 350,
+              borderRadius: BorderRadius.circular(12),
               underline: const SizedBox(),
               items: CrateGroup.values.map((cg) {
                 return DropdownMenuItem(
@@ -531,35 +519,6 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
 
             SizedBox(height: context.getRSize(16)),
 
-            Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Unit Cost',
-                        style: TextStyle(
-                          color: _subtext,
-                          fontSize: context.getRFontSize(12),
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      SizedBox(height: context.getRSize(6)),
-                      TextField(
-                        controller: line.priceCtrl,
-                        keyboardType: TextInputType.number,
-                        inputFormatters: [CurrencyInputFormatter()],
-                        style: TextStyle(
-                          color: _text,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        decoration: _inputDeco('0.0'),
-                      ),
-                    ],
-                  ),
-                ),
-                SizedBox(width: context.getRSize(12)),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -585,8 +544,6 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
                     ],
                   ),
                 ),
-              ],
-            ),
 
             SizedBox(height: context.getRSize(16)),
             Align(
