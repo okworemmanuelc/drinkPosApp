@@ -66,168 +66,176 @@ class _CartScreenState extends State<CartScreen> {
       backgroundColor: Colors.transparent,
       builder: (modalCtx) {
         String searchQuery = '';
-        return DraggableScrollableSheet(
-          initialChildSize: 0.5,
-          minChildSize: 0.5,
-          maxChildSize: 0.9,
-          snap: true,
-          snapSizes: const [0.5, 0.9],
-          builder: (context, scrollController) {
-            return StatefulBuilder(
-              builder: (dialogCtx, setDialogState) {
-                final customers = customerService.getAll().where((c) {
-                  if (searchQuery.isEmpty) return true;
-                  final q = searchQuery.toLowerCase();
-                  final nameMatch = c.name.toLowerCase().contains(q);
-                  final phoneMatch = c.phone?.toLowerCase().contains(q) ?? false;
-                  return nameMatch || phoneMatch;
-                }).toList();
+        return GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => Navigator.pop(modalCtx),
+          child: DraggableScrollableSheet(
+            initialChildSize: 0.5,
+            minChildSize: 0.5,
+            maxChildSize: 0.9,
+            snap: true,
+            snapSizes: const [0.5, 0.9],
+            builder: (context, scrollController) {
+              return StatefulBuilder(
+                builder: (dialogCtx, setDialogState) {
+                  final customers = customerService.getAll().where((c) {
+                    if (searchQuery.isEmpty) return true;
+                    final q = searchQuery.toLowerCase();
+                    final nameMatch = c.name.toLowerCase().contains(q);
+                    final phoneMatch =
+                        c.phone?.toLowerCase().contains(q) ?? false;
+                    return nameMatch || phoneMatch;
+                  }).toList();
 
-                return Container(
-                  decoration: BoxDecoration(
-                    color: _surface,
-                    borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(28),
-                    ),
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Padding(
-                        padding: EdgeInsets.fromLTRB(
-                          modalCtx.getRSize(20),
-                          modalCtx.getRSize(14),
-                          modalCtx.getRSize(20),
-                          0,
-                        ),
-                        child: Center(
-                          child: Container(
-                            width: modalCtx.getRSize(40),
-                            height: modalCtx.getRSize(4),
-                            decoration: BoxDecoration(
-                              color: _border,
-                              borderRadius: BorderRadius.circular(2),
-                            ),
-                          ),
+                  return GestureDetector(
+                    onTap: () {}, // Prevent tap from reaching the barrier
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: _surface,
+                        borderRadius: const BorderRadius.vertical(
+                          top: Radius.circular(28),
                         ),
                       ),
-                      SizedBox(height: modalCtx.getRSize(16)),
-                      Padding(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: modalCtx.getRSize(20),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              'Select Customer',
-                              style: TextStyle(
-                                fontSize: modalCtx.getRFontSize(18),
-                                fontWeight: FontWeight.w800,
-                                color: _text,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Padding(
+                            padding: EdgeInsets.fromLTRB(
+                              modalCtx.getRSize(20),
+                              modalCtx.getRSize(14),
+                              modalCtx.getRSize(20),
+                              0,
+                            ),
+                            child: Center(
+                              child: Container(
+                                width: modalCtx.getRSize(40),
+                                height: modalCtx.getRSize(4),
+                                decoration: BoxDecoration(
+                                  color: _border,
+                                  borderRadius: BorderRadius.circular(2),
+                                ),
                               ),
                             ),
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
+                          ),
+                          SizedBox(height: modalCtx.getRSize(16)),
+                          Padding(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: modalCtx.getRSize(20),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                TextButton.icon(
-                                  style: TextButton.styleFrom(
-                                    backgroundColor: blueMain.withValues(
-                                      alpha: 0.1,
-                                    ),
-                                  ),
-                                  onPressed: () {
-                                    Navigator.pop(modalCtx);
-                                    AddCustomerSheet.show(context);
-                                  },
-                                  icon: Icon(
-                                    FontAwesomeIcons.userPlus,
-                                    size: modalCtx.getRSize(14),
-                                  ),
-                                  label: Text(
-                                    'New',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: modalCtx.getRFontSize(13),
-                                    ),
+                                Text(
+                                  'Select Customer',
+                                  style: TextStyle(
+                                    fontSize: modalCtx.getRFontSize(18),
+                                    fontWeight: FontWeight.w800,
+                                    color: _text,
                                   ),
                                 ),
-                                SizedBox(width: modalCtx.getRSize(8)),
-                                IconButton(
-                                  onPressed: () => Navigator.pop(modalCtx),
-                                  icon: Icon(Icons.close, color: _subtext),
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    TextButton.icon(
+                                      style: TextButton.styleFrom(
+                                        backgroundColor: blueMain.withValues(
+                                          alpha: 0.1,
+                                        ),
+                                      ),
+                                      onPressed: () {
+                                        Navigator.pop(modalCtx);
+                                        AddCustomerSheet.show(context);
+                                      },
+                                      icon: Icon(
+                                        FontAwesomeIcons.userPlus,
+                                        size: modalCtx.getRSize(14),
+                                      ),
+                                      label: Text(
+                                        'New',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: modalCtx.getRFontSize(13),
+                                        ),
+                                      ),
+                                    ),
+                                    SizedBox(width: modalCtx.getRSize(8)),
+                                    IconButton(
+                                      onPressed: () => Navigator.pop(modalCtx),
+                                      icon: Icon(Icons.close, color: _subtext),
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),
-                          ],
-                        ),
-                      ),
-                      Padding(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: modalCtx.getRSize(20),
-                          vertical: modalCtx.getRSize(8),
-                        ),
-                        child: TextField(
-                          onChanged: (v) {
-                            setDialogState(() {
-                              searchQuery = v;
-                            });
-                          },
-                          style: TextStyle(
-                            color: _text,
-                            fontSize: modalCtx.getRFontSize(14),
                           ),
-                          decoration: InputDecoration(
-                            hintText: 'Search customers...',
-                            hintStyle: TextStyle(color: _subtext),
-                            prefixIcon: Icon(
-                              FontAwesomeIcons.magnifyingGlass,
-                              size: modalCtx.getRSize(16),
-                              color: _subtext,
+                          Padding(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: modalCtx.getRSize(20),
+                              vertical: modalCtx.getRSize(8),
                             ),
-                            filled: true,
-                            fillColor: _isDark ? dCard : lCard,
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(14),
-                              borderSide: BorderSide.none,
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(14),
-                              borderSide: const BorderSide(
-                                color: blueMain,
-                                width: 2,
+                            child: TextField(
+                              onChanged: (v) {
+                                setDialogState(() {
+                                  searchQuery = v;
+                                });
+                              },
+                              style: TextStyle(
+                                color: _text,
+                                fontSize: modalCtx.getRFontSize(14),
+                              ),
+                              decoration: InputDecoration(
+                                hintText: 'Search customers...',
+                                hintStyle: TextStyle(color: _subtext),
+                                prefixIcon: Icon(
+                                  FontAwesomeIcons.magnifyingGlass,
+                                  size: modalCtx.getRSize(16),
+                                  color: _subtext,
+                                ),
+                                filled: true,
+                                fillColor: _isDark ? dCard : lCard,
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                  borderSide: BorderSide.none,
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                  borderSide: const BorderSide(
+                                    color: blueMain,
+                                    width: 2,
+                                  ),
+                                ),
+                                contentPadding: EdgeInsets.symmetric(
+                                  horizontal: modalCtx.getRSize(16),
+                                  vertical: modalCtx.getRSize(12),
+                                ),
                               ),
                             ),
-                            contentPadding: EdgeInsets.symmetric(
-                              horizontal: modalCtx.getRSize(16),
-                              vertical: modalCtx.getRSize(12),
+                          ),
+                          Expanded(
+                            child: ListView(
+                              controller: scrollController,
+                              padding: EdgeInsets.fromLTRB(
+                                modalCtx.getRSize(20),
+                                0,
+                                modalCtx.getRSize(20),
+                                modalCtx.getRSize(20),
+                              ),
+                              children: [
+                                _buildCustomerTile(null, modalCtx),
+                                ...customers.map(
+                                  (c) => _buildCustomerTile(c, modalCtx),
+                                ),
+                              ],
                             ),
                           ),
-                        ),
+                        ],
                       ),
-                      Expanded(
-                        child: ListView(
-                          controller: scrollController,
-                          padding: EdgeInsets.fromLTRB(
-                            modalCtx.getRSize(20),
-                            0,
-                            modalCtx.getRSize(20),
-                            modalCtx.getRSize(20),
-                          ),
-                          children: [
-                            _buildCustomerTile(null, modalCtx),
-                            ...customers.map(
-                              (c) => _buildCustomerTile(c, modalCtx),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            );
-          },
+                    ),
+                  );
+                },
+              );
+            },
+          ),
         );
       },
     );
@@ -480,192 +488,200 @@ class _CartScreenState extends State<CartScreen> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (sheetCtx) {
-        return DraggableScrollableSheet(
-          initialChildSize: 0.5,
-          minChildSize: 0.5,
-          maxChildSize: 0.9,
-          snap: true,
-          snapSizes: const [0.5, 0.9],
-          builder: (context, scrollController) {
-            return Container(
-              decoration: BoxDecoration(
-                color: _isDark ? dSurface : lSurface,
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(28),
-                ),
-              ),
-              padding: EdgeInsets.fromLTRB(
-                context.getRSize(24),
-                context.getRSize(16),
-                context.getRSize(24),
-                context.getRSize(24),
-              ),
-              child: ListView(
-                controller: scrollController,
-                children: [
-                  Center(
-                    child: Container(
-                      width: context.getRSize(40),
-                      height: context.getRSize(4),
-                      decoration: BoxDecoration(
-                        color: _border,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
+        return GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => Navigator.pop(sheetCtx),
+          child: DraggableScrollableSheet(
+            initialChildSize: 0.5,
+            minChildSize: 0.5,
+            maxChildSize: 0.9,
+            snap: true,
+            snapSizes: const [0.5, 0.9],
+            builder: (context, scrollController) {
+              return GestureDetector(
+                onTap: () {}, // Prevent tap from reaching the barrier
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: _isDark ? dSurface : lSurface,
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(28),
                     ),
                   ),
-                  SizedBox(height: context.getRSize(20)),
-                  Row(
+                  padding: EdgeInsets.fromLTRB(
+                    context.getRSize(24),
+                    context.getRSize(16),
+                    context.getRSize(24),
+                    context.getRSize(24),
+                  ),
+                  child: ListView(
+                    controller: scrollController,
                     children: [
-                      Container(
-                        padding: EdgeInsets.all(context.getRSize(10)),
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [blueLight, blueMain],
-                          ),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Icon(
-                          FontAwesomeIcons.beerMugEmpty,
-                          size: context.getRSize(16),
-                          color: Colors.white,
-                        ),
-                      ),
-                      SizedBox(width: context.getRSize(12)),
-                      Text(
-                        'Crate Deposit',
-                        style: TextStyle(
-                          fontSize: context.getRFontSize(18),
-                          fontWeight: FontWeight.w800,
-                          color: _text,
-                        ),
-                      ),
-                    ],
-                  ),
-                  SizedBox(height: context.getRSize(6)),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      'Enter the deposit amount paid for crates',
-                      style: TextStyle(
-                        fontSize: context.getRFontSize(13),
-                        color: _subtext,
-                      ),
-                    ),
-                  ),
-                  SizedBox(height: context.getRSize(20)),
-                  TextField(
-                    controller: ctrl,
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [CurrencyInputFormatter()],
-                    autofocus: true,
-                    style: TextStyle(
-                      fontSize: context.getRFontSize(20),
-                      fontWeight: FontWeight.bold,
-                      color: _text,
-                    ),
-                    decoration: InputDecoration(
-                      prefixText: '₦ ',
-                      prefixStyle: TextStyle(
-                        fontSize: context.getRFontSize(20),
-                        fontWeight: FontWeight.bold,
-                        color: _text,
-                      ),
-                      hintText: '0',
-                      hintStyle: TextStyle(
-                        fontSize: context.getRFontSize(20),
-                        fontWeight: FontWeight.bold,
-                        color: _subtext.withValues(alpha: 0.4),
-                      ),
-                      filled: true,
-                      fillColor: _isDark ? dCard : lCard,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(14),
-                        borderSide: BorderSide.none,
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(14),
-                        borderSide: const BorderSide(color: blueMain, width: 2),
-                      ),
-                      contentPadding: EdgeInsets.symmetric(
-                        horizontal: context.getRSize(16),
-                        vertical: context.getRSize(16),
-                      ),
-                    ),
-                  ),
-                  SizedBox(height: context.getRSize(24)),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: GestureDetector(
-                          onTap: () => Navigator.pop(sheetCtx),
-                          child: Container(
-                            padding: EdgeInsets.symmetric(
-                              vertical: context.getRSize(16),
-                            ),
-                            decoration: BoxDecoration(
-                              color: _bg,
-                              borderRadius: BorderRadius.circular(14),
-                              border: Border.all(color: _border),
-                            ),
-                            child: Center(
-                              child: Text(
-                                'Cancel',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: context.getRFontSize(15),
-                                  color: _subtext,
-                                ),
-                              ),
-                            ),
+                      Center(
+                        child: Container(
+                          width: context.getRSize(40),
+                          height: context.getRSize(4),
+                          decoration: BoxDecoration(
+                            color: _border,
+                            borderRadius: BorderRadius.circular(2),
                           ),
                         ),
                       ),
-                      SizedBox(width: context.getRSize(12)),
-                      Expanded(
-                        child: GestureDetector(
-                          onTap: () {
-                            final val = parseCurrency(ctrl.text);
-                            setState(() => _crateDeposit = val);
-                            Navigator.pop(sheetCtx);
-                          },
-                          child: Container(
-                            padding: EdgeInsets.symmetric(
-                              vertical: context.getRSize(16),
-                            ),
+                      SizedBox(height: context.getRSize(20)),
+                      Row(
+                        children: [
+                          Container(
+                            padding: EdgeInsets.all(context.getRSize(10)),
                             decoration: BoxDecoration(
                               gradient: const LinearGradient(
-                                colors: [blueLight, blueDark],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
+                                colors: [blueLight, blueMain],
                               ),
-                              borderRadius: BorderRadius.circular(14),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: blueMain.withValues(alpha: 0.3),
-                                  blurRadius: 10,
-                                  offset: const Offset(0, 4),
-                                ),
-                              ],
+                              borderRadius: BorderRadius.circular(12),
                             ),
-                            child: Center(
-                              child: Text(
-                                'Confirm',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: context.getRFontSize(15),
-                                  color: Colors.white,
+                            child: Icon(
+                              FontAwesomeIcons.beerMugEmpty,
+                              size: context.getRSize(16),
+                              color: Colors.white,
+                            ),
+                          ),
+                          SizedBox(width: context.getRSize(12)),
+                          Text(
+                            'Crate Deposit',
+                            style: TextStyle(
+                              fontSize: context.getRFontSize(18),
+                              fontWeight: FontWeight.w800,
+                              color: _text,
+                            ),
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: context.getRSize(6)),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          'Enter the deposit amount paid for crates',
+                          style: TextStyle(
+                            fontSize: context.getRFontSize(13),
+                            color: _subtext,
+                          ),
+                        ),
+                      ),
+                      SizedBox(height: context.getRSize(20)),
+                      TextField(
+                        controller: ctrl,
+                        keyboardType: TextInputType.number,
+                        inputFormatters: [CurrencyInputFormatter()],
+                        autofocus: true,
+                        style: TextStyle(
+                          fontSize: context.getRFontSize(20),
+                          fontWeight: FontWeight.bold,
+                          color: _text,
+                        ),
+                        decoration: InputDecoration(
+                          prefixText: '₦ ',
+                          prefixStyle: TextStyle(
+                            fontSize: context.getRFontSize(20),
+                            fontWeight: FontWeight.bold,
+                            color: _text,
+                          ),
+                          hintText: '0',
+                          hintStyle: TextStyle(
+                            fontSize: context.getRFontSize(20),
+                            fontWeight: FontWeight.bold,
+                            color: _subtext.withValues(alpha: 0.4),
+                          ),
+                          filled: true,
+                          fillColor: _isDark ? dCard : lCard,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: BorderSide.none,
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide:
+                                const BorderSide(color: blueMain, width: 2),
+                          ),
+                          contentPadding: EdgeInsets.symmetric(
+                            horizontal: context.getRSize(16),
+                            vertical: context.getRSize(16),
+                          ),
+                        ),
+                      ),
+                      SizedBox(height: context.getRSize(24)),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: GestureDetector(
+                              onTap: () => Navigator.pop(sheetCtx),
+                              child: Container(
+                                padding: EdgeInsets.symmetric(
+                                  vertical: context.getRSize(16),
+                                ),
+                                decoration: BoxDecoration(
+                                  color: _bg,
+                                  borderRadius: BorderRadius.circular(14),
+                                  border: Border.all(color: _border),
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    'Cancel',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: context.getRFontSize(15),
+                                      color: _subtext,
+                                    ),
+                                  ),
                                 ),
                               ),
                             ),
                           ),
-                        ),
+                          SizedBox(width: context.getRSize(12)),
+                          Expanded(
+                            child: GestureDetector(
+                              onTap: () {
+                                final val = parseCurrency(ctrl.text);
+                                setState(() => _crateDeposit = val);
+                                Navigator.pop(sheetCtx);
+                              },
+                              child: Container(
+                                padding: EdgeInsets.symmetric(
+                                  vertical: context.getRSize(16),
+                                ),
+                                decoration: BoxDecoration(
+                                  gradient: const LinearGradient(
+                                    colors: [blueLight, blueDark],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                  ),
+                                  borderRadius: BorderRadius.circular(14),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: blueMain.withValues(alpha: 0.3),
+                                      blurRadius: 10,
+                                      offset: const Offset(0, 4),
+                                    ),
+                                  ],
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    'Confirm',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: context.getRFontSize(15),
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                ],
-              ),
-            );
-          },
+                ),
+              );
+            },
+          ),
         );
       },
     );

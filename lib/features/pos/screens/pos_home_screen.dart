@@ -142,7 +142,6 @@ class _PosHomeScreenState extends State<PosHomeScreen>
     );
   }
 
-  // ── HEADER STRIP ─────────────────────────────────────────────────────────────
   Widget _buildHeader(BuildContext context) {
     return Container(
       color: _surface,
@@ -152,15 +151,19 @@ class _PosHomeScreenState extends State<PosHomeScreen>
         context.spacingM,
         context.spacingM,
       ),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: [
-            // Pricing Tier Dropdown
-            _buildDropdown<CustomerGroup>(
+      child: Row(
+        children: [
+          // Pricing Tier Dropdown
+          Expanded(
+            flex: 4,
+            child: _buildDropdown<CustomerGroup>(
               value: _selectedGroup,
               items: CustomerGroup.values.map((g) {
-                String label = g == CustomerGroup.retailer ? 'Retail' : (g == CustomerGroup.bulkBreaker ? 'Bulk Breaker' : 'Distributor');
+                String label = g == CustomerGroup.retailer
+                    ? 'Retail'
+                    : (g == CustomerGroup.bulkBreaker
+                        ? 'Bulk'
+                        : 'Distr.'); // Shortened labels for fit
                 return DropdownMenuItem(
                   value: g,
                   child: Text(label),
@@ -170,46 +173,50 @@ class _PosHomeScreenState extends State<PosHomeScreen>
                 if (val != null) setState(() => _selectedGroup = val);
               },
             ),
-            SizedBox(width: context.spacingM),
-            
-            // Supplier Filter Dropdown
-            _buildDropdown<String>(
+          ),
+          SizedBox(width: context.spacingS),
+
+          // Supplier Filter Dropdown
+          Expanded(
+            flex: 5,
+            child: _buildDropdown<String>(
               value: _selectedSupplierId,
               items: [
-                const DropdownMenuItem(value: 'All', child: Text('All Suppliers')),
+                const DropdownMenuItem(
+                    value: 'All', child: Text('All Suppliers')),
                 ...supplierService.getAll().map((s) => DropdownMenuItem(
-                  value: s.id,
-                  child: Text(s.name),
-                )),
+                      value: s.id,
+                      child: Text(s.name),
+                    )),
               ],
               onChanged: (val) {
                 if (val != null) setState(() => _selectedSupplierId = val);
               },
             ),
-            SizedBox(width: context.spacingM),
+          ),
+          SizedBox(width: context.spacingS),
 
-            // Quick Sale Button
-            GestureDetector(
-              onTap: () => _showQuickSaleModal(),
-              child: Container(
-                padding: EdgeInsets.symmetric(
-                  horizontal: context.spacingM,
-                  vertical: context.spacingS,
-                ),
-                decoration: BoxDecoration(
-                  color: blueMain.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(context.radiusM),
-                  border: Border.all(color: blueMain.withValues(alpha: 0.2)),
-                ),
-                child: Icon(
-                  FontAwesomeIcons.bolt,
-                  size: context.getRSize(18),
-                  color: blueMain,
-                ),
+          // Quick Sale Button
+          GestureDetector(
+            onTap: () => _showQuickSaleModal(),
+            child: Container(
+              padding: EdgeInsets.symmetric(
+                horizontal: context.spacingM,
+                vertical: context.spacingS,
+              ),
+              decoration: BoxDecoration(
+                color: blueMain.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(context.radiusM),
+                border: Border.all(color: blueMain.withValues(alpha: 0.2)),
+              ),
+              child: Icon(
+                FontAwesomeIcons.bolt,
+                size: context.getRSize(18),
+                color: blueMain,
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -220,7 +227,7 @@ class _PosHomeScreenState extends State<PosHomeScreen>
     required ValueChanged<T?> onChanged,
   }) {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: context.spacingM),
+      padding: EdgeInsets.symmetric(horizontal: context.spacingS),
       decoration: BoxDecoration(
         color: _cardBg,
         borderRadius: BorderRadius.circular(context.radiusM),
@@ -229,9 +236,10 @@ class _PosHomeScreenState extends State<PosHomeScreen>
       child: DropdownButtonHideUnderline(
         child: DropdownButton<T>(
           value: value,
+          isExpanded: true,
           icon: Icon(
             FontAwesomeIcons.chevronDown,
-            size: context.getRSize(12),
+            size: context.getRSize(10),
             color: blueMain,
           ),
           dropdownColor: _surface,
@@ -241,10 +249,11 @@ class _PosHomeScreenState extends State<PosHomeScreen>
               value: item.value,
               child: DefaultTextStyle.merge(
                 style: TextStyle(
-                  fontSize: context.getRFontSize(12),
+                  fontSize: context.getRFontSize(11),
                   fontWeight: FontWeight.bold,
                   color: _text,
                 ),
+                overflow: TextOverflow.ellipsis,
                 child: item.child,
               ),
             );

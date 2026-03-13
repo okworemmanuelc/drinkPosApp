@@ -6,7 +6,7 @@ class InventoryItem {
   final String id;
   String productName;
   String subtitle;
-  String supplierId;
+  String? supplierId;
   String? crateGroupName;
   bool needsEmptyCrate;
   IconData icon;
@@ -18,7 +18,7 @@ class InventoryItem {
     required this.id,
     required this.productName,
     required this.subtitle,
-    required this.supplierId,
+    this.supplierId,
     this.crateGroupName,
     this.needsEmptyCrate = false,
     required this.icon,

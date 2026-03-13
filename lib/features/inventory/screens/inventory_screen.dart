@@ -186,9 +186,9 @@ class _InventoryScreenState extends State<InventoryScreen>
         '${totalCrates.toInt()}',
         FontAwesomeIcons.beerMugEmpty,
         success,
-        isActive: _tabController.index == 1,
+        isActive: _tabController.index == 2,
         onTap: () => setState(() {
-          _tabController.animateTo(1);
+          _tabController.animateTo(2);
         }),
       ),
     ];
@@ -496,7 +496,9 @@ class _InventoryScreenState extends State<InventoryScreen>
       final isGlass = item.subtitle.toLowerCase() == 'crate';
       if (!isGlass) continue;
 
-      final supplier = supplierService.getById(item.supplierId);
+      if (item.supplierId == null) continue;
+
+      final supplier = supplierService.getById(item.supplierId!);
       if (supplier != null) {
         usedGroups.add(supplier.crateGroup);
       }
@@ -600,15 +602,18 @@ class _InventoryScreenState extends State<InventoryScreen>
     final currentStock = _selectedWarehouseId == 'all' ? item.totalStock : item.getStockForWarehouse(_selectedWarehouseId);
     final isLow = currentStock > 0 && currentStock <= item.lowStockThreshold;
     final isOut = currentStock == 0;
-    final supplier = supplierService.getAll().firstWhere(
-      (s) => s.id == item.supplierId,
-      orElse: () =>
-          Supplier(id: '', name: 'Unknown', crateGroup: CrateGroup.nbPlc),
-    );
-    final crateStock = kCrateStocks.firstWhere(
-      (c) => c.group == supplier.crateGroup,
-      orElse: () => CrateStock(group: CrateGroup.nbPlc),
-    );
+    final supplier = item.supplierId == null
+        ? null
+        : supplierService.getAll().cast<Supplier?>().firstWhere(
+            (s) => s?.id == item.supplierId,
+            orElse: () => null,
+          );
+    final crateStock = supplier == null
+        ? null
+        : kCrateStocks.firstWhere(
+            (c) => c.group == supplier.crateGroup,
+            orElse: () => CrateStock(group: CrateGroup.nbPlc),
+          );
 
     Color statusColor = success;
     String statusLabel = 'In Stock';
@@ -711,7 +716,7 @@ class _InventoryScreenState extends State<InventoryScreen>
                     ),
                     SizedBox(height: context.getRSize(4)), // RESPONSIVE
                     Text(
-                      supplier.name,
+                      supplier?.name ?? 'Not Assigned',
                       style: TextStyle(
                         fontSize: context.getRFontSize(12),
                         color: _subtext,
@@ -723,12 +728,14 @@ class _InventoryScreenState extends State<InventoryScreen>
                         Icon(
                           FontAwesomeIcons.beerMugEmpty,
                           size: context.getRSize(10), // RESPONSIVE
-                          color: supplier.crateGroup.color,
+                          color: supplier?.crateGroup.color ?? _subtext,
                         ),
                         SizedBox(width: context.getRSize(4)), // RESPONSIVE
                         Expanded(
                           child: Text(
-                            'Empty crates (${supplier.crateGroup.label}): ${crateStock.available.toInt()} available',
+                            supplier != null && crateStock != null
+                                ? 'Empty crates (${supplier.crateGroup.label}): ${crateStock.available.toInt()} available'
+                                : 'Empty crates: Not tracked',
                             style: TextStyle(
                               fontSize: context.getRFontSize(11),
                               color: _subtext,
@@ -892,12 +899,12 @@ class _InventoryScreenState extends State<InventoryScreen>
   Widget _buildCrateGroupCard(BuildContext context, CrateStock cs) {
     final linkedProducts = kInventoryItems
         .where((item) {
-          final supplier = supplierService.getAll().firstWhere(
-            (s) => s.id == item.supplierId,
-            orElse: () =>
-                Supplier(id: '', name: 'Unknown', crateGroup: CrateGroup.nbPlc),
+          if (item.supplierId == null) return false;
+          final supplier = supplierService.getAll().cast<Supplier?>().firstWhere(
+            (s) => s?.id == item.supplierId,
+            orElse: () => null,
           );
-          return supplier.crateGroup == cs.group;
+          return supplier?.crateGroup == cs.group;
         })
         .map((i) => i.productName)
         .toList();
@@ -1572,20 +1579,18 @@ class _InventoryScreenState extends State<InventoryScreen>
 
                           if (productData.isNotEmpty &&
                               productData['category'] == 'Glass Crates') {
-                            final supplier = supplierService
-                                .getAll()
-                                .firstWhere(
-                                  (s) => s.id == item.supplierId,
-                                  orElse: () => Supplier(
-                                    id: '',
-                                    name: '',
-                                    crateGroup: CrateGroup.premium,
-                                  ),
-                                );
+                            final supplier = item.supplierId == null
+                                ? null
+                                : supplierService.getAll().cast<Supplier?>().firstWhere(
+                                      (s) => s?.id == item.supplierId,
+                                      orElse: () => null,
+                                    );
 
-                            final cStockIndex = kCrateStocks.indexWhere(
-                              (c) => c.group == supplier.crateGroup,
-                            );
+                            final cStockIndex = supplier == null
+                                ? -1
+                                : kCrateStocks.indexWhere(
+                                    (c) => c.group == supplier.crateGroup,
+                                  );
 
                             if (cStockIndex != -1) {
                               kCrateStocks[cStockIndex].available += diff;
@@ -2062,7 +2067,7 @@ class _InventoryScreenState extends State<InventoryScreen>
   void _showAddProductDialog() {
     final nameCtrl = TextEditingController();
     final subtitleCtrl = TextEditingController();
-    String selectedSupplierId = supplierService.getAll().first.id;
+    String? selectedSupplierId;
     final stockCtrl = TextEditingController(text: '0');
     final retailPriceCtrl = TextEditingController();
     final wholesalePriceCtrl = TextEditingController();
@@ -2169,17 +2174,31 @@ class _InventoryScreenState extends State<InventoryScreen>
                                 fontWeight: FontWeight.w600,
                               ),
                               isExpanded: true,
+                              hint: Text(
+                                'Select Supplier (Optional)',
+                                style: TextStyle(
+                                  color: _subtext,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
                               onChanged: (v) =>
-                                  setB(() => selectedSupplierId = v!),
-                              items: supplierService
-                                  .getAll()
-                                  .map(
-                                    (s) => DropdownMenuItem(
-                                      value: s.id,
-                                      child: Text(s.name),
+                                  setB(() => selectedSupplierId = v),
+                              items: [
+                                DropdownMenuItem<String>(
+                                  value: null,
+                                  child: Text(
+                                    'No Supplier / Pair Later',
+                                    style: TextStyle(color: _subtext),
+                                  ),
+                                ),
+                                ...supplierService.getAll().map(
+                                      (s) => DropdownMenuItem(
+                                        value: s.id,
+                                        child: Text(s.name),
+                                      ),
                                     ),
-                                  )
-                                  .toList(),
+                              ],
                             ),
                           ),
                         ),

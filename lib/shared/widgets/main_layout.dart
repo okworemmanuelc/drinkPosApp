@@ -27,29 +27,34 @@ class MainLayout extends StatefulWidget {
 class _MainLayoutState extends State<MainLayout> {
   static void _voidOnCustomerChanged(dynamic _) {}
 
-  // The actual screens for the bottom nav
-  List<Widget> get _screens => [
-    const DashboardScreen(), // 0
-    const PosHomeScreen(), // 1
-    const InventoryScreen(), // 2
-    const OrdersScreen(), // 3
-    const CustomersScreen(), // 4
-    const PaymentsScreen(), // 5 (Supplier Accounts)
-    const ExpensesScreen(), // 6
-    const WarehouseScreen(), // 7
-    const StaffScreen(), // 8
-    ValueListenableBuilder<List<Map<String, dynamic>>>(
-      // 9
-      valueListenable: cartService,
-      builder: (context, cart, _) => CartScreen(
-        cart: cart,
-        crateDeposit: 0.0,
-        onCustomerChanged: _voidOnCustomerChanged,
+  late List<Widget> _screens;
+
+  @override
+  void initState() {
+    super.initState();
+    _screens = [
+      const DashboardScreen(), // 0
+      const PosHomeScreen(), // 1
+      const InventoryScreen(), // 2
+      const OrdersScreen(), // 3
+      const CustomersScreen(), // 4
+      const PaymentsScreen(), // 5 (Supplier Accounts)
+      const ExpensesScreen(), // 6
+      const WarehouseScreen(), // 7
+      const StaffScreen(), // 8
+      ValueListenableBuilder<List<Map<String, dynamic>>>(
+        // 9
+        valueListenable: cartService,
+        builder: (context, cart, _) => CartScreen(
+          cart: cart,
+          crateDeposit: 0.0,
+          onCustomerChanged: _voidOnCustomerChanged,
+        ),
       ),
-    ),
-    const DeliveriesScreen(), // 10
-    const ActivityLogScreen(), // 11
-  ];
+      const DeliveriesScreen(), // 10
+      const ActivityLogScreen(), // 11
+    ];
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -80,7 +85,6 @@ class _MainLayoutState extends State<MainLayout> {
                 );
               },
               child: IndexedStack(
-                key: ValueKey<int>(currentIndex),
                 index: currentIndex,
                 children: _screens,
               ),

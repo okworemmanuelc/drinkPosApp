@@ -256,74 +256,86 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
 
   @override
   Widget build(BuildContext context) {
-    return DraggableScrollableSheet(
-      initialChildSize: 0.5,
-      minChildSize: 0.5,
-      maxChildSize: 0.9,
-      snap: true,
-      snapSizes: const [0.5, 0.9],
-      builder: (context, scrollController) {
-        double grandTotal = 0;
-        for (var l in _lines) {
-          grandTotal += l.lineTotal;
-        }
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => Navigator.pop(context),
+      child: DraggableScrollableSheet(
+        initialChildSize: 0.5,
+        minChildSize: 0.5,
+        maxChildSize: 0.9,
+        snap: true,
+        snapSizes: const [0.5, 0.9],
+        builder: (context, scrollController) {
+          double grandTotal = 0;
+          for (var l in _lines) {
+            grandTotal += l.lineTotal;
+          }
 
-        return Container(
-          decoration: BoxDecoration(
-            color: _bg,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-          ),
-          child: Column(
-            children: [
-              // Handle
-              Padding(
-                padding: EdgeInsets.symmetric(vertical: context.getRSize(12)),
-                child: Container(
-                  width: context.getRSize(40),
-                  height: context.getRSize(4),
-                  decoration: BoxDecoration(
-                    color: _border,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
+          return GestureDetector(
+            onTap: () {}, // Prevent tap from reaching the barrier
+            child: Container(
+              decoration: BoxDecoration(
+                color: _bg,
+                borderRadius:
+                    const BorderRadius.vertical(top: Radius.circular(28)),
               ),
-              // Header
-              Padding(
-                padding: EdgeInsets.symmetric(horizontal: context.getRSize(20)),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Receive Delivery',
-                      style: TextStyle(
-                        color: _text,
-                        fontSize: context.getRFontSize(18),
-                        fontWeight: FontWeight.bold,
+              child: Column(
+                children: [
+                  // Handle
+                  Padding(
+                    padding: EdgeInsets.symmetric(
+                      vertical: context.getRSize(12),
+                    ),
+                    child: Container(
+                      width: context.getRSize(40),
+                      height: context.getRSize(4),
+                      decoration: BoxDecoration(
+                        color: _border,
+                        borderRadius: BorderRadius.circular(2),
                       ),
                     ),
-                    IconButton(
-                      onPressed: () => Navigator.pop(context),
-                      icon: Icon(Icons.close, color: _subtext),
+                  ),
+                  // Header
+                  Padding(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: context.getRSize(20),
                     ),
-                  ],
-                ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Receive Delivery',
+                          style: TextStyle(
+                            color: _text,
+                            fontSize: context.getRFontSize(18),
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: () => Navigator.pop(context),
+                          icon: Icon(Icons.close, color: _subtext),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Divider(height: 1, color: _border),
+                  Expanded(
+                    child: ListView.builder(
+                      controller: scrollController,
+                      padding: EdgeInsets.all(context.getRSize(16)),
+                      itemCount: _lines.length,
+                      itemBuilder: (context, index) {
+                        return _buildProductCard(context, index);
+                      },
+                    ),
+                  ),
+                  _buildSummaryBar(context, grandTotal, scrollController),
+                ],
               ),
-              Divider(height: 1, color: _border),
-              Expanded(
-                child: ListView.builder(
-                  controller: scrollController,
-                  padding: EdgeInsets.all(context.getRSize(16)),
-                  itemCount: _lines.length,
-                  itemBuilder: (context, index) {
-                    return _buildProductCard(context, index);
-                  },
-                ),
-              ),
-              _buildSummaryBar(context, grandTotal, scrollController),
-            ],
-          ),
-        );
-      },
+            ),
+          );
+        },
+      ),
     );
   }
 

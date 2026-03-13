@@ -206,15 +206,23 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
   Widget _buildBody(BuildContext context) {
     // Look up related data
-    final supplier = supplierService.getAll().firstWhere(
-      (s) => s.id == widget.item.supplierId,
-      orElse: () =>
-          Supplier(id: '', name: 'Unknown', crateGroup: CrateGroup.nbPlc),
-    );
-    final crateStock = kCrateStocks.firstWhere(
-      (c) => c.group == supplier.crateGroup,
-      orElse: () => CrateStock(group: CrateGroup.nbPlc),
-    );
+    final allSuppliers = supplierService.getAll();
+    Supplier? supplier;
+    if (widget.item.supplierId != null) {
+      for (final s in allSuppliers) {
+        if (s.id == widget.item.supplierId) {
+          supplier = s;
+          break;
+        }
+      }
+    }
+
+    final crateStock = supplier == null
+        ? null
+        : kCrateStocks.firstWhere(
+            (c) => c.group == supplier!.crateGroup,
+            orElse: () => CrateStock(group: CrateGroup.nbPlc),
+          );
     final product = kProducts.firstWhere(
       (p) => p['name'] == widget.item.productName,
       orElse: () => <String, dynamic>{},
@@ -256,17 +264,25 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             _infoRow(
               context,
               FontAwesomeIcons.beerMugEmpty,
-              'Empty Crates (${supplier.crateGroup.label})',
-              '${crateStock.available.toInt()} available',
-              supplier.crateGroup.color,
+              'Empty Crates ${supplier != null ? "(${supplier.crateGroup.label})" : ""}',
+              crateStock != null
+                  ? '${crateStock.available.toInt()} available'
+                  : 'N/A',
+              supplier?.crateGroup.color ?? _subtext,
             ),
             _divider(context),
             _infoRow(
               context,
               FontAwesomeIcons.buildingColumns,
               'Supplier',
-              supplier.name,
+              supplier?.name ?? 'Not Assigned',
               const Color(0xFF6366F1),
+              onTap: () => _showSupplierSelectionSheet(context),
+              trailing: Icon(
+                FontAwesomeIcons.chevronRight,
+                size: context.getRSize(12),
+                color: _subtext,
+              ),
             ),
           ]),
 
@@ -406,52 +422,66 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     IconData icon,
     String label,
     String value,
-    Color iconColor,
-  ) {
-    return Padding(
-      padding: EdgeInsets.symmetric(
-        horizontal: context.getRSize(16),
-        vertical: context.getRSize(14),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: context.getRSize(38),
-            height: context.getRSize(38),
-            decoration: BoxDecoration(
-              color: iconColor.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(icon, size: context.getRSize(16), color: iconColor),
-          ),
-          SizedBox(width: context.getRSize(14)),
-          Expanded(
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: context.getRFontSize(13),
-                fontWeight: FontWeight.w600,
-                color: _subtext,
+    Color iconColor, {
+    VoidCallback? onTap,
+    Widget? trailing,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Padding(
+        padding: EdgeInsets.symmetric(
+          horizontal: context.getRSize(16),
+          vertical: context.getRSize(14),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: context.getRSize(38),
+              height: context.getRSize(38),
+              decoration: BoxDecoration(
+                color: iconColor.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(10),
               ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+              child: Icon(icon, size: context.getRSize(16), color: iconColor),
             ),
-          ),
-          SizedBox(width: context.getRSize(8)),
-          Flexible(
-            child: Text(
-              value,
-              style: TextStyle(
-                fontSize: context.getRFontSize(14),
-                fontWeight: FontWeight.bold,
-                color: _text,
+            SizedBox(width: context.getRSize(14)),
+            Expanded(
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: context.getRFontSize(13),
+                  fontWeight: FontWeight.w600,
+                  color: _subtext,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
-              textAlign: TextAlign.end,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
             ),
-          ),
-        ],
+            SizedBox(width: context.getRSize(8)),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: context.getRFontSize(14),
+                    fontWeight: FontWeight.bold,
+                    color: _text,
+                  ),
+                  textAlign: TextAlign.end,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+            if (trailing != null) ...[
+              SizedBox(width: context.getRSize(8)),
+              trailing,
+            ],
+          ],
+        ),
       ),
     );
   }
@@ -745,5 +775,94 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       'Dec',
     ];
     return '${dt.day} ${months[dt.month - 1]} ${dt.year}';
+  }
+
+  void _showSupplierSelectionSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (ctx) => GestureDetector(
+        onTap: () => Navigator.pop(ctx),
+        behavior: HitTestBehavior.opaque,
+        child: DraggableScrollableSheet(
+          initialChildSize: 0.6,
+          maxChildSize: 0.9,
+          minChildSize: 0.4,
+          builder: (_, scrollController) => GestureDetector(
+            onTap: () {}, // absorb taps inside
+            child: Container(
+              decoration: BoxDecoration(
+                color: _surface,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+              ),
+              child: Column(
+                children: [
+                  Container(
+                    margin: const EdgeInsets.only(top: 12, bottom: 8),
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: _border,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Text(
+                      'Assign Supplier',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: _text,
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: ListView.builder(
+                      controller: scrollController,
+                      itemCount: supplierService.getAll().length + 1,
+                      itemBuilder: (context, index) {
+                        if (index == 0) {
+                          return ListTile(
+                            leading: CircleAvatar(
+                              backgroundColor: Colors.grey.withValues(alpha: 0.1),
+                              child: Icon(Icons.close, color: _subtext, size: 18),
+                            ),
+                            title: Text('No Supplier', style: TextStyle(color: _text)),
+                            onTap: () {
+                              setState(() {
+                                widget.item.supplierId = null;
+                              });
+                              Navigator.pop(ctx);
+                            },
+                          );
+                        }
+                        final s = supplierService.getAll()[index - 1];
+                        final isSelected = widget.item.supplierId == s.id;
+                        return ListTile(
+                          leading: CircleAvatar(
+                            backgroundColor: s.crateGroup.color.withValues(alpha: 0.1),
+                            child: Icon(FontAwesomeIcons.building, color: s.crateGroup.color, size: 16),
+                          ),
+                          title: Text(s.name, style: TextStyle(color: _text, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
+                          trailing: isSelected ? Icon(Icons.check_circle, color: success) : null,
+                          onTap: () {
+                            setState(() {
+                              widget.item.supplierId = s.id;
+                            });
+                            Navigator.pop(ctx);
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }

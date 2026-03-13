@@ -27,61 +27,69 @@ class NotificationsModal extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DraggableScrollableSheet(
-      initialChildSize: 0.5,
-      minChildSize: 0.5,
-      maxChildSize: 0.9,
-      snap: true,
-      snapSizes: const [0.5, 0.9],
-      builder: (context, scrollController) {
-        return Container(
-          decoration: BoxDecoration(
-            color: _bg,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-          ),
-          child: Column(
-            children: [
-              // Handle
-              Padding(
-                padding: EdgeInsets.only(top: context.getRSize(12)),
-                child: Container(
-                  width: context.getRSize(40),
-                  height: context.getRSize(4),
-                  decoration: BoxDecoration(
-                    color: _border,
-                    borderRadius: BorderRadius.circular(2),
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => Navigator.pop(context),
+      child: DraggableScrollableSheet(
+        initialChildSize: 0.5,
+        minChildSize: 0.5,
+        maxChildSize: 0.9,
+        snap: true,
+        snapSizes: const [0.5, 0.9],
+        builder: (context, scrollController) {
+          return GestureDetector(
+            onTap: () {}, // Prevent tap from reaching the barrier
+            child: Container(
+              decoration: BoxDecoration(
+                color: _bg,
+                borderRadius:
+                    const BorderRadius.vertical(top: Radius.circular(28)),
+              ),
+              child: Column(
+                children: [
+                  // Handle
+                  Padding(
+                    padding: EdgeInsets.only(top: context.getRSize(12)),
+                    child: Container(
+                      width: context.getRSize(40),
+                      height: context.getRSize(4),
+                      decoration: BoxDecoration(
+                        color: _border,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
                   ),
-                ),
-              ),
-              // Header
-              _buildHeader(context),
-              Divider(height: 1, color: _border),
-              // List
-              Expanded(
-                child: ValueListenableBuilder(
-                  valueListenable: notificationService,
-                  builder: (context, notifications, _) {
-                    if (notifications.isEmpty) {
-                      return _buildEmptyState(context);
-                    }
-                    return ListView.separated(
-                      controller: scrollController,
-                      padding: EdgeInsets.all(context.getRSize(16)),
-                      itemCount: notifications.length,
-                      separatorBuilder: (context, index) =>
-                          SizedBox(height: context.getRSize(12)),
-                      itemBuilder: (context, index) {
-                        final n = notifications[index];
-                        return _NotificationCard(notification: n);
+                  // Header
+                  _buildHeader(context),
+                  Divider(height: 1, color: _border),
+                  // List
+                  Expanded(
+                    child: ValueListenableBuilder(
+                      valueListenable: notificationService,
+                      builder: (context, notifications, _) {
+                        if (notifications.isEmpty) {
+                          return _buildEmptyState(context);
+                        }
+                        return ListView.separated(
+                          controller: scrollController,
+                          padding: EdgeInsets.all(context.getRSize(16)),
+                          itemCount: notifications.length,
+                          separatorBuilder: (context, index) =>
+                              SizedBox(height: context.getRSize(12)),
+                          itemBuilder: (context, index) {
+                            final n = notifications[index];
+                            return _NotificationCard(notification: n);
+                          },
+                        );
                       },
-                    );
-                  },
-                ),
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
-        );
-      },
+            ),
+          );
+        },
+      ),
     );
   }
 

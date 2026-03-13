@@ -10,6 +10,9 @@ import '../../../shared/widgets/app_bar_header.dart';
 import '../../../shared/widgets/notification_bell.dart';
 import '../../inventory/data/inventory_data.dart';
 import '../../../core/theme/design_tokens.dart';
+import '../../../shared/services/order_service.dart';
+import '../../expenses/data/services/expense_service.dart';
+import '../../customers/data/services/customer_service.dart';
 
 final Color warning = Color(0xFFF59E0B);
 
@@ -32,10 +35,29 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Color get _subtext => _isDark ? dSubtext : lSubtext;
   Color get _border => _isDark ? dBorder : lBorder;
 
+  bool _isDateInPeriod(DateTime date, String period) {
+    final now = DateTime.now();
+    final diff = now.difference(date);
+
+    switch (period) {
+      case 'Day':
+        return diff.inDays == 0 && now.day == date.day;
+      case 'Week':
+        return diff.inDays <= 7;
+      case 'Month':
+        return diff.inDays <= 30;
+      case 'Year':
+        return diff.inDays <= 365;
+      case 'To Date':
+        return true;
+      default:
+        return true;
+    }
+  }
+
   double get _totalStockValue {
     return kInventoryItems.fold(0.0, (sum, item) {
-      // Mock price logic or lookup
-      return sum + (item.totalStock * 5000); // Using 5000 as a base mock price
+      return sum + (item.totalStock * 5000); // Mock cost price of 5000 per unit
     });
   }
 
@@ -59,15 +81,43 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ],
       ),
       body: SafeArea(
-        child: ListView(
-          padding: EdgeInsets.all(context.spacingM),
-          children: [
-            _buildPeriodHeader(),
-            SizedBox(height: context.spacingM),
-            _buildMetricsGrid(),
-            SizedBox(height: context.spacingL),
-            _buildExpenseTotal(),
-          ],
+        child: AnimatedBuilder(
+          animation: Listenable.merge([orderService, expenseService, customerService]),
+          builder: (context, _) {
+            final orders = orderService.value;
+            final expenses = expenseService.value;
+            final customers = customerService.value;
+
+            // Filter data by period
+            final filteredOrders = orders.where((o) => _isDateInPeriod(o.createdAt, _selectedPeriod) && o.status == 'completed').toList();
+            final filteredExpenses = expenses.where((e) => _isDateInPeriod(e.date, _selectedPeriod)).toList();
+
+            // Calculate Metrics
+            final totalSales = filteredOrders.fold(0.0, (sum, o) => sum + o.totalAmount);
+            final totalExpenses = filteredExpenses.fold(0.0, (sum, e) => sum + e.amount);
+            final netProfit = totalSales - totalExpenses;
+            final pendingOrdersCount = orders.where((o) => o.status == 'pending').length;
+
+            final totalCredit = customers.fold(0.0, (sum, c) => sum + (c.customerWallet > 0 ? c.customerWallet : 0));
+            final totalDebt = customers.fold(0.0, (sum, c) => sum + (c.customerWallet < 0 ? c.customerWallet.abs() : 0));
+
+            return ListView(
+              padding: EdgeInsets.all(context.spacingM),
+              children: [
+                _buildPeriodHeader(),
+                SizedBox(height: context.spacingM),
+                _buildMetricsGrid(
+                  sales: totalSales,
+                  pending: pendingOrdersCount,
+                  profit: netProfit,
+                  credit: totalCredit,
+                  debt: totalDebt,
+                ),
+                SizedBox(height: context.spacingL),
+                _buildExpenseTotal(totalExpenses),
+              ],
+            );
+          },
         ),
       ),
     );
@@ -145,7 +195,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildMetricsGrid() {
+  Widget _buildMetricsGrid({
+    required double sales,
+    required int pending,
+    required double profit,
+    required double credit,
+    required double debt,
+  }) {
     return GridView.count(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
@@ -155,21 +211,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
       childAspectRatio: 1.1,
       children: [
         _metricCard(
-          'Daily Sales',
-          formatCurrency(125000),
+          '$_selectedPeriod Sales',
+          formatCurrency(sales),
           FontAwesomeIcons.nairaSign,
           blueMain,
         ),
-        _metricCard('Pending Orders', '12', FontAwesomeIcons.clock, warning),
+        _metricCard('Pending Orders', pending.toString(), FontAwesomeIcons.clock, warning),
         _metricCard(
           'Net Profit',
-          formatCurrency(45000),
+          formatCurrency(profit),
           FontAwesomeIcons.arrowTrendUp,
-          success,
+          profit >= 0 ? success : danger,
         ),
         _metricCard(
           'Total Loss',
-          formatCurrency(5000),
+          formatCurrency(0), // Mock for now
           FontAwesomeIcons.arrowTrendDown,
           danger,
         ),
@@ -181,7 +237,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
         _metricCard(
           'Customer Wallet',
-          'Cr: ${formatCurrency(25000)}\nDr: ${formatCurrency(12000)}',
+          'Cr: ${formatCurrency(credit)}\nDr: ${formatCurrency(debt)}',
           FontAwesomeIcons.wallet,
           blueMain,
         ),
@@ -241,7 +297,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildExpenseTotal() {
+  Widget _buildExpenseTotal(double total) {
     return Container(
       padding: EdgeInsets.all(context.spacingL),
       decoration: BoxDecoration(
@@ -269,7 +325,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Expense Total',
+                  '$_selectedPeriod Expenses',
                   style: TextStyle(
                     fontSize: context.getRFontSize(14),
                     color: _subtext,
@@ -277,7 +333,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                 ),
                 Text(
-                  formatCurrency(8500),
+                  formatCurrency(total),
                   style: TextStyle(
                     fontSize: context.getRFontSize(24),
                     fontWeight: FontWeight.w800,

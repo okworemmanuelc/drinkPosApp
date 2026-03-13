@@ -206,125 +206,133 @@ class _AddPaymentSheetState extends State<AddPaymentSheet> {
   Widget build(BuildContext context) {
     final recentDeliveries = deliveryService.getAll().take(10).toList();
 
-    return DraggableScrollableSheet(
-      initialChildSize: 0.5,
-      minChildSize: 0.5,
-      maxChildSize: 0.9,
-      snap: true,
-      snapSizes: const [0.5, 0.9],
-      builder: (context, scrollController) {
-        return Container(
-          decoration: BoxDecoration(
-            color: _surface,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-          ),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              children: [
-                // Handle & Header
-                Padding(
-                  padding: EdgeInsets.fromLTRB(
-                    context.getRSize(20),
-                    context.getRSize(12),
-                    context.getRSize(20),
-                    0,
-                  ),
-                  child: Column(
-                    children: [
-                      Container(
-                        width: context.getRSize(40),
-                        height: context.getRSize(4),
-                        decoration: BoxDecoration(
-                          color: _border,
-                          borderRadius: BorderRadius.circular(2),
-                        ),
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => Navigator.pop(context),
+      child: DraggableScrollableSheet(
+        initialChildSize: 0.5,
+        minChildSize: 0.5,
+        maxChildSize: 0.9,
+        snap: true,
+        snapSizes: const [0.5, 0.9],
+        builder: (context, scrollController) {
+          return GestureDetector(
+            onTap: () {}, // Prevent tap from reaching the barrier
+            child: Container(
+              decoration: BoxDecoration(
+                color: _surface,
+                borderRadius:
+                    const BorderRadius.vertical(top: Radius.circular(28)),
+              ),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  children: [
+                    // Handle & Header
+                    Padding(
+                      padding: EdgeInsets.fromLTRB(
+                        context.getRSize(20),
+                        context.getRSize(12),
+                        context.getRSize(20),
+                        0,
                       ),
-                      SizedBox(height: context.getRSize(20)),
-                      Row(
+                      child: Column(
                         children: [
                           Container(
-                            width: context.getRSize(44),
-                            height: context.getRSize(44),
+                            width: context.getRSize(40),
+                            height: context.getRSize(4),
                             decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                colors: [blueLight, blueMain],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                              ),
-                              borderRadius: BorderRadius.circular(12),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: blueMain.withValues(alpha: 0.3),
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ],
-                            ),
-                            child: Icon(
-                              FontAwesomeIcons.moneyBillTransfer,
-                              color: Colors.white,
-                              size: context.getRSize(20),
+                              color: _border,
+                              borderRadius: BorderRadius.circular(2),
                             ),
                           ),
-                          SizedBox(width: context.getRSize(14)),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                          SizedBox(height: context.getRSize(20)),
+                          Row(
                             children: [
-                              Text(
-                                'Record Payment',
-                                style: TextStyle(
-                                  fontSize: context.getRFontSize(18),
-                                  fontWeight: FontWeight.w800,
-                                  color: _text,
+                              Container(
+                                width: context.getRSize(44),
+                                height: context.getRSize(44),
+                                decoration: BoxDecoration(
+                                  gradient: const LinearGradient(
+                                    colors: [blueLight, blueMain],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                  ),
+                                  borderRadius: BorderRadius.circular(12),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: blueMain.withValues(alpha: 0.3),
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: Icon(
+                                  FontAwesomeIcons.moneyBillTransfer,
+                                  color: Colors.white,
+                                  size: context.getRSize(20),
                                 ),
                               ),
-                              Text(
-                                'Log outgoing funds',
-                                style: TextStyle(
-                                  fontSize: context.getRFontSize(13),
-                                  color: blueMain,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                              SizedBox(width: context.getRSize(14)),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Record Payment',
+                                    style: TextStyle(
+                                      fontSize: context.getRFontSize(18),
+                                      fontWeight: FontWeight.w800,
+                                      color: _text,
+                                    ),
+                                  ),
+                                  Text(
+                                    'Log outgoing funds',
+                                    style: TextStyle(
+                                      fontSize: context.getRFontSize(13),
+                                      color: blueMain,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
+                          SizedBox(height: context.getRSize(10)),
                         ],
                       ),
-                      SizedBox(height: context.getRSize(10)),
-                    ],
-                  ),
-                ),
-
-                // Scrollable Content
-                Expanded(
-                  child: ListView(
-                    controller: scrollController,
-                    padding: EdgeInsets.symmetric(
-                      horizontal: context.getRSize(20),
-                      vertical: context.getRSize(10),
                     ),
-                    children: [
-                      // Supplier Autocomplete
-                      _buildLabel('Supplier Name'),
-                      Autocomplete<Supplier>(
-                        displayStringForOption: (item) => item.name,
-                        optionsBuilder: (TextEditingValue textEditingValue) {
-                          if (textEditingValue.text.isEmpty) {
-                            return const Iterable<Supplier>.empty();
-                          }
-                          return supplierService.getAll().where((Supplier s) {
-                            return s.name.toLowerCase().contains(
-                              textEditingValue.text.toLowerCase(),
-                            );
-                          });
-                        },
-                        onSelected: (Supplier selection) {
-                          _selectedSupplier = selection;
-                          _supplierCtrl.text = selection.name;
-                        },
-                        fieldViewBuilder:
-                            (
+
+                    // Scrollable Content
+                    Expanded(
+                      child: ListView(
+                        controller: scrollController,
+                        padding: EdgeInsets.symmetric(
+                          horizontal: context.getRSize(20),
+                          vertical: context.getRSize(10),
+                        ),
+                        children: [
+                          // Supplier Autocomplete
+                          _buildLabel('Supplier Name'),
+                          Autocomplete<Supplier>(
+                            displayStringForOption: (item) => item.name,
+                            optionsBuilder:
+                                (TextEditingValue textEditingValue) {
+                              if (textEditingValue.text.isEmpty) {
+                                return const Iterable<Supplier>.empty();
+                              }
+                              return supplierService
+                                  .getAll()
+                                  .where((Supplier s) {
+                                    return s.name.toLowerCase().contains(
+                                      textEditingValue.text.toLowerCase(),
+                                    );
+                                  });
+                            },
+                            onSelected: (Supplier selection) {
+                              _selectedSupplier = selection;
+                              _supplierCtrl.text = selection.name;
+                            },
+                            fieldViewBuilder: (
                               context,
                               controller,
                               focusNode,
@@ -355,195 +363,210 @@ class _AddPaymentSheetState extends State<AddPaymentSheet> {
                                     : null,
                               );
                             },
-                      ),
-                      SizedBox(height: context.getRSize(16)),
-
-                      // Amount
-                      _buildLabel('Amount'),
-                      TextFormField(
-                        controller: _amountCtrl,
-                        keyboardType: TextInputType.number,
-                        inputFormatters: [CurrencyInputFormatter()],
-                        style: TextStyle(
-                          fontSize: context.getRFontSize(14),
-                          fontWeight: FontWeight.bold,
-                          color: _text,
-                        ),
-                        decoration: _inputDeco('0.00'),
-                        validator: (v) => v == null || v.trim().isEmpty
-                            ? 'Amount is required'
-                            : null,
-                      ),
-                      SizedBox(height: context.getRSize(16)),
-
-                      // Payment Method
-                      _buildLabel('Payment Method'),
-                      DropdownButton<String>(
-                        value: _paymentMethod,
-                        isExpanded: true,
-                        underline: const SizedBox(),
-                        items: ['Cash', 'Transfer', 'Cheque', 'POS']
-                            .map(
-                              (e) => DropdownMenuItem(
-                                value: e,
-                                child: Text(e, style: TextStyle(color: _text)),
-                              ),
-                            )
-                            .toList(),
-                        onChanged: (val) {
-                          if (val != null) setState(() => _paymentMethod = val);
-                        },
-                        dropdownColor: _surface,
-                      ),
-                      SizedBox(height: context.getRSize(16)),
-
-                      // Date Field
-                      _buildLabel('Date'),
-                      InkWell(
-                        onTap: _pickDate,
-                        child: Container(
-                          padding: EdgeInsets.all(context.getRSize(16)),
-                          decoration: BoxDecoration(
-                            color: _cardBg,
-                            borderRadius: BorderRadius.circular(14),
                           ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                DateFormat('MMM d, y').format(_selectedDate),
-                                style: TextStyle(
-                                  fontSize: context.getRFontSize(14),
-                                  fontWeight: FontWeight.bold,
-                                  color: _text,
+                          SizedBox(height: context.getRSize(16)),
+
+                          // Amount
+                          _buildLabel('Amount'),
+                          TextFormField(
+                            controller: _amountCtrl,
+                            keyboardType: TextInputType.number,
+                            inputFormatters: [CurrencyInputFormatter()],
+                            style: TextStyle(
+                              fontSize: context.getRFontSize(14),
+                              fontWeight: FontWeight.bold,
+                              color: _text,
+                            ),
+                            decoration: _inputDeco('0.00'),
+                            validator: (v) => v == null || v.trim().isEmpty
+                                ? 'Amount is required'
+                                : null,
+                          ),
+                          SizedBox(height: context.getRSize(16)),
+
+                          // Payment Method
+                          _buildLabel('Payment Method'),
+                          DropdownButton<String>(
+                            value: _paymentMethod,
+                            isExpanded: true,
+                            underline: const SizedBox(),
+                            items: ['Cash', 'Transfer', 'Cheque', 'POS']
+                                .map(
+                                  (e) => DropdownMenuItem(
+                                    value: e,
+                                    child: Text(
+                                      e,
+                                      style: TextStyle(color: _text),
+                                    ),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: (val) {
+                              if (val != null) {
+                                setState(() => _paymentMethod = val);
+                              }
+                            },
+                            dropdownColor: _surface,
+                          ),
+                          SizedBox(height: context.getRSize(16)),
+
+                          // Date Field
+                          _buildLabel('Date'),
+                          InkWell(
+                            onTap: _pickDate,
+                            child: Container(
+                              padding: EdgeInsets.all(context.getRSize(16)),
+                              decoration: BoxDecoration(
+                                color: _cardBg,
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    DateFormat('MMM d, y').format(
+                                      _selectedDate,
+                                    ),
+                                    style: TextStyle(
+                                      fontSize: context.getRFontSize(14),
+                                      fontWeight: FontWeight.bold,
+                                      color: _text,
+                                    ),
+                                  ),
+                                  Icon(
+                                    FontAwesomeIcons.calendar,
+                                    size: context.getRSize(16),
+                                    color: _subtext,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          SizedBox(height: context.getRSize(16)),
+
+                          // Link to Delivery
+                          _buildLabel('Link to Delivery (Optional)'),
+                          DropdownButton<String?>(
+                            value: _selectedDeliveryId,
+                            isExpanded: true,
+                            underline: const SizedBox(),
+                            items: [
+                              DropdownMenuItem<String?>(
+                                value: null,
+                                child: Text(
+                                  'None',
+                                  style: TextStyle(color: _text),
                                 ),
                               ),
-                              Icon(
-                                FontAwesomeIcons.calendar,
-                                size: context.getRSize(16),
-                                color: _subtext,
-                              ),
+                              ...recentDeliveries.map((d) {
+                                final label =
+                                    '${DateFormat('MMM d').format(d.deliveredAt)} - ${d.supplierName}';
+                                return DropdownMenuItem<String?>(
+                                  value: d.id,
+                                  child: Text(
+                                    label,
+                                    style: TextStyle(color: _text),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                );
+                              }),
                             ],
+                            onChanged: (val) =>
+                                setState(() => _selectedDeliveryId = val),
+                            dropdownColor: _surface,
                           ),
-                        ),
-                      ),
-                      SizedBox(height: context.getRSize(16)),
+                          SizedBox(height: context.getRSize(16)),
 
-                      // Link to Delivery
-                      _buildLabel('Link to Delivery (Optional)'),
-                      DropdownButton<String?>(
-                        value: _selectedDeliveryId,
-                        isExpanded: true,
-                        underline: const SizedBox(),
-                        items: [
-                          DropdownMenuItem<String?>(
-                            value: null,
-                            child: Text('None', style: TextStyle(color: _text)),
+                          // Reference Number
+                          _buildLabel('Reference Number (Optional)'),
+                          TextFormField(
+                            controller: _refCtrl,
+                            style: TextStyle(
+                              fontSize: context.getRFontSize(14),
+                              fontWeight: FontWeight.bold,
+                              color: _text,
+                            ),
+                            decoration: _inputDeco('e.g. TR-20938...'),
                           ),
-                          ...recentDeliveries.map((d) {
-                            final label =
-                                '${DateFormat('MMM d').format(d.deliveredAt)} - ${d.supplierName}';
-                            return DropdownMenuItem<String?>(
-                              value: d.id,
-                              child: Text(
-                                label,
-                                style: TextStyle(color: _text),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            );
-                          }),
+                          SizedBox(height: context.getRSize(16)),
+
+                          // Notes
+                          _buildLabel('Notes (Optional)'),
+                          TextFormField(
+                            controller: _notesCtrl,
+                            maxLines: 3,
+                            style: TextStyle(
+                              fontSize: context.getRFontSize(14),
+                              fontWeight: FontWeight.bold,
+                              color: _text,
+                            ),
+                            decoration: _inputDeco('Add remarks'),
+                          ),
+                          SizedBox(height: context.getRSize(24)),
                         ],
-                        onChanged: (val) =>
-                            setState(() => _selectedDeliveryId = val),
-                        dropdownColor: _surface,
                       ),
-                      SizedBox(height: context.getRSize(16)),
-
-                      // Reference Number
-                      _buildLabel('Reference Number (Optional)'),
-                      TextFormField(
-                        controller: _refCtrl,
-                        style: TextStyle(
-                          fontSize: context.getRFontSize(14),
-                          fontWeight: FontWeight.bold,
-                          color: _text,
-                        ),
-                        decoration: _inputDeco('e.g. TR-20938...'),
-                      ),
-                      SizedBox(height: context.getRSize(16)),
-
-                      // Notes
-                      _buildLabel('Notes (Optional)'),
-                      TextFormField(
-                        controller: _notesCtrl,
-                        maxLines: 3,
-                        style: TextStyle(
-                          fontSize: context.getRFontSize(14),
-                          fontWeight: FontWeight.bold,
-                          color: _text,
-                        ),
-                        decoration: _inputDeco('Add remarks'),
-                      ),
-                      SizedBox(height: context.getRSize(24)),
-                    ],
-                  ),
-                ),
-
-                // Button
-                Padding(
-                  padding: EdgeInsets.fromLTRB(
-                    context.getRSize(20),
-                    context.getRSize(16),
-                    context.getRSize(20),
-                    context.getRSize(MediaQuery.of(context).padding.bottom + 16),
-                  ),
-                  child: Container(
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [blueLight, blueDark],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: blueMain.withValues(alpha: 0.3),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
                     ),
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.transparent,
-                        foregroundColor: Colors.white,
-                        shadowColor: Colors.transparent,
-                        shape: RoundedRectangleBorder(
+
+                    // Button
+                    Padding(
+                      padding: EdgeInsets.fromLTRB(
+                        context.getRSize(20),
+                        context.getRSize(16),
+                        context.getRSize(20),
+                        context.getRSize(
+                          MediaQuery.of(context).padding.bottom + 16,
+                        ),
+                      ),
+                      child: Container(
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [blueLight, blueDark],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
                           borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: blueMain.withValues(alpha: 0.3),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
                         ),
-                        padding: EdgeInsets.symmetric(
-                          vertical: context.getRSize(16),
-                        ),
-                        elevation: 0,
-                      ),
-                      onPressed: _submit,
-                      child: Text(
-                        'Save Payment',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: context.getRFontSize(15),
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.transparent,
+                            foregroundColor: Colors.white,
+                            shadowColor: Colors.transparent,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            padding: EdgeInsets.symmetric(
+                              vertical: context.getRSize(16),
+                            ),
+                            elevation: 0,
+                          ),
+                          onPressed: _submit,
+                          child: Text(
+                            'Save Payment',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: context.getRFontSize(15),
+                            ),
+                          ),
                         ),
                       ),
                     ),
-                  ),
+                  ],
                 ),
-              ],
+              ),
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 }

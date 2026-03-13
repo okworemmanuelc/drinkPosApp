@@ -677,8 +677,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
             width: double.infinity,
             child: TextButton(
               onPressed: () {
-                navigationService.setIndex(1);
+                if (!mounted) return;
                 Navigator.of(context).popUntil((r) => r.isFirst);
+                navigationService.setIndex(1);
               },
               child: Text(
                 'Done — Back to POS',

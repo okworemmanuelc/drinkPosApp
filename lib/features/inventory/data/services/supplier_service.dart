@@ -10,16 +10,22 @@ class SupplierService extends ValueNotifier<List<Supplier>> {
       id: 's1',
       name: 'Nigerian Breweries Plc',
       crateGroup: CrateGroup.nbPlc,
+      contactDetails: 'Plot 2, Igamu House, Lagos. Tel: 01-2703300',
+      supplierWallet: -150000.0, // Debt to supplier
     ),
     Supplier(
       id: 's2',
       name: 'Guinness Nigeria',
       crateGroup: CrateGroup.guinness,
+      contactDetails: '24 Oba Akran Ave, Ikeja, Lagos. Tel: 01-2709100',
+      supplierWallet: 50000.0, // Credit with supplier
     ),
     Supplier(
       id: 's3',
       name: 'Coca-Cola Nigeria',
       crateGroup: CrateGroup.cocaCola,
+      contactDetails: '1 Industrial Estate, Oyo State. Tel: 0800-265-22652',
+      supplierWallet: 0.0,
     ),
   ];
 
