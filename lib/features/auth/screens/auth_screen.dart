@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import '../../../core/theme/design_tokens.dart';
-import '../../../shared/widgets/glass_card.dart';
-import '../../../shared/widgets/main_layout.dart';
+import 'package:onafia_pos/core/theme/design_tokens.dart';
+import 'package:onafia_pos/shared/widgets/main_layout.dart';
+import 'package:onafia_pos/core/database/app_database.dart';
+import 'package:onafia_pos/features/auth/widgets/staff_selector.dart';
+import 'package:onafia_pos/features/auth/widgets/pin_pad_view.dart';
+import 'package:onafia_pos/shared/widgets/security_wrapper.dart';
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -11,28 +13,48 @@ class AuthScreen extends StatefulWidget {
   State<AuthScreen> createState() => _AuthScreenState();
 }
 
-class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateMixin {
-  bool isLogin = true;
+class _AuthScreenState extends State<AuthScreen>
+    with SingleTickerProviderStateMixin {
+  UserData? _selectedStaff;
+  List<UserData> _staffList = [];
+  bool _isLoading = true;
   late AnimationController _controller;
-  late Animation<double> _formAnimation;
+  late Animation<double> _animation;
 
   @override
   void initState() {
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 600),
+      duration: const Duration(milliseconds: 500),
     );
-    _formAnimation = CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeInOutBack,
-    );
+    _animation =
+        CurvedAnimation(parent: _controller, curve: Curves.easeInOut);
+    _loadStaff();
+  }
+
+  Future<void> _loadStaff() async {
+    final staff = await database.select(database.users).get();
+    if (mounted) {
+      setState(() {
+        _staffList = staff;
+        _isLoading = false;
+      });
+      _controller.forward();
+    }
+  }
+
+  void _selectStaff(UserData staff) {
+    setState(() {
+      _selectedStaff = staff;
+    });
+    _controller.reset();
     _controller.forward();
   }
 
-  void _toggleMode() {
+  void _onBack() {
     setState(() {
-      isLogin = !isLogin;
+      _selectedStaff = null;
     });
     _controller.reset();
     _controller.forward();
@@ -46,10 +68,18 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
 
   @override
   Widget build(BuildContext context) {
+    final screenHeight = MediaQuery.of(context).size.height;
+
+    // Responsive spacers — proportional to screen height, clamped for safety
+    final topSpace = (screenHeight * 0.045).clamp(24.0, 56.0);
+    final logoTextGap = (screenHeight * 0.012).clamp(8.0, 20.0);
+    final textSubtextGap = (screenHeight * 0.008).clamp(4.0, 12.0);
+    final headerContentGap = (screenHeight * 0.04).clamp(24.0, 56.0);
+
     return Scaffold(
       body: Stack(
         children: [
-          // Background with Premium Gradient
+          // Background
           Positioned.fill(
             child: Image.asset(
               'assets/images/auth_gradient_bg.png',
@@ -58,186 +88,99 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
           ),
           Positioned.fill(
             child: Container(
-              color: Colors.black.withValues(alpha: 0.2), // Lightened overlay for gradient visibility
+              color: Colors.black.withValues(alpha: 0.3),
             ),
           ),
-          // Content
+
           SafeArea(
-            child: Center(
-              child: SingleChildScrollView(
-                padding: EdgeInsets.all(context.spacingL),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    // Logo/Header Area
-                    Hero(
-                      tag: 'auth_logo',
-                      child: Container(
-                        padding: const EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Colors.white.withValues(alpha: 0.1),
-                          border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+            child: Column(
+              children: [
+                SizedBox(height: topSpace),
+                // Header — logo with Hero animation
+                Hero(
+                  tag: 'auth_logo',
+                  child: Container(
+                    width: 72,
+                    height: 72,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color:
+                              const Color(0xFF2563EB).withValues(alpha: 0.5),
+                          blurRadius: 24,
+                          spreadRadius: 2,
                         ),
-                        child: Icon(
-                          isLogin ? FontAwesomeIcons.lock : FontAwesomeIcons.userPlus,
-                          color: Colors.white,
-                          size: 40,
-                        ),
+                      ],
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(20),
+                      child: Image.asset(
+                        'assets/images/onafia_logo.png',
+                        fit: BoxFit.cover,
                       ),
                     ),
-                    SizedBox(height: context.spacingL),
-                    Text(
-                      isLogin ? 'Welcome Back' : 'Create Account',
-                      style: context.h2.copyWith(
-                        color: Colors.white, 
-                        fontSize: 32,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    SizedBox(height: context.spacingXl),
-                    
-                    // Form Card
-                    FadeTransition(
-                      opacity: _formAnimation,
-                      child: ScaleTransition(
-                        scale: Tween<double>(begin: 0.95, end: 1.0).animate(_formAnimation),
-                        child: GlassCard(
-                          blur: 25,
-                          opacity: 0.15,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              _buildInputField(
-                                hint: 'Email Address',
-                                icon: FontAwesomeIcons.envelope,
-                              ),
-                              SizedBox(height: context.spacingM),
-                              _buildInputField(
-                                hint: 'Password',
-                                icon: FontAwesomeIcons.key,
-                                isPassword: true,
-                              ),
-                              if (!isLogin) ...[
-                                SizedBox(height: context.spacingM),
-                                _buildInputField(
-                                  hint: 'Confirm Password',
-                                  icon: FontAwesomeIcons.shieldHalved,
-                                  isPassword: true,
-                                ),
-                              ],
-                              SizedBox(height: context.spacingL),
-                              
-                              // Premium Gradient Button
-                              Container(
-                                decoration: BoxDecoration(
-                                  gradient: const LinearGradient(
-                                    colors: [AppColors.primary, Color(0xFF1D4ED8)],
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
+                  ),
+                ),
+                SizedBox(height: logoTextGap),
+                Text(
+                  _selectedStaff == null ? 'Staff Entrance' : 'Security Check',
+                  style: context.h2.copyWith(
+                    color: Colors.white,
+                    fontSize: 28,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                SizedBox(height: textSubtextGap),
+                Text(
+                  _selectedStaff == null
+                      ? 'Select your profile to continue'
+                      : 'Verification required',
+                  style:
+                      context.bodyMedium.copyWith(color: Colors.white70),
+                ),
+                SizedBox(height: headerContentGap),
+
+                // Main Content
+                Expanded(
+                  child: FadeTransition(
+                    opacity: _animation,
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(
+                          horizontal: context.spacingL),
+                      child: _isLoading
+                          ? const Center(
+                              child: CircularProgressIndicator(
+                                  color: Colors.white))
+                          : _selectedStaff == null
+                              ? SingleChildScrollView(
+                                  child: StaffSelector(
+                                    staffList: _staffList,
+                                    onStaffSelected: _selectStaff,
                                   ),
-                                  borderRadius: BorderRadius.circular(context.radiusM),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: AppColors.primary.withValues(alpha: 0.3),
-                                      blurRadius: 12,
-                                      offset: const Offset(0, 6),
-                                    ),
-                                  ],
-                                ),
-                                child: ElevatedButton(
-                                  onPressed: () {
-                                    // Mock login/register navigation
-                                    Navigator.pushAndRemoveUntil(
+                                )
+                              : PinPadView(
+                                  staff: _selectedStaff!,
+                                  onBack: _onBack,
+                                  onSuccess: () {
+                                    Navigator.pushReplacement(
                                       context,
-                                      MaterialPageRoute(builder: (context) => const MainLayout()),
-                                      (route) => false,
+                                      MaterialPageRoute(
+                                        builder: (context) =>
+                                            const SecurityWrapper(
+                                          child: MainLayout(),
+                                        ),
+                                      ),
                                     );
                                   },
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.transparent,
-                                    foregroundColor: Colors.white,
-                                    shadowColor: Colors.transparent,
-                                    padding: const EdgeInsets.symmetric(vertical: 20),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(context.radiusM),
-                                    ),
-                                  ),
-                                  child: Text(
-                                    isLogin ? 'Login' : 'Register',
-                                    style: context.bodyLarge.copyWith(
-                                      fontWeight: FontWeight.bold,
-                                      letterSpacing: 0.5,
-                                    ),
-                                  ),
                                 ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
                     ),
-                    
-                    SizedBox(height: context.spacingL),
-                    
-                    // Toggle Button
-                    TextButton(
-                      onPressed: _toggleMode,
-                      child: Text(
-                        isLogin 
-                          ? "Don't have an account? Register" 
-                          : "Already have an account? Login",
-                        style: context.bodyMedium.copyWith(color: Colors.white70),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
-              ),
-            ),
-          ),
-          // Back Button
-          Positioned(
-            top: 20,
-            left: 20,
-            child: SafeArea(
-              child: GlassCard(
-                padding: EdgeInsets.zero,
-                width: 45,
-                height: 45,
-                borderRadius: BorderRadius.circular(15),
-                child: IconButton(
-                  icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 20),
-                  onPressed: () => Navigator.pop(context),
-                ),
-              ),
+              ],
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildInputField({
-    required String hint,
-    required IconData icon,
-    bool isPassword = false,
-  }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(context.radiusM),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-      ),
-      child: TextField(
-        obscureText: isPassword,
-        style: const TextStyle(color: Colors.white),
-        decoration: InputDecoration(
-          hintText: hint,
-          hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.4)),
-          prefixIcon: Icon(icon, size: 18, color: Colors.white.withValues(alpha: 0.6)),
-          border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-        ),
       ),
     );
   }

@@ -1,2 +1,123 @@
 Analyzing drink_pos_app...                                      
-No issues found! (ran in 14.7s)
+
+   info - Parameter 'db' could be a super parameter - lib\core\database\daos.dart:9:3 - use_super_parameters
+   info - Parameter 'db' could be a super parameter - lib\core\database\daos.dart:46:3 - use_super_parameters
+   info - Parameter 'db' could be a super parameter - lib\core\database\daos.dart:148:3 - use_super_parameters
+  error - The named parameter 'description' is required, but there's no corresponding argument - lib\core\database\daos.dart:206:37 - missing_required_argument
+  error - The named parameter 'description' is required, but there's no corresponding argument - lib\core\database\daos.dart:221:37 - missing_required_argument
+  error - The getter 'value' isn't defined for the type 'int' - lib\core\database\daos.dart:295:93 - undefined_getter
+  error - The named parameter 'description' is required, but there's no corresponding argument - lib\core\database\daos.dart:339:39 - missing_required_argument
+   info - Parameter 'db' could be a super parameter - lib\core\database\daos.dart:350:3 - use_super_parameters
+   info - Parameter 'db' could be a super parameter - lib\core\database\daos.dart:443:3 - use_super_parameters
+   info - Use 'const' with the constructor to improve performance - lib\core\database\daos.dart:488:95 - prefer_const_constructors
+  error - The named parameter 'description' is required, but there's no corresponding argument - lib\core\database\daos.dart:521:56 - missing_required_argument
+   info - Parameter 'db' could be a super parameter - lib\core\database\daos.dart:531:3 - use_super_parameters
+   info - Parameter 'db' could be a super parameter - lib\core\database\daos.dart:558:3 - use_super_parameters
+   info - Use 'const' with the constructor to improve performance - lib\core\database\daos.dart:571:7 - prefer_const_constructors
+   info - Use 'const' with the constructor to improve performance - lib\core\database\daos.dart:577:7 - prefer_const_constructors
+  error - A value of type 'Future<int>' can't be returned from the method 'markFailed' because it has a return type of 'Future<void>' - lib\core\database\daos.dart:592:12 - return_of_invalid_type
+   info - Parameter 'db' could be a super parameter - lib\core\database\daos.dart:619:3 - use_super_parameters
+   info - Parameter 'db' could be a super parameter - lib\core\database\daos.dart:656:3 - use_super_parameters
+warning - Unused import: 'dart:convert' - lib\core\services\sync_service.dart:2:8 - unused_import
+  error - The method 'loginWithPin' isn't defined for the type 'AuthService' - lib\features\auth\widgets\pin_pad_view.dart:81:39 - undefined_method
+  error - The method 'Value' isn't defined for the type 'CustomerService' - lib\features\customers\data\services\customer_service.dart:32:14 - undefined_method
+  error - The method 'Value' isn't defined for the type 'CustomerService' - lib\features\customers\data\services\customer_service.dart:33:16 - undefined_method
+  error - The method 'Value' isn't defined for the type 'CustomerService' - lib\features\customers\data\services\customer_service.dart:34:26 - undefined_method
+  error - The method 'Value' isn't defined for the type 'CustomerService' - lib\features\customers\data\services\customer_service.dart:35:24 - undefined_method
+  error - The method 'Value' isn't defined for the type 'CustomerService' - lib\features\customers\data\services\customer_service.dart:52:15 - undefined_method
+  error - The method 'Value' isn't defined for the type 'CustomerService' - lib\features\customers\data\services\customer_service.dart:53:16 - undefined_method
+  error - The method 'Value' isn't defined for the type 'CustomerService' - lib\features\customers\data\services\customer_service.dart:54:18 - undefined_method
+  error - The method 'Value' isn't defined for the type 'CustomerService' - lib\features\customers\data\services\customer_service.dart:55:26 - undefined_method
+  error - The method 'Value' isn't defined for the type 'CustomerService' - lib\features\customers\data\services\customer_service.dart:148:45 - undefined_method
+  error - The argument type 'OrderService' can't be assigned to the parameter type 'ValueListenable<List<Order>>'.  - lib\features\customers\screens\customer_detail_screen.dart:382:24 - argument_type_not_assignable
+  error - The getter 'payments' isn't defined for the type 'Customer' - lib\features\customers\screens\customer_detail_screen.dart:834:39 - undefined_getter
+  error - The getter 'payments' isn't defined for the type 'Customer' - lib\features\customers\screens\customer_detail_screen.dart:875:26 - undefined_getter
+  error - The getter 'payments' isn't defined for the type 'Customer' - lib\features\customers\screens\customer_detail_screen.dart:967:28 - undefined_getter
+  error - The getter 'payments' isn't defined for the type 'Customer' - lib\features\customers\screens\customer_detail_screen.dart:973:32 - undefined_getter
+  error - The getter 'emptyCratesBalance' isn't defined for the type 'Customer' - lib\features\customers\screens\customer_detail_screen.dart:1231:42 - undefined_getter
+   info - Use 'const' with the constructor to improve performance - lib\features\customers\screens\customer_detail_screen.dart:1818:37 - prefer_const_constructors
+   info - Use 'const' with the constructor to improve performance - lib\features\customers\screens\customer_detail_screen.dart:1823:38 - prefer_const_constructors
+   info - Use 'const' with the constructor to improve performance - lib\features\customers\screens\customer_detail_screen.dart:1825:40 - prefer_const_constructors
+   info - Use 'const' with the constructor to improve performance - lib\features\customers\widgets\add_customer_sheet.dart:131:21 - prefer_const_constructors
+   info - Use 'const' with the constructor to improve performance - lib\features\dashboard\screens\dashboard_screen.dart:19:23 - prefer_const_constructors
+   info - Use 'const' for final variables initialized to a constant value - lib\features\deliveries\data\models\delivery_receipt.dart:77:5 - prefer_const_declarations
+   info - Don't use 'BuildContext's across async gaps - lib\features\deliveries\widgets\receive_delivery_sheet.dart:247:19 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\features\deliveries\widgets\receive_delivery_sheet.dart:248:26 - use_build_context_synchronously
+   info - Use 'const' with the constructor to improve performance - lib\features\expenses\widgets\add_expense_sheet.dart:128:9 - prefer_const_constructors
+   info - Use 'const' with the constructor to improve performance - lib\features\expenses\widgets\add_expense_sheet.dart:140:9 - prefer_const_constructors
+   info - Use 'const' with the constructor to improve performance - lib\features\inventory\data\inventory_data.dart:32:12 - prefer_const_constructors
+   info - Use 'const' with the constructor to improve performance - lib\features\inventory\data\inventory_data.dart:48:12 - prefer_const_constructors
+   info - Use 'const' with the constructor to improve performance - lib\features\inventory\data\inventory_data.dart:66:12 - prefer_const_constructors
+   info - Use 'const' with the constructor to improve performance - lib\features\inventory\data\inventory_data.dart:82:12 - prefer_const_constructors
+   info - Use 'const' with the constructor to improve performance - lib\features\inventory\data\inventory_data.dart:98:12 - prefer_const_constructors
+   info - Use 'const' with the constructor to improve performance - lib\features\inventory\data\inventory_data.dart:110:12 - prefer_const_constructors
+   info - Use 'const' with the constructor to improve performance - lib\features\inventory\data\inventory_data.dart:120:12 - prefer_const_constructors
+   info - Use 'const' with the constructor to improve performance - lib\features\inventory\data\inventory_data.dart:130:12 - prefer_const_constructors
+   info - Use 'const' with the constructor to improve performance - lib\features\inventory\data\inventory_data.dart:142:12 - prefer_const_constructors
+   info - Use 'const' with the constructor to improve performance - lib\features\inventory\data\inventory_data.dart:152:12 - prefer_const_constructors
+   info - Use 'const' with the constructor to improve performance - lib\features\inventory\data\inventory_data.dart:162:12 - prefer_const_constructors
+warning - Unused import: 'product_detail_screen.dart' - lib\features\inventory\screens\inventory_screen.dart:21:8 - unused_import
+warning - The declaration '_filteredItems' isn't referenced - lib\features\inventory\screens\inventory_screen.dart:470:27 - unused_element
+  error - The argument type 'CrateGroup (where CrateGroup is defined in C:\Users\okwor\flutter_projects\beer_pos_app\drink_pos_app\lib\features\inventory\data\models\crate_group.dart)' can't be assigned to the parameter type 'CrateGroup (where CrateGroup is defined in C:\Users\okwor\flutter_projects\beer_pos_app\drink_pos_app\lib\core\database\app_database.g.dart)'.  - lib\features\inventory\screens\inventory_screen.dart:508:24 - argument_type_not_assignable
+   info - The argument type 'CrateGroup' isn't related to 'CrateGroup' - lib\features\inventory\screens\inventory_screen.dart:513:59 - collection_methods_unrelated_type
+   info - The type of the right operand ('String?') isn't a subtype or a supertype of the left operand ('int?') - lib\features\inventory\screens\inventory_screen.dart:827:26 - unrelated_type_equality_checks
+  error - The getter 'crateGroup' isn't defined for the type 'Supplier' - lib\features\inventory\screens\inventory_screen.dart:830:28 - undefined_getter
+warning - The declaration '_showUpdateStockDialog' isn't referenced - lib\features\inventory\screens\inventory_screen.dart:1195:8 - unused_element
+   info - Use 'const' with the constructor to improve performance - lib\features\inventory\screens\inventory_screen.dart:1423:36 - prefer_const_constructors
+   info - Use 'const' literals as arguments to constructors of '@immutable' classes - lib\features\inventory\screens\inventory_screen.dart:1425:41 - prefer_const_literals_to_create_immutables
+   info - Use 'const' with the constructor to improve performance - lib\features\inventory\screens\inventory_screen.dart:1426:33 - prefer_const_constructors
+   info - Use 'const' with the constructor to improve performance - lib\features\inventory\screens\inventory_screen.dart:1432:33 - prefer_const_constructors
+   info - Use 'const' with the constructor to improve performance - lib\features\inventory\screens\inventory_screen.dart:1434:42 - prefer_const_constructors
+   info - The type of the right operand ('String?') isn't a subtype or a supertype of the left operand ('int?') - lib\features\inventory\screens\inventory_screen.dart:1515:52 - unrelated_type_equality_checks
+  error - The getter 'crateGroup' isn't defined for the type 'Supplier' - lib\features\inventory\screens\inventory_screen.dart:1522:66 - undefined_getter
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\features\inventory\screens\inventory_screen.dart:1542:52 - use_build_context_synchronously
+   info - Use 'const' with the constructor to improve performance - lib\features\inventory\screens\inventory_screen.dart:1630:38 - prefer_const_constructors
+  error - The getter 'values' isn't defined for the type 'CrateGroup' - lib\features\inventory\screens\inventory_screen.dart:2173:51 - undefined_getter
+  error - The getter 'label' isn't defined for the type 'CrateGroup' - lib\features\inventory\screens\inventory_screen.dart:2311:63 - undefined_getter
+  error - The getter 'values' isn't defined for the type 'CrateGroup' - lib\features\inventory\screens\inventory_screen.dart:2649:47 - undefined_getter
+   info - Use 'const' for final variables initialized to a constant value - lib\features\inventory\screens\product_detail_screen.dart:576:5 - prefer_const_declarations
+   info - Use 'const' for final variables initialized to a constant value - lib\features\inventory\screens\product_detail_screen.dart:577:5 - prefer_const_declarations
+   info - Use 'const' for final variables initialized to a constant value - lib\features\inventory\screens\product_detail_screen.dart:578:5 - prefer_const_declarations
+   info - Use 'const' for final variables initialized to a constant value - lib\features\inventory\screens\product_detail_screen.dart:752:7 - prefer_const_declarations
+   info - Use 'const' with the constructor to improve performance - lib\features\inventory\screens\product_detail_screen.dart:912:50 - prefer_const_constructors
+   info - Use 'const' with the constructor to improve performance - lib\features\payments\screens\payments_screen.dart:693:27 - prefer_const_constructors
+   info - Use 'const' with the constructor to improve performance - lib\features\pos\data\products_data.dart:15:14 - prefer_const_constructors
+   info - Use 'const' with the constructor to improve performance - lib\features\pos\data\products_data.dart:25:14 - prefer_const_constructors
+   info - Use 'const' with the constructor to improve performance - lib\features\pos\data\products_data.dart:35:14 - prefer_const_constructors
+   info - Use 'const' with the constructor to improve performance - lib\features\pos\data\products_data.dart:45:14 - prefer_const_constructors
+   info - Use 'const' with the constructor to improve performance - lib\features\pos\data\products_data.dart:55:14 - prefer_const_constructors
+   info - Use 'const' with the constructor to improve performance - lib\features\pos\data\products_data.dart:65:14 - prefer_const_constructors
+   info - Use 'const' with the constructor to improve performance - lib\features\pos\data\products_data.dart:75:14 - prefer_const_constructors
+   info - Use 'const' with the constructor to improve performance - lib\features\pos\data\products_data.dart:85:14 - prefer_const_constructors
+   info - Use 'const' with the constructor to improve performance - lib\features\pos\data\products_data.dart:95:14 - prefer_const_constructors
+   info - Use 'const' with the constructor to improve performance - lib\features\pos\data\products_data.dart:105:14 - prefer_const_constructors
+   info - Use 'const' with the constructor to improve performance - lib\features\pos\data\products_data.dart:115:14 - prefer_const_constructors
+  error - The getter 'emptyCratesBalance' isn't defined for the type 'Customer' - lib\features\pos\screens\cart_screen.dart:771:38 - undefined_getter
+warning - Unused import: '../../inventory/data/models/inventory_item.dart' - lib\features\pos\screens\pos_home_screen.dart:8:8 - unused_import
+warning - Unused import: '../../inventory/data/inventory_data.dart' - lib\features\pos\screens\pos_home_screen.dart:9:8 - unused_import
+warning - Unused import: '../../../core/database/daos.dart' - lib\features\pos\screens\pos_home_screen.dart:19:8 - unused_import
+   info - Use 'const' literals as arguments to constructors of '@immutable' classes - lib\features\staff\screens\staff_screen.dart:31:18 - prefer_const_literals_to_create_immutables
+   info - Use 'const' with the constructor to improve performance - lib\features\staff\screens\staff_screen.dart:33:11 - prefer_const_constructors
+   info - Don't use 'BuildContext's across async gaps - lib\features\warehouse\screens\stock_transfer_screen.dart:141:26 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\features\warehouse\screens\stock_transfer_screen.dart:148:19 - use_build_context_synchronously
+  error - The property 'id' can't be unconditionally accessed because the receiver can be 'null' - lib\shared\services\auth_service.dart:42:20 - unchecked_use_of_nullable_value
+  error - The property 'name' can't be unconditionally accessed because the receiver can be 'null' - lib\shared\services\auth_service.dart:43:22 - unchecked_use_of_nullable_value
+  error - The property 'role' can't be unconditionally accessed because the receiver can be 'null' - lib\shared\services\auth_service.dart:44:22 - unchecked_use_of_nullable_value
+  error - The property 'roleTier' can't be unconditionally accessed because the receiver can be 'null' - lib\shared\services\auth_service.dart:45:26 - unchecked_use_of_nullable_value
+  error - The property 'avatarColor' can't be unconditionally accessed because the receiver can be 'null' - lib\shared\services\auth_service.dart:46:29 - unchecked_use_of_nullable_value
+  error - Undefined name '_sessionStartTime' - lib\shared\services\auth_service.dart:66:7 - undefined_identifier
+  error - Undefined name 'value' - lib\shared\services\auth_service.dart:68:7 - undefined_identifier
+  error - Undefined name '_sessionStartTime' - lib\shared\services\auth_service.dart:83:5 - undefined_identifier
+  error - Undefined name 'value' - lib\shared\services\auth_service.dart:84:5 - undefined_identifier
+  error - Expected a method, getter, setter or operator declaration - lib\shared\services\auth_service.dart:93:1 - expected_executable
+  error - Undefined class 'OrdersDao' - lib\shared\services\order_service.dart:6:9 - undefined_class
+   info - Type could be non-nullable - lib\shared\services\order_service.dart:6:19 - unnecessary_nullable_for_final_variable_declarations
+  error - The named parameter 'orderId' is required, but there's no corresponding argument - lib\shared\services\order_service.dart:23:14 - missing_required_argument
+  error - The named parameter 'orderNumber' is required, but there's no corresponding argument - lib\shared\services\order_service.dart:33:14 - missing_required_argument
+  error - The name 'OrderWithItems' isn't a type, so it can't be used as a type argument - lib\shared\services\order_service.dart:56:15 - non_type_as_type_argument
+  error - The argument type 'OrderService' can't be assigned to the parameter type 'ValueListenable<List<Order>>'.  - lib\shared\widgets\main_layout.dart:127:44 - argument_type_not_assignable
+  error - The method 'logout' isn't defined for the type 'AuthService' - lib\shared\widgets\security_wrapper.dart:55:17 - undefined_method
+  error - The named parameter 'description' is required, but there's no corresponding argument - lib\shared\widgets\supervisor_overlay_modal.dart:103:33 - missing_required_argument
+  error - The argument type 'int' can't be assigned to the parameter type 'Value<int?>'.  - lib\shared\widgets\supervisor_overlay_modal.dart:104:43 - argument_type_not_assignable
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\shared\widgets\supervisor_overlay_modal.dart:109:54 - use_build_context_synchronously
+

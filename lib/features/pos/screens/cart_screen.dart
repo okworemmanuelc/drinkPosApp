@@ -984,7 +984,12 @@ class _CartScreenState extends State<CartScreen> {
                                   SizedBox(height: context.getRSize(12)),
                               itemBuilder: (_, i) {
                                 final item = cartItems[i];
-                                final Color c = item['color'] as Color;
+                                final rawColor = item['color'];
+                                final Color c = rawColor is Color
+                                    ? rawColor
+                                    : rawColor is String
+                                        ? Color(int.parse(rawColor.replaceFirst('#', '0xFF')))
+                                        : Colors.blue;
                                 return InkWell(
                                   borderRadius: BorderRadius.circular(14),
                                   onTap: () => _editItem(context, item),
@@ -1011,7 +1016,9 @@ class _CartScreenState extends State<CartScreen> {
                                             ),
                                           ),
                                           child: Icon(
-                                            item['icon'] as IconData,
+                                            item['icon'] is IconData
+                                                ? item['icon'] as IconData
+                                                : IconData(item['icon'] as int, fontFamily: 'FontAwesomeSolid', fontPackage: 'font_awesome_flutter'),
                                             color: c,
                                             size: context.getRSize(22),
                                           ),
@@ -1171,7 +1178,7 @@ class _CartScreenState extends State<CartScreen> {
                                                         ),
                                                       ),
                                                       Text(
-                                                        '${line.group.label}  ×${line.qty.toStringAsFixed(0)}',
+                                                        '${line.group.label}  ×${line.qty.toStringAsFixed(1)}',
                                                         style: TextStyle(
                                                           fontSize: context
                                                               .getRFontSize(13),

@@ -116,7 +116,7 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
     }
   }
 
-  void _submit() {
+  Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
 
     final amount = parseCurrency(_amountCtrl.text);
@@ -161,7 +161,7 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
 
     expenseService.addExpense(expense);
 
-    activityLogService.logAction(
+    await activityLogService.logAction(
       'Expense Recorded',
       'Logged $_selectedCategory expense of ${formatCurrency(amount)} via $_paymentMethod',
       relatedEntityId: expense.id,

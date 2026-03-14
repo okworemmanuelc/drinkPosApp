@@ -681,7 +681,7 @@ class _ExpensesScreenState extends State<ExpensesScreen>
                 ],
               ),
               Text(
-                '${(percent * 100).toStringAsFixed(0)}%',
+                '${(percent * 100).toStringAsFixed(1)}%',
                 style: TextStyle(
                   color: isOver ? danger : success,
                   fontSize: context.getRFontSize(12),

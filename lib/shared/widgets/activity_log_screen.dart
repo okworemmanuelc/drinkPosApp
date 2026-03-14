@@ -6,11 +6,20 @@ import '../../core/theme/theme_notifier.dart';
 import '../../core/utils/responsive.dart';
 import '../models/activity_log.dart';
 import '../services/activity_log_service.dart';
+import '../../features/inventory/data/inventory_data.dart';
+import '../../features/warehouse/data/models/warehouse.dart';
 import 'app_drawer.dart';
 import 'notification_bell.dart';
 
-class ActivityLogScreen extends StatelessWidget {
+class ActivityLogScreen extends StatefulWidget {
   const ActivityLogScreen({super.key});
+
+  @override
+  State<ActivityLogScreen> createState() => _ActivityLogScreenState();
+}
+
+class _ActivityLogScreenState extends State<ActivityLogScreen> {
+  String? _selectedWarehouseId;
 
   @override
   Widget build(BuildContext context) {
@@ -130,35 +139,156 @@ class ActivityLogScreen extends StatelessWidget {
             ],
           ),
           drawer: const AppDrawer(activeRoute: 'activity_logs'),
-          body: ValueListenableBuilder<List<ActivityLog>>(
-            valueListenable: activityLogService,
-            builder: (context, logs, child) {
-              if (logs.isEmpty) {
-                return _buildEmptyState(context, textCol, subtextCol);
-              }
+          body: Column(
+            children: [
+              _buildWarehouseFilter(context, surfaceCol, textCol, subtextCol, borderCol),
+              Expanded(
+                child: ValueListenableBuilder<List<ActivityLog>>(
+                  valueListenable: activityLogService,
+                  builder: (context, logs, child) {
+                    final filteredLogs = _filterLogs(logs);
 
-              return ListView.separated(
-                padding: context.rPadding(16),
-                itemCount: logs.length,
-                separatorBuilder: (context, index) =>
-                    SizedBox(height: context.getRSize(12)),
-                itemBuilder: (context, index) {
-                  return _buildLogCard(
-                    context,
-                    logs[index],
-                    cardCol,
-                    surfaceCol,
-                    textCol,
-                    subtextCol,
-                    borderCol,
-                  );
-                },
-              );
-            },
+                    if (filteredLogs.isEmpty) {
+                      return _buildEmptyState(context, textCol, subtextCol);
+                    }
+
+                    return ListView.separated(
+                      padding: context.rPadding(16),
+                      itemCount: filteredLogs.length,
+                      separatorBuilder: (context, index) =>
+                          SizedBox(height: context.getRSize(12)),
+                      itemBuilder: (context, index) {
+                        return _buildLogCard(
+                          context,
+                          filteredLogs[index],
+                          cardCol,
+                          surfaceCol,
+                          textCol,
+                          subtextCol,
+                          borderCol,
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
           ),
         );
       },
     );
+  }
+
+  Widget _buildWarehouseFilter(
+    BuildContext context,
+    Color surfaceCol,
+    Color textCol,
+    Color subtextCol,
+    Color borderCol,
+  ) {
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.fromLTRB(
+        context.getRSize(16),
+        context.getRSize(8),
+        context.getRSize(16),
+        context.getRSize(16),
+      ),
+      decoration: BoxDecoration(
+        color: surfaceCol,
+        border: Border(bottom: BorderSide(color: borderCol)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Filter by Warehouse',
+            style: TextStyle(
+              fontSize: context.getRFontSize(12),
+              color: subtextCol,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          SizedBox(height: context.getRSize(8)),
+          Container(
+            padding: EdgeInsets.symmetric(horizontal: context.getRSize(12)),
+            decoration: BoxDecoration(
+              color: textCol.withValues(alpha: 0.05),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: borderCol),
+            ),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String?>(
+                value: _selectedWarehouseId,
+                isExpanded: true,
+                alignment: AlignmentDirectional.bottomStart,
+                menuMaxHeight: 350,
+                borderRadius: BorderRadius.circular(12),
+                hint: Text(
+                  'All Warehouses',
+                  style: TextStyle(
+                    color: textCol,
+                    fontSize: context.getRFontSize(14),
+                  ),
+                ),
+                items: [
+                  DropdownMenuItem<String?>(
+                    value: null,
+                    child: Text(
+                      'All Warehouses',
+                      style: TextStyle(
+                        color: textCol,
+                        fontSize: context.getRFontSize(14),
+                        fontWeight: _selectedWarehouseId == null ? FontWeight.bold : FontWeight.normal,
+                      ),
+                    ),
+                  ),
+                  ...kWarehouses.map((w) {
+                    return DropdownMenuItem<String?>(
+                      value: w.id,
+                      child: Text(
+                        w.name,
+                        style: TextStyle(
+                          color: textCol,
+                          fontSize: context.getRFontSize(14),
+                          fontWeight: _selectedWarehouseId == w.id ? FontWeight.bold : FontWeight.normal,
+                        ),
+                      ),
+                    );
+                  }),
+                ],
+                onChanged: (val) {
+                  setState(() {
+                    _selectedWarehouseId = val;
+                  });
+                },
+                dropdownColor: surfaceCol,
+                icon: Icon(
+                  FontAwesomeIcons.chevronDown,
+                  size: context.getRSize(14),
+                  color: blueMain,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<ActivityLog> _filterLogs(List<ActivityLog> logs) {
+    if (_selectedWarehouseId == null) return logs;
+
+    return logs.where((log) {
+      final isInventory = log.relatedEntityType == 'inventory' || 
+                         log.action.toLowerCase().contains('inventory') || 
+                         log.action.toLowerCase().contains('stock') ||
+                         log.action.toLowerCase().contains('delivery');
+      
+      if (!isInventory) return true; // Always show non-inventory logs
+      
+      return log.warehouseId == _selectedWarehouseId;
+    }).toList();
   }
 
   Widget _buildEmptyState(
@@ -184,7 +314,7 @@ class ActivityLogScreen extends StatelessWidget {
           ),
           SizedBox(height: context.getRSize(24)),
           Text(
-            'No Activity Yet',
+            'No Activity Found',
             style: TextStyle(
               fontSize: context.getRFontSize(18),
               fontWeight: FontWeight.bold,
@@ -193,7 +323,9 @@ class ActivityLogScreen extends StatelessWidget {
           ),
           SizedBox(height: context.getRSize(8)),
           Text(
-            'Actions performed in the app will appear here.',
+            _selectedWarehouseId == null 
+               ? 'Actions performed in the app will appear here.'
+               : 'No activity found for the selected warehouse.',
             style: TextStyle(
               fontSize: context.getRFontSize(14),
               color: subtextCol,
@@ -218,11 +350,12 @@ class ActivityLogScreen extends StatelessWidget {
     IconData icon = FontAwesomeIcons.bolt;
     Color iconColor = blueMain;
 
-    if (actionLower.contains('order') || actionLower.contains('pos')) {
+    if (actionLower.contains('order') || actionLower.contains('pos') || actionLower.contains('sale')) {
       icon = FontAwesomeIcons.cashRegister;
       iconColor = success;
     } else if (actionLower.contains('inventory') ||
-        actionLower.contains('stock')) {
+        actionLower.contains('stock') ||
+        actionLower.contains('delivery')) {
       icon = FontAwesomeIcons.boxesStacked;
       iconColor = const Color(0xFFF59E0B); // amber
     } else if (actionLower.contains('customer')) {
@@ -296,13 +429,37 @@ class ActivityLogScreen extends StatelessWidget {
                     ),
                   ),
                   SizedBox(height: context.getRSize(8)),
-                  Text(
-                    DateFormat('MMM d, y • h:mm a').format(log.timestamp),
-                    style: TextStyle(
-                      fontSize: context.getRFontSize(11),
-                      fontWeight: FontWeight.w500,
-                      color: subtextCol.withValues(alpha: 0.5),
-                    ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        DateFormat('MMM d, y • h:mm a').format(log.timestamp),
+                        style: TextStyle(
+                          fontSize: context.getRFontSize(11),
+                          fontWeight: FontWeight.w500,
+                          color: subtextCol.withValues(alpha: 0.5),
+                        ),
+                      ),
+                      if (log.warehouseId != null)
+                        Container(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: context.getRSize(6),
+                            vertical: context.getRSize(2),
+                          ),
+                          decoration: BoxDecoration(
+                            color: blueMain.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            kWarehouses.firstWhere((w) => w.id == log.warehouseId, orElse: () => Warehouse(id: '', name: 'N/A', location: '')).name,
+                            style: TextStyle(
+                              fontSize: context.getRFontSize(10),
+                              fontWeight: FontWeight.bold,
+                              color: blueMain,
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                 ],
               ),

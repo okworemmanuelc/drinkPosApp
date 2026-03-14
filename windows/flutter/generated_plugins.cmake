@@ -3,9 +3,11 @@
 #
 
 list(APPEND FLUTTER_PLUGIN_LIST
+  connectivity_plus
   permission_handler_windows
   print_bluetooth_thermal
   share_plus
+  sqlite3_flutter_libs
   url_launcher_windows
 )
 

@@ -1,5 +1,5 @@
 import 'package:flutter/foundation.dart';
-import 'package:drink_pos_app/features/deliveries/data/models/delivery.dart';
+import 'package:onafia_pos/features/deliveries/data/models/delivery.dart';
 import '../../../../shared/services/notification_service.dart';
 
 class DeliveryService extends ValueNotifier<List<Delivery>> {
@@ -7,9 +7,9 @@ class DeliveryService extends ValueNotifier<List<Delivery>> {
 
   static final List<Delivery> _initialDeliveries = [];
 
-  void addDelivery(Delivery delivery) {
+  Future<void> addDelivery(Delivery delivery) async {
     value = [...value, delivery];
-    notificationService.createNotification(
+    await notificationService.createNotification(
       'new_delivery',
       'New delivery received from ${delivery.supplierName}',
       linkedRecordId: delivery.id,

@@ -66,8 +66,8 @@ class DeliveryReceipt {
   }
 }
 
-class DeliveryService extends ValueNotifier<List<DeliveryReceipt>> {
-  DeliveryService() : super([]);
+class DeliveryReceiptService extends ValueNotifier<List<DeliveryReceipt>> {
+  DeliveryReceiptService() : super([]);
 
   void addReceipt(DeliveryReceipt receipt) {
     value = [...value, receipt];
@@ -98,4 +98,4 @@ class DeliveryService extends ValueNotifier<List<DeliveryReceipt>> {
   }
 }
 
-final deliveryService = DeliveryService();
+final deliveryReceiptService = DeliveryReceiptService();

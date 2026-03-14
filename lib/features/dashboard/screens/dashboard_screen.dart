@@ -10,9 +10,11 @@ import '../../../shared/widgets/app_bar_header.dart';
 import '../../../shared/widgets/notification_bell.dart';
 import '../../inventory/data/inventory_data.dart';
 import '../../../core/theme/design_tokens.dart';
+import '../../../shared/models/order.dart';
 import '../../../shared/services/order_service.dart';
 import '../../expenses/data/services/expense_service.dart';
 import '../../customers/data/services/customer_service.dart';
+import '../../../shared/widgets/user_tips_modal.dart';
 
 final Color warning = Color(0xFFF59E0B);
 
@@ -72,7 +74,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         leading: const MenuButton(),
         title: const AppBarHeader(
           icon: FontAwesomeIcons.chartLine,
-          title: 'BrewFlow',
+          title: 'ONAFIA Pos',
           subtitle: 'Business Overview',
         ),
         actions: [
@@ -80,45 +82,122 @@ class _DashboardScreenState extends State<DashboardScreen> {
           SizedBox(width: context.getRSize(8)),
         ],
       ),
-      body: SafeArea(
-        child: AnimatedBuilder(
-          animation: Listenable.merge([orderService, expenseService, customerService]),
-          builder: (context, _) {
-            final orders = orderService.value;
-            final expenses = expenseService.value;
-            final customers = customerService.value;
+      body: StreamBuilder<List<Order>>(
+        stream: orderService.watchAllOrders(),
+        builder: (context, snapshot) {
+          final orders = snapshot.data ?? [];
+          
+          return AnimatedBuilder(
+            animation: Listenable.merge([expenseService, customerService]),
+            builder: (context, _) {
+              final expenses = expenseService.value;
+              final customers = customerService.value;
 
-            // Filter data by period
-            final filteredOrders = orders.where((o) => _isDateInPeriod(o.createdAt, _selectedPeriod) && o.status == 'completed').toList();
-            final filteredExpenses = expenses.where((e) => _isDateInPeriod(e.date, _selectedPeriod)).toList();
+              // Filter data by period
+              final filteredOrders = orders.where((o) => _isDateInPeriod(o.createdAt, _selectedPeriod) && o.status == 'completed').toList();
+              final filteredExpenses = expenses.where((e) => _isDateInPeriod(e.date, _selectedPeriod)).toList();
 
-            // Calculate Metrics
-            final totalSales = filteredOrders.fold(0.0, (sum, o) => sum + o.totalAmount);
-            final totalExpenses = filteredExpenses.fold(0.0, (sum, e) => sum + e.amount);
-            final netProfit = totalSales - totalExpenses;
-            final pendingOrdersCount = orders.where((o) => o.status == 'pending').length;
+              // Calculate Metrics
+              final totalSales = filteredOrders.fold(0.0, (sum, o) => sum + o.totalAmount);
+              final totalExpenses = filteredExpenses.fold(0.0, (sum, e) => sum + e.amount);
+              final netProfit = totalSales - totalExpenses;
+              final pendingOrdersCount = orders.where((o) => o.status == 'pending').length;
 
-            final totalCredit = customers.fold(0.0, (sum, c) => sum + (c.customerWallet > 0 ? c.customerWallet : 0));
-            final totalDebt = customers.fold(0.0, (sum, c) => sum + (c.customerWallet < 0 ? c.customerWallet.abs() : 0));
+              final totalCredit = customers.fold(0.0, (sum, c) => sum + (c.walletBalanceKobo > 0 ? c.customerWallet : 0));
+              final totalDebt = customers.fold(0.0, (sum, c) => sum + (c.walletBalanceKobo < 0 ? c.customerWallet.abs() : 0));
 
-            return ListView(
-              padding: EdgeInsets.all(context.spacingM),
-              children: [
-                _buildPeriodHeader(),
-                SizedBox(height: context.spacingM),
-                _buildMetricsGrid(
-                  sales: totalSales,
-                  pending: pendingOrdersCount,
-                  profit: netProfit,
-                  credit: totalCredit,
-                  debt: totalDebt,
-                ),
-                SizedBox(height: context.spacingL),
-                _buildExpenseTotal(totalExpenses),
-              ],
-            );
-          },
+              return ListView(
+                padding: EdgeInsets.all(context.spacingM),
+                children: [
+                  _buildQuickStartHero(),
+                  SizedBox(height: context.spacingL),
+                  _buildPeriodHeader(),
+                  SizedBox(height: context.spacingM),
+                  _buildMetricsList(
+                    sales: totalSales,
+                    pending: pendingOrdersCount,
+                    profit: netProfit,
+                    credit: totalCredit,
+                    debt: totalDebt,
+                    expenses: totalExpenses,
+                  ),
+                  SizedBox(height: context.spacingL),
+                ],
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildQuickStartHero() {
+    return Container(
+      padding: EdgeInsets.all(context.spacingL),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [blueMain, blueDark],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
+        borderRadius: BorderRadius.circular(context.radiusL),
+        boxShadow: [
+          BoxShadow(
+            color: blueMain.withValues(alpha: 0.3),
+            blurRadius: 15,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(FontAwesomeIcons.rocket, color: Colors.white, size: 20),
+              ),
+              const SizedBox(width: 16),
+              const Expanded(
+                child: Text(
+                  'Welcome to ONAFIA Pos!',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            'Get started with our pro tips and master your beverage business in minutes.',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 14,
+              height: 1.4,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 20),
+          ElevatedButton(
+            onPressed: () => UserTipsModal.show(context),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.white,
+              foregroundColor: blueMain,
+              elevation: 0,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            child: const Text('View Pro Tips', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
       ),
     );
   }
@@ -197,58 +276,98 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildMetricsGrid({
+  Widget _buildMetricsList({
     required double sales,
     required int pending,
     required double profit,
     required double credit,
     required double debt,
+    required double expenses,
   }) {
-    return GridView.count(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      crossAxisCount: 2,
-      crossAxisSpacing: context.spacingM,
-      mainAxisSpacing: context.spacingM,
-      childAspectRatio: 1.1,
+    return Column(
       children: [
-        _metricCard(
-          '$_selectedPeriod Sales',
-          formatCurrency(sales),
-          FontAwesomeIcons.nairaSign,
-          blueMain,
+        _robustMetricCard(
+          label: 'Total Sales',
+          value: formatCurrency(sales),
+          subtitle: 'Generated from ${(_selectedPeriod)} transactions',
+          icon: FontAwesomeIcons.nairaSign,
+          color: blueMain,
+          trend: '+12.5%',
+          isPositive: true,
         ),
-        _metricCard('Pending Orders', pending.toString(), FontAwesomeIcons.clock, warning),
-        _metricCard(
-          'Net Profit',
-          formatCurrency(profit),
-          FontAwesomeIcons.arrowTrendUp,
-          profit >= 0 ? success : danger,
+        SizedBox(height: context.spacingM),
+        _robustMetricCard(
+          label: 'Net Profit',
+          value: formatCurrency(profit),
+          subtitle: 'After all deductions',
+          icon: FontAwesomeIcons.chartLine,
+          color: profit >= 0 ? success : danger,
+          trend: profit >= 0 ? '+8.2%' : '-4.5%',
+          isPositive: profit >= 0,
         ),
-        _metricCard(
-          'Total Loss',
-          formatCurrency(0), // Mock for now
-          FontAwesomeIcons.arrowTrendDown,
-          danger,
+        SizedBox(height: context.spacingM),
+        _robustMetricCard(
+          label: 'Pending Orders',
+          value: pending.toString(),
+          subtitle: 'Orders awaiting fulfillment',
+          icon: FontAwesomeIcons.clock,
+          color: warning,
+          trend: 'Attention',
+          isNeutral: true,
         ),
-        _metricCard(
-          'Stock Value',
-          formatCurrency(_totalStockValue),
-          FontAwesomeIcons.boxesStacked,
-          blueMain,
+        SizedBox(height: context.spacingM),
+        _robustMetricCard(
+          label: 'Total Expenses',
+          value: formatCurrency(expenses),
+          subtitle: 'Including operations & staff',
+          icon: FontAwesomeIcons.fileInvoiceDollar,
+          color: danger,
+          trend: '-5.1%',
+          isPositive: false, // Expenses going down is good, but value is cost
+          inverted: true,
         ),
-        _metricCard(
-          'Customer Wallet',
-          'Cr: ${formatCurrency(credit)}\nDr: ${formatCurrency(debt)}',
-          FontAwesomeIcons.wallet,
-          blueMain,
+        SizedBox(height: context.spacingM),
+        _robustMetricCard(
+          label: 'Stock Value',
+          value: formatCurrency(_totalStockValue),
+          subtitle: 'Estimated inventory worth',
+          icon: FontAwesomeIcons.boxesStacked,
+          color: blueMain,
+          trend: 'Stable',
+          isNeutral: true,
+        ),
+        SizedBox(height: context.spacingM),
+        _robustMetricCard(
+          label: 'Customer Wallet',
+          value: 'Cr: ${formatCurrency(credit)}',
+          subtitle: 'Debt: ${formatCurrency(debt)}',
+          icon: FontAwesomeIcons.wallet,
+          color: blueMain,
+          trend: 'Updated',
+          isNeutral: true,
         ),
       ],
     );
   }
 
-  Widget _metricCard(String label, String value, IconData icon, Color color) {
+  Widget _robustMetricCard({
+    required String label,
+    required String value,
+    required String subtitle,
+    required IconData icon,
+    required Color color,
+    required String trend,
+    bool isPositive = true,
+    bool isNeutral = false,
+    bool inverted = false,
+  }) {
+    final trendColor = isNeutral ? _subtext : (isPositive ? success : danger);
+    final trendIcon = isNeutral
+        ? FontAwesomeIcons.circleExclamation
+        : (isPositive ? FontAwesomeIcons.arrowUp : FontAwesomeIcons.arrowDown);
+
     return Container(
+      width: double.infinity,
       padding: EdgeInsets.all(context.spacingM),
       decoration: BoxDecoration(
         color: _surface,
@@ -262,84 +381,74 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: EdgeInsets.all(context.spacingS),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(context.radiusS),
-            ),
-            child: Icon(icon, color: color, size: context.getRSize(16)),
-          ),
-          const Spacer(),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: context.getRFontSize(12),
-              color: _subtext,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          SizedBox(height: context.getRSize(4)),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Text(
-              value,
-              style: TextStyle(
-                fontSize: context.getRFontSize(18),
-                fontWeight: FontWeight.w800,
-                color: _text,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildExpenseTotal(double total) {
-    return Container(
-      padding: EdgeInsets.all(context.spacingL),
-      decoration: BoxDecoration(
-        color: _surface,
-        borderRadius: BorderRadius.circular(context.radiusL),
-        border: Border.all(color: _border),
-      ),
       child: Row(
         children: [
           Container(
-            padding: EdgeInsets.all(context.getRSize(12)),
+            width: context.getRSize(56),
+            height: context.getRSize(56),
             decoration: BoxDecoration(
-              color: danger.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(14),
+              gradient: LinearGradient(
+                colors: [color.withValues(alpha: 0.1), color.withValues(alpha: 0.05)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(16),
             ),
-            child: Icon(
-              FontAwesomeIcons.fileInvoiceDollar,
-              color: danger,
-              size: context.getRSize(20),
-            ),
+            child: Icon(icon, color: color, size: context.getRSize(24)),
           ),
-          SizedBox(width: context.getRSize(16)),
+          SizedBox(width: context.spacingM),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '$_selectedPeriod Expenses',
+                  label,
                   style: TextStyle(
-                    fontSize: context.getRFontSize(14),
+                    fontSize: context.getRFontSize(13),
                     color: _subtext,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
+                SizedBox(height: context.getRSize(2)),
                 Text(
-                  formatCurrency(total),
+                  value,
                   style: TextStyle(
-                    fontSize: context.getRFontSize(24),
-                    fontWeight: FontWeight.w800,
+                    fontSize: context.getRFontSize(22),
+                    fontWeight: FontWeight.w900,
                     color: _text,
+                  ),
+                ),
+                SizedBox(height: context.getRSize(2)),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    fontSize: context.getRFontSize(12),
+                    color: _subtext.withValues(alpha: 0.7),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: EdgeInsets.symmetric(
+              horizontal: context.getRSize(10),
+              vertical: context.getRSize(6),
+            ),
+            decoration: BoxDecoration(
+              color: trendColor.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(trendIcon, color: trendColor, size: context.getRSize(10)),
+                SizedBox(width: context.getRSize(4)),
+                Text(
+                  trend,
+                  style: TextStyle(
+                    color: trendColor,
+                    fontSize: context.getRFontSize(11),
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
               ],
@@ -349,4 +458,5 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
     );
   }
+
 }

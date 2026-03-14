@@ -160,7 +160,7 @@ class _AddPaymentSheetState extends State<AddPaymentSheet> {
     finalSupplier.amountPaid += amount;
     finalSupplier.supplierWallet -= amount;
 
-    activityLogService.logAction(
+    await activityLogService.logAction(
       'Supplier Payment Recorded',
       'Payment of ${formatCurrency(amount)} to ${finalSupplier.name} via $_paymentMethod',
       relatedEntityId: payment.id,

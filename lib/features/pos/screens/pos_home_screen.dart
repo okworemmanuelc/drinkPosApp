@@ -5,17 +5,15 @@ import '../../../core/theme/colors.dart';
 import '../../../core/theme/theme_notifier.dart';
 import '../../../core/utils/number_format.dart';
 import '../../../core/utils/responsive.dart';
-import '../../inventory/data/models/inventory_item.dart';
-import '../../inventory/data/inventory_data.dart';
 import '../../inventory/data/services/supplier_service.dart';
-import '../data/products_data.dart';
-import '../../customers/data/models/customer.dart';
 import '../../../shared/services/cart_service.dart';
+import '../../customers/data/models/customer.dart';
 import '../../../shared/widgets/shared_scaffold.dart';
 import '../../../shared/widgets/menu_button.dart';
 import '../../../shared/widgets/app_bar_header.dart';
 import '../../../shared/widgets/notification_bell.dart';
 import '../../../core/theme/design_tokens.dart';
+import '../../../core/database/app_database.dart';
 
 class PosHomeScreen extends StatefulWidget {
   const PosHomeScreen({super.key});
@@ -25,19 +23,27 @@ class PosHomeScreen extends StatefulWidget {
 
 class _PosHomeScreenState extends State<PosHomeScreen>
     with TickerProviderStateMixin {
-  String _filter = 'All';
   String _selectedSupplierId = 'All';
   CustomerGroup _selectedGroup = CustomerGroup.retailer;
   String _searchQuery = '';
   bool _isSearching = false;
   final TextEditingController _searchController = TextEditingController();
 
-  final List<String> _filters = ['All', 'Glass Crates', 'Cans & PET', 'Kegs'];
+  List<CategoryData> _dbCategories = [];
+  int? _selectedCategoryId;
 
   @override
   void initState() {
     super.initState();
+    _loadCategories();
     cartService.activeCustomer.addListener(_onCustomerSelected);
+  }
+
+  Future<void> _loadCategories() async {
+    final cats = await database.select(database.categories).get();
+    setState(() {
+      _dbCategories = cats;
+    });
   }
 
   void _onCustomerSelected() {
@@ -96,7 +102,7 @@ class _PosHomeScreenState extends State<PosHomeScreen>
       leading: const MenuButton(),
       title: const AppBarHeader(
         icon: FontAwesomeIcons.beerMugEmpty,
-        title: 'BrewFlow',
+        title: 'ONAFIA Pos',
         subtitle: 'Point of Sale',
       ),
       actions: [
@@ -156,22 +162,45 @@ class _PosHomeScreenState extends State<PosHomeScreen>
           // Pricing Tier Dropdown
           Expanded(
             flex: 4,
-            child: _buildDropdown<CustomerGroup>(
-              value: _selectedGroup,
-              items: CustomerGroup.values.map((g) {
-                String label = g == CustomerGroup.retailer
-                    ? 'Retail'
-                    : (g == CustomerGroup.bulkBreaker
-                        ? 'Bulk'
-                        : 'Distr.'); // Shortened labels for fit
-                return DropdownMenuItem(
-                  value: g,
-                  child: Text(label),
-                );
-              }).toList(),
-              onChanged: (val) {
-                if (val != null) setState(() => _selectedGroup = val);
-              },
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                _buildDropdown<CustomerGroup>(
+                  value: _selectedGroup,
+                  items: CustomerGroup.values.map((g) {
+                    String label = g == CustomerGroup.retailer
+                        ? 'Retail'
+                        : (g == CustomerGroup.bulkBreaker
+                            ? 'Bulk'
+                            : 'Distr.');
+                    return DropdownMenuItem(
+                      value: g,
+                      child: Text(label),
+                    );
+                  }).toList(),
+                  onChanged: (val) {
+                    if (val != null) setState(() => _selectedGroup = val);
+                  },
+                ),
+                Positioned(
+                  top: -6,
+                  right: -6,
+                  child: GestureDetector(
+                    onTap: () => _showTip(
+                      'Pricing Tiers 🏷️',
+                      'Switch between Retail, Bulk breaker, and Distributor prices. All product prices update instantly based on your selection.',
+                    ),
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: const BoxDecoration(
+                        color: blueMain,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.info_outline, color: Colors.white, size: 10),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
           SizedBox(width: context.spacingS),
@@ -199,21 +228,44 @@ class _PosHomeScreenState extends State<PosHomeScreen>
           // Quick Sale Button
           GestureDetector(
             onTap: () => _showQuickSaleModal(),
-            child: Container(
-              padding: EdgeInsets.symmetric(
-                horizontal: context.spacingM,
-                vertical: context.spacingS,
-              ),
-              decoration: BoxDecoration(
-                color: blueMain.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(context.radiusM),
-                border: Border.all(color: blueMain.withValues(alpha: 0.2)),
-              ),
-              child: Icon(
-                FontAwesomeIcons.bolt,
-                size: context.getRSize(18),
-                color: blueMain,
-              ),
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Container(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: context.spacingM,
+                    vertical: context.spacingS,
+                  ),
+                  decoration: BoxDecoration(
+                    color: blueMain.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(context.radiusM),
+                    border: Border.all(color: blueMain.withValues(alpha: 0.2)),
+                  ),
+                  child: Icon(
+                    FontAwesomeIcons.bolt,
+                    size: context.getRSize(18),
+                    color: blueMain,
+                  ),
+                ),
+                Positioned(
+                  top: -6,
+                  right: -6,
+                  child: GestureDetector(
+                    onTap: () => _showTip(
+                      'Quick Sale ⚡',
+                      'Tap to manually enter items not in inventory. Perfect for one-off sales!',
+                    ),
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: const BoxDecoration(
+                        color: blueMain,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.info_outline, color: Colors.white, size: 10),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -274,22 +326,24 @@ class _PosHomeScreenState extends State<PosHomeScreen>
         children: [
           Divider(height: 1, color: _border),
           SizedBox(
-            height: context.getRSize(54), // RESPONSIVE
+            height: context.getRSize(54),
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
               padding: EdgeInsets.symmetric(
                 horizontal: context.spacingM,
                 vertical: context.spacingS,
               ),
-              itemCount: _filters.length,
+              itemCount: _dbCategories.length + 1,
               itemBuilder: (_, i) {
-                final active = _filter == _filters[i];
+                final isAll = i == 0;
+                final cat = isAll ? null : _dbCategories[i - 1];
+                final active = isAll ? _selectedCategoryId == null : _selectedCategoryId == cat?.id;
+                final label = isAll ? 'All' : cat!.name;
+                
                 return Padding(
-                  padding: EdgeInsets.only(
-                    right: context.spacingS,
-                  ),
+                  padding: EdgeInsets.only(right: context.spacingS),
                   child: GestureDetector(
-                    onTap: () => setState(() => _filter = _filters[i]),
+                    onTap: () => setState(() => _selectedCategoryId = cat?.id),
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 150),
                       padding: EdgeInsets.symmetric(
@@ -306,12 +360,10 @@ class _PosHomeScreenState extends State<PosHomeScreen>
                       ),
                       child: Center(
                         child: Text(
-                          _filters[i],
+                          label,
                           style: TextStyle(
-                            fontSize: context.getRFontSize(13), // RESPONSIVE
-                            fontWeight: active
-                                ? FontWeight.w700
-                                : FontWeight.w600,
+                            fontSize: context.getRFontSize(13),
+                            fontWeight: active ? FontWeight.w700 : FontWeight.w600,
                             color: active ? Colors.white : _subtext,
                             letterSpacing: 0.2,
                           ),
@@ -329,130 +381,89 @@ class _PosHomeScreenState extends State<PosHomeScreen>
   }
 
   // ── PRODUCT GRID ─────────────────────────────────────────────────────────────
-  Map<String, dynamic> _inventoryItemToProduct(InventoryItem item) {
-    // Match against kProducts by name to get price info
-    final existing = kProducts.firstWhere(
-      (p) => p['name'] == item.productName,
-      orElse: () => {
-        'sellingPrice': 0,
-        'bulkBreakerPrice': 0,
-        'distributorPrice': 0,
-        'category': 'Other'
-      },
-    );
-
-    double price = (existing['sellingPrice'] ?? 0).toDouble();
-    if (_selectedGroup == CustomerGroup.bulkBreaker) {
-      price = (existing['bulkBreakerPrice'] ?? price).toDouble();
-    } else if (_selectedGroup == CustomerGroup.distributor) {
-      price = (existing['distributorPrice'] ?? price).toDouble();
-    }
-
-    return {
-      'name': item.productName,
-      'subtitle': item.subtitle,
-      'price': price,
-      'sellingPrice': existing['sellingPrice'] ?? 0,
-      'bulkBreakerPrice': existing['bulkBreakerPrice'] ?? 0,
-      'distributorPrice': existing['distributorPrice'] ?? 0,
-      'category': existing['category'] ?? 'Other',
-      'icon': item.icon,
-      'color': item.color,
-      'stock': item.totalStock,
-      'supplierId': item.supplierId,
-      'crateGroupName': item.crateGroupName,
-      'needsEmptyCrate': item.needsEmptyCrate,
-    };
-  }
-
   Widget _buildGrid() {
-    final allProducts = kInventoryItems
-        .where((i) => i.totalStock > 0) // only show in-stock items on POS
-        .map(_inventoryItemToProduct)
-        .toList();
+    return    StreamBuilder<List<ProductData>>(
+      stream: database.catalogDao.watchAvailableProductDatas(categoryId: _selectedCategoryId),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator(color: blueMain));
+        }
+        
+        var shown = snapshot.data ?? [];
 
-    var shown = _filter == 'All'
-        ? allProducts
-        : allProducts.where((p) => p['category'] == _filter).toList();
+        // Manual search filter
+        if (_searchQuery.isNotEmpty) {
+          final q = _searchQuery.toLowerCase();
+          shown = shown.where((p) => 
+            p.name.toLowerCase().contains(q) || 
+            (p.subtitle?.toLowerCase().contains(q) ?? false)
+          ).toList();
+        }
 
-    if (_selectedSupplierId != 'All') {
-      shown = shown
-          .where((p) => p['supplierId'] == _selectedSupplierId)
-          .toList();
-    }
-
-    if (_searchQuery.isNotEmpty) {
-      final q = _searchQuery.toLowerCase();
-      shown = shown
-          .where(
-            (p) =>
-                (p['name'] as String).toLowerCase().contains(q) ||
-                (p['subtitle'] as String).toLowerCase().contains(q),
-          )
-          .toList();
-    }
-
-    if (shown.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(FontAwesomeIcons.magnifyingGlass, size: context.getRSize(48), color: _border),
-            SizedBox(height: context.spacingM),
-            Text(
-              'No products found',
-              style: TextStyle(
-                color: _subtext,
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-              ),
+        if (shown.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(FontAwesomeIcons.magnifyingGlass, size: context.getRSize(48), color: _border),
+                SizedBox(height: context.spacingM),
+                Text(
+                  'No products found',
+                  style: TextStyle(
+                    color: _subtext,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+              ],
             ),
-            SizedBox(height: context.spacingXs),
-            Text(
-              'Try a different search term',
-              style: context.bodySmall.copyWith(color: _subtext),
-            ),
-          ],
-        ),
-      );
-    }
+          );
+        }
 
-    final screenWidth = MediaQuery.of(context).size.width;
-    final crossAxisCount = screenWidth < 360 ? 2 : (screenWidth > 500 ? 4 : 3);
-    final aspect = screenWidth < 360 ? 0.75 : (screenWidth > 500 ? 0.68 : 0.68);
+        final screenWidth = MediaQuery.of(context).size.width;
+        final crossAxisCount = screenWidth < 360 ? 2 : (screenWidth > 500 ? 4 : 3);
+        final aspect = screenWidth < 360 ? 0.75 : (screenWidth > 500 ? 0.68 : 0.68);
 
-    return GridView.builder(
-      padding: EdgeInsets.fromLTRB(
-        context.spacingM,
-        context.spacingM,
-        context.spacingM,
-        context.getRSize(100),
-      ),
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: crossAxisCount,
-        childAspectRatio: aspect,
-        crossAxisSpacing: context.spacingM,
-        mainAxisSpacing: context.spacingM,
-      ),
-      itemCount: shown.length,
-      itemBuilder: (_, i) => ValueListenableBuilder<List<Map<String, dynamic>>>(
-        valueListenable: cartService,
-        builder: (context, cart, _) => _buildProductCard(shown[i], cart),
-      ),
+        return GridView.builder(
+          padding: EdgeInsets.fromLTRB(
+            context.spacingM,
+            context.spacingM,
+            context.spacingM,
+            context.getRSize(100),
+          ),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: crossAxisCount,
+            childAspectRatio: aspect,
+            crossAxisSpacing: context.spacingM,
+            mainAxisSpacing: context.spacingM,
+          ),
+          itemCount: shown.length,
+          itemBuilder: (_, i) => ValueListenableBuilder<List<Map<String, dynamic>>>(
+            valueListenable: cartService,
+            builder: (context, cart, _) => _buildProductCard(shown[i], cart),
+          ),
+        );
+      },
     );
   }
 
   Widget _buildProductCard(
-    Map<String, dynamic> product,
+    ProductData product,
     List<Map<String, dynamic>> cart,
   ) {
-    final price = (_selectedGroup == CustomerGroup.retailer)
-        ? product['price']
-        : (product['wholesale_price'] ?? product['price']);
-    final cartIdx = cart.indexWhere((c) => c['name'] == product['name']);
+    final int priceKobo = database.catalogDao.getPriceForCustomerGroup(
+      product, 
+      _selectedGroup == CustomerGroup.retailer ? 'retail' : (_selectedGroup == CustomerGroup.bulkBreaker ? 'bulk_breaker' : 'distributor')
+    );
+    final price = priceKobo / 100.0;
+    
+    final cartIdx = cart.indexWhere((c) => c['id'] == product.id);
     final inCart = cartIdx != -1;
     final qty = inCart ? cart[cartIdx]['qty'] : 0.0;
-    final Color accent = product['color'] as Color;
+    
+    final Color accent = product.colorHex != null 
+        ? Color(int.parse(product.colorHex!.replaceFirst('#', '0xFF')))
+        : blueMain;
 
     return GestureDetector(
       onTap: () {
@@ -465,7 +476,7 @@ class _PosHomeScreenState extends State<PosHomeScreen>
                 Icon(FontAwesomeIcons.circleCheck, color: Colors.white, size: context.getRSize(16)),
                 SizedBox(width: context.getRSize(12)),
                 Text(
-                  '${product['name']} added to cart',
+                  '${product.name} added to cart',
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
               ],
@@ -505,7 +516,7 @@ class _PosHomeScreenState extends State<PosHomeScreen>
                 context.getRSize(16),
                 context.getRSize(10),
                 context.getRSize(10),
-              ), // RESPONSIVE
+              ),
               child: Column(
                 children: [
                   Expanded(
@@ -516,17 +527,17 @@ class _PosHomeScreenState extends State<PosHomeScreen>
                         shape: BoxShape.circle,
                       ),
                       child: Icon(
-                        product['icon'] as IconData,
-                        size: context.getRSize(28), // RESPONSIVE
+                        IconData(product.iconCodePoint ?? 0xf0fc, fontFamily: 'FontAwesomeSolid', fontPackage: 'font_awesome_flutter'),
+                        size: context.getRSize(28),
                         color: accent,
                       ),
                     ),
                   ),
-                  SizedBox(height: context.getRSize(12)), // RESPONSIVE
+                  SizedBox(height: context.getRSize(12)),
                   Text(
-                    product['name'],
+                    product.name,
                     style: TextStyle(
-                      fontSize: context.getRFontSize(12), // RESPONSIVE
+                      fontSize: context.getRFontSize(12),
                       fontWeight: FontWeight.w700,
                       color: _text,
                     ),
@@ -534,32 +545,33 @@ class _PosHomeScreenState extends State<PosHomeScreen>
                     overflow: TextOverflow.ellipsis,
                     textAlign: TextAlign.center,
                   ),
-                  SizedBox(height: context.getRSize(2)), // RESPONSIVE
-                  Text(
-                    product['subtitle'],
-                    style: TextStyle(
-                      fontSize: context.getRFontSize(10),
-                      color: _subtext,
-                    ), // RESPONSIVE
-                    textAlign: TextAlign.center,
-                  ),
-                  SizedBox(height: context.getRSize(8)), // RESPONSIVE
+                  if (product.subtitle != null) ...[
+                    SizedBox(height: context.getRSize(2)),
+                    Text(
+                      product.subtitle!,
+                      style: TextStyle(
+                        fontSize: context.getRFontSize(10),
+                        color: _subtext,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                  SizedBox(height: context.getRSize(8)),
                   Container(
                     padding: EdgeInsets.symmetric(
                       horizontal: context.getRSize(8),
                       vertical: context.getRSize(4),
-                    ), // RESPONSIVE
+                    ),
                     decoration: BoxDecoration(
                       color: _isDark ? dBg : lBg,
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: FittedBox(
-                      // RESPONSIVE
                       fit: BoxFit.scaleDown,
                       child: Text(
                         formatCurrency(price),
                         style: TextStyle(
-                          fontSize: context.getRFontSize(11), // RESPONSIVE
+                          fontSize: context.getRFontSize(11),
                           fontWeight: FontWeight.w800,
                           color: _isDark ? blueLight : blueDark,
                         ),
@@ -571,19 +583,19 @@ class _PosHomeScreenState extends State<PosHomeScreen>
             ),
             if (inCart)
               Positioned(
-                top: context.getRSize(8), // RESPONSIVE
-                right: context.getRSize(8), // RESPONSIVE
+                top: context.getRSize(8),
+                right: context.getRSize(8),
                 child: Container(
-                  padding: EdgeInsets.all(context.getRSize(6)), // RESPONSIVE
+                  padding: EdgeInsets.all(context.getRSize(6)),
                   decoration: const BoxDecoration(
                     color: blueMain,
                     shape: BoxShape.circle,
                   ),
                   child: Text(
-                    qty.toStringAsFixed(0),
+                    qty.toStringAsFixed(1),
                     style: TextStyle(
                       color: Colors.white,
-                      fontSize: context.getRFontSize(10), // RESPONSIVE
+                      fontSize: context.getRFontSize(10),
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -591,17 +603,17 @@ class _PosHomeScreenState extends State<PosHomeScreen>
               ),
             if (!inCart)
               Positioned(
-                top: context.getRSize(8), // RESPONSIVE
-                right: context.getRSize(8), // RESPONSIVE
+                top: context.getRSize(8),
+                right: context.getRSize(8),
                 child: Container(
-                  width: context.getRSize(24), // RESPONSIVE
-                  height: context.getRSize(24), // RESPONSIVE
+                  width: context.getRSize(24),
+                  height: context.getRSize(24),
                   decoration: BoxDecoration(color: _bg, shape: BoxShape.circle),
                   child: Icon(
                     Icons.add,
                     size: context.getRSize(14),
                     color: _subtext,
-                  ), // RESPONSIVE
+                  ),
                 ),
               ),
           ],
@@ -725,6 +737,33 @@ class _PosHomeScreenState extends State<PosHomeScreen>
         fillColor: _isDark ? dCard : lCard,
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
         contentPadding: EdgeInsets.symmetric(horizontal: context.getRSize(16), vertical: context.getRSize(12)),
+      ),
+    );
+  }
+
+  void _showTip(String title, String message) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        backgroundColor: _surface,
+        title: Row(
+          children: [
+            const Icon(FontAwesomeIcons.circleInfo, color: blueMain, size: 20),
+            const SizedBox(width: 12),
+            Text(title, style: TextStyle(color: _text, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: Text(
+          message,
+          style: TextStyle(color: _subtext, fontSize: 15, height: 1.5),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Got it', style: TextStyle(color: blueMain, fontWeight: FontWeight.bold)),
+          ),
+        ],
       ),
     );
   }

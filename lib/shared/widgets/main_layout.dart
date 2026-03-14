@@ -123,11 +123,11 @@ class _MainLayoutState extends State<MainLayout> {
                         label: 'Inventory',
                       ),
                       BottomNavigationBarItem(
-                        icon: ValueListenableBuilder<List<Order>>(
-                          valueListenable: orderService,
-                          builder: (context, orders, _) {
-                            final pendingCount =
-                                orders.where((o) => o.status == 'pending').length;
+                        icon: StreamBuilder<List<Order>>(
+                          stream: orderService.watchPendingOrders(),
+                          builder: (context, snapshot) {
+                            final orders = snapshot.data ?? [];
+                            final pendingCount = orders.length;
                             return Badge(
                               label: Text(pendingCount.toString()),
                               isLabelVisible: pendingCount > 0,

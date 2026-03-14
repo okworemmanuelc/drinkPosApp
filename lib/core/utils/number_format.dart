@@ -14,7 +14,7 @@ String fmtNumber(num n) {
 /// e.g. formatCurrency(-5000.5) → '-₦5,000.50'
 String formatCurrency(num n) {
   final isNegative = n < 0;
-  final formatter = NumberFormat('#,##0.00', 'en_US');
-  final formatted = formatter.format(n.abs());
+  final formatter = NumberFormat('#,##0', 'en_US');
+  final formatted = formatter.format(n.abs().round());
   return isNegative ? '-₦$formatted' : '₦$formatted';
 }

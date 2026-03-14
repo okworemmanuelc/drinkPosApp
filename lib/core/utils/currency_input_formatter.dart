@@ -16,8 +16,8 @@ class CurrencyInputFormatter extends TextInputFormatter {
       return newValue.copyWith(text: '');
     }
 
-    double value = double.parse(digitsOnly) / 100;
-    final formatter = NumberFormat('#,##0.00', 'en_US');
+    double value = double.parse(digitsOnly);
+    final formatter = NumberFormat('#,##0', 'en_US');
     String newText = formatter.format(value);
 
     return newValue.copyWith(

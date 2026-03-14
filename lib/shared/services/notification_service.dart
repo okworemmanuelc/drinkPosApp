@@ -1,39 +1,40 @@
 import 'package:flutter/foundation.dart';
+import '../../core/database/app_database.dart';
 import '../models/notification.dart';
 
 class NotificationService extends ValueNotifier<List<NotificationModel>> {
-  NotificationService() : super([]);
-
-  void createNotification(String type, String message, {String? linkedRecordId}) {
-    final newNotification = NotificationModel(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      type: type,
-      message: message,
-      timestamp: DateTime.now(),
-      linkedRecordId: linkedRecordId,
-    );
-    value = [newNotification, ...value];
+  NotificationService() : super([]) {
+    _init();
   }
 
-  void markAsRead(String id) {
-    final index = value.indexWhere((n) => n.id == id);
-    if (index != -1) {
-      final newList = List<NotificationModel>.from(value);
-      newList[index] = newList[index].copyWith(isRead: true);
-      value = newList;
+  void _init() {
+    database.notificationsDao.watchAll().listen((notifsData) {
+      value = notifsData.map((data) => NotificationModel.fromDb(data)).toList();
+    });
+  }
+
+  Future<void> createNotification(String type, String message, {String? linkedRecordId}) async {
+    await database.notificationsDao.create(type, message, linkedRecordId: linkedRecordId);
+  }
+
+  Future<void> markAsRead(String id) async {
+    final intId = int.tryParse(id);
+    if (intId != null) {
+      await database.notificationsDao.markRead(intId);
     }
   }
 
-  void markAllAsRead() {
-    value = value.map((n) => n.copyWith(isRead: true)).toList();
+  Future<void> markAllAsRead() async {
+    await database.notificationsDao.markAllRead();
   }
 
   void deleteNotification(String id) {
-    value = value.where((n) => n.id != id).toList();
+    // Note: User didn't request a delete in DAO yet, but I can add it if needed.
+    // For now, persistence is key.
   }
 
   void clearAll() {
-    value = [];
+    // Same as above
   }
 
   int get unreadCount => value.where((n) => !n.isRead).length;

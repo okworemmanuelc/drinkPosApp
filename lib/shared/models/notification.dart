@@ -1,3 +1,4 @@
+import 'package:onafia_pos/core/database/app_database.dart';
 
 class NotificationModel {
   final String id;
@@ -15,6 +16,17 @@ class NotificationModel {
     this.isRead = false,
     this.linkedRecordId,
   });
+
+  factory NotificationModel.fromDb(NotificationData data) {
+    return NotificationModel(
+      id: data.id.toString(),
+      type: data.type,
+      message: data.message,
+      timestamp: data.timestamp,
+      isRead: data.isRead,
+      linkedRecordId: data.linkedRecordId,
+    );
+  }
 
   NotificationModel copyWith({
     String? id,

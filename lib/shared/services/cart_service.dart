@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-
 import '../../features/customers/data/models/customer.dart';
+import '../../core/database/app_database.dart';
 
 class CartService extends ValueNotifier<List<Map<String, dynamic>>> {
   final ValueNotifier<Customer?> activeCustomer = ValueNotifier<Customer?>(null);
@@ -11,27 +11,32 @@ class CartService extends ValueNotifier<List<Map<String, dynamic>>> {
     activeCustomer.value = customer;
   }
 
-  void addItem(Map<String, dynamic> product, {double qty = 1.0}) {
-    final index = value.indexWhere((item) => item['name'] == product['name']);
+  void addItem(dynamic product, {double qty = 1.0}) {
+    // Handling both legacy Map (Quick Sale) and new ProductData class
+    final String name = product is ProductData ? product.name : product['name'];
+    final int? id = product is ProductData ? product.id : null;
+    
+    final index = value.indexWhere((item) => item['id'] == id && item['name'] == name);
+    
     if (index != -1) {
       final updatedList = List<Map<String, dynamic>>.from(value);
       updatedList[index]['qty'] += qty;
       value = updatedList;
     } else {
-      value = [
-        ...value,
-        {
-          'name': product['name'],
-          'subtitle': product['subtitle'],
-          'price': product['price'],
-          'qty': qty,
-          'icon': product['icon'],
-          'color': product['color'],
-          'category': product['category'],
-          'crateGroupName': product['crateGroupName'],
-          'needsEmptyCrate': product['needsEmptyCrate'],
-        },
-      ];
+      final Map<String, dynamic> itemToAdd = {
+        'id': id,
+        'name': name,
+        'subtitle': product is ProductData ? product.subtitle : product['subtitle'],
+        'price': product is ProductData ? product.sellingPriceKobo / 100.0 : product['price'], // Convert kobo to double for UI
+        'qty': qty,
+        'icon': product is ProductData ? product.iconCodePoint : product['icon'],
+        'color': product is ProductData ? product.colorHex : product['color'],
+        'category': product is ProductData ? product.categoryId : product['category'], // Note: category is Int in DB
+        'crateGroupName': product is ProductData ? null : product['crateGroupName'], // TODO: Map this properly
+        'needsEmptyCrate': product is ProductData ? false : product['needsEmptyCrate'], // TODO: Map this properly
+      };
+
+      value = [...value, itemToAdd];
     }
   }
 

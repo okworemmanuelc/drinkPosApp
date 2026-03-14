@@ -1,3 +1,5 @@
+import 'package:onafia_pos/core/database/app_database.dart';
+
 class ActivityLog {
   final String id;
   final String action;
@@ -5,6 +7,7 @@ class ActivityLog {
   final DateTime timestamp;
   final String? relatedEntityId;
   final String? relatedEntityType;
+  final String? warehouseId;
 
   ActivityLog({
     required this.id,
@@ -13,5 +16,18 @@ class ActivityLog {
     required this.timestamp,
     this.relatedEntityId,
     this.relatedEntityType,
+    this.warehouseId,
   });
+
+  factory ActivityLog.fromDb(ActivityLogData data) {
+    return ActivityLog(
+      id: data.id.toString(),
+      action: data.action,
+      description: data.description,
+      timestamp: data.timestamp,
+      relatedEntityId: data.relatedEntityId,
+      relatedEntityType: data.relatedEntityType,
+      warehouseId: data.warehouseId,
+    );
+  }
 }

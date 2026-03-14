@@ -1,40 +1,21 @@
 import 'package:flutter/widgets.dart';
+import 'package:drift/drift.dart' show Value;
 import '../../../../shared/services/activity_log_service.dart';
+import '../../../../shared/services/auth_service.dart';
+import '../../../../core/database/app_database.dart';
 import '../models/customer.dart';
 import '../models/payment.dart';
 
 class CustomerService extends ValueNotifier<List<Customer>> {
-  CustomerService() : super(_initialCustomers);
+  CustomerService() : super([]) {
+    _init();
+  }
 
-  static final List<Customer> _initialCustomers = [
-    Customer(
-      id: 'c1',
-      name: 'Alhaji Musa',
-      addressText: '12 Borno Way, Maiduguri',
-      googleMapsLocation: '12 Borno Way',
-      customerWallet: 15000.0,
-      customerGroup: CustomerGroup.retailer,
-      isWalkIn: false,
-    ),
-    Customer(
-      id: 'c2',
-      name: 'Mama Chioma',
-      addressText: '45 Market Road, Maiduguri',
-      googleMapsLocation: '45 Market Road',
-      customerWallet: 0.0,
-      customerGroup: CustomerGroup.retailer,
-      isWalkIn: false,
-    ),
-    Customer(
-      id: 'c3',
-      name: 'Cold Room Express',
-      addressText: '8 Industrial Layout, Maiduguri',
-      googleMapsLocation: '8 Industrial Layout',
-      customerWallet: -7500.0,
-      customerGroup: CustomerGroup.retailer,
-      isWalkIn: false,
-    ),
-  ];
+  void _init() {
+    database.customersDao.watchAllCustomers().listen((dataList) {
+      value = dataList;
+    });
+  }
 
   List<Customer> getAll() => List.unmodifiable(value);
 
@@ -46,82 +27,86 @@ class CustomerService extends ValueNotifier<List<Customer>> {
     }
   }
 
-  void addCustomer(Customer customer) {
-    value = [...value, customer];
-    activityLogService.logAction(
+  Future<void> addCustomer(Customer customer) async {
+    final companion = CustomersCompanion.insert(
+      name: customer.name,
+      phone: Value(customer.phone),
+      address: Value(customer.addressText),
+      walletBalanceKobo: Value(customer.walletBalanceKobo),
+      walletLimitKobo: Value(customer.walletLimitKobo),
+    );
+    await database.customersDao.addCustomer(companion);
+
+    await activityLogService.logAction(
       'Customer Created',
       'Added new customer: ${customer.name}',
-      relatedEntityId: customer.id,
       relatedEntityType: 'customer',
     );
   }
 
-  void updateCustomer(Customer updatedCustomer) {
-    final index = value.indexWhere((c) => c.id == updatedCustomer.id);
-    if (index != -1) {
-      final newList = List<Customer>.from(value);
-      newList[index] = updatedCustomer;
-      value = newList;
+  Future<void> updateCustomer(Customer updatedCustomer) async {
+    final idInt = int.tryParse(updatedCustomer.id);
+    if (idInt == null) return;
 
-      activityLogService.logAction(
-        'Customer Updated',
-        'Updated details for customer: ${updatedCustomer.name}',
-        relatedEntityId: updatedCustomer.id,
-        relatedEntityType: 'customer',
-      );
-    }
+    await (database.update(database.customers)..where((t) => t.id.equals(idInt))).write(
+      CustomersCompanion(
+        name: Value(updatedCustomer.name),
+        phone: Value(updatedCustomer.phone),
+        address: Value(updatedCustomer.addressText),
+        walletLimitKobo: Value(updatedCustomer.walletLimitKobo),
+      ),
+    );
+
+    await activityLogService.logAction(
+      'Customer Updated',
+      'Updated details for customer: ${updatedCustomer.name}',
+      relatedEntityId: updatedCustomer.id,
+      relatedEntityType: 'customer',
+    );
   }
 
-  void addPayment(String customerId, Payment payment) {
+  Future<void> addPayment(String customerId, Payment payment) async {
+    final idInt = int.tryParse(customerId);
+    if (idInt == null) return;
+
     final customer = getById(customerId);
     if (customer != null) {
-      final updatedPayments = [...customer.payments, payment];
-      final newBalance = customer.customerWallet + payment.amount;
-
-      final updatedCustomer = customer.copyWith(
-        payments: updatedPayments,
-        customerWallet: newBalance,
+      final amountKobo = (payment.amount * 100).round();
+      
+      await database.customersDao.updateWalletBalance(
+        customerId: idInt,
+        deltaKobo: amountKobo,
+        type: 'credit',
+        staffId: authService.currentUser?.id ?? 1,
+        note: payment.note,
       );
 
-      final index = value.indexWhere((c) => c.id == customerId);
-      final newList = List<Customer>.from(value);
-      newList[index] = updatedCustomer;
-      value = newList;
-
-      activityLogService.logAction(
+      await activityLogService.logAction(
         'Payment Added',
-        'Added payment of ₦${payment.amount.toStringAsFixed(2)} for ${customer.name}',
+        'Added payment of ₦${payment.amount.round()} for ${customer.name}',
         relatedEntityId: customer.id,
         relatedEntityType: 'customer',
       );
     }
   }
 
-  void addCratesToBalance(
+  Future<void> addCratesToBalance(
     String customerId,
     Map<String, int> cratesAdded,
-  ) {
+  ) async {
+    final idInt = int.tryParse(customerId);
+    if (idInt == null) return;
+
     final customer = getById(customerId);
     if (customer != null) {
-      final newCratesBalance = Map<String, int>.from(
-        customer.emptyCratesBalance,
-      );
+      for (final entry in cratesAdded.entries) {
+        // Find crate group ID from name or use default
+        // For now, let's assume crate group IDs are 1 and 2
+        final groupId = entry.key.contains('24') ? 1 : 2;
+        await database.customersDao.updateCrateBalance(idInt, groupId, entry.value);
+      }
 
-      cratesAdded.forEach((crateGroup, qty) {
-        final currentQty = newCratesBalance[crateGroup] ?? 0;
-        newCratesBalance[crateGroup] = currentQty + qty;
-      });
-
-      final updatedCustomer = customer.copyWith(
-        emptyCratesBalance: newCratesBalance,
-      );
-
-      final index = value.indexWhere((c) => c.id == customerId);
-      final newList = List<Customer>.from(value);
-      newList[index] = updatedCustomer;
-      value = newList;
-
-      activityLogService.logAction(
+      await activityLogService.logAction(
         'Crates Dispatched',
         'Added $cratesAdded empty crates to balance for ${customer.name}',
         relatedEntityId: customer.id,
@@ -130,34 +115,21 @@ class CustomerService extends ValueNotifier<List<Customer>> {
     }
   }
 
-  void updateEmptyCratesBalance(
+  Future<void> updateEmptyCratesBalance(
     String customerId,
     Map<String, int> cratesReturned,
-  ) {
+  ) async {
+    final idInt = int.tryParse(customerId);
+    if (idInt == null) return;
+
     final customer = getById(customerId);
     if (customer != null) {
-      final newCratesBalance = Map<String, int>.from(
-        customer.emptyCratesBalance,
-      );
+      for (final entry in cratesReturned.entries) {
+        final groupId = entry.key.contains('24') ? 1 : 2;
+        await database.customersDao.updateCrateBalance(idInt, groupId, -entry.value);
+      }
 
-      cratesReturned.forEach((crateGroup, qtyReturned) {
-        final currentQty = newCratesBalance[crateGroup] ?? 0;
-        newCratesBalance[crateGroup] = (currentQty - qtyReturned).clamp(
-          0,
-          9999,
-        );
-      });
-
-      final updatedCustomer = customer.copyWith(
-        emptyCratesBalance: newCratesBalance,
-      );
-
-      final index = value.indexWhere((c) => c.id == customerId);
-      final newList = List<Customer>.from(value);
-      newList[index] = updatedCustomer;
-      value = newList;
-
-      activityLogService.logAction(
+      await activityLogService.logAction(
         'Crates Returned',
         'Updated empty crates balance for ${customer.name}',
         relatedEntityId: customer.id,
@@ -166,16 +138,18 @@ class CustomerService extends ValueNotifier<List<Customer>> {
     }
   }
 
-  void updateWalletLimit(String customerId, double newLimit) {
+  Future<void> updateWalletLimit(String customerId, double newLimit) async {
+    final idInt = int.tryParse(customerId);
+    if (idInt == null) return;
+
     final customer = getById(customerId);
     if (customer != null) {
-      final updatedCustomer = customer.copyWith(walletLimit: newLimit);
-      final index = value.indexWhere((c) => c.id == customerId);
-      final newList = List<Customer>.from(value);
-      newList[index] = updatedCustomer;
-      value = newList;
+      final limitKobo = (newLimit * 100).round();
+      await (database.update(database.customers)..where((t) => t.id.equals(idInt))).write(
+        CustomersCompanion(walletLimitKobo: Value(limitKobo)),
+      );
 
-      activityLogService.logAction(
+      await activityLogService.logAction(
         'Limit Updated',
         'Updated wallet limit to ₦${newLimit.abs().toStringAsFixed(0)} for ${customer.name}',
         relatedEntityId: customer.id,
@@ -184,17 +158,24 @@ class CustomerService extends ValueNotifier<List<Customer>> {
     }
   }
 
-  void refundToWallet(String customerId, double amount, String note) {
+  Future<void> refundToWallet(String customerId, double amount, String note) async {
+    final idInt = int.tryParse(customerId);
+    if (idInt == null) return;
+
     final customer = getById(customerId);
     if (customer != null) {
-      final updatedCustomer = customer.copyWith(
-        customerWallet: customer.customerWallet + amount,
+      final amountKobo = (amount * 100).round();
+      await database.customersDao.updateWalletBalance(
+        customerId: idInt,
+        deltaKobo: amountKobo,
+        type: 'refund',
+        staffId: authService.currentUser?.id ?? 1,
+        note: note,
       );
-      updateCustomer(updatedCustomer);
 
-      activityLogService.logAction(
+      await activityLogService.logAction(
         'Wallet Refunded',
-        'Refunded ₦${amount.toStringAsFixed(2)} to ${customer.name}. Note: $note',
+        'Refunded ₦${amount.round()} to ${customer.name}. Note: $note',
         relatedEntityId: customer.id,
         relatedEntityType: 'customer',
       );

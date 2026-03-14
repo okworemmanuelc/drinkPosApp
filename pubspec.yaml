@@ -1,5 +1,5 @@
-name: drink_pos_app
-description: "A new Flutter project."
+name: onafia_pos
+description: "ONAFIA POS app for a drinks distributor."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: "none" # Remove this line if you wish to publish to pub.dev
@@ -44,6 +44,12 @@ dependencies:
   intl: ^0.20.2
   barcode_widget: ^2.0.4
   file_picker: ^8.1.7
+  connectivity_plus: ^6.1.1
+
+  # Database
+  drift: ^2.11.0
+  sqlite3_flutter_libs: ^0.5.15
+  path: ^1.8.3
 
 dev_dependencies:
   flutter_test:
@@ -54,7 +60,9 @@ dev_dependencies:
   # activated in the `analysis_options.yaml` file located at the root of your
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
-  flutter_lints: ^6.0.0
+  flutter_lints: ^3.0.0
+  drift_dev: ^2.11.0
+  build_runner: ^2.4.6
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -70,6 +78,7 @@ flutter:
     - assets/images/auth_bg.png
     - assets/images/calculator_bg.png
     - assets/images/auth_gradient_bg.png
+    - assets/images/onafia_logo.png
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

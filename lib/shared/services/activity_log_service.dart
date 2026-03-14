@@ -1,26 +1,41 @@
 import 'package:flutter/widgets.dart';
+import '../../core/database/app_database.dart';
 import '../models/activity_log.dart';
+import './auth_service.dart';
 
 class ActivityLogService extends ValueNotifier<List<ActivityLog>> {
-  ActivityLogService() : super([]);
+  ActivityLogService() : super([]) {
+    _init();
+  }
 
-  void logAction(
+  void _init() {
+    database.activityLogDao.watchRecent().listen((logsData) {
+      value = logsData.map((data) => ActivityLog.fromDb(data)).toList();
+    });
+  }
+
+  Future<void> logAction(
     String action,
     String description, {
     String? relatedEntityId,
     String? relatedEntityType,
-  }) {
-    final newLog = ActivityLog(
-      id: DateTime.now().millisecondsSinceEpoch.toString(), // Simple unique ID
+    String? warehouseId,
+  }) async {
+    final staffId = authService.currentUser?.id;
+    
+    await database.activityLogDao.log(
+      staffId: staffId,
       action: action,
       description: description,
-      timestamp: DateTime.now(),
-      relatedEntityId: relatedEntityId,
-      relatedEntityType: relatedEntityType,
+      entityId: relatedEntityId,
+      entityType: relatedEntityType,
+      warehouseId: warehouseId,
     );
+  }
 
-    // Keep logs immutable by creating a new list
-    value = [newLog, ...value];
+  Future<List<ActivityLog>> getForEntity(String entityId) async {
+    final data = await database.activityLogDao.getForEntity(entityId);
+    return data.map((d) => ActivityLog.fromDb(d)).toList();
   }
 }
 

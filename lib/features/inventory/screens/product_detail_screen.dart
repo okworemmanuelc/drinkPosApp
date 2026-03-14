@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 import '../../../core/theme/colors.dart';
+import '../../../shared/services/activity_log_service.dart';
 import '../../../core/theme/theme_notifier.dart';
 import '../../../core/utils/number_format.dart';
 import '../../../core/utils/responsive.dart';
@@ -427,7 +428,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           width: double.infinity,
           child: ElevatedButton.icon(
             style: ElevatedButton.styleFrom(
-              backgroundColor: blueMain,
+              backgroundColor: danger,
               foregroundColor: Colors.white,
               padding: EdgeInsets.symmetric(vertical: context.getRSize(16)),
               shape: RoundedRectangleBorder(
@@ -935,12 +936,13 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     );
   }
 
-  void _updateQuantity(double delta) {
+  Future<void> _updateQuantity(double delta) async {
+    final warehouseId = widget.item.warehouseStock.keys.isNotEmpty
+        ? widget.item.warehouseStock.keys.first
+        : 'w1';
+    final current = widget.item.warehouseStock[warehouseId] ?? 0;
+    
     setState(() {
-      final warehouseId = widget.item.warehouseStock.keys.isNotEmpty
-          ? widget.item.warehouseStock.keys.first
-          : 'w1';
-      final current = widget.item.warehouseStock[warehouseId] ?? 0;
       widget.item.warehouseStock[warehouseId] = current + delta;
 
       kInventoryLogs.add(
@@ -956,6 +958,15 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         ),
       );
     });
+
+    // Mirror to Global Activity Log
+    await activityLogService.logAction(
+      delta > 0 ? "Inventory Restock" : "Stock Adjustment",
+      "${delta > 0 ? 'Restocked' : 'Adjusted'} ${widget.item.productName}: ${current.toInt()} -> ${widget.item.warehouseStock[warehouseId]!.toInt()} (Detail Screen)",
+      relatedEntityId: widget.item.id,
+      relatedEntityType: "inventory",
+      warehouseId: warehouseId,
+    );
   }
 
   void _editPrice(String field) {

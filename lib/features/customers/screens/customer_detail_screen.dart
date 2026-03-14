@@ -378,9 +378,10 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
     Color subtextCol,
     Color borderCol,
   ) {
-    return ValueListenableBuilder<List<Order>>(
-      valueListenable: orderService,
-      builder: (context, ordersList, _) {
+    return StreamBuilder<List<Order>>(
+      stream: orderService.watchAllOrders(),
+      builder: (context, snapshot) {
+        final ordersList = snapshot.data ?? [];
         final customerOrders =
             ordersList.where((o) => o.customerId == _customer!.id).toList()
               ..sort((a, b) => b.createdAt.compareTo(a.createdAt));

@@ -6,6 +6,8 @@ import '../../core/utils/responsive.dart';
 import '../../shared/services/navigation_service.dart';
 import '../../shared/services/auth_service.dart';
 import '../../features/auth/screens/onboarding_screen.dart';
+import '../../shared/widgets/user_tips_modal.dart';
+import '../../shared/widgets/role_guard.dart';
 
 class AppDrawer extends StatelessWidget {
   // Pass 'pos' or 'inventory' to highlight the correct nav item
@@ -30,7 +32,6 @@ class AppDrawer extends StatelessWidget {
           children: [
             _buildHeader(context),
             Expanded(child: _buildNavList(context)),
-            SafeArea(top: false, child: _buildLogout(context)),
           ],
         ),
       ),
@@ -57,16 +58,24 @@ class AppDrawer extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            padding: EdgeInsets.all(context.getRSize(12)),
+            width: context.getRSize(56),
+            height: context.getRSize(56),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF2563EB).withValues(alpha: 0.4),
+                  blurRadius: 16,
+                  spreadRadius: 2,
+                ),
+              ],
             ),
-            child: Icon(
-              FontAwesomeIcons.user,
-              color: Colors.white,
-              size: context.getRSize(26), // Responsive icon
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(14),
+              child: Image.asset(
+                'assets/images/onafia_logo.png',
+                fit: BoxFit.cover,
+              ),
             ),
           ),
           SizedBox(height: context.getRSize(16)),
@@ -159,29 +168,41 @@ class AppDrawer extends StatelessWidget {
           active: activeRoute == 'expenses',
           onTap: () => _navigateTo(context, 'expenses'),
         ),
-        _navItem(
-          context,
-          FontAwesomeIcons.warehouse,
-          'Manage Warehouse',
-          active: activeRoute == 'warehouse',
-          onTap: () => _navigateTo(context, 'warehouse'),
-        ),
-        _navItem(
-          context,
-          FontAwesomeIcons.userGroup,
-          'Staff',
-          active: activeRoute == 'staff',
-          onTap: () => _navigateTo(context, 'staff'),
+        RoleGuard(
+          minTier: 4,
+          fallback: const SizedBox.shrink(),
+          child: Column(
+            children: [
+              _navItem(
+                context,
+                FontAwesomeIcons.warehouse,
+                'Manage Warehouse',
+                active: activeRoute == 'warehouse',
+                onTap: () => _navigateTo(context, 'warehouse'),
+              ),
+              _navItem(
+                context,
+                FontAwesomeIcons.userGroup,
+                'Staff',
+                active: activeRoute == 'staff',
+                onTap: () => _navigateTo(context, 'staff'),
+              ),
+            ],
+          ),
         ),
         SizedBox(height: context.getRSize(12)),
         Divider(color: _border),
         SizedBox(height: context.getRSize(12)),
-        _navItem(
-          context,
-          FontAwesomeIcons.clockRotateLeft,
-          'Activity Logs',
-          active: activeRoute == 'activity_logs',
-          onTap: () => _navigateTo(context, 'activity_logs'),
+        RoleGuard(
+          minTier: 4,
+          fallback: const SizedBox.shrink(),
+          child: _navItem(
+            context,
+            FontAwesomeIcons.clockRotateLeft,
+            'Activity Logs',
+            active: activeRoute == 'activity_logs',
+            onTap: () => _navigateTo(context, 'activity_logs'),
+          ),
         ),
         _navItem(
           context,
@@ -197,21 +218,35 @@ class AppDrawer extends StatelessWidget {
           active: activeRoute == 'cart',
           onTap: () => _navigateTo(context, 'cart'),
         ),
+        _navItem(
+          context,
+          FontAwesomeIcons.lightbulb,
+          'Pro Tips',
+          active: false,
+          onTap: () {
+            Navigator.pop(context);
+            UserTipsModal.show(context);
+          },
+        ),
         SizedBox(height: context.getRSize(12)),
         Divider(color: _border),
         SizedBox(height: context.getRSize(12)),
         _buildThemeToggle(context),
+        SizedBox(height: context.getRSize(12)),
+        Divider(color: _border),
+        _buildLogout(context),
+        // Extra space for system navigation bar
+        SizedBox(height: MediaQuery.of(context).padding.bottom + context.getRSize(20)),
       ],
     );
   }
 
   // ── Navigation logic — now uses NavigationService shell ────────────────────
   void _navigateTo(BuildContext context, String route) {
-    // Always close the drawer first
+    // Close the drawer only — MainLayout uses IndexedStack so no Navigator
+    // stack manipulation is needed. popUntil was previously popping all the
+    // way back to OnboardingScreen, causing a spurious "logout".
     Navigator.pop(context);
-
-    // Ensure we are at the root MainLayout shell
-    Navigator.of(context).popUntil((r) => r.isFirst);
 
     if (route == 'dashboard') {
       navigationService.setIndex(0);

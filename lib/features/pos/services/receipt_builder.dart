@@ -60,7 +60,7 @@ class ThermalReceiptService {
       bytes += generator.hr();
     }
     bytes += generator.text(
-      'BREWFLOW POS',
+      'ONAFIA POS',
       styles: const PosStyles(
         align: PosAlign.center,
         height: PosTextSize.size2,
@@ -227,7 +227,7 @@ class ThermalReceiptService {
       styles: const PosStyles(align: PosAlign.center),
     );
     bytes += generator.text(
-      'Powered by BrewFlow',
+      'Powered by ONAFIA Pos',
       styles: const PosStyles(
         align: PosAlign.center,
         fontType: PosFontType.fontB,

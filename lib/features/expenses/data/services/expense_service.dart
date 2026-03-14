@@ -65,10 +65,10 @@ class ExpenseService extends ValueNotifier<List<Expense>> {
     return (totalSpentThisYear / monthsElapsed) * 12;
   }
 
-  void addExpense(Expense expense) {
+  Future<void> addExpense(Expense expense) async {
     value = [...value, expense];
     if (expense.amount >= 50000) {
-      notificationService.createNotification(
+      await notificationService.createNotification(
         'large_expense',
         'Large expense recorded: ${formatCurrency(expense.amount)} for ${expense.category}',
         linkedRecordId: expense.id,

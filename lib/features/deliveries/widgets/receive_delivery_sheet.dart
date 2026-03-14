@@ -35,9 +35,14 @@ class ReceiveDeliverySheet extends StatefulWidget {
 class _DeliveryItemLine {
   final TextEditingController productCtrl = TextEditingController();
   final TextEditingController qtyCtrl = TextEditingController();
+  final TextEditingController subtitleCtrl = TextEditingController();
+  final TextEditingController retailPriceCtrl = TextEditingController();
+  final TextEditingController bulkBreakerPriceCtrl = TextEditingController();
+  final TextEditingController distributorPriceCtrl = TextEditingController();
 
   InventoryItem? selectedProduct;
   Supplier? selectedSupplier;
+  String selectedCategory = 'Other';
   CrateGroup? selectedCrateGroup;
 
   double get lineTotal {
@@ -49,6 +54,10 @@ class _DeliveryItemLine {
   void dispose() {
     productCtrl.dispose();
     qtyCtrl.dispose();
+    subtitleCtrl.dispose();
+    retailPriceCtrl.dispose();
+    bulkBreakerPriceCtrl.dispose();
+    distributorPriceCtrl.dispose();
   }
 }
 
@@ -56,7 +65,6 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
   final List<_DeliveryItemLine> _lines = [];
 
   bool get _isDark => themeNotifier.value == ThemeMode.dark;
-  Color get _bg => _isDark ? dBg : lBg;
   Color get _surface => _isDark ? dSurface : lSurface;
   Color get _text => _isDark ? dText : lText;
   Color get _subtext => _isDark ? dSubtext : lSubtext;
@@ -107,7 +115,7 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
     setState(() {});
   }
 
-  void _submit() {
+  Future<void> _submit() async {
     bool isValid = true;
     for (var l in _lines) {
       if (l.productCtrl.text.isEmpty ||
@@ -146,6 +154,16 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
       totalQty += qty;
 
       if (l.selectedProduct != null) {
+        // Sync metadata
+        l.selectedProduct!.subtitle = l.subtitleCtrl.text.trim().isEmpty ? 'Unit' : l.subtitleCtrl.text.trim();
+        l.selectedProduct!.category = l.selectedCategory;
+        l.selectedProduct!.retailPrice = double.tryParse(l.retailPriceCtrl.text);
+        l.selectedProduct!.sellingPrice = l.selectedProduct!.retailPrice; // Default selling to retail
+        l.selectedProduct!.bulkBreakerPrice = double.tryParse(l.bulkBreakerPriceCtrl.text);
+        l.selectedProduct!.distributorPrice = double.tryParse(l.distributorPriceCtrl.text);
+        l.selectedProduct!.supplierId = l.selectedSupplier?.id;
+        l.selectedProduct!.crateGroupName = l.selectedCrateGroup?.label;
+
         final warehouseId = l.selectedProduct!.warehouseStock.keys.isNotEmpty
             ? l.selectedProduct!.warehouseStock.keys.first
             : 'w1';
@@ -165,19 +183,23 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
             action: 'restock',
             previousValue: l.selectedProduct!.totalStock - qty,
             newValue: l.selectedProduct!.totalStock,
-            note: 'Delivery Received',
+            note: 'Delivery Received & Metadata Updated',
           ),
         );
 
-        final productData = kProducts.firstWhere(
-          (p) => p['name'] == l.selectedProduct!.productName,
-          orElse: () => <String, dynamic>{},
-        );
+        // Update kProducts (Mirror to POS)
+        final pIndex = kProducts.indexWhere((p) => p['name'] == l.selectedProduct!.productName);
+        if (pIndex != -1) {
+          kProducts[pIndex]['subtitle'] = l.selectedProduct!.subtitle;
+          kProducts[pIndex]['category'] = l.selectedProduct!.category;
+          kProducts[pIndex]['sellingPrice'] = l.selectedProduct!.sellingPrice ?? 0;
+          kProducts[pIndex]['retailPrice'] = l.selectedProduct!.retailPrice ?? 0;
+          kProducts[pIndex]['bulkBreakerPrice'] = l.selectedProduct!.bulkBreakerPrice ?? 0;
+          kProducts[pIndex]['distributorPrice'] = l.selectedProduct!.distributorPrice ?? 0;
+        }
 
-        if (productData.isNotEmpty &&
-            productData['category'] == 'Glass Crates') {
-          final sup =
-              l.selectedSupplier ??
+        if (l.selectedProduct!.category == 'Glass Crates') {
+          final sup = l.selectedSupplier ??
               supplierService.getAll().firstWhere(
                 (s) => s.id == l.selectedProduct!.supplierId,
                 orElse: () =>
@@ -215,7 +237,7 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
 
     deliveryService.addDelivery(delivery);
 
-    activityLogService.logAction(
+    await activityLogService.logAction(
       "Delivery Received",
       "Delivery from $mainSupplierName — ${deliveryItems.length} item(s) received into inventory",
       relatedEntityId: delivery.id,
@@ -231,23 +253,124 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
     );
   }
 
-  InputDecoration _inputDeco(String hint) {
-    return InputDecoration(
-      hintText: hint,
-      hintStyle: TextStyle(color: _subtext),
-      filled: true,
-      fillColor: _cardBg,
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: BorderSide.none,
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: blueMain, width: 2),
-      ),
-      contentPadding: const EdgeInsets.all(16),
+  Widget _inputField(
+    String label,
+    TextEditingController ctrl,
+    String hint, {
+    bool isNumber = false,
+    bool isAutocomplete = false,
+    _DeliveryItemLine? line,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+            color: _subtext,
+          ),
+        ),
+        const SizedBox(height: 8),
+        if (isAutocomplete && line != null)
+          Autocomplete<InventoryItem>(
+            displayStringForOption: (item) => item.productName,
+            optionsBuilder: (TextEditingValue textEditingValue) {
+              if (textEditingValue.text.isEmpty) {
+                return const Iterable<InventoryItem>.empty();
+              }
+              return kInventoryItems.where((InventoryItem item) {
+                return item.productName.toLowerCase().contains(
+                  textEditingValue.text.toLowerCase(),
+                );
+              });
+            },
+            onSelected: (InventoryItem selection) {
+              setState(() {
+                line.selectedProduct = selection;
+                line.productCtrl.text = selection.productName;
+                line.subtitleCtrl.text = selection.subtitle;
+                line.selectedCategory = selection.category ?? 'Other';
+                line.retailPriceCtrl.text = (selection.retailPrice ?? 0).round().toString();
+                line.bulkBreakerPriceCtrl.text = (selection.bulkBreakerPrice ?? 0).round().toString();
+                line.distributorPriceCtrl.text = (selection.distributorPrice ?? 0).round().toString();
+
+                final sup = supplierService.getAll().firstWhere(
+                  (s) => s.id == selection.supplierId,
+                  orElse: () => supplierService.getAll().isNotEmpty
+                      ? supplierService.getAll().first
+                      : Supplier(
+                          id: '',
+                          name: '',
+                          crateGroup: CrateGroup.premium,
+                        ),
+                );
+                line.selectedSupplier = sup;
+                line.selectedCrateGroup = selection.crateGroupName != null 
+                    ? CrateGroup.values.firstWhere((cg) => cg.label == selection.crateGroupName, orElse: () => sup.crateGroup)
+                    : sup.crateGroup;
+
+                if (line.qtyCtrl.text.isEmpty) {
+                  line.qtyCtrl.text = '1';
+                }
+              });
+            },
+            fieldViewBuilder: (context, controller, focusNode, onEditingComplete) {
+              if (controller.text.isEmpty && line.productCtrl.text.isNotEmpty) {
+                controller.text = line.productCtrl.text;
+              }
+              controller.addListener(() {
+                line.productCtrl.text = controller.text;
+              });
+              return TextField(
+                controller: controller,
+                focusNode: focusNode,
+                onEditingComplete: onEditingComplete,
+                style: TextStyle(fontSize: 14, color: _text, fontWeight: FontWeight.bold),
+                decoration: InputDecoration(
+                  hintText: hint,
+                  hintStyle: TextStyle(color: _subtext, fontWeight: FontWeight.normal),
+                  filled: true,
+                  fillColor: _cardBg,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide.none,
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: const BorderSide(color: blueMain, width: 2),
+                  ),
+                  contentPadding: const EdgeInsets.all(16),
+                ),
+              );
+            },
+          )
+        else
+          TextField(
+            controller: ctrl,
+            keyboardType: isNumber ? TextInputType.number : TextInputType.text,
+            style: TextStyle(fontSize: 14, color: _text, fontWeight: FontWeight.bold),
+            decoration: InputDecoration(
+              hintText: hint,
+              hintStyle: TextStyle(color: _subtext, fontWeight: FontWeight.normal),
+              filled: true,
+              fillColor: _cardBg,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide.none,
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: const BorderSide(color: blueMain, width: 2),
+              ),
+              contentPadding: const EdgeInsets.all(16),
+            ),
+          ),
+      ],
     );
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -255,11 +378,11 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
       behavior: HitTestBehavior.opaque,
       onTap: () => Navigator.pop(context),
       child: DraggableScrollableSheet(
-        initialChildSize: 0.5,
+        initialChildSize: 0.8,
         minChildSize: 0.5,
         maxChildSize: 0.9,
         snap: true,
-        snapSizes: const [0.5, 0.9],
+        snapSizes: const [0.5, 0.8, 0.9],
         builder: (context, scrollController) {
           double grandTotal = 0;
           for (var l in _lines) {
@@ -270,50 +393,53 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
             onTap: () {}, // Prevent tap from reaching the barrier
             child: Container(
               decoration: BoxDecoration(
-                color: _bg,
+                color: _surface,
                 borderRadius:
                     const BorderRadius.vertical(top: Radius.circular(28)),
               ),
               child: Column(
                 children: [
-                  // Handle
                   Padding(
-                    padding: EdgeInsets.symmetric(
-                      vertical: context.getRSize(12),
+                    padding: EdgeInsets.fromLTRB(
+                      context.getRSize(20),
+                      context.getRSize(20),
+                      context.getRSize(20),
+                      0,
                     ),
-                    child: Container(
-                      width: context.getRSize(40),
-                      height: context.getRSize(4),
-                      decoration: BoxDecoration(
-                        color: _border,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                  ),
-                  // Header
-                  Padding(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: context.getRSize(20),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        Center(
+                          child: Container(
+                            width: context.getRSize(40),
+                            height: context.getRSize(4),
+                            decoration: BoxDecoration(
+                              color: _border,
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                          ),
+                        ),
+                        SizedBox(height: context.getRSize(20)),
                         Text(
                           'Receive Delivery',
                           style: TextStyle(
+                            fontSize: context.getRFontSize(20),
+                            fontWeight: FontWeight.w800,
                             color: _text,
-                            fontSize: context.getRFontSize(18),
-                            fontWeight: FontWeight.bold,
                           ),
                         ),
-                        IconButton(
-                          onPressed: () => Navigator.pop(context),
-                          icon: Icon(Icons.close, color: _subtext),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Stock will be added to existing inventory',
+                          style: TextStyle(
+                            fontSize: context.getRFontSize(13),
+                            color: _subtext,
+                          ),
                         ),
+                        SizedBox(height: context.getRSize(20)),
                       ],
                     ),
                   ),
-                  Divider(height: 1, color: _border),
                   Expanded(
                     child: ListView.builder(
                       controller: scrollController,
@@ -338,18 +464,10 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
     final line = _lines[index];
 
     return Container(
-      margin: EdgeInsets.only(bottom: context.getRSize(16)),
       decoration: BoxDecoration(
         color: _surface,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: _border),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
       ),
       child: Padding(
         padding: EdgeInsets.all(context.getRSize(16)),
@@ -380,170 +498,189 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
             ),
             SizedBox(height: context.getRSize(12)),
 
-            // Product Name Autocomplete
-            Text(
+            _inputField(
               'Product',
+              line.productCtrl,
+              'Start typing product name...',
+              isAutocomplete: true,
+              line: line,
+            ),
+
+            const SizedBox(height: 12),
+
+            _inputField(
+              'Type / Packaging',
+              line.subtitleCtrl,
+              'e.g. Crate, Can, Keg',
+            ),
+
+            const SizedBox(height: 12),
+
+            Text(
+              'Category',
               style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
                 color: _subtext,
-                fontSize: context.getRFontSize(12),
-                fontWeight: FontWeight.w600,
               ),
             ),
-            SizedBox(height: context.getRSize(6)),
-            Autocomplete<InventoryItem>(
-              displayStringForOption: (item) => item.productName,
-              optionsBuilder: (TextEditingValue textEditingValue) {
-                if (textEditingValue.text.isEmpty) {
-                  return const Iterable<InventoryItem>.empty();
-                }
-                return kInventoryItems.where((InventoryItem item) {
-                  return item.productName.toLowerCase().contains(
-                    textEditingValue.text.toLowerCase(),
-                  );
-                });
-              },
-              onSelected: (InventoryItem selection) {
-                setState(() {
-                  line.selectedProduct = selection;
-                  line.productCtrl.text = selection.productName;
-
-                  // Auto-fill supplier
-                  final sup = supplierService.getAll().firstWhere(
-                    (s) => s.id == selection.supplierId,
-                    orElse: () => supplierService.getAll().isNotEmpty
-                        ? supplierService.getAll().first
-                        : Supplier(
-                            id: '',
-                            name: '',
-                            crateGroup: CrateGroup.premium,
-                          ),
-                  );
-                  line.selectedSupplier = sup;
-                  line.selectedCrateGroup = sup.crateGroup;
-
-                  if (line.qtyCtrl.text.isEmpty) {
-                    line.qtyCtrl.text = '1';
-                  }
-                });
-              },
-              fieldViewBuilder:
-                  (context, controller, focusNode, onEditingComplete) {
-                    if (controller.text.isEmpty &&
-                        line.productCtrl.text.isNotEmpty) {
-                      controller.text = line.productCtrl.text;
-                    }
-                    controller.addListener(() {
-                      line.productCtrl.text = controller.text;
-                    });
-                    return TextField(
-                      controller: controller,
-                      focusNode: focusNode,
-                      onEditingComplete: onEditingComplete,
-                      style: TextStyle(
-                        color: _text,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      decoration: _inputDeco('Start typing product name...'),
-                    );
-                  },
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              decoration: BoxDecoration(
+                color: _cardBg,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  value: line.selectedCategory,
+                  dropdownColor: _isDark ? dCard : lSurface,
+                  style: TextStyle(
+                    color: _text,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  isExpanded: true,
+                  alignment: AlignmentDirectional.bottomStart,
+                  menuMaxHeight: 350,
+                  borderRadius: BorderRadius.circular(12),
+                  onChanged: (v) => setState(() => line.selectedCategory = v!),
+                  items: ['Glass Crates', 'Cans & PET', 'Kegs', 'Other'].map(
+                    (c) => DropdownMenuItem(value: c, child: Text(c)),
+                  ).toList(),
+                ),
+              ),
             ),
 
-            SizedBox(height: context.getRSize(16)),
+            if (line.selectedCategory == 'Glass Crates') ...[
+              const SizedBox(height: 12),
+              Text(
+                'Pair with Empty Crate',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: _subtext,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                decoration: BoxDecoration(
+                  color: _cardBg,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<CrateGroup>(
+                    value: line.selectedCrateGroup,
+                    dropdownColor: _isDark ? dCard : lSurface,
+                    style: TextStyle(
+                      color: _text,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    isExpanded: true,
+                    alignment: AlignmentDirectional.bottomStart,
+                    menuMaxHeight: 350,
+                    borderRadius: BorderRadius.circular(12),
+                    hint: Text('Select Crate Group', style: TextStyle(color: _subtext, fontSize: 14)),
+                    onChanged: (v) => setState(() => line.selectedCrateGroup = v),
+                    items: CrateGroup.values.map(
+                      (cg) => DropdownMenuItem(value: cg, child: Text(cg.label)),
+                    ).toList(),
+                  ),
+                ),
+              ),
+            ],
 
-            // Supplier Dropdown
+            const SizedBox(height: 12),
+
             Text(
               'Supplier',
               style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
                 color: _subtext,
-                fontSize: context.getRFontSize(12),
-                fontWeight: FontWeight.w600,
               ),
             ),
-            SizedBox(height: context.getRSize(6)),
-            DropdownButton<Supplier>(
-              value: line.selectedSupplier,
-              isExpanded: true,
-              alignment: AlignmentDirectional.bottomStart,
-              menuMaxHeight: 350,
-              borderRadius: BorderRadius.circular(12),
-              underline: const SizedBox(),
-              items: supplierService.getAll().map((s) {
-                return DropdownMenuItem(
-                  value: s,
-                  child: Text(s.name, style: TextStyle(color: _text)),
-                );
-              }).toList(),
-              onChanged: (val) {
-                setState(() {
-                  line.selectedSupplier = val;
-                  if (val != null) {
-                    line.selectedCrateGroup = val.crateGroup;
-                  }
-                });
-              },
-              dropdownColor: _surface,
-            ),
-
-            SizedBox(height: context.getRSize(16)),
-
-            // Crate Group Dropdown
-            Text(
-              'Crate Group',
-              style: TextStyle(
-                color: _subtext,
-                fontSize: context.getRFontSize(12),
-                fontWeight: FontWeight.w600,
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              decoration: BoxDecoration(
+                color: _cardBg,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<Supplier>(
+                  value: line.selectedSupplier,
+                  dropdownColor: _isDark ? dCard : lSurface,
+                  style: TextStyle(
+                    color: _text,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  isExpanded: true,
+                  alignment: AlignmentDirectional.bottomStart,
+                  menuMaxHeight: 350,
+                  borderRadius: BorderRadius.circular(12),
+                  onChanged: (val) {
+                    setState(() {
+                      line.selectedSupplier = val;
+                      if (val != null) {
+                        line.selectedCrateGroup = val.crateGroup;
+                      }
+                    });
+                  },
+                  items: supplierService.getAll().map((s) {
+                    return DropdownMenuItem(
+                      value: s,
+                      child: Text(s.name, style: TextStyle(color: _text)),
+                    );
+                  }).toList(),
+                ),
               ),
             ),
-            SizedBox(height: context.getRSize(6)),
-            DropdownButton<CrateGroup>(
-              value: line.selectedCrateGroup,
-              isExpanded: true,
-              alignment: AlignmentDirectional.bottomStart,
-              menuMaxHeight: 350,
-              borderRadius: BorderRadius.circular(12),
-              underline: const SizedBox(),
-              items: CrateGroup.values.map((cg) {
-                return DropdownMenuItem(
-                  value: cg,
-                  child: Text(cg.name, style: TextStyle(color: _text)),
-                );
-              }).toList(),
-              onChanged: (val) {
-                setState(() {
-                  line.selectedCrateGroup = val;
-                });
-              },
-              dropdownColor: _surface,
-            ),
 
-            SizedBox(height: context.getRSize(16)),
+            const SizedBox(height: 12),
 
+            Row(
+              children: [
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Qty',
-                        style: TextStyle(
-                          color: _subtext,
-                          fontSize: context.getRFontSize(12),
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      SizedBox(height: context.getRSize(6)),
-                      TextField(
-                        controller: line.qtyCtrl,
-                        keyboardType: TextInputType.number,
-                        style: TextStyle(
-                          color: _text,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        decoration: _inputDeco('0'),
-                      ),
-                    ],
+                  child: _inputField(
+                    'Retail Price',
+                    line.retailPriceCtrl,
+                    '0',
+                    isNumber: true,
                   ),
                 ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _inputField(
+                    'Bulk Breaker Price',
+                    line.bulkBreakerPriceCtrl,
+                    '0',
+                    isNumber: true,
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 12),
+
+            _inputField(
+              'Distributor Price',
+              line.distributorPriceCtrl,
+              '0',
+              isNumber: true,
+            ),
+
+            const SizedBox(height: 12),
+
+            _inputField(
+              'Qty',
+              line.qtyCtrl,
+              '0',
+              isNumber: true,
+            ),
 
             SizedBox(height: context.getRSize(16)),
             Align(

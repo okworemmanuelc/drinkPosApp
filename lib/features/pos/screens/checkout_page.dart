@@ -9,23 +9,17 @@ import 'package:screenshot/screenshot.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:path_provider/path_provider.dart';
 
-import '../../../shared/models/order.dart';
-import '../../../shared/services/activity_log_service.dart';
-import '../../../shared/services/notification_service.dart';
+import '../../../shared/services/cart_service.dart';
 import '../../../shared/services/order_service.dart';
 import '../../../shared/widgets/receipt_widget.dart';
 import '../../../core/utils/responsive.dart';
 import '../services/receipt_builder.dart';
 import '../../customers/data/models/customer.dart';
-import '../../customers/data/models/payment.dart';
-import '../../inventory/data/inventory_data.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/theme_notifier.dart';
 import '../../../core/utils/number_format.dart';
-import '../../customers/data/services/customer_service.dart';
 import '../../../core/utils/currency_input_formatter.dart';
 import '../../../core/utils/stock_calculator.dart';
-import '../../../shared/services/cart_service.dart';
 import '../../../shared/services/navigation_service.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -65,6 +59,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
   final TextEditingController _cashReceivedCtrl = TextEditingController();
   final ScreenshotController _screenshotCtrl = ScreenshotController();
   bool _paymentConfirmed = false;
+  bool _isProcessing = false;
 
   // Computed on confirm — passed to receipt
   double _amountPaid = 0;
@@ -401,13 +396,24 @@ class _CheckoutPageState extends State<CheckoutPage> {
                   ),
                   SizedBox(width: context.getRSize(10)),
                   Text(
-                    'Confirm Payment',
+                    _isProcessing ? 'Processing...' : 'Confirm Payment',
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: context.getRFontSize(16),
                       fontWeight: FontWeight.bold,
                     ),
                   ),
+                  if (_isProcessing) ...[
+                    SizedBox(width: context.getRSize(10)),
+                    SizedBox(
+                      width: context.getRSize(16),
+                      height: context.getRSize(16),
+                      child: const CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 2,
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -418,7 +424,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
   }
 
   // ── Confirm payment logic ──────────────────────────────────────────────────
-  void _confirmPayment() {
+  Future<void> _confirmPayment() async {
     // Walk-in validation
     if (_isWalkIn && _paymentType != PaymentType.fullCash) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -438,161 +444,64 @@ class _CheckoutPageState extends State<CheckoutPage> {
       return;
     }
 
-    // Compute amounts
-    double amountPaid;
-    double orderRemaining;
-    double extraPayment = 0;
+    setState(() => _isProcessing = true);
 
-    switch (_paymentType) {
-      case PaymentType.fullCash:
-        amountPaid = widget.total;
-        orderRemaining = 0;
-        break;
-      case PaymentType.partialCash:
-        if (_cashReceivedValue > widget.total) {
-          amountPaid = widget.total;
-          orderRemaining = 0;
-          extraPayment = _cashReceivedValue - widget.total;
-        } else {
-          amountPaid = _cashReceivedValue;
-          orderRemaining = widget.total - _cashReceivedValue;
-        }
-        break;
-      case PaymentType.credit:
-        amountPaid = 0;
-        orderRemaining = widget.total;
-        break;
-    }
+    try {
+      // Compute amounts in kobo
+      final totalKobo = (widget.total * 100).round();
+      int amountPaidKobo;
 
-    // ── Wallet Limit Validation ───────────────────────────────────────
-    if (!_isWalkIn && (orderRemaining > 0 || extraPayment > 0)) {
-      final customer = widget.customer!;
-      final projectedBalance =
-          customer.customerWallet - orderRemaining + extraPayment;
+      switch (_paymentType) {
+        case PaymentType.fullCash:
+          amountPaidKobo = totalKobo;
+          break;
+        case PaymentType.partialCash:
+          amountPaidKobo = (_cashReceivedValue * 100).round();
+          break;
+        case PaymentType.credit:
+          amountPaidKobo = 0;
+          break;
+      }
 
-      if (projectedBalance < customer.walletLimit) {
-        notificationService.createNotification(
-          'failed_transaction',
-          'Transaction failed for ${customer.name}: Wallet limit of ${formatCurrency(customer.walletLimit)} exceeded.',
-          linkedRecordId: customer.id,
-        );
+      // ── Call atomic transaction ──────────────────────────────────────
+      await orderService.addOrder(
+        customerId: widget.customer?.id != null ? int.tryParse(widget.customer!.id) : null,
+        cart: widget.cart,
+        totalAmountKobo: totalKobo,
+        amountPaidKobo: amountPaidKobo,
+        paymentType: _paymentLabel,
+        staffId: 1, // Default to admin for now, or get from session
+      );
+
+      // ── Success Flow ────────────────────────────────────────────────
+      if (mounted) {
+        setState(() {
+          _amountPaid = amountPaidKobo / 100.0;
+          _paymentConfirmed = true;
+          // Note: In a real app, you'd get the actual ID from the service return or a listener
+          _currentOrderId = "New Order"; 
+        });
+
+        // Clear cart for next sale
+        cartService.clear();
+        cartService.setActiveCustomer(null);
+
+        widget.onCheckoutSuccess?.call();
+      }
+    } catch (e) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-              'Transaction denied: Exceeds wallet limit of ${formatCurrency(customer.walletLimit)}',
-            ),
+            content: Text('Checkout failed: ${e.toString()}'),
             backgroundColor: danger,
           ),
         );
-        return;
       }
-
-    }
-
-    // ── Inventory deduction ───────────────────────────────────────────
-    for (final itemEntry in widget.cart) {
-      final name = itemEntry['name'] as String;
-      final qty = (itemEntry['qty'] as num).toDouble();
-      final idx =
-          kInventoryItems.indexWhere((inv) => inv.productName == name);
-      if (idx != -1) {
-        final item = kInventoryItems[idx];
-        // Determine warehouseId, default to 'w1' if no specific warehouse is set for the item
-        final warehouseId = item.warehouseStock.keys.isNotEmpty
-            ? item.warehouseStock.keys.first
-            : 'w1';
-
-        final currentQty = item.warehouseStock[warehouseId] ?? 0.0;
-        final newStock = currentQty - qty;
-        final newStockMap = Map<String, double>.from(item.warehouseStock);
-        newStockMap[warehouseId] = newStock < 0 ? 0 : newStock;
-        item.warehouseStock = newStockMap;
-
-        // Low Stock Notification
-        if (newStock <= item.lowStockThreshold) {
-          notificationService.createNotification(
-            'low_stock',
-            'Low stock warning: ${item.productName} has only $newStock remaining.',
-            linkedRecordId: item.id,
-          );
-        }
+    } finally {
+      if (mounted) {
+        setState(() => _isProcessing = false);
       }
     }
-
-    // ── Customer balance mutation ─────────────────────────────────────
-    if (!_isWalkIn) {
-      final customer = widget.customer!;
-
-      // Deduct unpaid order amount from balance (reduces balance / adds debt)
-      if (orderRemaining > 0) {
-        final updatedCustomer = customer.copyWith(
-          customerWallet: customer.customerWallet - orderRemaining,
-        );
-        customerService.updateCustomer(updatedCustomer);
-      }
-
-      // Add extra payment to ledger explicitly (adds to balance / pays off debt)
-      if (extraPayment > 0) {
-        final payment = Payment(
-          id: DateTime.now().millisecondsSinceEpoch.toString(),
-          amount: extraPayment,
-          timestamp: DateTime.now(),
-          note: 'Overpayment from checkout',
-        );
-        customerService.addPayment(customer.id, payment);
-      }
-    }
-
-    // ── Create & store unified order ─────────────────────────────────────────
-    final orderId = DateTime.now().millisecondsSinceEpoch.toString();
-    final resultingWalletBalance = _isWalkIn ? 0.0 : _dynamicNewCustomerWallet;
-    
-    final order = Order(
-      id: orderId,
-      customerId: widget.customer?.id,
-      customerName: _customerDisplayName,
-      customerAddress: widget.customer?.addressText ?? 'N/A',
-      items: widget.cart,
-      subtotal: widget.subtotal,
-      crateDeposit: widget.crateDeposit,
-      totalAmount: widget.total,
-      amountPaid: amountPaid,
-      customerWallet: resultingWalletBalance,
-      paymentMethod: _paymentLabel,
-      createdAt: DateTime.now(),
-      status: 'pending',
-    );
-    orderService.addOrder(order);
-
-    // ── Activity log ──────────────────────────────────────────────────
-    activityLogService.logAction(
-      'Sale Completed',
-      'Order $orderId completed for $_customerDisplayName. '
-          'Method: $_paymentLabel. '
-          'Amount paid: ${formatCurrency(amountPaid)}. '
-          'Wallet Balance: ${formatCurrency(resultingWalletBalance)}',
-      relatedEntityId: widget.customer?.id,
-      relatedEntityType: 'customer',
-    );
-    activityLogService.logAction(
-      'Order Dispatched',
-      'Order $orderId for $_customerDisplayName added to pending deliveries. Rider: Pick-up Order',
-      relatedEntityId: orderId,
-      relatedEntityType: 'order',
-    );
-
-    // ── Store for receipt display ─────────────────────────────────────
-    setState(() {
-      _amountPaid = amountPaid;
-      _paymentConfirmed = true;
-      _currentOrderId = orderId;
-    });
-    
-    // ── Clear cart for next sale ──────────────────────────────────────
-    cartService.clear();
-    cartService.setActiveCustomer(null);
-
-    widget.onCheckoutSuccess?.call();
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -747,11 +656,11 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
       final dir = await getTemporaryDirectory();
       final file = File(
-        '${dir.path}/brewflow_receipt_${DateTime.now().millisecondsSinceEpoch}.png',
+        '${dir.path}/onafia_pos_receipt_${DateTime.now().millisecondsSinceEpoch}.png',
       );
       await file.writeAsBytes(imageBytes);
 
-      await Share.shareXFiles([XFile(file.path)], text: 'BrewFlow POS Receipt');
+      await Share.shareXFiles([XFile(file.path)], text: 'ONAFIA Pos Receipt');
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(
@@ -962,8 +871,18 @@ class _CheckoutPageState extends State<CheckoutPage> {
       (item['price'] as num?)?.toDouble() ?? 0.0,
       (item['qty'] as num?)?.toDouble() ?? 0.0,
     ).toInt();
-    final itemColor = (item['color'] as Color?) ?? blueMain;
-    final itemIcon = (item['icon'] as IconData?) ?? FontAwesomeIcons.box;
+    final rawColor = item['color'];
+    final itemColor = rawColor is Color
+        ? rawColor
+        : rawColor is String
+            ? Color(int.parse(rawColor.replaceFirst('#', '0xFF')))
+            : blueMain;
+    final rawIcon = item['icon'];
+    final itemIcon = rawIcon is IconData
+        ? rawIcon
+        : rawIcon is int
+            ? IconData(rawIcon, fontFamily: 'FontAwesomeSolid', fontPackage: 'font_awesome_flutter')
+            : FontAwesomeIcons.box;
 
     return Padding(
       padding: EdgeInsets.symmetric(

@@ -1,3 +1,4 @@
+import 'package:onafia_pos/core/database/app_database.dart';
 import 'payment.dart';
 
 enum CustomerGroup { distributor, bulkBreaker, retailer }
@@ -8,14 +9,13 @@ class Customer {
   final String addressText;
   final String googleMapsLocation;
   final String? phone;
-  final double customerWallet;
-  final double walletLimit;
-  final Map<String, int> emptyCratesBalance;
-  final List<Payment> payments;
-  final List<String> orderIds;
+  final int walletBalanceKobo;
+  final int walletLimitKobo;
   final DateTime createdAt;
   final CustomerGroup customerGroup;
   final bool isWalkIn;
+  final Map<String, int> emptyCratesBalance;
+  final List<Payment> payments;
 
   Customer({
     required this.id,
@@ -23,18 +23,17 @@ class Customer {
     required this.addressText,
     required this.googleMapsLocation,
     this.phone,
-    this.customerWallet = 0.0,
-    this.walletLimit = 0.0,
-    Map<String, int>? emptyCratesBalance,
-    List<Payment>? payments,
-    List<String>? orderIds,
+    this.walletBalanceKobo = 0,
+    this.walletLimitKobo = 0,
     DateTime? createdAt,
     this.customerGroup = CustomerGroup.retailer,
     this.isWalkIn = false,
-  }) : emptyCratesBalance = emptyCratesBalance ?? {},
-       payments = payments ?? [],
-       orderIds = orderIds ?? [],
-       createdAt = createdAt ?? DateTime.now();
+    this.emptyCratesBalance = const {},
+    this.payments = const [],
+  }) : createdAt = createdAt ?? DateTime.now();
+
+  double get customerWallet => walletBalanceKobo / 100.0;
+  double get walletLimit => walletLimitKobo / 100.0;
 
   Customer copyWith({
     String? id,
@@ -42,14 +41,13 @@ class Customer {
     String? addressText,
     String? googleMapsLocation,
     String? phone,
-    double? customerWallet,
-    double? walletLimit,
-    Map<String, int>? emptyCratesBalance,
-    List<Payment>? payments,
-    List<String>? orderIds,
+    int? walletBalanceKobo,
+    int? walletLimitKobo,
     DateTime? createdAt,
     CustomerGroup? customerGroup,
     bool? isWalkIn,
+    Map<String, int>? emptyCratesBalance,
+    List<Payment>? payments,
   }) {
     return Customer(
       id: id ?? this.id,
@@ -57,29 +55,30 @@ class Customer {
       addressText: addressText ?? this.addressText,
       googleMapsLocation: googleMapsLocation ?? this.googleMapsLocation,
       phone: phone ?? this.phone,
-      customerWallet: customerWallet ?? this.customerWallet,
-      walletLimit: walletLimit ?? this.walletLimit,
-      emptyCratesBalance:
-          emptyCratesBalance ?? Map.from(this.emptyCratesBalance),
-      payments: payments ?? List.from(this.payments),
-      orderIds: orderIds ?? List.from(this.orderIds),
+      walletBalanceKobo: walletBalanceKobo ?? this.walletBalanceKobo,
+      walletLimitKobo: walletLimitKobo ?? this.walletLimitKobo,
       createdAt: createdAt ?? this.createdAt,
       customerGroup: customerGroup ?? this.customerGroup,
       isWalkIn: isWalkIn ?? this.isWalkIn,
+      emptyCratesBalance: emptyCratesBalance ?? this.emptyCratesBalance,
+      payments: payments ?? this.payments,
     );
   }
 
-  /// Increases the wallet balance by a given amount and records the transaction
-  Customer fundWallet(double amount, {String note = 'Wallet Funded'}) {
-    final payment = Payment(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      amount: amount,
-      timestamp: DateTime.now(),
-      note: note,
-    );
-    return copyWith(
-      customerWallet: customerWallet + amount,
-      payments: [...payments, payment],
+  static Customer fromDb(CustomerData data) {
+    return Customer(
+      id: data.id.toString(),
+      name: data.name,
+      addressText: data.address ?? 'N/A',
+      googleMapsLocation: data.address ?? 'N/A',
+      phone: data.phone,
+      walletBalanceKobo: data.walletBalanceKobo,
+      walletLimitKobo: data.walletLimitKobo,
+      createdAt: DateTime.now(), // TODO: Add createdAt to DB table
+      customerGroup: CustomerGroup.retailer, // TODO: Add customerGroup to DB table
+      isWalkIn: data.id == -1,
+      emptyCratesBalance: const {}, // TODO: Fetch from CrateBalances table
+      payments: const [], // TODO: Fetch from Payments table
     );
   }
 
@@ -89,5 +88,7 @@ class Customer {
     addressText: 'N/A',
     googleMapsLocation: 'N/A',
     isWalkIn: true,
+    emptyCratesBalance: const {},
+    payments: const [],
   );
 }

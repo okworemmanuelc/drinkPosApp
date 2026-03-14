@@ -10,6 +10,7 @@ class InventoryLog {
   final double previousValue;
   final double newValue;
   final String? note;
+  final String? warehouseId;
 
   InventoryLog({
     required this.timestamp,
@@ -20,5 +21,6 @@ class InventoryLog {
     required this.previousValue,
     required this.newValue,
     this.note,
+    this.warehouseId,
   });
 }

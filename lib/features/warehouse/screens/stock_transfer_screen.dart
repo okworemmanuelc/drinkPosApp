@@ -54,7 +54,7 @@ class _StockTransferScreenState extends State<StockTransferScreen> {
     super.dispose();
   }
 
-  void _submit() {
+  Future<void> _submit() async {
     final qty = double.tryParse(_qtyCtrl.text) ?? 0;
 
     if (_sourceWarehouse == null || _destinationWarehouse == null) {
@@ -118,15 +118,25 @@ class _StockTransferScreenState extends State<StockTransferScreen> {
               'Stock Transfer: ${_sourceWarehouse!.name} -> ${_destinationWarehouse!.name}',
         ),
       );
-
-      // Log Activity
-      activityLogService.logAction(
-        "Stock Transfer",
-        "Transferred ${qty.toInt()} ${_selectedProduct!.productName} from ${_sourceWarehouse!.name} to ${_destinationWarehouse!.name}",
-        relatedEntityId: _selectedProduct!.id,
-        relatedEntityType: "inventory",
-      );
     });
+
+    // Log Activity (Source)
+    await activityLogService.logAction(
+      "Stock Transfer (Out)",
+      "Transferred ${qty.toInt()} ${_selectedProduct!.productName} OUT to ${_destinationWarehouse!.name}",
+      relatedEntityId: _selectedProduct!.id,
+      relatedEntityType: "inventory",
+      warehouseId: _sourceWarehouse!.id,
+    );
+
+    // Log Activity (Destination)
+    await activityLogService.logAction(
+      "Stock Transfer (In)",
+      "Transferred ${qty.toInt()} ${_selectedProduct!.productName} IN from ${_sourceWarehouse!.name}",
+      relatedEntityId: _selectedProduct!.id,
+      relatedEntityType: "inventory",
+      warehouseId: _destinationWarehouse!.id,
+    );
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(

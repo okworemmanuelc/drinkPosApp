@@ -115,7 +115,7 @@ class ReceiptWidget extends StatelessWidget {
             SizedBox(height: context.getRSize(12)),
           ],
           Text(
-            'BrewFlow POS',
+            'ONAFIA Pos',
             style: TextStyle(
               fontSize: context.getRFontSize(20),
               fontWeight: FontWeight.w800,
@@ -339,7 +339,7 @@ class ReceiptWidget extends StatelessWidget {
           ),
           SizedBox(height: context.getRSize(4)),
           Text(
-            'Powered by BrewFlow',
+            'Powered by ONAFIA Pos',
             style: TextStyle(fontSize: context.getRFontSize(10), color: sub),
           ),
         ],

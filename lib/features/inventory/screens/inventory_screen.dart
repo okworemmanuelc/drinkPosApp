@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../../shared/services/navigation_service.dart';
+import '../../../shared/services/activity_log_service.dart';
 
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/theme_notifier.dart';
@@ -17,9 +18,10 @@ import '../../../shared/widgets/menu_button.dart';
 import '../../../shared/widgets/app_bar_header.dart';
 import '../../../shared/widgets/notification_bell.dart';
 import '../../pos/data/products_data.dart';
-import 'product_detail_screen.dart';
 import 'supplier_detail_screen.dart';
 import '../../../core/theme/design_tokens.dart';
+import '../../../core/database/app_database.dart';
+import '../../../core/database/daos.dart';
 
 class InventoryScreen extends StatefulWidget {
   const InventoryScreen({super.key});
@@ -121,106 +123,88 @@ class _InventoryScreenState extends State<InventoryScreen>
 
   // ── SUMMARY CARDS ─────────────────────────────────────────────────────────────
   Widget _buildSummaryCards(BuildContext context) {
-    final filteredByWarehouse = _selectedWarehouseId == 'all'
-        ? kInventoryItems
-        : kInventoryItems.where((i) => i.warehouseStock.containsKey(_selectedWarehouseId)).toList();
+    return StreamBuilder<List<ProductDataWithStock>>(
+      stream: database.inventoryDao.watchAllProductDatasWithStock(),
+      builder: (context, snapshot) {
+        final products = snapshot.data ?? [];
+        
+        final totalItems = products.length;
+        final lowStock = products.where((p) => p.totalStock > 0 && p.totalStock <= p.product.lowStockThreshold).length;
+        final outOfStock = products.where((p) => p.totalStock == 0).length;
+        
+        // Crate groups summary (keeping legacy for now until CrateDao is implemented)
+        final totalCrates = _activeCrateGroups.fold<double>(0, (s, c) => s + c.available);
 
-    final totalItems = filteredByWarehouse.length;
-    final lowStock = filteredByWarehouse
-        .where((i) {
-          final stock = _selectedWarehouseId == 'all' ? i.totalStock : i.getStockForWarehouse(_selectedWarehouseId);
-          return stock <= i.lowStockThreshold;
-        })
-        .length;
-    final outOfStock = filteredByWarehouse
-        .where((i) {
-          final stock = _selectedWarehouseId == 'all' ? i.totalStock : i.getStockForWarehouse(_selectedWarehouseId);
-          return stock == 0;
-        })
-        .length;
-    final totalCrates = _activeCrateGroups.fold<double>(
-      0,
-      (s, c) => s + c.available,
-    );
+        final cards = [
+          _summaryCard(
+            context,
+            'Total SKUs',
+            '$totalItems',
+            FontAwesomeIcons.layerGroup,
+            blueMain,
+            isActive: _stockFilter == 'all',
+            onTap: () => setState(() {
+              _stockFilter = 'all';
+              _tabController.animateTo(0);
+            }),
+          ),
+          _summaryCard(
+            context,
+            'Low Stock',
+            '$lowStock',
+            FontAwesomeIcons.triangleExclamation,
+            const Color(0xFFF59E0B),
+            isActive: _stockFilter == 'low',
+            onTap: () => setState(() {
+              _stockFilter = 'low';
+              _tabController.animateTo(0);
+            }),
+          ),
+          _summaryCard(
+            context,
+            'Out of Stock',
+            '$outOfStock',
+            FontAwesomeIcons.ban,
+            danger,
+            isActive: _stockFilter == 'out',
+            onTap: () => setState(() {
+              _stockFilter = 'out';
+              _tabController.animateTo(0);
+            }),
+          ),
+          _summaryCard(
+            context,
+            'Empty Crates',
+            '${totalCrates.toInt()}',
+            FontAwesomeIcons.beerMugEmpty,
+            success,
+            isActive: _tabController.index == 2,
+            onTap: () => setState(() {
+              _tabController.animateTo(2);
+            }),
+          ),
+        ];
 
-    final cards = [
-      _summaryCard(
-        context,
-        'Total SKUs',
-        '$totalItems',
-        FontAwesomeIcons.layerGroup,
-        blueMain,
-        isActive: _stockFilter == 'all',
-        onTap: () => setState(() {
-          _stockFilter = 'all';
-          _tabController.animateTo(0);
-        }),
-      ),
-      _summaryCard(
-        context,
-        'Low Stock',
-        '$lowStock',
-        FontAwesomeIcons.triangleExclamation,
-        const Color(0xFFF59E0B),
-        isActive: _stockFilter == 'low',
-        onTap: () => setState(() {
-          _stockFilter = 'low';
-          _tabController.animateTo(0);
-        }),
-      ),
-      _summaryCard(
-        context,
-        'Out of Stock',
-        '$outOfStock',
-        FontAwesomeIcons.ban,
-        danger,
-        isActive: _stockFilter == 'out',
-        onTap: () => setState(() {
-          _stockFilter = 'out';
-          _tabController.animateTo(0);
-        }),
-      ),
-      _summaryCard(
-        context,
-        'Empty Crates',
-        '${totalCrates.toInt()}',
-        FontAwesomeIcons.beerMugEmpty,
-        success,
-        isActive: _tabController.index == 2,
-        onTap: () => setState(() {
-          _tabController.animateTo(2);
-        }),
-      ),
-    ];
-
-    return Container(
-      color: _surface,
-      padding: EdgeInsets.only(
-        top: context.getRSize(12),
-        bottom: context.getRSize(16),
-      ),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        padding: EdgeInsets.symmetric(
-          horizontal: context.spacingM,
-      ),
-        child: Row(
-          children: cards.asMap().entries.map((entry) {
-            final int index = entry.key;
-            final Widget card = entry.value;
-            return Container(
-              // Allow cards to scroll naturally with a fixed width
-              width: context.isPhone
-                  ? context.getRSize(130)
-                  : context.getRSize(180),
-              margin: EdgeInsets.only(
-                right: index < cards.length - 1 ? context.getRSize(12) : 0,
-              ),
-              child: card,
-            );
-          }).toList(),
-        ),
-      ),
+        return Container(
+          color: _surface,
+          padding: EdgeInsets.only(top: context.getRSize(12), bottom: context.getRSize(16)),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            padding: EdgeInsets.symmetric(horizontal: context.spacingM),
+            child: Row(
+              children: cards.asMap().entries.map((entry) {
+                final int index = entry.key;
+                final Widget card = entry.value;
+                return Container(
+                  width: context.isPhone ? context.getRSize(130) : context.getRSize(180),
+                  margin: EdgeInsets.only(right: index < cards.length - 1 ? context.getRSize(12) : 0),
+                  child: card,
+                );
+              }).toList(),
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -320,22 +304,42 @@ class _InventoryScreenState extends State<InventoryScreen>
 
   // ── PRODUCTS TAB ──────────────────────────────────────────────────────────────
   Widget _buildProductsTab(BuildContext context) {
-    return Column(
-      children: [
-        _buildSupplierFilter(context),
-        Expanded(
-          child: ListView.builder(
-            padding: EdgeInsets.fromLTRB(
-              context.getRSize(16),
-              context.getRSize(12),
-              context.getRSize(16),
-              context.getRSize(120),
-            ), // RESPONSIVE
-            itemCount: _filteredItems.length,
-            itemBuilder: (_, i) => _buildProductRow(context, _filteredItems[i]),
-          ),
-        ),
-      ],
+    return StreamBuilder<List<ProductDataWithStock>>(
+      stream: database.inventoryDao.watchAllProductDatasWithStock(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator(color: blueMain));
+        }
+        
+        var list = snapshot.data ?? [];
+
+        // Apply filters
+        if (_stockFilter == 'low') {
+          list = list.where((p) => p.totalStock > 0 && p.totalStock <= p.product.lowStockThreshold).toList();
+        } else if (_stockFilter == 'out') {
+          list = list.where((p) => p.totalStock == 0).toList();
+        }
+
+        return Column(
+          children: [
+            _buildSupplierFilter(context),
+            Expanded(
+              child: list.isEmpty 
+              ? Center(child: Text('No products matching filters', style: TextStyle(color: _subtext)))
+              : ListView.builder(
+                padding: EdgeInsets.fromLTRB(
+                  context.getRSize(16),
+                  context.getRSize(12),
+                  context.getRSize(16),
+                  context.getRSize(120),
+                ),
+                itemCount: list.length,
+                itemBuilder: (_, i) => _buildProductRow(context, list[i]),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -600,22 +604,11 @@ class _InventoryScreenState extends State<InventoryScreen>
     );
   }
 
-  Widget _buildProductRow(BuildContext context, InventoryItem item) {
-    final currentStock = _selectedWarehouseId == 'all' ? item.totalStock : item.getStockForWarehouse(_selectedWarehouseId);
-    final isLow = currentStock > 0 && currentStock <= item.lowStockThreshold;
+  Widget _buildProductRow(BuildContext context, ProductDataWithStock item) {
+    final product = item.product;
+    final currentStock = item.totalStock;
+    final isLow = currentStock > 0 && currentStock <= product.lowStockThreshold;
     final isOut = currentStock == 0;
-    final supplier = item.supplierId == null
-        ? null
-        : supplierService.getAll().cast<Supplier?>().firstWhere(
-            (s) => s?.id == item.supplierId,
-            orElse: () => null,
-          );
-    final crateStock = supplier == null
-        ? null
-        : kCrateStocks.firstWhere(
-            (c) => c.group == supplier.crateGroup,
-            orElse: () => CrateStock(group: CrateGroup.nbPlc),
-          );
 
     Color statusColor = success;
     String statusLabel = 'In Stock';
@@ -627,56 +620,41 @@ class _InventoryScreenState extends State<InventoryScreen>
       statusLabel = 'Low Stock';
     }
 
+    final accent = product.colorHex != null 
+        ? Color(int.parse(product.colorHex!.replaceFirst('#', '0xFF')))
+        : blueMain;
+
     return GestureDetector(
-      onTap: () => Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => ProductDetailScreen(
-            item: item,
-            onUpdateStock: () => _showUpdateStockDialog(item),
-          ),
-        ),
-      ).then((_) => setState(() {})), // refresh after returning
+      onTap: () {
+        // TODO: Update ProductDetailScreen to handle ProductWithStock
+      },
       child: Container(
         margin: EdgeInsets.only(bottom: context.spacingS),
         decoration: BoxDecoration(
           color: _cardBg,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: isOut
-                ? danger.withValues(alpha: 0.3)
-                : isLow
-                ? const Color(0xFFF59E0B).withValues(alpha: 0.3)
-                : _border,
+            color: isOut ? danger.withValues(alpha: 0.3) : (isLow ? const Color(0xFFF59E0B).withValues(alpha: 0.3) : _border),
           ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.02),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
         ),
         child: Padding(
-          padding: EdgeInsets.all(
-            context.isPhone ? context.getRSize(10) : context.getRSize(14),
-          ), // RESPONSIVE
+          padding: EdgeInsets.all(context.getRSize(10)),
           child: Row(
             children: [
               Container(
-                width: context.getRSize(52), // RESPONSIVE
-                height: context.getRSize(52), // RESPONSIVE
+                width: context.getRSize(52),
+                height: context.getRSize(52),
                 decoration: BoxDecoration(
-                  color: item.color.withValues(alpha: 0.12),
+                  color: accent.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: Icon(
-                  item.icon,
-                  color: item.color,
+                  IconData(product.iconCodePoint ?? 0xf0fc, fontFamily: 'FontAwesomeSolid', fontPackage: 'font_awesome_flutter'),
+                  color: accent,
                   size: context.getRSize(24),
-                ), // RESPONSIVE
+                ),
               ),
-              SizedBox(width: context.getRSize(14)), // RESPONSIVE
+              SizedBox(width: context.getRSize(14)),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -685,69 +663,28 @@ class _InventoryScreenState extends State<InventoryScreen>
                       children: [
                         Flexible(
                           child: Text(
-                            item.productName,
+                            product.name,
                             overflow: TextOverflow.ellipsis,
                             maxLines: 1,
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
-                              fontSize: context.getRFontSize(15), // RESPONSIVE
+                              fontSize: context.getRFontSize(15),
                               color: _text,
                             ),
                           ),
                         ),
-                        SizedBox(width: context.getRSize(8)), // RESPONSIVE
+                        SizedBox(width: context.getRSize(8)),
                         Container(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: context.getRSize(8),
-                            vertical: context.getRSize(2),
-                          ), // RESPONSIVE
-                          decoration: BoxDecoration(
-                            color: statusColor.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            statusLabel,
-                            style: TextStyle(
-                              fontSize: context.getRFontSize(10), // RESPONSIVE
-                              fontWeight: FontWeight.bold,
-                              color: statusColor,
-                            ),
-                          ),
+                          padding: EdgeInsets.symmetric(horizontal: context.getRSize(8), vertical: context.getRSize(2)),
+                          decoration: BoxDecoration(color: statusColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(6)),
+                          child: Text(statusLabel, style: TextStyle(fontSize: context.getRFontSize(10), fontWeight: FontWeight.bold, color: statusColor)),
                         ),
                       ],
                     ),
-                    SizedBox(height: context.getRSize(4)), // RESPONSIVE
-                    Text(
-                      supplier?.name ?? 'Not Assigned',
-                      style: TextStyle(
-                        fontSize: context.getRFontSize(12),
-                        color: _subtext,
-                      ), // RESPONSIVE
-                    ),
-                    SizedBox(height: context.getRSize(6)), // RESPONSIVE
-                    Row(
-                      children: [
-                        Icon(
-                          FontAwesomeIcons.beerMugEmpty,
-                          size: context.getRSize(10), // RESPONSIVE
-                          color: supplier?.crateGroup.color ?? _subtext,
-                        ),
-                        SizedBox(width: context.getRSize(4)), // RESPONSIVE
-                        Expanded(
-                          child: Text(
-                            supplier != null && crateStock != null
-                                ? 'Empty crates (${supplier.crateGroup.label}): ${crateStock.available.toInt()} available'
-                                : 'Empty crates: Not tracked',
-                            style: TextStyle(
-                              fontSize: context.getRFontSize(11),
-                              color: _subtext,
-                            ), // RESPONSIVE
-                            overflow: TextOverflow.ellipsis,
-                            maxLines: 1,
-                          ),
-                        ),
-                      ],
-                    ),
+                    if (product.subtitle != null) ...[
+                      SizedBox(height: context.getRSize(4)),
+                      Text(product.subtitle!, style: TextStyle(fontSize: context.getRFontSize(12), color: _subtext)),
+                    ],
                   ],
                 ),
               ),
@@ -755,34 +692,17 @@ class _InventoryScreenState extends State<InventoryScreen>
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   FittedBox(
-                    // RESPONSIVE: Prevent quantity overflow
                     fit: BoxFit.scaleDown,
                     child: Text(
-                      currentStock.toStringAsFixed(currentStock % 1 == 0 ? 0 : 1),
+                      currentStock.toString(),
                       style: TextStyle(
-                        fontSize: context.getRFontSize(22), // RESPONSIVE
+                        fontSize: context.getRFontSize(22),
                         fontWeight: FontWeight.w800,
-                        color: isOut
-                            ? danger
-                            : isLow
-                            ? const Color(0xFFF59E0B)
-                            : _text,
+                        color: isOut ? danger : (isLow ? const Color(0xFFF59E0B) : _text),
                       ),
                     ),
                   ),
-                  Text(
-                    item.subtitle,
-                    style: TextStyle(
-                      fontSize: context.getRFontSize(11),
-                      color: _subtext,
-                    ), // RESPONSIVE
-                  ),
-                  SizedBox(height: context.getRSize(4)), // RESPONSIVE
-                  Icon(
-                    FontAwesomeIcons.penToSquare,
-                    size: context.getRSize(12),
-                    color: blueMain,
-                  ), // RESPONSIVE
+                  Text(product.unit, style: TextStyle(fontSize: context.getRFontSize(11), color: _subtext)),
                 ],
               ),
             ],
@@ -1540,18 +1460,21 @@ class _InventoryScreenState extends State<InventoryScreen>
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         elevation: 0,
                       ),
-                      onPressed: () {
+                      onPressed: () async {
                         final entered = double.tryParse(ctrl.text) ?? 0;
                         // For now, we update the first warehouse available
-                        final warehouseId = item.warehouseStock.keys.isNotEmpty 
-                            ? item.warehouseStock.keys.first 
+                        final warehouseId = item.warehouseStock.keys.isNotEmpty
+                            ? item.warehouseStock.keys.first
                             : 'w1';
-                        final currentWarehouseStock = item.warehouseStock[warehouseId] ?? 0.0;
-                        
+                        final currentWarehouseStock =
+                            item.warehouseStock[warehouseId] ?? 0.0;
+
                         final newWarehouseQty = action == 'restock'
                             ? currentWarehouseStock + entered
                             : entered;
-                        final diff = newWarehouseQty - currentWarehouseStock;
+                        final diff = action == 'restock'
+                            ? entered
+                            : entered - currentWarehouseStock;
 
                         final log = InventoryLog(
                           timestamp: DateTime.now(),
@@ -1559,8 +1482,8 @@ class _InventoryScreenState extends State<InventoryScreen>
                           itemId: item.id,
                           itemName: item.productName,
                           action: action,
-                          previousValue: item.totalStock,
-                          newValue: item.totalStock + diff,
+                          previousValue: currentWarehouseStock,
+                          newValue: newWarehouseQty,
                           note: noteCtrl.text.isEmpty ? null : noteCtrl.text,
                         );
 
@@ -1573,17 +1496,21 @@ class _InventoryScreenState extends State<InventoryScreen>
 
                         setState(() {
                           // Update the specific warehouse stock
-                          final newStockMap = Map<String, double>.from(item.warehouseStock);
+                          final newStockMap =
+                              Map<String, double>.from(item.warehouseStock);
                           newStockMap[warehouseId] = newWarehouseQty;
                           item.warehouseStock = newStockMap;
-                          
+
                           kInventoryLogs.add(log);
 
                           if (productData.isNotEmpty &&
                               productData['category'] == 'Glass Crates') {
                             final supplier = item.supplierId == null
                                 ? null
-                                : supplierService.getAll().cast<Supplier?>().firstWhere(
+                                : supplierService
+                                    .getAll()
+                                    .cast<Supplier?>()
+                                    .firstWhere(
                                       (s) => s?.id == item.supplierId,
                                       orElse: () => null,
                                     );
@@ -1591,15 +1518,27 @@ class _InventoryScreenState extends State<InventoryScreen>
                             final cStockIndex = supplier == null
                                 ? -1
                                 : kCrateStocks.indexWhere(
-                                    (c) => c.group == supplier.crateGroup,
-                                  );
+                                      (c) => c.group == supplier.crateGroup,
+                                    );
 
                             if (cStockIndex != -1) {
                               kCrateStocks[cStockIndex].available += diff;
                             }
                           }
                         });
-                        Navigator.pop(ctx);
+
+                        // Mirror to Global Activity Log
+                        await activityLogService.logAction(
+                          action == 'restock'
+                              ? "Inventory Restock"
+                              : "Stock Adjustment",
+                          "${action == 'restock' ? 'Restocked' : 'Adjusted'} ${item.productName}: ${log.previousValue.toInt()} -> ${log.newValue.toInt()}${noteCtrl.text.isNotEmpty ? ' (Note: ${noteCtrl.text})' : ''}",
+                          relatedEntityId: item.id,
+                          relatedEntityType: "inventory",
+                          warehouseId: warehouseId,
+                        );
+
+                        if (mounted) Navigator.pop(ctx);
                       },
                       child: const Text(
                         'Save Update',
@@ -2030,7 +1969,7 @@ class _InventoryScreenState extends State<InventoryScreen>
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       elevation: 0,
                     ),
-                    onPressed: () {
+                    onPressed: () async {
                       final newQty = double.tryParse(ctrl.text) ?? cs.available;
                       final log = InventoryLog(
                         timestamp: DateTime.now(),
@@ -2046,7 +1985,17 @@ class _InventoryScreenState extends State<InventoryScreen>
                         cs.available = newQty;
                         kInventoryLogs.add(log);
                       });
-                      Navigator.pop(context);
+
+                      // Mirror to Global Activity Log
+                      await activityLogService.logAction(
+                        "Crate Update",
+                        "Updated ${cs.group.label} Crates count to ${newQty.toInt()}${noteCtrl.text.isNotEmpty ? ' (Note: ${noteCtrl.text})' : ''}",
+                        relatedEntityId: 'crate_${cs.group.name}',
+                        relatedEntityType: "inventory",
+                        // Crates are global for now, no specific warehouseId
+                      );
+
+                      if (mounted) Navigator.pop(context);
                     },
                     child: const Text(
                       'Save Update',
@@ -2178,6 +2127,9 @@ class _InventoryScreenState extends State<InventoryScreen>
                                 fontWeight: FontWeight.w600,
                               ),
                               isExpanded: true,
+                              alignment: AlignmentDirectional.bottomStart,
+                              menuMaxHeight: 350,
+                              borderRadius: BorderRadius.circular(12),
                               onChanged: (v) => setB(() => selectedCategory = v!),
                               items: ['Glass Crates', 'Cans & PET', 'Kegs', 'Other'].map(
                                 (c) => DropdownMenuItem(value: c, child: Text(c)),
@@ -2212,6 +2164,9 @@ class _InventoryScreenState extends State<InventoryScreen>
                                   fontWeight: FontWeight.w600,
                                 ),
                                 isExpanded: true,
+                                alignment: AlignmentDirectional.bottomStart,
+                                menuMaxHeight: 350,
+                                borderRadius: BorderRadius.circular(12),
                                 hint: Text('Select Crate Group', style: TextStyle(color: _subtext, fontSize: 14)),
                                 onChanged: (v) => setB(() => selectedCrateGroup = v),
                                 items: CrateGroup.values.map(
@@ -2247,6 +2202,9 @@ class _InventoryScreenState extends State<InventoryScreen>
                                 fontWeight: FontWeight.w600,
                               ),
                               isExpanded: true,
+                              alignment: AlignmentDirectional.bottomStart,
+                              menuMaxHeight: 350,
+                              borderRadius: BorderRadius.circular(12),
                               hint: Text(
                                 'Select Supplier (Optional)',
                                 style: TextStyle(
@@ -2329,7 +2287,7 @@ class _InventoryScreenState extends State<InventoryScreen>
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         elevation: 0,
                       ),
-                      onPressed: () {
+                      onPressed: () async {
                         if (nameCtrl.text.trim().isEmpty) return;
                         final newItem = InventoryItem(
                           id: 'i${DateTime.now().millisecondsSinceEpoch}',
@@ -2379,7 +2337,17 @@ class _InventoryScreenState extends State<InventoryScreen>
                             'image': '',
                           });
                         });
-                        Navigator.pop(context);
+
+                        // Mirror to Global Activity Log
+                        await activityLogService.logAction(
+                          "New Product Added",
+                          "Added ${newItem.productName} with initial stock of ${newItem.totalStock.toInt()}",
+                          relatedEntityId: newItem.id,
+                          relatedEntityType: "inventory",
+                          warehouseId: 'w1', // Hardcoded w1 as per line 2354
+                        );
+
+                        if (mounted) Navigator.pop(context);
                       },
                       child: const Text(
                         'Add to Inventory & POS',

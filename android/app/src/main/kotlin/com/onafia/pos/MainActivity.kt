@@ -1,4 +1,4 @@
-package com.example.drink_pos_app
+package com.onafia.pos
 
 import io.flutter.embedding.android.FlutterActivity
 
