@@ -1,33 +1,13 @@
 import 'package:flutter/widgets.dart';
+import '../../../../core/database/repositories/supplier_repository.dart';
 import '../models/supplier.dart';
-import '../models/crate_group.dart';
 
 class SupplierService extends ValueNotifier<List<Supplier>> {
-  SupplierService() : super(_initialSuppliers);
+  SupplierService() : super([]);
 
-  static final List<Supplier> _initialSuppliers = [
-    Supplier(
-      id: 's1',
-      name: 'Nigerian Breweries Plc',
-      crateGroup: CrateGroup.nbPlc,
-      contactDetails: 'Plot 2, Igamu House, Lagos. Tel: 01-2703300',
-      supplierWallet: -150000.0, // Debt to supplier
-    ),
-    Supplier(
-      id: 's2',
-      name: 'Guinness Nigeria',
-      crateGroup: CrateGroup.guinness,
-      contactDetails: '24 Oba Akran Ave, Ikeja, Lagos. Tel: 01-2709100',
-      supplierWallet: 50000.0, // Credit with supplier
-    ),
-    Supplier(
-      id: 's3',
-      name: 'Coca-Cola Nigeria',
-      crateGroup: CrateGroup.cocaCola,
-      contactDetails: '1 Industrial Estate, Oyo State. Tel: 0800-265-22652',
-      supplierWallet: 0.0,
-    ),
-  ];
+  Future<void> init() async {
+    value = await supplierRepository.getAll();
+  }
 
   List<Supplier> getAll() => List.unmodifiable(value);
 
@@ -41,6 +21,7 @@ class SupplierService extends ValueNotifier<List<Supplier>> {
 
   void addSupplier(Supplier supplier) {
     value = [...value, supplier];
+    supplierRepository.insert(supplier);
   }
 
   void updateSupplier(Supplier updatedSupplier) {
@@ -49,6 +30,7 @@ class SupplierService extends ValueNotifier<List<Supplier>> {
       final newList = List<Supplier>.from(value);
       newList[index] = updatedSupplier;
       value = newList;
+      supplierRepository.update(updatedSupplier);
     }
   }
 }

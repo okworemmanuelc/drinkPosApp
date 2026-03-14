@@ -1,8 +1,13 @@
 import 'package:flutter/widgets.dart';
+import '../../core/database/repositories/log_repository.dart';
 import '../models/activity_log.dart';
 
 class ActivityLogService extends ValueNotifier<List<ActivityLog>> {
   ActivityLogService() : super([]);
+
+  Future<void> init() async {
+    value = await logRepository.getAllActivityLogs();
+  }
 
   void logAction(
     String action,
@@ -10,19 +15,17 @@ class ActivityLogService extends ValueNotifier<List<ActivityLog>> {
     String? relatedEntityId,
     String? relatedEntityType,
   }) {
-    final newLog = ActivityLog(
-      id: DateTime.now().millisecondsSinceEpoch.toString(), // Simple unique ID
+    final log = ActivityLog(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
       action: action,
       description: description,
       timestamp: DateTime.now(),
       relatedEntityId: relatedEntityId,
       relatedEntityType: relatedEntityType,
     );
-
-    // Keep logs immutable by creating a new list
-    value = [newLog, ...value];
+    value = [log, ...value];
+    logRepository.insertActivityLog(log);
   }
 }
 
-// Global instance available app-wide
 final ActivityLogService activityLogService = ActivityLogService();

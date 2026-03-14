@@ -1,9 +1,7 @@
-import 'package:uuid/uuid.dart';
+import 'package:sqflite/sqflite.dart' show ConflictAlgorithm;
 import '../database_helper.dart';
 import '../../../features/customers/data/models/customer.dart';
 import '../../../features/customers/data/models/payment.dart';
-
-const _uuid = Uuid();
 
 class CustomerRepository {
   Future<List<Customer>> getAll() async {
@@ -105,7 +103,7 @@ class CustomerRepository {
           'qty': entry.value,
           'updated_at': now,
         },
-        conflictAlgorithm: 5, // REPLACE
+        conflictAlgorithm: ConflictAlgorithm.replace, // REPLACE
       );
     }
   }
@@ -178,7 +176,7 @@ class CustomerRepository {
     await db.insert(
       'customers',
       {...row, 'synced': 1},
-      conflictAlgorithm: 5,
+      conflictAlgorithm: ConflictAlgorithm.replace,
     );
   }
 }
