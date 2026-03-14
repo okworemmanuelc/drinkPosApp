@@ -72,7 +72,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         leading: const MenuButton(),
         title: const AppBarHeader(
           icon: FontAwesomeIcons.chartLine,
-          title: 'BrewFlow',
+          title: 'Onafia POS',
           subtitle: 'Business Overview',
         ),
         actions: [

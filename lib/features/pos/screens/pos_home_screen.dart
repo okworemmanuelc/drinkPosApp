@@ -96,7 +96,7 @@ class _PosHomeScreenState extends State<PosHomeScreen>
       leading: const MenuButton(),
       title: const AppBarHeader(
         icon: FontAwesomeIcons.beerMugEmpty,
-        title: 'BrewFlow',
+        title: 'Onafia POS',
         subtitle: 'Point of Sale',
       ),
       actions: [

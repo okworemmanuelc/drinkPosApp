@@ -11,18 +11,18 @@ void main() {
     const SystemUiOverlayStyle(statusBarColor: Colors.transparent),
   );
 
-  runApp(const BrewFlowApp());
+  runApp(const OnafiaPosApp());
 }
 
-class BrewFlowApp extends StatelessWidget {
-  const BrewFlowApp({super.key});
+class OnafiaPosApp extends StatelessWidget {
+  const OnafiaPosApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return ValueListenableBuilder<ThemeMode>(
       valueListenable: themeNotifier,
       builder: (_, mode, _) => MaterialApp(
-        title: 'BrewFlow POS',
+        title: 'Onafia POS',
         debugShowCheckedModeBanner: false,
         themeMode: mode,
         theme: AppTheme.light(),

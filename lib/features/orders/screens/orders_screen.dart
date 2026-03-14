@@ -767,11 +767,11 @@ class _OrdersScreenState extends State<OrdersScreen>
 
       final dir = await getTemporaryDirectory();
       final file = File(
-        '${dir.path}/brewflow_reprint_${order.id}_${DateTime.now().millisecondsSinceEpoch}.png',
+        '${dir.path}/onafia_reprint_${order.id}_${DateTime.now().millisecondsSinceEpoch}.png',
       );
       await file.writeAsBytes(imageBytes);
 
-      await Share.shareXFiles([XFile(file.path)], text: 'BrewFlow Receipt Reprint #${order.id}');
+      await Share.shareXFiles([XFile(file.path)], text: 'Onafia POS Receipt Reprint #${order.id}');
       _logReprint(order.id);
     } catch (e) {
       if (context.mounted) {

@@ -88,7 +88,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> with SingleTickerPr
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'BrewFlow POS',
+                            'Onafia POS',
                             style: context.h1.copyWith(
                               color: Colors.white,
                               fontSize: 42,
