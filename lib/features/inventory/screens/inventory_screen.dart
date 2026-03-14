@@ -19,6 +19,7 @@ import '../../../shared/widgets/app_bar_header.dart';
 import '../../../shared/widgets/notification_bell.dart';
 import '../../pos/data/products_data.dart';
 import 'supplier_detail_screen.dart';
+import 'product_detail_screen.dart';
 import '../../../core/theme/design_tokens.dart';
 import '../../../core/database/app_database.dart';
 import '../../../core/database/daos.dart';
@@ -626,7 +627,33 @@ class _InventoryScreenState extends State<InventoryScreen>
 
     return GestureDetector(
       onTap: () {
-        // TODO: Update ProductDetailScreen to handle ProductWithStock
+        final inventoryItem = InventoryItem(
+          id: product.id.toString(),
+          productName: product.name,
+          subtitle: product.subtitle ?? '',
+          icon: IconData(
+            product.iconCodePoint ?? 0xf0fc,
+            fontFamily: 'FontAwesomeSolid',
+            fontPackage: 'font_awesome_flutter',
+          ),
+          color: accent,
+          warehouseStock: {'w1': item.totalStock.toDouble()},
+          lowStockThreshold: product.lowStockThreshold.toDouble(),
+          sellingPrice: product.sellingPriceKobo / 100.0,
+          retailPrice: product.retailPriceKobo / 100.0,
+          bulkBreakerPrice: product.bulkBreakerPriceKobo != null ? product.bulkBreakerPriceKobo! / 100.0 : null,
+          distributorPrice: product.distributorPriceKobo != null ? product.distributorPriceKobo! / 100.0 : null,
+          category: product.categoryId?.toString(),
+        );
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => ProductDetailScreen(
+              item: inventoryItem,
+              onUpdateStock: () => setState(() {}),
+            ),
+          ),
+        );
       },
       child: Container(
         margin: EdgeInsets.only(bottom: context.spacingS),

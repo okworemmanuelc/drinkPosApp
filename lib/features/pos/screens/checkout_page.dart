@@ -587,7 +587,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
             child: TextButton(
               onPressed: () {
                 if (!mounted) return;
-                Navigator.of(context).popUntil((r) => r.isFirst);
+                Navigator.of(context).pop();
                 navigationService.setIndex(1);
               },
               child: Text(
