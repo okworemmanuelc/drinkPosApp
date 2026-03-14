@@ -5,6 +5,7 @@ import '../../core/theme/theme_notifier.dart';
 import '../../core/utils/responsive.dart';
 import '../../shared/services/navigation_service.dart';
 import '../../shared/services/auth_service.dart';
+import '../../features/auth/screens/onboarding_screen.dart';
 
 class AppDrawer extends StatelessWidget {
   // Pass 'pos' or 'inventory' to highlight the correct nav item
@@ -474,35 +475,46 @@ class AppDrawer extends StatelessWidget {
   }
 
   Widget _buildLogout(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.all(context.getRSize(16)),
-      child: Container(
-        padding: EdgeInsets.symmetric(vertical: context.getRSize(14)),
-        decoration: BoxDecoration(
-          color: danger.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: danger.withValues(alpha: 0.2)),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              FontAwesomeIcons.rightFromBracket,
-              color: danger,
-              size: context.getRSize(16),
-            ),
-            SizedBox(width: context.getRSize(10)),
-            Text(
-              'Logout',
-              style: TextStyle(
+    return InkWell(
+      onTap: () {
+        // Logout logic - Clear any session and navigate back to Onboarding
+        Navigator.pop(context); // Close Drawer
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (context) => const OnboardingScreen()),
+          (route) => false,
+        );
+      },
+      borderRadius: BorderRadius.circular(14),
+      child: Padding(
+        padding: EdgeInsets.all(context.getRSize(16)),
+        child: Container(
+          padding: EdgeInsets.symmetric(vertical: context.getRSize(14)),
+          decoration: BoxDecoration(
+            color: danger.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: danger.withValues(alpha: 0.2)),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                FontAwesomeIcons.rightFromBracket,
                 color: danger,
-                fontWeight: FontWeight.bold,
-                fontSize: context.getRFontSize(14),
+                size: context.getRSize(16),
               ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
+              SizedBox(width: context.getRSize(10)),
+              Text(
+                'Logout',
+                style: TextStyle(
+                  color: danger,
+                  fontWeight: FontWeight.bold,
+                  fontSize: context.getRFontSize(14),
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
         ),
       ),
     );

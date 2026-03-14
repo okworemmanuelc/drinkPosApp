@@ -3,7 +3,8 @@ import 'package:flutter/services.dart';
 
 import 'core/theme/app_theme.dart';
 import 'core/theme/theme_notifier.dart';
-import 'shared/widgets/main_layout.dart';
+
+import 'features/auth/screens/onboarding_screen.dart';
 
 void main() {
   SystemChrome.setSystemUIOverlayStyle(
@@ -26,7 +27,7 @@ class BrewFlowApp extends StatelessWidget {
         themeMode: mode,
         theme: AppTheme.light(),
         darkTheme: AppTheme.dark(),
-        home: const MainLayout(),
+        home: const OnboardingScreen(),
       ),
     );
   }
