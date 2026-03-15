@@ -297,35 +297,32 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildPeriodHeader() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Performance Overview',
-              style: context.bodyLarge.copyWith(
-                fontWeight: FontWeight.bold,
-                color: _text,
-              ),
-            ),
-            Text(
-              'Analytics for the selected period',
-              style: TextStyle(
-                fontSize: context.getRFontSize(12),
-                color: _subtext,
-              ),
-            ),
-          ],
+        Text(
+          'Performance Overview',
+          style: context.bodyLarge.copyWith(
+            fontWeight: FontWeight.bold,
+            color: _text,
+          ),
         ),
+        SizedBox(height: context.getRSize(2)),
+        Text(
+          'Analytics for the selected period',
+          style: TextStyle(
+            fontSize: context.getRFontSize(12),
+            color: _subtext,
+          ),
+        ),
+        SizedBox(height: context.getRSize(12)),
         Row(
           children: [
             if (_warehouses.isNotEmpty) ...[
-              _buildWarehouseDropdown(),
+              Flexible(child: _buildWarehouseDropdown()),
               SizedBox(width: context.getRSize(8)),
             ],
-            _buildPeriodDropdown(),
+            Flexible(child: _buildPeriodDropdown()),
           ],
         ),
       ],
@@ -379,7 +376,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _buildPeriodDropdown() {
     return Container(
-      width: context.getRSize(120),
       padding: EdgeInsets.symmetric(horizontal: context.getRSize(12)),
       decoration: BoxDecoration(
         color: _cardBg,

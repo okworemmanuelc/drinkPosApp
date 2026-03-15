@@ -15,6 +15,7 @@ import '../../inventory/data/services/supplier_service.dart';
 import '../../pos/data/products_data.dart';
 import '../data/models/delivery.dart';
 import '../data/services/delivery_service.dart';
+import '../../../../core/database/app_database.dart';
 
 class ReceiveDeliverySheet extends StatefulWidget {
   const ReceiveDeliverySheet({super.key});
@@ -37,13 +38,11 @@ class _DeliveryItemLine {
   final TextEditingController qtyCtrl = TextEditingController();
   final TextEditingController subtitleCtrl = TextEditingController();
   final TextEditingController retailPriceCtrl = TextEditingController();
-  final TextEditingController bulkBreakerPriceCtrl = TextEditingController();
-  final TextEditingController distributorPriceCtrl = TextEditingController();
 
   InventoryItem? selectedProduct;
   Supplier? selectedSupplier;
   String selectedCategory = 'Other';
-  CrateGroup? selectedCrateGroup;
+  CrateGroupData? selectedCrateGroup;
 
   double get lineTotal {
     final price = selectedProduct?.buyingPrice ?? 0;
@@ -56,13 +55,12 @@ class _DeliveryItemLine {
     qtyCtrl.dispose();
     subtitleCtrl.dispose();
     retailPriceCtrl.dispose();
-    bulkBreakerPriceCtrl.dispose();
-    distributorPriceCtrl.dispose();
   }
 }
 
 class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
   final List<_DeliveryItemLine> _lines = [];
+  List<CrateGroupData> _crateGroups = [];
 
   bool get _isDark => themeNotifier.value == ThemeMode.dark;
   Color get _surface => _isDark ? dSurface : lSurface;
@@ -75,6 +73,12 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
   void initState() {
     super.initState();
     _addLine(null);
+    _loadCrateGroups();
+  }
+
+  Future<void> _loadCrateGroups() async {
+    final groups = await database.inventoryDao.getAllCrateGroups();
+    if (mounted) setState(() => _crateGroups = groups);
   }
 
   @override
@@ -158,11 +162,9 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
         l.selectedProduct!.subtitle = l.subtitleCtrl.text.trim().isEmpty ? 'Unit' : l.subtitleCtrl.text.trim();
         l.selectedProduct!.category = l.selectedCategory;
         l.selectedProduct!.retailPrice = double.tryParse(l.retailPriceCtrl.text);
-        l.selectedProduct!.sellingPrice = l.selectedProduct!.retailPrice; // Default selling to retail
-        l.selectedProduct!.bulkBreakerPrice = double.tryParse(l.bulkBreakerPriceCtrl.text);
-        l.selectedProduct!.distributorPrice = double.tryParse(l.distributorPriceCtrl.text);
+        l.selectedProduct!.sellingPrice = l.selectedProduct!.retailPrice;
         l.selectedProduct!.supplierId = l.selectedSupplier?.id;
-        l.selectedProduct!.crateGroupName = l.selectedCrateGroup?.label;
+        l.selectedProduct!.crateGroupName = l.selectedCrateGroup?.name;
 
         final warehouseId = l.selectedProduct!.warehouseStock.keys.isNotEmpty
             ? l.selectedProduct!.warehouseStock.keys.first
@@ -198,19 +200,13 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
           kProducts[pIndex]['distributorPrice'] = l.selectedProduct!.distributorPrice ?? 0;
         }
 
-        if (l.selectedProduct!.category == 'Glass Crates') {
-          final sup = l.selectedSupplier ??
-              supplierService.getAll().firstWhere(
-                (s) => s.id == l.selectedProduct!.supplierId,
-                orElse: () =>
-                    Supplier(id: '', name: '', crateGroup: CrateGroup.premium),
-              );
-
-          final cg = l.selectedCrateGroup ?? sup.crateGroup;
-          final cStockIndex = kCrateStocks.indexWhere((c) => c.group == cg);
-          if (cStockIndex != -1) {
-            kCrateStocks[cStockIndex].available += qty;
-          }
+        // Auto-add empty crates to DB for glass products (1:1 with quantity)
+        if (l.selectedProduct!.category == 'Glass Crates' &&
+            l.selectedCrateGroup != null) {
+          await database.inventoryDao.addEmptyCrates(
+            l.selectedCrateGroup!.id,
+            qty.toInt(),
+          );
         }
       }
 
@@ -293,8 +289,6 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
                 line.subtitleCtrl.text = selection.subtitle;
                 line.selectedCategory = selection.category ?? 'Other';
                 line.retailPriceCtrl.text = (selection.retailPrice ?? 0).round().toString();
-                line.bulkBreakerPriceCtrl.text = (selection.bulkBreakerPrice ?? 0).round().toString();
-                line.distributorPriceCtrl.text = (selection.distributorPrice ?? 0).round().toString();
 
                 final sup = supplierService.getAll().firstWhere(
                   (s) => s.id == selection.supplierId,
@@ -307,9 +301,15 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
                         ),
                 );
                 line.selectedSupplier = sup;
-                line.selectedCrateGroup = selection.crateGroupName != null 
-                    ? CrateGroup.values.firstWhere((cg) => cg.label == selection.crateGroupName, orElse: () => sup.crateGroup)
-                    : sup.crateGroup;
+                // Look up the CrateGroupData from DB-loaded groups by name.
+                if (selection.crateGroupName != null) {
+                  final matches = _crateGroups.where(
+                      (cg) => cg.name == selection.crateGroupName);
+                  line.selectedCrateGroup =
+                      matches.isNotEmpty ? matches.first : null;
+                } else {
+                  line.selectedCrateGroup = null;
+                }
 
                 if (line.qtyCtrl.text.isEmpty) {
                   line.qtyCtrl.text = '1';
@@ -555,7 +555,7 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
             if (line.selectedCategory == 'Glass Crates') ...[
               const SizedBox(height: 12),
               Text(
-                'Pair with Empty Crate',
+                'Crate Group',
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
@@ -570,7 +570,7 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: DropdownButtonHideUnderline(
-                  child: DropdownButton<CrateGroup>(
+                  child: DropdownButton<CrateGroupData>(
                     value: line.selectedCrateGroup,
                     dropdownColor: _isDark ? dCard : lSurface,
                     style: TextStyle(
@@ -584,8 +584,11 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
                     borderRadius: BorderRadius.circular(12),
                     hint: Text('Select Crate Group', style: TextStyle(color: _subtext, fontSize: 14)),
                     onChanged: (v) => setState(() => line.selectedCrateGroup = v),
-                    items: CrateGroup.values.map(
-                      (cg) => DropdownMenuItem(value: cg, child: Text(cg.label)),
+                    items: _crateGroups.map(
+                      (cg) => DropdownMenuItem(
+                        value: cg,
+                        child: Text('${cg.name} (${cg.size} bottles)'),
+                      ),
                     ).toList(),
                   ),
                 ),
@@ -625,9 +628,6 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
                   onChanged: (val) {
                     setState(() {
                       line.selectedSupplier = val;
-                      if (val != null) {
-                        line.selectedCrateGroup = val.crateGroup;
-                      }
                     });
                   },
                   items: supplierService.getAll().map((s) {

@@ -21,8 +21,10 @@ import '../../pos/data/products_data.dart';
 import 'supplier_detail_screen.dart';
 import 'product_detail_screen.dart';
 import '../../../core/theme/design_tokens.dart';
+import 'package:drift/drift.dart' hide Column;
 import '../../../core/database/app_database.dart';
 import '../../../core/database/daos.dart';
+import '../../../shared/services/auth_service.dart';
 
 class InventoryScreen extends StatefulWidget {
   const InventoryScreen({super.key});
@@ -2143,16 +2145,29 @@ class _InventoryScreenState extends State<InventoryScreen>
   }
 
   // ── ADD PRODUCT DIALOG ────────────────────────────────────────────────────────
-  void _showAddProductDialog() {
+  String _crateSizeLabel(int size) {
+    if (size == 12) return 'big';
+    if (size == 20) return 'medium';
+    return 'small';
+  }
+
+  void _showAddProductDialog() async {
+    // Load DB data before showing the sheet so dropdowns are ready immediately.
+    final crateGroupsList = await database.inventoryDao.getAllCrateGroups();
+    final dbSuppliers =
+        await (database.select(database.suppliers)
+              ..orderBy([(t) => OrderingTerm.asc(t.name)]))
+            .get();
+    if (!mounted) return;
+
     final nameCtrl = TextEditingController();
     final subtitleCtrl = TextEditingController();
-    String? selectedSupplierId;
     final stockCtrl = TextEditingController(text: '0');
     final retailPriceCtrl = TextEditingController();
-    final bulkBreakerPriceCtrl = TextEditingController();
-    final distributorPriceCtrl = TextEditingController();
+    final lowStockCtrl = TextEditingController(text: '5');
+    int? selectedSupplierDbId;
     String selectedCategory = 'Other';
-    CrateGroup? selectedCrateGroup;
+    CrateGroupData? selectedCrateGroup;
 
     showModalBottomSheet(
       context: context,
@@ -2280,7 +2295,7 @@ class _InventoryScreenState extends State<InventoryScreen>
                         if (selectedCategory == 'Glass Crates') ...[
                           const SizedBox(height: 12),
                           Text(
-                            'Pair with Empty Crate',
+                            'Crate Group',
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w700,
@@ -2295,7 +2310,7 @@ class _InventoryScreenState extends State<InventoryScreen>
                               borderRadius: BorderRadius.circular(14),
                             ),
                             child: DropdownButtonHideUnderline(
-                              child: DropdownButton<CrateGroup>(
+                              child: DropdownButton<CrateGroupData>(
                                 value: selectedCrateGroup,
                                 dropdownColor: _isDark ? dCard : lSurface,
                                 style: TextStyle(
@@ -2316,11 +2331,13 @@ class _InventoryScreenState extends State<InventoryScreen>
                                 ),
                                 onChanged: (v) =>
                                     setB(() => selectedCrateGroup = v),
-                                items: CrateGroup.values
+                                items: crateGroupsList
                                     .map(
                                       (cg) => DropdownMenuItem(
                                         value: cg,
-                                        child: Text(cg.label),
+                                        child: Text(
+                                          '${cg.name} (${cg.size} bottles)',
+                                        ),
                                       ),
                                     )
                                     .toList(),
@@ -2345,8 +2362,8 @@ class _InventoryScreenState extends State<InventoryScreen>
                             borderRadius: BorderRadius.circular(14),
                           ),
                           child: DropdownButtonHideUnderline(
-                            child: DropdownButton<String>(
-                              value: selectedSupplierId,
+                            child: DropdownButton<int>(
+                              value: selectedSupplierDbId,
                               dropdownColor: _isDark ? dCard : lSurface,
                               style: TextStyle(
                                 color: _text,
@@ -2366,16 +2383,16 @@ class _InventoryScreenState extends State<InventoryScreen>
                                 ),
                               ),
                               onChanged: (v) =>
-                                  setB(() => selectedSupplierId = v),
+                                  setB(() => selectedSupplierDbId = v),
                               items: [
-                                DropdownMenuItem<String>(
+                                DropdownMenuItem<int>(
                                   value: null,
                                   child: Text(
                                     'No Supplier / Pair Later',
                                     style: TextStyle(color: _subtext),
                                   ),
                                 ),
-                                ...supplierService.getAll().map(
+                                ...dbSuppliers.map(
                                   (s) => DropdownMenuItem(
                                     value: s.id,
                                     child: Text(s.name),
@@ -2394,11 +2411,19 @@ class _InventoryScreenState extends State<InventoryScreen>
                         ),
                         const SizedBox(height: 12),
                         _inputField(
-                          'Retail Price',
+                          'Retail Price (₦)',
                           retailPriceCtrl,
-                          'e.g. 500',
+                          'e.g. 5000',
                           isNumber: true,
                         ),
+                        const SizedBox(height: 12),
+                        _inputField(
+                          'Low Stock Threshold',
+                          lowStockCtrl,
+                          'e.g. 5',
+                          isNumber: true,
+                        ),
+                        const SizedBox(height: 8),
                       ],
                     ),
                   ),
@@ -2419,90 +2444,92 @@ class _InventoryScreenState extends State<InventoryScreen>
                       ),
                       onPressed: () async {
                         if (nameCtrl.text.trim().isEmpty) return;
-                        final newItem = InventoryItem(
-                          id: 'i${DateTime.now().millisecondsSinceEpoch}',
-                          productName: nameCtrl.text.trim(),
-                          subtitle: subtitleCtrl.text.trim().isEmpty
-                              ? 'Unit'
-                              : subtitleCtrl.text.trim(),
-                          supplierId: selectedSupplierId,
-                          icon: FontAwesomeIcons.wineBottle,
-                          color: blueMain,
-                          warehouseStock: {
-                            'w1': double.tryParse(stockCtrl.text) ?? 0,
-                          },
-                          category: selectedCategory,
-                          retailPrice: double.tryParse(retailPriceCtrl.text),
-                          bulkBreakerPrice: double.tryParse(
-                            bulkBreakerPriceCtrl.text,
-                          ),
-                          distributorPrice: double.tryParse(
-                            distributorPriceCtrl.text,
-                          ),
-                          sellingPrice: double.tryParse(
-                            retailPriceCtrl.text,
-                          ), // Use retail as default selling
-                          needsEmptyCrate: selectedCategory == 'Glass Crates',
-                          crateGroupName: selectedCrateGroup?.label,
-                        );
-                        final log = InventoryLog(
-                          timestamp: DateTime.now(),
-                          user: 'John Cashier',
-                          itemId: newItem.id,
-                          itemName: newItem.productName,
-                          action: 'restock',
-                          previousValue: 0,
-                          newValue: newItem.totalStock,
-                          note: 'New product added to inventory',
-                        );
-                        setState(() {
-                          kInventoryItems.add(newItem);
-                          kInventoryLogs.add(log);
+                        final retailKobo =
+                            ((double.tryParse(retailPriceCtrl.text) ?? 0) *
+                                    100)
+                                .toInt();
+                        final qty = int.tryParse(stockCtrl.text) ?? 0;
+                        final threshold =
+                            int.tryParse(lowStockCtrl.text) ?? 5;
 
-                          // Auto-add empty crates when a Glass Crates product
-                          // is created — equivalent number to initial stock.
+                        // Look up category ID from DB
+                        final allCats =
+                            await database.select(database.categories).get();
+                        final cat =
+                            allCats
+                                .where((c) => c.name == selectedCategory)
+                                .firstOrNull;
+
+                        // Insert product into DB
+                        final productId = await database
+                            .into(database.products)
+                            .insert(
+                              ProductsCompanion.insert(
+                                name: nameCtrl.text.trim(),
+                                subtitle: Value(
+                                  subtitleCtrl.text.trim().isEmpty
+                                      ? null
+                                      : subtitleCtrl.text.trim(),
+                                ),
+                                categoryId: Value(cat?.id),
+                                crateGroupId: Value(selectedCrateGroup?.id),
+                                crateSize: Value(
+                                  selectedCrateGroup != null
+                                      ? _crateSizeLabel(
+                                          selectedCrateGroup!.size,
+                                        )
+                                      : null,
+                                ),
+                                retailPriceKobo: Value(retailKobo),
+                                sellingPriceKobo: Value(retailKobo),
+                                lowStockThreshold: Value(threshold),
+                              ),
+                            );
+
+                        // Determine warehouse for initial stock
+                        final warehouses =
+                            await database.select(database.warehouses).get();
+                        int? warehouseId;
+                        if (_selectedWarehouseId != 'all') {
+                          warehouseId = int.tryParse(_selectedWarehouseId);
+                        } else if (warehouses.isNotEmpty) {
+                          warehouseId = warehouses.first.id;
+                        }
+
+                        if (warehouseId != null && qty > 0) {
+                          await database.inventoryDao.adjustStock(
+                            productId,
+                            warehouseId,
+                            qty,
+                            'Initial stock on product creation',
+                            authService.currentUser?.id,
+                          );
+
+                          // Auto-add empty crates for Glass Crate products (1:1)
                           if (selectedCategory == 'Glass Crates' &&
                               selectedCrateGroup != null) {
-                            final qty =
-                                double.tryParse(stockCtrl.text) ?? 0;
-                            if (qty > 0) {
-                              final cStockIdx = kCrateStocks.indexWhere(
-                                (c) => c.group == selectedCrateGroup,
-                              );
-                              if (cStockIdx != -1) {
-                                kCrateStocks[cStockIdx].available += qty;
-                              }
-                            }
+                            await database.inventoryDao.addEmptyCrates(
+                              selectedCrateGroup!.id,
+                              qty,
+                            );
                           }
+                        }
 
-                          // Also add to POS products data
-                          kProducts.add({
-                            'name': newItem.productName,
-                            'subtitle': newItem.subtitle,
-                            'category': selectedCategory,
-                            'sellingPrice': newItem.sellingPrice ?? 0,
-                            'retailPrice': newItem.retailPrice ?? 0,
-                            'bulkBreakerPrice': newItem.bulkBreakerPrice ?? 0,
-                            'distributorPrice': newItem.distributorPrice ?? 0,
-                            'icon': newItem.icon,
-                            'color': newItem.color,
-                            'image': '',
-                          });
-                        });
-
-                        // Mirror to Global Activity Log
-                        await activityLogService.logAction(
-                          "New Product Added",
-                          "Added ${newItem.productName} with initial stock of ${newItem.totalStock.toInt()}",
-                          relatedEntityId: newItem.id,
-                          relatedEntityType: "inventory",
-                          warehouseId: 'w1', // Hardcoded w1 as per line 2354
+                        // Log activity to DB
+                        await database.activityLogDao.log(
+                          staffId: authService.currentUser?.id,
+                          action: 'New Product Added',
+                          description:
+                              'Added ${nameCtrl.text.trim()} with initial stock of $qty',
+                          entityId: productId.toString(),
+                          entityType: 'product',
+                          warehouseId: warehouseId?.toString(),
                         );
 
                         if (mounted) Navigator.pop(context);
                       },
                       child: const Text(
-                        'Add to Inventory & POS',
+                        'Add to Inventory',
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 15,

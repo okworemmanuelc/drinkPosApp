@@ -28,6 +28,7 @@ class _PinPadViewState extends State<PinPadView>
   int _cooldownSeconds = 0;
   Timer? _timer;
   bool _isShaking = false;
+  bool _isProcessing = false;
   late AnimationController _shakeController;
 
   @override
@@ -61,14 +62,16 @@ class _PinPadViewState extends State<PinPadView>
   }
 
   void _onDigitPress(String digit) {
-    if (_cooldownSeconds > 0 || _enteredPin.length >= 4) return;
+    if (_cooldownSeconds > 0 || _isProcessing || _enteredPin.length >= 4) return;
 
     setState(() {
       _enteredPin += digit;
     });
 
     if (_enteredPin.length == 4) {
-      _verifyPin();
+      setState(() => _isProcessing = true);
+      // Wait one frame so the 4th dot renders before the overlay appears.
+      WidgetsBinding.instance.addPostFrameCallback((_) => _verifyPin());
     }
   }
 
@@ -80,47 +83,15 @@ class _PinPadViewState extends State<PinPadView>
   }
 
   Future<void> _verifyPin() async {
-    // Show loading dialog immediately to eliminate the visible lag on the
-    // last digit press while the DB session write completes.
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => Dialog(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 28),
-          decoration: BoxDecoration(
-            color: Colors.black.withValues(alpha: 0.75),
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: const Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
-              SizedBox(height: 18),
-              Text(
-                'Signing in…',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-
     final success = await authService.loginWithPin(_enteredPin);
-
     if (!mounted) return;
-    Navigator.of(context, rootNavigator: true).pop(); // close dialog
 
     if (success) {
+      // Keep spinner visible for a beat so the transition feels intentional.
+      await Future.delayed(const Duration(milliseconds: 300));
       widget.onSuccess();
     } else {
+      setState(() => _isProcessing = false);
       _handleFailure();
     }
   }
@@ -136,9 +107,11 @@ class _PinPadViewState extends State<PinPadView>
         .then((_) => setState(() => _isShaking = false));
 
     Future.delayed(const Duration(milliseconds: 500), () {
-      setState(() => _enteredPin = '');
-      if (_failures >= 3) {
-        _startCooldown();
+      if (mounted) {
+        setState(() => _enteredPin = '');
+        if (_failures >= 3) {
+          _startCooldown();
+        }
       }
     });
   }
@@ -151,61 +124,89 @@ class _PinPadViewState extends State<PinPadView>
     final gapLarge = (screenHeight * 0.03).clamp(16.0, 36.0);
     final gapMedium = (screenHeight * 0.015).clamp(8.0, 20.0);
 
-    return Column(
+    return Stack(
       children: [
-        Row(
+        Column(
           children: [
-            IconButton(
-              onPressed: widget.onBack,
-              icon:
-                  const Icon(Icons.arrow_back_ios_new, color: Colors.white70),
+            Row(
+              children: [
+                IconButton(
+                  onPressed: widget.onBack,
+                  icon:
+                      const Icon(Icons.arrow_back_ios_new, color: Colors.white70),
+                ),
+                Expanded(
+                  child: Text(
+                    'Logging in as ${widget.staff.name}',
+                    textAlign: TextAlign.center,
+                    style: context.bodyLarge.copyWith(
+                        color: Colors.white, fontWeight: FontWeight.bold),
+                  ),
+                ),
+                const SizedBox(width: 48), // balance back button
+              ],
             ),
+            SizedBox(height: gapLarge),
+
+            // PIN dots
+            _buildPinDots(),
+
+            SizedBox(height: gapMedium),
+
+            if (_cooldownSeconds > 0)
+              Text(
+                'Too many attempts. Wait $_cooldownSeconds s',
+                style: const TextStyle(
+                    color: Colors.redAccent, fontWeight: FontWeight.bold),
+              )
+            else if (_failures > 0 && _enteredPin.isEmpty)
+              const Text(
+                'Incorrect PIN',
+                style: TextStyle(
+                    color: Colors.redAccent, fontWeight: FontWeight.bold),
+              )
+            else
+              SizedBox(height: gapMedium),
+
+            SizedBox(height: gapLarge),
+
+            // Num Pad
             Expanded(
-              child: Text(
-                'Logging in as ${widget.staff.name}',
-                textAlign: TextAlign.center,
-                style: context.bodyLarge.copyWith(
-                    color: Colors.white, fontWeight: FontWeight.bold),
+              child: Column(
+                children: [
+                  _buildRow(['1', '2', '3']),
+                  _buildRow(['4', '5', '6']),
+                  _buildRow(['7', '8', '9']),
+                  _buildRow([null, '0', 'delete']),
+                ],
               ),
             ),
-            const SizedBox(width: 48), // balance back button
           ],
         ),
-        SizedBox(height: gapLarge),
 
-        // PIN dots
-        _buildPinDots(),
-
-        SizedBox(height: gapMedium),
-
-        if (_cooldownSeconds > 0)
-          Text(
-            'Too many attempts. Wait $_cooldownSeconds s',
-            style: const TextStyle(
-                color: Colors.redAccent, fontWeight: FontWeight.bold),
-          )
-        else if (_failures > 0 && _enteredPin.isEmpty)
-          const Text(
-            'Incorrect PIN',
-            style: TextStyle(
-                color: Colors.redAccent, fontWeight: FontWeight.bold),
-          )
-        else
-          SizedBox(height: gapMedium),
-
-        SizedBox(height: gapLarge),
-
-        // Num Pad
-        Expanded(
-          child: Column(
-            children: [
-              _buildRow(['1', '2', '3']),
-              _buildRow(['4', '5', '6']),
-              _buildRow(['7', '8', '9']),
-              _buildRow([null, '0', 'delete']),
-            ],
+        // Inline "Signing in…" overlay — no separate route, no flash.
+        if (_isProcessing)
+          Positioned.fill(
+            child: Container(
+              color: Colors.black.withValues(alpha: 0.75),
+              child: const Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircularProgressIndicator(
+                      color: Colors.white, strokeWidth: 2.5),
+                  SizedBox(height: 18),
+                  Text(
+                    'Signing in…',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
-        ),
       ],
     );
   }
@@ -287,7 +288,7 @@ class _PinPadViewState extends State<PinPadView>
           shape: const CircleBorder(),
           clipBehavior: Clip.antiAlias,
           child: InkWell(
-            onTap: _cooldownSeconds > 0 ? null : onTap,
+            onTap: (_cooldownSeconds > 0 || _isProcessing) ? null : onTap,
             child: Center(child: child),
           ),
         ),

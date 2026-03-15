@@ -401,9 +401,16 @@ class AppDatabase extends _$AppDatabase {
     // Only seed reference/config data — no users, warehouses, products or inventory.
     // Everything else is created by the user during onboarding.
     await batch((b) {
+      // Crate groups: Big=12 bottles, Medium=20, Small=24
       b.insert(crateGroups, CrateGroupsCompanion.insert(name: 'Big Crate 12', size: 12));
       b.insert(crateGroups, CrateGroupsCompanion.insert(name: 'Medium Crate 20', size: 20));
       b.insert(crateGroups, CrateGroupsCompanion.insert(name: 'Small Crate 24', size: 24));
+
+      // Standard product categories
+      b.insert(categories, CategoriesCompanion.insert(name: 'Glass Crates'));
+      b.insert(categories, CategoriesCompanion.insert(name: 'Cans & PET'));
+      b.insert(categories, CategoriesCompanion.insert(name: 'Kegs'));
+      b.insert(categories, CategoriesCompanion.insert(name: 'Other'));
     });
   }
 

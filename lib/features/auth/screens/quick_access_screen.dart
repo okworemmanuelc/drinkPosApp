@@ -23,6 +23,7 @@ class _QuickAccessScreenState extends State<QuickAccessScreen>
   int _cooldownSeconds = 0;
   Timer? _timer;
   bool _isShaking = false;
+  bool _isProcessing = false;
   UserData? _user;
   bool _biometricAvailable = false;
 
@@ -85,11 +86,13 @@ class _QuickAccessScreenState extends State<QuickAccessScreen>
   }
 
   void _onDigitPress(String digit) {
-    if (_cooldownSeconds > 0 || _enteredPin.length >= 4) return;
+    if (_cooldownSeconds > 0 || _isProcessing || _enteredPin.length >= 4) return;
     setState(() => _enteredPin += digit);
 
     if (_enteredPin.length == 4) {
-      _verifyPin();
+      setState(() => _isProcessing = true);
+      // Wait one frame so the 4th dot renders before the overlay appears.
+      WidgetsBinding.instance.addPostFrameCallback((_) => _verifyPin());
     }
   }
 
@@ -104,18 +107,13 @@ class _QuickAccessScreenState extends State<QuickAccessScreen>
     if (_user == null) return;
 
     if (_enteredPin == _user!.pin) {
-      // Show signing-in dialog immediately to eliminate the visible lag.
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (_) => const _SigningInDialog(),
-      );
       await authService.loginWithPin(_enteredPin);
-      if (mounted) {
-        Navigator.of(context, rootNavigator: true).pop(); // close dialog
-        _navigateToHome();
-      }
+      if (!mounted) return;
+      // Keep spinner visible for a beat so the transition feels intentional.
+      await Future.delayed(const Duration(milliseconds: 300));
+      _navigateToHome();
     } else {
+      setState(() => _isProcessing = false);
       _handleFailure();
     }
   }
@@ -317,6 +315,30 @@ class _QuickAccessScreenState extends State<QuickAccessScreen>
               ],
             ),
           ),
+
+          // Inline "Signing in…" overlay — no separate route, no flash.
+          if (_isProcessing)
+            Positioned.fill(
+              child: Container(
+                color: Colors.black.withValues(alpha: 0.75),
+                child: const Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    CircularProgressIndicator(
+                        color: Colors.white, strokeWidth: 2.5),
+                    SizedBox(height: 18),
+                    Text(
+                      'Signing in…',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -412,43 +434,9 @@ class _QuickAccessScreenState extends State<QuickAccessScreen>
           shape: const CircleBorder(),
           clipBehavior: Clip.antiAlias,
           child: InkWell(
-            onTap: _cooldownSeconds > 0 ? null : onTap,
+            onTap: (_cooldownSeconds > 0 || _isProcessing) ? null : onTap,
             child: Center(child: child),
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _SigningInDialog extends StatelessWidget {
-  const _SigningInDialog();
-
-  @override
-  Widget build(BuildContext context) {
-    return Dialog(
-      backgroundColor: Colors.transparent,
-      elevation: 0,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 28),
-        decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha: 0.75),
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: const Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
-            SizedBox(height: 18),
-            Text(
-              'Signing in…',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
         ),
       ),
     );

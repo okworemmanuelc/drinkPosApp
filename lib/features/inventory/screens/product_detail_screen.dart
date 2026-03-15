@@ -15,6 +15,7 @@ import '../data/models/crate_stock.dart';
 import '../data/models/inventory_log.dart';
 import '../data/inventory_data.dart';
 import '../../pos/data/products_data.dart';
+import '../../../core/database/app_database.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ProductDetailScreen — full-screen product information view
@@ -317,6 +318,20 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   ? '${crateStock.available.toInt()} available'
                   : 'N/A',
               supplier?.crateGroup.color ?? _subtext,
+            ),
+            _divider(context),
+            _infoRow(
+              context,
+              FontAwesomeIcons.layerGroup,
+              'Crate Group',
+              widget.item.crateGroupName ?? 'Not Assigned',
+              const Color(0xFF8B5CF6),
+              onTap: () => _showCrateGroupSelectionSheet(context),
+              trailing: Icon(
+                FontAwesomeIcons.chevronRight,
+                size: context.getRSize(12),
+                color: _subtext,
+              ),
             ),
             _divider(context),
             _infoRow(
@@ -859,6 +874,128 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       'Dec',
     ];
     return '${dt.day} ${months[dt.month - 1]} ${dt.year}';
+  }
+
+  void _showCrateGroupSelectionSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (ctx) => Container(
+        decoration: BoxDecoration(
+          color: _isDark ? dSurface : lSurface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 12),
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: _border,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+              child: Row(
+                children: [
+                  Text(
+                    'Assign Crate Group',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      color: _text,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            FutureBuilder<List<CrateGroupData>>(
+              future: database.inventoryDao.getAllCrateGroups(),
+              builder: (ctx, snap) {
+                if (!snap.hasData) {
+                  return const Padding(
+                    padding: EdgeInsets.all(32),
+                    child: CircularProgressIndicator(),
+                  );
+                }
+                final groups = snap.data!;
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ListTile(
+                      leading: const Icon(Icons.close, color: Colors.grey),
+                      title: Text(
+                        'Remove Crate Group',
+                        style: TextStyle(color: _subtext),
+                      ),
+                      onTap: () {
+                        setState(() => widget.item.crateGroupName = null);
+                        Navigator.pop(ctx);
+                        _updateDbCrateGroup(null, null);
+                      },
+                    ),
+                    const Divider(height: 1),
+                    ...groups.map(
+                      (cg) => ListTile(
+                        leading: Icon(
+                          Icons.layers,
+                          color: const Color(0xFF8B5CF6),
+                        ),
+                        title: Text(
+                          cg.name,
+                          style: TextStyle(
+                            color: _text,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        subtitle: Text(
+                          '${cg.size} bottles · ${cg.emptyCrateStock} empty crates available',
+                          style: TextStyle(color: _subtext, fontSize: 12),
+                        ),
+                        trailing: widget.item.crateGroupName == cg.name
+                            ? const Icon(Icons.check_circle, color: Color(0xFF8B5CF6))
+                            : null,
+                        onTap: () {
+                          setState(() => widget.item.crateGroupName = cg.name);
+                          Navigator.pop(ctx);
+                          _updateDbCrateGroup(cg.id, _crateSizeLabel(cg.size));
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _crateSizeLabel(int size) {
+    if (size == 12) return 'big';
+    if (size == 20) return 'medium';
+    return 'small';
+  }
+
+  /// Finds the DB product by name and updates crateGroupId + crateSize.
+  Future<void> _updateDbCrateGroup(int? crateGroupId, String? crateSize) async {
+    final dbProducts = await database.select(database.products).get();
+    final match = dbProducts
+        .where((p) => p.name == widget.item.productName)
+        .firstOrNull;
+    if (match != null) {
+      await database.inventoryDao.assignCrateGroup(
+        match.id,
+        crateGroupId,
+        crateSize,
+      );
+    }
   }
 
   void _showSupplierSelectionSheet(BuildContext context) {

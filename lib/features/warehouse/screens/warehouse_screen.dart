@@ -11,6 +11,7 @@ import '../../../core/utils/responsive.dart';
 import '../../../core/database/app_database.dart';
 import '../../../shared/services/navigation_service.dart';
 import 'package:drift/drift.dart' show Value;
+import 'warehouse_details_screen.dart';
 
 class WarehouseScreen extends StatefulWidget {
   const WarehouseScreen({super.key});
@@ -648,9 +649,12 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
               // Main row
               InkWell(
                 onTap: () {
-                  navigationService.selectedWarehouseId.value = warehouse.id
-                      .toString();
-                  navigationService.setIndex(2); // Inventory
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => WarehouseDetailsScreen(warehouse: warehouse),
+                    ),
+                  );
                 },
                 borderRadius: const BorderRadius.vertical(
                   top: Radius.circular(16),
@@ -722,17 +726,14 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
                 ),
               ),
 
-              // Stats + actions row
+              // Stats row
               Container(
                 decoration: BoxDecoration(
                   color: _card,
-                  borderRadius: const BorderRadius.vertical(
-                    bottom: Radius.circular(16),
-                  ),
+                  border: Border(top: BorderSide(color: _border)),
                 ),
                 child: Row(
                   children: [
-                    // Stock stat
                     Expanded(
                       child: _statCell(
                         context,
@@ -743,7 +744,6 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
                       ),
                     ),
                     Container(width: 1, height: 36, color: _border),
-                    // Product stat
                     Expanded(
                       child: _statCell(
                         context,
@@ -754,7 +754,6 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
                       ),
                     ),
                     Container(width: 1, height: 36, color: _border),
-                    // Staff stat
                     Expanded(
                       child: _statCell(
                         context,
@@ -764,32 +763,49 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
                         color: const Color(0xFFA855F7),
                       ),
                     ),
-                    Container(width: 1, height: 36, color: _border),
-                    // View Staff action
-                    _actionButton(
-                      context,
-                      icon: FontAwesomeIcons.usersGear,
-                      color: const Color(0xFFA855F7),
-                      tooltip: 'View Staff',
-                      onTap: () => navigationService.setIndex(8),
+                  ],
+                ),
+              ),
+
+              // Actions row
+              Container(
+                decoration: BoxDecoration(
+                  color: _card,
+                  border: Border(top: BorderSide(color: _border)),
+                  borderRadius: const BorderRadius.vertical(
+                    bottom: Radius.circular(16),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: _actionButton(
+                        context,
+                        icon: FontAwesomeIcons.usersGear,
+                        color: const Color(0xFFA855F7),
+                        label: 'Staff',
+                        onTap: () => navigationService.setIndex(8),
+                      ),
                     ),
                     Container(width: 1, height: 36, color: _border),
-                    // Edit action
-                    _actionButton(
-                      context,
-                      icon: FontAwesomeIcons.penToSquare,
-                      color: blueMain,
-                      tooltip: 'Edit',
-                      onTap: () => _showEditSheet(context, warehouse),
+                    Expanded(
+                      child: _actionButton(
+                        context,
+                        icon: FontAwesomeIcons.penToSquare,
+                        color: blueMain,
+                        label: 'Edit',
+                        onTap: () => _showEditSheet(context, warehouse),
+                      ),
                     ),
                     Container(width: 1, height: 36, color: _border),
-                    // Delete action
-                    _actionButton(
-                      context,
-                      icon: FontAwesomeIcons.trash,
-                      color: AppColors.danger,
-                      tooltip: 'Delete',
-                      onTap: () => _confirmDelete(context, warehouse),
+                    Expanded(
+                      child: _actionButton(
+                        context,
+                        icon: FontAwesomeIcons.trash,
+                        color: AppColors.danger,
+                        label: 'Delete',
+                        onTap: () => _confirmDelete(context, warehouse),
+                      ),
                     ),
                   ],
                 ),
@@ -848,20 +864,28 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
     BuildContext context, {
     required IconData icon,
     required Color color,
-    required String tooltip,
+    required String label,
     required VoidCallback onTap,
   }) {
-    return Tooltip(
-      message: tooltip,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: const BorderRadius.only(bottomRight: Radius.circular(16)),
-        child: Padding(
-          padding: EdgeInsets.symmetric(
-            vertical: rSize(context, 10),
-            horizontal: rSize(context, 16),
-          ),
-          child: Icon(icon, size: rSize(context, 14), color: color),
+    return InkWell(
+      onTap: onTap,
+      borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
+      child: Padding(
+        padding: EdgeInsets.symmetric(vertical: rSize(context, 10)),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: rSize(context, 13), color: color),
+            SizedBox(height: rSize(context, 3)),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: rFontSize(context, 10),
+                color: color,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
         ),
       ),
     );

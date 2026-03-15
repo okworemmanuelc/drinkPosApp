@@ -8,6 +8,7 @@ import '../../shared/services/auth_service.dart';
 import '../../features/auth/screens/onboarding_screen.dart';
 import '../../shared/widgets/user_tips_modal.dart';
 import '../../shared/widgets/role_guard.dart';
+import '../../core/database/app_database.dart';
 
 class AppDrawer extends StatelessWidget {
   // Pass 'pos' or 'inventory' to highlight the correct nav item
@@ -79,6 +80,39 @@ class AppDrawer extends StatelessWidget {
             ),
           ),
           SizedBox(height: context.getRSize(16)),
+          // Sync status indicator
+          StreamBuilder<int>(
+            stream: database.syncDao.watchPendingCount(),
+            builder: (context, snap) {
+              final count = snap.data ?? 0;
+              if (count == 0) return const SizedBox.shrink();
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const SizedBox(
+                      width: 10,
+                      height: 10,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 1.5,
+                        color: Color(0xFF60A5FA),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      '$count item${count == 1 ? '' : 's'} syncing…',
+                      style: const TextStyle(
+                        color: Color(0xFF93C5FD),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
           Text(
             authService.currentUser?.name ?? 'John Cashier',
             style: TextStyle(
@@ -175,16 +209,12 @@ class AppDrawer extends StatelessWidget {
           active: activeRoute == 'warehouse',
           onTap: () => _navigateTo(context, 'warehouse'),
         ),
-        RoleGuard(
-          minTier: 4,
-          fallback: const SizedBox.shrink(),
-          child: _navItem(
-            context,
-            FontAwesomeIcons.userGroup,
-            'Staff',
-            active: activeRoute == 'staff',
-            onTap: () => _navigateTo(context, 'staff'),
-          ),
+        _navItem(
+          context,
+          FontAwesomeIcons.userGroup,
+          'Staff Management',
+          active: activeRoute == 'staff',
+          onTap: () => _navigateTo(context, 'staff'),
         ),
         SizedBox(height: context.getRSize(12)),
         Divider(color: _border),

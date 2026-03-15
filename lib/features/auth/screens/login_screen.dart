@@ -518,6 +518,39 @@ class _LoginScreenState extends State<LoginScreen>
               ],
             ),
           ),
+
+          // Full-screen overlay — covers the gap after Google's native dialog
+          // dismisses while the Supabase token exchange / DB check completes.
+          if (_isLoading)
+            Positioned.fill(
+              child: Container(
+                color: Colors.black.withValues(alpha: 0.55),
+                child: const Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SizedBox(
+                        width: 36,
+                        height: 36,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.5,
+                          color: Color(0xFF60A5FA),
+                        ),
+                      ),
+                      SizedBox(height: 16),
+                      Text(
+                        'Signing in…',
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );
