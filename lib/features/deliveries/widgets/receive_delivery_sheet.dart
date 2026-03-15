@@ -6,14 +6,9 @@ import '../../../../core/theme/theme_notifier.dart';
 import '../../../../core/utils/number_format.dart';
 import '../../../../core/utils/responsive.dart';
 import '../../../../shared/services/activity_log_service.dart';
-import '../../inventory/data/inventory_data.dart';
-import '../../inventory/data/models/inventory_item.dart';
-import '../../inventory/data/models/inventory_log.dart';
 import '../../inventory/data/models/supplier.dart';
-import '../../inventory/data/models/crate_group.dart';
 import '../../inventory/data/services/supplier_service.dart';
 import '../../../shared/widgets/fluid_menu.dart';
-import '../../pos/data/products_data.dart';
 import '../data/models/delivery.dart';
 import '../data/services/delivery_service.dart';
 import '../../../../core/database/app_database.dart';
@@ -40,15 +35,14 @@ class _DeliveryItemLine {
   final TextEditingController subtitleCtrl = TextEditingController();
   final TextEditingController retailPriceCtrl = TextEditingController();
 
-  InventoryItem? selectedProduct;
+  ProductData? selectedProduct;
   Supplier? selectedSupplier;
   String selectedCategory = 'Other';
   CrateGroupData? selectedCrateGroup;
 
   double get lineTotal {
-    final price = selectedProduct?.buyingPrice ?? 0;
     final qty = double.tryParse(qtyCtrl.text) ?? 0;
-    return price * qty;
+    return qty; // cost price not stored in ProductData; lineTotal = qty for now
   }
 
   void dispose() {
@@ -62,6 +56,7 @@ class _DeliveryItemLine {
 class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
   final List<_DeliveryItemLine> _lines = [];
   List<CrateGroupData> _crateGroups = [];
+  List<ProductData> _allProducts = [];
 
   bool get _isDark => themeNotifier.value == ThemeMode.dark;
   Color get _surface => _isDark ? dSurface : lSurface;
@@ -75,11 +70,17 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
     super.initState();
     _addLine(null);
     _loadCrateGroups();
+    _loadProducts();
   }
 
   Future<void> _loadCrateGroups() async {
     final groups = await database.inventoryDao.getAllCrateGroups();
     if (mounted) setState(() => _crateGroups = groups);
+  }
+
+  Future<void> _loadProducts() async {
+    final products = await database.catalogDao.watchAvailableProductDatas().first;
+    if (mounted) setState(() => _allProducts = products);
   }
 
   @override
@@ -153,57 +154,30 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
 
     for (var l in _lines) {
       final qty = double.tryParse(l.qtyCtrl.text) ?? 0;
-      final price = l.selectedProduct?.buyingPrice ?? 0;
-      final lineTot = price * qty;
-      grandTotal += lineTot;
       totalQty += qty;
 
       if (l.selectedProduct != null) {
-        // Sync metadata
-        l.selectedProduct!.subtitle = l.subtitleCtrl.text.trim().isEmpty ? 'Unit' : l.subtitleCtrl.text.trim();
-        l.selectedProduct!.category = l.selectedCategory;
-        l.selectedProduct!.retailPrice = double.tryParse(l.retailPriceCtrl.text);
-        l.selectedProduct!.sellingPrice = l.selectedProduct!.retailPrice;
-        l.selectedProduct!.supplierId = l.selectedSupplier?.id;
-        l.selectedProduct!.crateGroupName = l.selectedCrateGroup?.name;
+        final product = l.selectedProduct!;
+        final retailPriceKobo =
+            ((double.tryParse(l.retailPriceCtrl.text) ?? 0) * 100).toInt();
 
-        final warehouseId = l.selectedProduct!.warehouseStock.keys.isNotEmpty
-            ? l.selectedProduct!.warehouseStock.keys.first
-            : 'w1';
-
-        final currentQty = l.selectedProduct!.warehouseStock[warehouseId] ?? 0.0;
-        final newStockMap =
-            Map<String, double>.from(l.selectedProduct!.warehouseStock);
-        newStockMap[warehouseId] = currentQty + qty;
-        l.selectedProduct!.warehouseStock = newStockMap;
-
-        kInventoryLogs.add(
-          InventoryLog(
-            timestamp: DateTime.now(),
-            user: 'System (Delivery)',
-            itemId: l.selectedProduct!.id,
-            itemName: l.selectedProduct!.productName,
-            action: 'restock',
-            previousValue: l.selectedProduct!.totalStock - qty,
-            newValue: l.selectedProduct!.totalStock,
-            note: 'Delivery Received & Metadata Updated',
-          ),
-        );
-
-        // Update kProducts (Mirror to POS)
-        final pIndex = kProducts.indexWhere((p) => p['name'] == l.selectedProduct!.productName);
-        if (pIndex != -1) {
-          kProducts[pIndex]['subtitle'] = l.selectedProduct!.subtitle;
-          kProducts[pIndex]['category'] = l.selectedProduct!.category;
-          kProducts[pIndex]['sellingPrice'] = l.selectedProduct!.sellingPrice ?? 0;
-          kProducts[pIndex]['retailPrice'] = l.selectedProduct!.retailPrice ?? 0;
-          kProducts[pIndex]['bulkBreakerPrice'] = l.selectedProduct!.bulkBreakerPrice ?? 0;
-          kProducts[pIndex]['distributorPrice'] = l.selectedProduct!.distributorPrice ?? 0;
-        }
+        // Update product metadata in DB
+        await (database.update(database.products)
+              ..where((t) => t.id.equals(product.id)))
+            .write(
+              ProductsCompanion(
+                subtitle: Value(
+                  l.subtitleCtrl.text.trim().isEmpty
+                      ? 'Unit'
+                      : l.subtitleCtrl.text.trim(),
+                ),
+                retailPriceKobo: Value(retailPriceKobo),
+                sellingPriceKobo: Value(retailPriceKobo),
+              ),
+            );
 
         // Auto-add empty crates to DB for glass products (1:1 with quantity)
-        if (l.selectedProduct!.category == 'Glass Crates' &&
-            l.selectedCrateGroup != null) {
+        if (l.selectedCrateGroup != null) {
           await database.inventoryDao.addEmptyCrates(
             l.selectedCrateGroup!.id,
             qty.toInt(),
@@ -213,11 +187,11 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
 
       deliveryItems.add(
         DeliveryItem(
-          productId: l.selectedProduct?.id ?? '',
+          productId: l.selectedProduct?.id.toString() ?? '',
           productName: l.productCtrl.text,
           supplierName: l.selectedSupplier?.name ?? mainSupplierName,
           crateGroupLabel: l.selectedCrateGroup?.name,
-          unitPrice: price,
+          unitPrice: 0,
           quantity: qty,
         ),
       );
@@ -273,43 +247,30 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
         ),
         const SizedBox(height: 8),
         if (isAutocomplete && line != null)
-          Autocomplete<InventoryItem>(
-            displayStringForOption: (item) => item.productName,
+          Autocomplete<ProductData>(
+            displayStringForOption: (p) => p.name,
             optionsBuilder: (TextEditingValue textEditingValue) {
               if (textEditingValue.text.isEmpty) {
-                return const Iterable<InventoryItem>.empty();
+                return const Iterable<ProductData>.empty();
               }
-              return kInventoryItems.where((InventoryItem item) {
-                return item.productName.toLowerCase().contains(
-                  textEditingValue.text.toLowerCase(),
-                );
-              });
+              final q = textEditingValue.text.toLowerCase();
+              return _allProducts.where((p) => p.name.toLowerCase().contains(q));
             },
-            onSelected: (InventoryItem selection) {
+            onSelected: (ProductData selection) {
               setState(() {
                 line.selectedProduct = selection;
-                line.productCtrl.text = selection.productName;
-                line.subtitleCtrl.text = selection.subtitle;
-                line.selectedCategory = selection.category ?? 'Other';
-                line.retailPriceCtrl.text = (selection.retailPrice ?? 0).round().toString();
+                line.productCtrl.text = selection.name;
+                line.subtitleCtrl.text = selection.subtitle ?? '';
+                line.selectedCategory = 'Other';
+                line.retailPriceCtrl.text =
+                    (selection.retailPriceKobo / 100).round().toString();
 
-                final sup = supplierService.getAll().firstWhere(
-                  (s) => s.id == selection.supplierId,
-                  orElse: () => supplierService.getAll().isNotEmpty
-                      ? supplierService.getAll().first
-                      : Supplier(
-                          id: '',
-                          name: '',
-                          crateGroup: CrateGroup.premium,
-                        ),
-                );
-                line.selectedSupplier = sup;
-                // Look up the CrateGroupData from DB-loaded groups by name.
-                if (selection.crateGroupName != null) {
-                  final matches = _crateGroups.where(
-                      (cg) => cg.name == selection.crateGroupName);
-                  line.selectedCrateGroup =
-                      matches.isNotEmpty ? matches.first : null;
+                // Map crateGroupId to a loaded CrateGroupData
+                if (selection.crateGroupId != null) {
+                  final match = _crateGroups
+                      .where((cg) => cg.id == selection.crateGroupId)
+                      .firstOrNull;
+                  line.selectedCrateGroup = match;
                 } else {
                   line.selectedCrateGroup = null;
                 }

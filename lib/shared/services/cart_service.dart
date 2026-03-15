@@ -33,8 +33,9 @@ class CartService extends ValueNotifier<List<Map<String, dynamic>>> {
         'icon': product is ProductData ? (product.iconCodePoint ?? FontAwesomeIcons.box.codePoint) : product['icon'],
         'color': product is ProductData ? product.colorHex : product['color'],
         'category': product is ProductData ? product.categoryId : product['category'], // Note: category is Int in DB
-        'crateGroupName': product is ProductData ? null : product['crateGroupName'], // TODO: Map this properly
-        'needsEmptyCrate': product is ProductData ? false : product['needsEmptyCrate'], // TODO: Map this properly
+        'crateGroupId': product is ProductData ? product.crateGroupId : product['crateGroupId'],
+        'crateGroupName': product is ProductData ? null : product['crateGroupName'],
+        'needsEmptyCrate': product is ProductData ? (product.crateGroupId != null) : product['needsEmptyCrate'],
       };
 
       value = [...value, itemToAdd];

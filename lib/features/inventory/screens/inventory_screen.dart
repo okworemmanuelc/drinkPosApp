@@ -9,8 +9,6 @@ import '../../../core/utils/responsive.dart'; // RESPONSIVE: utility imported
 import '../data/models/crate_group.dart';
 import '../data/models/supplier.dart';
 import '../data/services/supplier_service.dart';
-import '../data/models/inventory_item.dart';
-import '../data/models/crate_stock.dart';
 import '../data/models/inventory_log.dart';
 import '../data/inventory_data.dart';
 import '../../../shared/widgets/shared_scaffold.dart';
@@ -39,6 +37,21 @@ class _InventoryScreenState extends State<InventoryScreen>
   String _selectedWarehouseId = 'all';
   String _stockFilter = 'all'; // 'all' | 'low' | 'out' | 'empty_crates'
   List<WarehouseData> _warehouses = [];
+  List<ProductDataWithStock> _dbProducts = [];
+  List<CrateGroupData> _dbCrateGroups = [];
+
+  static const _cgColors = [
+    Color(0xFFF59E0B),
+    Color(0xFF334155),
+    Color(0xFFEF4444),
+    Color(0xFF8B5CF6),
+    Color(0xFF6366F1),
+    Color(0xFF0EA5E9),
+    Color(0xFF14B8A6),
+    Color(0xFFF97316),
+  ];
+
+  Color _crateColor(CrateGroupData cg) => _cgColors[cg.id % _cgColors.length];
 
   bool get _isDark => themeNotifier.value == ThemeMode.dark;
   Color get _bg => _isDark ? dBg : lBg;
@@ -56,6 +69,14 @@ class _InventoryScreenState extends State<InventoryScreen>
     // Load warehouses from DB
     database.select(database.warehouses).get().then((list) {
       if (mounted) setState(() => _warehouses = list);
+    });
+
+    // Stream products and crate groups from DB
+    database.inventoryDao.watchAllProductDatasWithStock().listen((data) {
+      if (mounted) setState(() => _dbProducts = data);
+    });
+    database.select(database.crateGroups).watch().listen((data) {
+      if (mounted) setState(() => _dbCrateGroups = data);
     });
 
     // Listen for cross-screen warehouse selection
@@ -154,11 +175,10 @@ class _InventoryScreenState extends State<InventoryScreen>
             .length;
         final outOfStock = products.where((p) => p.totalStock == 0).length;
 
-        // Crate groups summary (keeping legacy for now until CrateDao is implemented)
-        final totalCrates = _activeCrateGroups.fold<double>(
+        final totalCrates = _activeCrateGroups.fold<int>(
           0,
-          (s, c) => s + c.available,
-        );
+          (s, c) => s + c.emptyCrateStock,
+        ).toDouble();
 
         final cards = [
           _summaryCard(
@@ -512,23 +532,12 @@ class _InventoryScreenState extends State<InventoryScreen>
   }
 
 
-  List<CrateStock> get _activeCrateGroups {
-    // 1. Get all unique crate groups used by current inventory items
-    final Set<CrateGroup> usedGroups = {};
-    for (final item in kInventoryItems) {
-      final isGlass = item.subtitle.toLowerCase() == 'crate';
-      if (!isGlass) continue;
-
-      if (item.supplierId == null) continue;
-
-      final supplier = supplierService.getById(item.supplierId!);
-      if (supplier != null) {
-        usedGroups.add(supplier.crateGroup);
-      }
-    }
-
-    // 2. Filter kCrateStocks by those groups
-    return kCrateStocks.where((cs) => usedGroups.contains(cs.group)).toList();
+  List<CrateGroupData> get _activeCrateGroups {
+    final usedIds = _dbProducts
+        .where((p) => p.product.crateGroupId != null)
+        .map((p) => p.product.crateGroupId!)
+        .toSet();
+    return _dbCrateGroups.where((cg) => usedIds.contains(cg.id)).toList();
   }
 
   Widget _buildSupplierFilter(BuildContext context) {
@@ -852,28 +861,16 @@ class _InventoryScreenState extends State<InventoryScreen>
           ],
         ),
         SizedBox(height: context.getRSize(12)), // RESPONSIVE
-        ..._activeCrateGroups.map((cs) => _buildCrateGroupCard(context, cs)),
+        ..._activeCrateGroups.map((cg) => _buildCrateGroupCard(context, cg)),
       ],
     );
   }
 
-  Widget _buildCrateGroupCard(BuildContext context, CrateStock cs) {
-    final linkedProducts = kInventoryItems
-        .where((item) {
-          if (item.supplierId == null) return false;
-          final supplier = supplierService
-              .getAll()
-              .cast<Supplier?>()
-              .firstWhere((s) => s?.id == item.supplierId, orElse: () => null);
-          return supplier?.crateGroup == cs.group;
-        })
-        .map((i) => i.productName)
-        .toList();
-
-    final linkedSuppliers = supplierService
-        .getAll()
-        .where((s) => s.crateGroup == cs.group)
-        .map((s) => s.name)
+  Widget _buildCrateGroupCard(BuildContext context, CrateGroupData cg) {
+    final color = _crateColor(cg);
+    final linkedProducts = _dbProducts
+        .where((p) => p.product.crateGroupId == cg.id)
+        .map((p) => p.product.name)
         .toList();
 
     return Container(
@@ -881,7 +878,7 @@ class _InventoryScreenState extends State<InventoryScreen>
       decoration: BoxDecoration(
         color: _cardBg,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: cs.color.withValues(alpha: 0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Column(
         children: [
@@ -893,12 +890,12 @@ class _InventoryScreenState extends State<InventoryScreen>
                   width: context.getRSize(48), // RESPONSIVE
                   height: context.getRSize(48), // RESPONSIVE
                   decoration: BoxDecoration(
-                    color: cs.color.withValues(alpha: 0.15),
+                    color: color.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(14),
                   ),
                   child: Icon(
                     FontAwesomeIcons.beerMugEmpty,
-                    color: cs.color,
+                    color: color,
                     size: context.getRSize(22), // RESPONSIVE
                   ),
                 ),
@@ -908,22 +905,12 @@ class _InventoryScreenState extends State<InventoryScreen>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        cs.label,
+                        cg.name,
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: context.getRFontSize(16), // RESPONSIVE
                           color: _text,
                         ),
-                      ),
-                      SizedBox(height: context.getRSize(4)), // RESPONSIVE
-                      Text(
-                        linkedSuppliers.isEmpty
-                            ? 'No suppliers linked'
-                            : linkedSuppliers.join(', '),
-                        style: TextStyle(
-                          fontSize: context.getRFontSize(12),
-                          color: _subtext,
-                        ), // RESPONSIVE
                       ),
                     ],
                   ),
@@ -935,11 +922,11 @@ class _InventoryScreenState extends State<InventoryScreen>
                       // RESPONSIVE: Prevent quantity overflow
                       fit: BoxFit.scaleDown,
                       child: Text(
-                        '${cs.available.toInt()}',
+                        '${cg.emptyCrateStock}',
                         style: TextStyle(
                           fontSize: context.getRFontSize(28), // RESPONSIVE
                           fontWeight: FontWeight.w800,
-                          color: cs.available == 0 ? danger : _text,
+                          color: cg.emptyCrateStock == 0 ? danger : _text,
                         ),
                       ),
                     ),
@@ -986,17 +973,17 @@ class _InventoryScreenState extends State<InventoryScreen>
                     ),
                   ),
                   GestureDetector(
-                    onTap: () => _showUpdateCratesDialog(cs),
+                    onTap: () => _showUpdateCratesDialog(cg, color),
                     child: Container(
                       padding: EdgeInsets.symmetric(
                         horizontal: context.getRSize(12),
                         vertical: context.getRSize(5),
                       ), // RESPONSIVE
                       decoration: BoxDecoration(
-                        color: cs.color.withValues(alpha: 0.1),
+                        color: color.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(
-                          color: cs.color.withValues(alpha: 0.3),
+                          color: color.withValues(alpha: 0.3),
                         ),
                       ),
                       child: Text(
@@ -1004,7 +991,7 @@ class _InventoryScreenState extends State<InventoryScreen>
                         style: TextStyle(
                           fontSize: context.getRFontSize(11), // RESPONSIVE
                           fontWeight: FontWeight.bold,
-                          color: cs.color,
+                          color: color,
                         ),
                       ),
                     ),
@@ -1233,8 +1220,8 @@ class _InventoryScreenState extends State<InventoryScreen>
 
 
   // ── UPDATE CRATES DIALOG ──────────────────────────────────────────────────────
-  void _showUpdateCratesDialog(CrateStock cs) {
-    final ctrl = TextEditingController(text: cs.available.toInt().toString());
+  void _showUpdateCratesDialog(CrateGroupData cg, Color color) {
+    final ctrl = TextEditingController(text: cg.emptyCrateStock.toString());
     final noteCtrl = TextEditingController();
 
     showModalBottomSheet(
@@ -1289,12 +1276,12 @@ class _InventoryScreenState extends State<InventoryScreen>
                             width: 44,
                             height: 44,
                             decoration: BoxDecoration(
-                              color: cs.group.color.withValues(alpha: 0.15),
+                              color: color.withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Icon(
                               FontAwesomeIcons.beerMugEmpty,
-                              color: cs.group.color,
+                              color: color,
                               size: 20,
                             ),
                           ),
@@ -1311,10 +1298,10 @@ class _InventoryScreenState extends State<InventoryScreen>
                                 ),
                               ),
                               Text(
-                                cs.group.label,
+                                cg.name,
                                 style: TextStyle(
                                   fontSize: 13,
-                                  color: cs.group.color,
+                                  color: color,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
@@ -1394,7 +1381,7 @@ class _InventoryScreenState extends State<InventoryScreen>
                   width: double.infinity,
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: cs.group.color,
+                      backgroundColor: color,
                       foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(14),
@@ -1403,31 +1390,21 @@ class _InventoryScreenState extends State<InventoryScreen>
                       elevation: 0,
                     ),
                     onPressed: () async {
-                      final newQty = double.tryParse(ctrl.text) ?? cs.available;
-                      final log = InventoryLog(
-                        timestamp: DateTime.now(),
-                        user: 'John Cashier',
-                        itemId: 'crate_${cs.group.name}',
-                        itemName: '${cs.group.label} Crates',
-                        action: 'crate_update',
-                        previousValue: cs.available,
-                        newValue: newQty,
-                        note: noteCtrl.text.isEmpty ? null : noteCtrl.text,
-                      );
-                      setState(() {
-                        cs.available = newQty;
-                        kInventoryLogs.add(log);
-                      });
-
-                      // Mirror to Global Activity Log
+                      final newQty =
+                          int.tryParse(ctrl.text) ?? cg.emptyCrateStock;
+                      await (database.update(database.crateGroups)
+                            ..where((t) => t.id.equals(cg.id)))
+                          .write(
+                            CrateGroupsCompanion(
+                              emptyCrateStock: Value(newQty),
+                            ),
+                          );
                       await activityLogService.logAction(
                         "Crate Update",
-                        "Updated ${cs.group.label} Crates count to ${newQty.toInt()}${noteCtrl.text.isNotEmpty ? ' (Note: ${noteCtrl.text})' : ''}",
-                        relatedEntityId: 'crate_${cs.group.name}',
+                        "Updated ${cg.name} Crates count to $newQty${noteCtrl.text.isNotEmpty ? ' (Note: ${noteCtrl.text})' : ''}",
+                        relatedEntityId: 'crate_${cg.id}',
                         relatedEntityType: "inventory",
-                        // Crates are global for now, no specific warehouseId
                       );
-
                       if (mounted) Navigator.pop(context);
                     },
                     child: const Text(
@@ -2004,37 +1981,23 @@ class _InventoryScreenState extends State<InventoryScreen>
                       padding: EdgeInsets.symmetric(vertical: ctx.getRSize(16)),
                       elevation: 0,
                     ),
-                    onPressed: () {
+                    onPressed: () async {
                       final name = nameCtrl.text.trim();
                       if (name.isEmpty) return;
-                      final qty = double.tryParse(qtyCtrl.text.trim()) ?? 0;
-                      // Pick a color from the palette based on the current count
-                      final colorIndex =
-                          kCrateStocks.length % groupColors.length;
-                      setState(() {
-                        kCrateStocks.add(
-                          CrateStock(
-                            group: CrateGroup.values.first,
-                            available: qty,
-                            customLabel: name,
-                            customColor: groupColors[colorIndex],
-                          ),
-                        );
-                        kInventoryLogs.add(
-                          InventoryLog(
-                            timestamp: DateTime.now(),
-                            user: 'John Cashier',
-                            itemId:
-                                'cg_${DateTime.now().millisecondsSinceEpoch}',
-                            itemName: name,
-                            action: 'crate_update',
-                            previousValue: 0,
-                            newValue: qty,
-                            note: 'New crate group: $name',
-                          ),
-                        );
-                      });
-                      Navigator.pop(ctx);
+                      final qty = int.tryParse(qtyCtrl.text.trim()) ?? 0;
+                      await database.into(database.crateGroups).insert(
+                        CrateGroupsCompanion(
+                          name: Value(name),
+                          size: const Value(24),
+                          emptyCrateStock: Value(qty),
+                        ),
+                      );
+                      await activityLogService.logAction(
+                        "Crate Group Added",
+                        "New crate group '$name' created with $qty crates",
+                        relatedEntityType: "inventory",
+                      );
+                      if (ctx.mounted) Navigator.pop(ctx);
                     },
                     child: Text(
                       'Save',

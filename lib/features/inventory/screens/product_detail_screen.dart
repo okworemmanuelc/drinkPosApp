@@ -13,9 +13,8 @@ import '../data/services/supplier_service.dart';
 import '../data/models/crate_group.dart';
 import '../data/models/crate_stock.dart';
 import '../data/models/inventory_log.dart';
-import '../data/inventory_data.dart';
-import '../../pos/data/products_data.dart';
 import '../../../core/database/app_database.dart';
+import '../../../shared/services/cart_service.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ProductDetailScreen — full-screen product information view
@@ -1229,13 +1228,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             child: const Text('Cancel'),
           ),
           TextButton(
-            onPressed: () {
-              setState(() {
-                kInventoryItems.removeWhere((p) => p.id == widget.item.id);
-                kProducts.removeWhere(
-                  (p) => p['name'] == widget.item.productName,
-                );
-              });
+            onPressed: () async {
+              await database.catalogDao.softDeleteProduct(widget.item.id);
+              cartService.removeItem(widget.item.productName);
+              if (!context.mounted) return;
               Navigator.pop(ctx); // close dialog
               Navigator.pop(context); // close detail screen
               ScaffoldMessenger.of(context).showSnackBar(
