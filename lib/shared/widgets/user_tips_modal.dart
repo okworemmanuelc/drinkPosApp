@@ -102,7 +102,7 @@ class _UserTipsModalState extends State<UserTipsModal> {
               child: Row(
                 children: [
                   Text(
-                    'ONAFIA Pos Pro Tips',
+                    'Ribaplus POS Pro Tips',
                     style: TextStyle(
                       fontSize: context.getRFontSize(22),
                       fontWeight: FontWeight.w900,

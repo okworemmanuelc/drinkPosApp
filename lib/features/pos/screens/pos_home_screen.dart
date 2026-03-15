@@ -102,7 +102,7 @@ class _PosHomeScreenState extends State<PosHomeScreen>
       leading: const MenuButton(),
       title: const AppBarHeader(
         icon: FontAwesomeIcons.beerMugEmpty,
-        title: 'ONAFIA Pos',
+        title: 'Ribaplus POS',
         subtitle: 'Point of Sale',
       ),
       actions: [

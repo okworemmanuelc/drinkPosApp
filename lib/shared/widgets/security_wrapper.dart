@@ -1,8 +1,9 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:onafia_pos/shared/services/auth_service.dart';
-import 'package:onafia_pos/shared/services/cart_service.dart';
-import 'package:onafia_pos/shared/widgets/lock_overlay.dart';
+import 'package:ribaplus_pos/shared/services/auth_service.dart';
+import 'package:ribaplus_pos/shared/services/cart_service.dart';
+import 'package:ribaplus_pos/shared/widgets/lock_overlay.dart';
+import 'package:ribaplus_pos/features/auth/screens/login_screen.dart';
 
 class SecurityWrapper extends StatefulWidget {
   final Widget child;
@@ -51,14 +52,13 @@ class _SecurityWrapperState extends State<SecurityWrapper> with WidgetsBindingOb
   }
 
   void _handleLogout() {
-    authService.logout();
+    authService.logout(clearQuickAccess: true);
     cartService.clear();
     if (mounted) {
-      // Use popUntil to go back to the root (which should be AuthScreen)
-      // or navigate to a named route if available.
-      // For now, since we want to break circularity, we'll use a dynamic push if necessary
-      // or just assume the app will rebuild and show AuthScreen because authService is null.
-      Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const LoginScreen()),
+        (route) => false,
+      );
     }
   }
 

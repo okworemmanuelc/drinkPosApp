@@ -1,4 +1,4 @@
-import 'package:onafia_pos/core/database/app_database.dart';
+import 'package:ribaplus_pos/core/database/app_database.dart';
 import 'payment.dart';
 
 enum CustomerGroup { distributor, bulkBreaker, retailer }

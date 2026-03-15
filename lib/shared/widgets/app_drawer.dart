@@ -73,7 +73,7 @@ class AppDrawer extends StatelessWidget {
             child: ClipRRect(
               borderRadius: BorderRadius.circular(14),
               child: Image.asset(
-                'assets/images/onafia_logo.png',
+                'assets/images/ribaplus_logo.png',
                 fit: BoxFit.cover,
               ),
             ),

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:onafia_pos/features/auth/widgets/pin_pad_view.dart';
-import 'package:onafia_pos/core/theme/design_tokens.dart';
-import 'package:onafia_pos/core/database/app_database.dart';
+import 'package:ribaplus_pos/features/auth/widgets/pin_pad_view.dart';
+import 'package:ribaplus_pos/core/theme/design_tokens.dart';
+import 'package:ribaplus_pos/core/database/app_database.dart';
 
 class LockOverlay extends StatelessWidget {
   final UserData staff;

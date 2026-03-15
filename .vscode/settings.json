@@ -1,3 +1,4 @@
 {
-    "workbench.colorTheme": "Visual Studio Dark"
+    "workbench.colorTheme": "Visual Studio Dark",
+    "java.configuration.updateBuildConfiguration": "interactive"
 }

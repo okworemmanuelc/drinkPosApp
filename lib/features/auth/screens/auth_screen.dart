@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:onafia_pos/core/theme/design_tokens.dart';
-import 'package:onafia_pos/shared/widgets/main_layout.dart';
-import 'package:onafia_pos/core/database/app_database.dart';
-import 'package:onafia_pos/features/auth/widgets/staff_selector.dart';
-import 'package:onafia_pos/features/auth/widgets/pin_pad_view.dart';
-import 'package:onafia_pos/shared/widgets/security_wrapper.dart';
+import 'package:ribaplus_pos/core/theme/design_tokens.dart';
+import 'package:ribaplus_pos/shared/widgets/main_layout.dart';
+import 'package:ribaplus_pos/core/database/app_database.dart';
+import 'package:ribaplus_pos/features/auth/widgets/staff_selector.dart';
+import 'package:ribaplus_pos/features/auth/widgets/pin_pad_view.dart';
+import 'package:ribaplus_pos/shared/widgets/security_wrapper.dart';
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -116,7 +116,7 @@ class _AuthScreenState extends State<AuthScreen>
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(20),
                       child: Image.asset(
-                        'assets/images/onafia_logo.png',
+                        'assets/images/ribaplus_logo.png',
                         fit: BoxFit.cover,
                       ),
                     ),

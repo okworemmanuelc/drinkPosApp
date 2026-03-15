@@ -1,4 +1,4 @@
-import 'package:onafia_pos/core/database/app_database.dart';
+import 'package:ribaplus_pos/core/database/app_database.dart';
 
 class NotificationModel {
   final String id;

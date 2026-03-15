@@ -1,6 +1,7 @@
+import 'dart:math';
 import 'package:drift/drift.dart';
 import 'app_database.dart';
-import 'package:onafia_pos/features/customers/data/models/customer.dart';
+import 'package:ribaplus_pos/features/customers/data/models/customer.dart';
 
 part 'daos.g.dart';
 
@@ -41,7 +42,7 @@ class ProductDataWithStock {
   ProductDataWithStock({required this.product, required this.totalStock});
 }
 
-@DriftAccessor(tables: [Products, Inventory, StockAdjustments])
+@DriftAccessor(tables: [Products, Inventory, StockAdjustments, SyncQueue])
 class InventoryDao extends DatabaseAccessor<AppDatabase> with _$InventoryDaoMixin {
   InventoryDao(super.db);
 
@@ -109,6 +110,13 @@ class InventoryDao extends DatabaseAccessor<AppDatabase> with _$InventoryDaoMixi
         quantityDiff: delta,
         reason: note,
         timestamp: Value(DateTime.now()),
+      ));
+
+      // 3. Queue cloud sync
+      await into(attachedDatabase.syncQueue).insert(SyncQueueCompanion.insert(
+        actionType: 'UPDATE_INVENTORY',
+        payload: '{"productId": $productId, "warehouseId": $warehouseId}',
+        createdAt: Value(DateTime.now()),
       ));
     });
   }
@@ -250,6 +258,15 @@ class OrdersDao extends DatabaseAccessor<AppDatabase> with _$OrdersDaoMixin {
     return "ORD-$dateStr-${nextSeq.toString().padLeft(3, '0')}";
   }
 
+  String _generateBarcode() {
+    final random = Random();
+    String barcode = '';
+    for (int i = 0; i < 16; i++) {
+      barcode += random.nextInt(10).toString();
+    }
+    return barcode;
+  }
+
   Future<String> createOrder({
     required OrdersCompanion order,
     required List<OrderItemsCompanion> items,
@@ -259,10 +276,12 @@ class OrdersDao extends DatabaseAccessor<AppDatabase> with _$OrdersDaoMixin {
   }) async {
     return transaction(() async {
       final orderNumber = await generateOrderNumber();
+      final barcode = _generateBarcode();
       
       // 1. Insert into orders
       final finalOrderId = await into(orders).insert(order.copyWith(
         orderNumber: Value(orderNumber),
+        barcode: Value(barcode),
         amountPaidKobo: Value(amountPaidKobo),
         createdAt: Value(DateTime.now()),
         status: const Value('pending'),

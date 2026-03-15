@@ -656,11 +656,11 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
       final dir = await getTemporaryDirectory();
       final file = File(
-        '${dir.path}/onafia_pos_receipt_${DateTime.now().millisecondsSinceEpoch}.png',
+        '${dir.path}/ribaplus_pos_receipt_${DateTime.now().millisecondsSinceEpoch}.png',
       );
       await file.writeAsBytes(imageBytes);
 
-      await Share.shareXFiles([XFile(file.path)], text: 'ONAFIA Pos Receipt');
+      await Share.shareXFiles([XFile(file.path)], text: 'Ribaplus POS Receipt');
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(

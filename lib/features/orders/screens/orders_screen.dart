@@ -747,11 +747,11 @@ class _OrdersScreenState extends State<OrdersScreen>
 
       final dir = await getTemporaryDirectory();
       final file = File(
-        '${dir.path}/onafia_pos_reprint_${order.id}_${DateTime.now().millisecondsSinceEpoch}.png',
+        '${dir.path}/ribaplus_pos_reprint_${order.id}_${DateTime.now().millisecondsSinceEpoch}.png',
       );
       await file.writeAsBytes(imageBytes);
 
-      await Share.shareXFiles([XFile(file.path)], text: 'ONAFIA Pos Receipt Reprint #${order.id}');
+      await Share.shareXFiles([XFile(file.path)], text: 'Ribaplus POS Receipt Reprint #${order.id}');
       _logReprint(order.id.toString());
     } catch (e) {
       if (context.mounted) {
@@ -979,13 +979,27 @@ class _OrderCard extends StatelessWidget {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      'Order #${order.id}',
-                      style: TextStyle(
-                        color: _subtext,
-                        fontWeight: FontWeight.w600,
-                        fontSize: context.getRFontSize(13),
-                      ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Order #${order.id}',
+                          style: TextStyle(
+                            color: _subtext,
+                            fontWeight: FontWeight.w600,
+                            fontSize: context.getRFontSize(13),
+                          ),
+                        ),
+                        if (order.barcode != null)
+                          Text(
+                            'Barcode: ${order.barcode}',
+                            style: TextStyle(
+                              color: _subtext,
+                              fontSize: context.getRFontSize(11),
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                      ],
                     ),
                     Text(
                       '$dateStr$timeStr',

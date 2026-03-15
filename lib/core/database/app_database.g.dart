@@ -525,6 +525,27 @@ class $UsersTable extends Users with TableInfo<$UsersTable, UserData> {
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _emailMeta = const VerificationMeta('email');
+  @override
+  late final GeneratedColumn<String> email = GeneratedColumn<String>(
+    'email',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways('UNIQUE'),
+  );
+  static const VerificationMeta _passwordHashMeta = const VerificationMeta(
+    'passwordHash',
+  );
+  @override
+  late final GeneratedColumn<String> passwordHash = GeneratedColumn<String>(
+    'password_hash',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _pinMeta = const VerificationMeta('pin');
   @override
   late final GeneratedColumn<String> pin = GeneratedColumn<String>(
@@ -567,14 +588,32 @@ class $UsersTable extends Users with TableInfo<$UsersTable, UserData> {
     requiredDuringInsert: false,
     defaultValue: const Constant('#3B82F6'),
   );
+  static const VerificationMeta _biometricEnabledMeta = const VerificationMeta(
+    'biometricEnabled',
+  );
+  @override
+  late final GeneratedColumn<bool> biometricEnabled = GeneratedColumn<bool>(
+    'biometric_enabled',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("biometric_enabled" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
     name,
+    email,
+    passwordHash,
     pin,
     role,
     roleTier,
     avatarColor,
+    biometricEnabled,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -598,6 +637,21 @@ class $UsersTable extends Users with TableInfo<$UsersTable, UserData> {
       );
     } else if (isInserting) {
       context.missing(_nameMeta);
+    }
+    if (data.containsKey('email')) {
+      context.handle(
+        _emailMeta,
+        email.isAcceptableOrUnknown(data['email']!, _emailMeta),
+      );
+    }
+    if (data.containsKey('password_hash')) {
+      context.handle(
+        _passwordHashMeta,
+        passwordHash.isAcceptableOrUnknown(
+          data['password_hash']!,
+          _passwordHashMeta,
+        ),
+      );
     }
     if (data.containsKey('pin')) {
       context.handle(
@@ -630,6 +684,15 @@ class $UsersTable extends Users with TableInfo<$UsersTable, UserData> {
         ),
       );
     }
+    if (data.containsKey('biometric_enabled')) {
+      context.handle(
+        _biometricEnabledMeta,
+        biometricEnabled.isAcceptableOrUnknown(
+          data['biometric_enabled']!,
+          _biometricEnabledMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -647,6 +710,14 @@ class $UsersTable extends Users with TableInfo<$UsersTable, UserData> {
         DriftSqlType.string,
         data['${effectivePrefix}name'],
       )!,
+      email: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}email'],
+      ),
+      passwordHash: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}password_hash'],
+      ),
       pin: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}pin'],
@@ -663,6 +734,10 @@ class $UsersTable extends Users with TableInfo<$UsersTable, UserData> {
         DriftSqlType.string,
         data['${effectivePrefix}avatar_color'],
       )!,
+      biometricEnabled: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}biometric_enabled'],
+      )!,
     );
   }
 
@@ -675,27 +750,40 @@ class $UsersTable extends Users with TableInfo<$UsersTable, UserData> {
 class UserData extends DataClass implements Insertable<UserData> {
   final int id;
   final String name;
+  final String? email;
+  final String? passwordHash;
   final String pin;
   final String role;
   final int roleTier;
   final String avatarColor;
+  final bool biometricEnabled;
   const UserData({
     required this.id,
     required this.name,
+    this.email,
+    this.passwordHash,
     required this.pin,
     required this.role,
     required this.roleTier,
     required this.avatarColor,
+    required this.biometricEnabled,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
     map['id'] = Variable<int>(id);
     map['name'] = Variable<String>(name);
+    if (!nullToAbsent || email != null) {
+      map['email'] = Variable<String>(email);
+    }
+    if (!nullToAbsent || passwordHash != null) {
+      map['password_hash'] = Variable<String>(passwordHash);
+    }
     map['pin'] = Variable<String>(pin);
     map['role'] = Variable<String>(role);
     map['role_tier'] = Variable<int>(roleTier);
     map['avatar_color'] = Variable<String>(avatarColor);
+    map['biometric_enabled'] = Variable<bool>(biometricEnabled);
     return map;
   }
 
@@ -703,10 +791,17 @@ class UserData extends DataClass implements Insertable<UserData> {
     return UsersCompanion(
       id: Value(id),
       name: Value(name),
+      email: email == null && nullToAbsent
+          ? const Value.absent()
+          : Value(email),
+      passwordHash: passwordHash == null && nullToAbsent
+          ? const Value.absent()
+          : Value(passwordHash),
       pin: Value(pin),
       role: Value(role),
       roleTier: Value(roleTier),
       avatarColor: Value(avatarColor),
+      biometricEnabled: Value(biometricEnabled),
     );
   }
 
@@ -718,10 +813,13 @@ class UserData extends DataClass implements Insertable<UserData> {
     return UserData(
       id: serializer.fromJson<int>(json['id']),
       name: serializer.fromJson<String>(json['name']),
+      email: serializer.fromJson<String?>(json['email']),
+      passwordHash: serializer.fromJson<String?>(json['passwordHash']),
       pin: serializer.fromJson<String>(json['pin']),
       role: serializer.fromJson<String>(json['role']),
       roleTier: serializer.fromJson<int>(json['roleTier']),
       avatarColor: serializer.fromJson<String>(json['avatarColor']),
+      biometricEnabled: serializer.fromJson<bool>(json['biometricEnabled']),
     );
   }
   @override
@@ -730,38 +828,54 @@ class UserData extends DataClass implements Insertable<UserData> {
     return <String, dynamic>{
       'id': serializer.toJson<int>(id),
       'name': serializer.toJson<String>(name),
+      'email': serializer.toJson<String?>(email),
+      'passwordHash': serializer.toJson<String?>(passwordHash),
       'pin': serializer.toJson<String>(pin),
       'role': serializer.toJson<String>(role),
       'roleTier': serializer.toJson<int>(roleTier),
       'avatarColor': serializer.toJson<String>(avatarColor),
+      'biometricEnabled': serializer.toJson<bool>(biometricEnabled),
     };
   }
 
   UserData copyWith({
     int? id,
     String? name,
+    Value<String?> email = const Value.absent(),
+    Value<String?> passwordHash = const Value.absent(),
     String? pin,
     String? role,
     int? roleTier,
     String? avatarColor,
+    bool? biometricEnabled,
   }) => UserData(
     id: id ?? this.id,
     name: name ?? this.name,
+    email: email.present ? email.value : this.email,
+    passwordHash: passwordHash.present ? passwordHash.value : this.passwordHash,
     pin: pin ?? this.pin,
     role: role ?? this.role,
     roleTier: roleTier ?? this.roleTier,
     avatarColor: avatarColor ?? this.avatarColor,
+    biometricEnabled: biometricEnabled ?? this.biometricEnabled,
   );
   UserData copyWithCompanion(UsersCompanion data) {
     return UserData(
       id: data.id.present ? data.id.value : this.id,
       name: data.name.present ? data.name.value : this.name,
+      email: data.email.present ? data.email.value : this.email,
+      passwordHash: data.passwordHash.present
+          ? data.passwordHash.value
+          : this.passwordHash,
       pin: data.pin.present ? data.pin.value : this.pin,
       role: data.role.present ? data.role.value : this.role,
       roleTier: data.roleTier.present ? data.roleTier.value : this.roleTier,
       avatarColor: data.avatarColor.present
           ? data.avatarColor.value
           : this.avatarColor,
+      biometricEnabled: data.biometricEnabled.present
+          ? data.biometricEnabled.value
+          : this.biometricEnabled,
     );
   }
 
@@ -770,86 +884,123 @@ class UserData extends DataClass implements Insertable<UserData> {
     return (StringBuffer('UserData(')
           ..write('id: $id, ')
           ..write('name: $name, ')
+          ..write('email: $email, ')
+          ..write('passwordHash: $passwordHash, ')
           ..write('pin: $pin, ')
           ..write('role: $role, ')
           ..write('roleTier: $roleTier, ')
-          ..write('avatarColor: $avatarColor')
+          ..write('avatarColor: $avatarColor, ')
+          ..write('biometricEnabled: $biometricEnabled')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, name, pin, role, roleTier, avatarColor);
+  int get hashCode => Object.hash(
+    id,
+    name,
+    email,
+    passwordHash,
+    pin,
+    role,
+    roleTier,
+    avatarColor,
+    biometricEnabled,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       (other is UserData &&
           other.id == this.id &&
           other.name == this.name &&
+          other.email == this.email &&
+          other.passwordHash == this.passwordHash &&
           other.pin == this.pin &&
           other.role == this.role &&
           other.roleTier == this.roleTier &&
-          other.avatarColor == this.avatarColor);
+          other.avatarColor == this.avatarColor &&
+          other.biometricEnabled == this.biometricEnabled);
 }
 
 class UsersCompanion extends UpdateCompanion<UserData> {
   final Value<int> id;
   final Value<String> name;
+  final Value<String?> email;
+  final Value<String?> passwordHash;
   final Value<String> pin;
   final Value<String> role;
   final Value<int> roleTier;
   final Value<String> avatarColor;
+  final Value<bool> biometricEnabled;
   const UsersCompanion({
     this.id = const Value.absent(),
     this.name = const Value.absent(),
+    this.email = const Value.absent(),
+    this.passwordHash = const Value.absent(),
     this.pin = const Value.absent(),
     this.role = const Value.absent(),
     this.roleTier = const Value.absent(),
     this.avatarColor = const Value.absent(),
+    this.biometricEnabled = const Value.absent(),
   });
   UsersCompanion.insert({
     this.id = const Value.absent(),
     required String name,
+    this.email = const Value.absent(),
+    this.passwordHash = const Value.absent(),
     required String pin,
     required String role,
     this.roleTier = const Value.absent(),
     this.avatarColor = const Value.absent(),
+    this.biometricEnabled = const Value.absent(),
   }) : name = Value(name),
        pin = Value(pin),
        role = Value(role);
   static Insertable<UserData> custom({
     Expression<int>? id,
     Expression<String>? name,
+    Expression<String>? email,
+    Expression<String>? passwordHash,
     Expression<String>? pin,
     Expression<String>? role,
     Expression<int>? roleTier,
     Expression<String>? avatarColor,
+    Expression<bool>? biometricEnabled,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (name != null) 'name': name,
+      if (email != null) 'email': email,
+      if (passwordHash != null) 'password_hash': passwordHash,
       if (pin != null) 'pin': pin,
       if (role != null) 'role': role,
       if (roleTier != null) 'role_tier': roleTier,
       if (avatarColor != null) 'avatar_color': avatarColor,
+      if (biometricEnabled != null) 'biometric_enabled': biometricEnabled,
     });
   }
 
   UsersCompanion copyWith({
     Value<int>? id,
     Value<String>? name,
+    Value<String?>? email,
+    Value<String?>? passwordHash,
     Value<String>? pin,
     Value<String>? role,
     Value<int>? roleTier,
     Value<String>? avatarColor,
+    Value<bool>? biometricEnabled,
   }) {
     return UsersCompanion(
       id: id ?? this.id,
       name: name ?? this.name,
+      email: email ?? this.email,
+      passwordHash: passwordHash ?? this.passwordHash,
       pin: pin ?? this.pin,
       role: role ?? this.role,
       roleTier: roleTier ?? this.roleTier,
       avatarColor: avatarColor ?? this.avatarColor,
+      biometricEnabled: biometricEnabled ?? this.biometricEnabled,
     );
   }
 
@@ -861,6 +1012,12 @@ class UsersCompanion extends UpdateCompanion<UserData> {
     }
     if (name.present) {
       map['name'] = Variable<String>(name.value);
+    }
+    if (email.present) {
+      map['email'] = Variable<String>(email.value);
+    }
+    if (passwordHash.present) {
+      map['password_hash'] = Variable<String>(passwordHash.value);
     }
     if (pin.present) {
       map['pin'] = Variable<String>(pin.value);
@@ -874,6 +1031,9 @@ class UsersCompanion extends UpdateCompanion<UserData> {
     if (avatarColor.present) {
       map['avatar_color'] = Variable<String>(avatarColor.value);
     }
+    if (biometricEnabled.present) {
+      map['biometric_enabled'] = Variable<bool>(biometricEnabled.value);
+    }
     return map;
   }
 
@@ -882,10 +1042,13 @@ class UsersCompanion extends UpdateCompanion<UserData> {
     return (StringBuffer('UsersCompanion(')
           ..write('id: $id, ')
           ..write('name: $name, ')
+          ..write('email: $email, ')
+          ..write('passwordHash: $passwordHash, ')
           ..write('pin: $pin, ')
           ..write('role: $role, ')
           ..write('roleTier: $roleTier, ')
-          ..write('avatarColor: $avatarColor')
+          ..write('avatarColor: $avatarColor, ')
+          ..write('biometricEnabled: $biometricEnabled')
           ..write(')'))
         .toString();
   }
@@ -3303,6 +3466,17 @@ class $OrdersTable extends Orders with TableInfo<$OrdersTable, OrderData> {
         type: DriftSqlType.string,
         requiredDuringInsert: false,
       );
+  static const VerificationMeta _barcodeMeta = const VerificationMeta(
+    'barcode',
+  );
+  @override
+  late final GeneratedColumn<String> barcode = GeneratedColumn<String>(
+    'barcode',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _staffIdMeta = const VerificationMeta(
     'staffId',
   );
@@ -3333,6 +3507,7 @@ class $OrdersTable extends Orders with TableInfo<$OrdersTable, OrderData> {
     status,
     riderName,
     cancellationReason,
+    barcode,
     staffId,
   ];
   @override
@@ -3465,6 +3640,12 @@ class $OrdersTable extends Orders with TableInfo<$OrdersTable, OrderData> {
         ),
       );
     }
+    if (data.containsKey('barcode')) {
+      context.handle(
+        _barcodeMeta,
+        barcode.isAcceptableOrUnknown(data['barcode']!, _barcodeMeta),
+      );
+    }
     if (data.containsKey('staff_id')) {
       context.handle(
         _staffIdMeta,
@@ -3536,6 +3717,10 @@ class $OrdersTable extends Orders with TableInfo<$OrdersTable, OrderData> {
         DriftSqlType.string,
         data['${effectivePrefix}cancellation_reason'],
       ),
+      barcode: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}barcode'],
+      ),
       staffId: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}staff_id'],
@@ -3564,6 +3749,7 @@ class OrderData extends DataClass implements Insertable<OrderData> {
   final String status;
   final String riderName;
   final String? cancellationReason;
+  final String? barcode;
   final int? staffId;
   const OrderData({
     required this.id,
@@ -3580,6 +3766,7 @@ class OrderData extends DataClass implements Insertable<OrderData> {
     required this.status,
     required this.riderName,
     this.cancellationReason,
+    this.barcode,
     this.staffId,
   });
   @override
@@ -3606,6 +3793,9 @@ class OrderData extends DataClass implements Insertable<OrderData> {
     map['rider_name'] = Variable<String>(riderName);
     if (!nullToAbsent || cancellationReason != null) {
       map['cancellation_reason'] = Variable<String>(cancellationReason);
+    }
+    if (!nullToAbsent || barcode != null) {
+      map['barcode'] = Variable<String>(barcode);
     }
     if (!nullToAbsent || staffId != null) {
       map['staff_id'] = Variable<int>(staffId);
@@ -3637,6 +3827,9 @@ class OrderData extends DataClass implements Insertable<OrderData> {
       cancellationReason: cancellationReason == null && nullToAbsent
           ? const Value.absent()
           : Value(cancellationReason),
+      barcode: barcode == null && nullToAbsent
+          ? const Value.absent()
+          : Value(barcode),
       staffId: staffId == null && nullToAbsent
           ? const Value.absent()
           : Value(staffId),
@@ -3665,6 +3858,7 @@ class OrderData extends DataClass implements Insertable<OrderData> {
       cancellationReason: serializer.fromJson<String?>(
         json['cancellationReason'],
       ),
+      barcode: serializer.fromJson<String?>(json['barcode']),
       staffId: serializer.fromJson<int?>(json['staffId']),
     );
   }
@@ -3686,6 +3880,7 @@ class OrderData extends DataClass implements Insertable<OrderData> {
       'status': serializer.toJson<String>(status),
       'riderName': serializer.toJson<String>(riderName),
       'cancellationReason': serializer.toJson<String?>(cancellationReason),
+      'barcode': serializer.toJson<String?>(barcode),
       'staffId': serializer.toJson<int?>(staffId),
     };
   }
@@ -3705,6 +3900,7 @@ class OrderData extends DataClass implements Insertable<OrderData> {
     String? status,
     String? riderName,
     Value<String?> cancellationReason = const Value.absent(),
+    Value<String?> barcode = const Value.absent(),
     Value<int?> staffId = const Value.absent(),
   }) => OrderData(
     id: id ?? this.id,
@@ -3723,6 +3919,7 @@ class OrderData extends DataClass implements Insertable<OrderData> {
     cancellationReason: cancellationReason.present
         ? cancellationReason.value
         : this.cancellationReason,
+    barcode: barcode.present ? barcode.value : this.barcode,
     staffId: staffId.present ? staffId.value : this.staffId,
   );
   OrderData copyWithCompanion(OrdersCompanion data) {
@@ -3761,6 +3958,7 @@ class OrderData extends DataClass implements Insertable<OrderData> {
       cancellationReason: data.cancellationReason.present
           ? data.cancellationReason.value
           : this.cancellationReason,
+      barcode: data.barcode.present ? data.barcode.value : this.barcode,
       staffId: data.staffId.present ? data.staffId.value : this.staffId,
     );
   }
@@ -3782,6 +3980,7 @@ class OrderData extends DataClass implements Insertable<OrderData> {
           ..write('status: $status, ')
           ..write('riderName: $riderName, ')
           ..write('cancellationReason: $cancellationReason, ')
+          ..write('barcode: $barcode, ')
           ..write('staffId: $staffId')
           ..write(')'))
         .toString();
@@ -3803,6 +4002,7 @@ class OrderData extends DataClass implements Insertable<OrderData> {
     status,
     riderName,
     cancellationReason,
+    barcode,
     staffId,
   );
   @override
@@ -3823,6 +4023,7 @@ class OrderData extends DataClass implements Insertable<OrderData> {
           other.status == this.status &&
           other.riderName == this.riderName &&
           other.cancellationReason == this.cancellationReason &&
+          other.barcode == this.barcode &&
           other.staffId == this.staffId);
 }
 
@@ -3841,6 +4042,7 @@ class OrdersCompanion extends UpdateCompanion<OrderData> {
   final Value<String> status;
   final Value<String> riderName;
   final Value<String?> cancellationReason;
+  final Value<String?> barcode;
   final Value<int?> staffId;
   const OrdersCompanion({
     this.id = const Value.absent(),
@@ -3857,6 +4059,7 @@ class OrdersCompanion extends UpdateCompanion<OrderData> {
     this.status = const Value.absent(),
     this.riderName = const Value.absent(),
     this.cancellationReason = const Value.absent(),
+    this.barcode = const Value.absent(),
     this.staffId = const Value.absent(),
   });
   OrdersCompanion.insert({
@@ -3874,6 +4077,7 @@ class OrdersCompanion extends UpdateCompanion<OrderData> {
     required String status,
     this.riderName = const Value.absent(),
     this.cancellationReason = const Value.absent(),
+    this.barcode = const Value.absent(),
     this.staffId = const Value.absent(),
   }) : orderNumber = Value(orderNumber),
        totalAmountKobo = Value(totalAmountKobo),
@@ -3895,6 +4099,7 @@ class OrdersCompanion extends UpdateCompanion<OrderData> {
     Expression<String>? status,
     Expression<String>? riderName,
     Expression<String>? cancellationReason,
+    Expression<String>? barcode,
     Expression<int>? staffId,
   }) {
     return RawValuesInsertable({
@@ -3912,6 +4117,7 @@ class OrdersCompanion extends UpdateCompanion<OrderData> {
       if (status != null) 'status': status,
       if (riderName != null) 'rider_name': riderName,
       if (cancellationReason != null) 'cancellation_reason': cancellationReason,
+      if (barcode != null) 'barcode': barcode,
       if (staffId != null) 'staff_id': staffId,
     });
   }
@@ -3931,6 +4137,7 @@ class OrdersCompanion extends UpdateCompanion<OrderData> {
     Value<String>? status,
     Value<String>? riderName,
     Value<String?>? cancellationReason,
+    Value<String?>? barcode,
     Value<int?>? staffId,
   }) {
     return OrdersCompanion(
@@ -3948,6 +4155,7 @@ class OrdersCompanion extends UpdateCompanion<OrderData> {
       status: status ?? this.status,
       riderName: riderName ?? this.riderName,
       cancellationReason: cancellationReason ?? this.cancellationReason,
+      barcode: barcode ?? this.barcode,
       staffId: staffId ?? this.staffId,
     );
   }
@@ -3997,6 +4205,9 @@ class OrdersCompanion extends UpdateCompanion<OrderData> {
     if (cancellationReason.present) {
       map['cancellation_reason'] = Variable<String>(cancellationReason.value);
     }
+    if (barcode.present) {
+      map['barcode'] = Variable<String>(barcode.value);
+    }
     if (staffId.present) {
       map['staff_id'] = Variable<int>(staffId.value);
     }
@@ -4020,6 +4231,7 @@ class OrdersCompanion extends UpdateCompanion<OrderData> {
           ..write('status: $status, ')
           ..write('riderName: $riderName, ')
           ..write('cancellationReason: $cancellationReason, ')
+          ..write('barcode: $barcode, ')
           ..write('staffId: $staffId')
           ..write(')'))
         .toString();
@@ -12382,19 +12594,25 @@ typedef $$UsersTableCreateCompanionBuilder =
     UsersCompanion Function({
       Value<int> id,
       required String name,
+      Value<String?> email,
+      Value<String?> passwordHash,
       required String pin,
       required String role,
       Value<int> roleTier,
       Value<String> avatarColor,
+      Value<bool> biometricEnabled,
     });
 typedef $$UsersTableUpdateCompanionBuilder =
     UsersCompanion Function({
       Value<int> id,
       Value<String> name,
+      Value<String?> email,
+      Value<String?> passwordHash,
       Value<String> pin,
       Value<String> role,
       Value<int> roleTier,
       Value<String> avatarColor,
+      Value<bool> biometricEnabled,
     });
 
 final class $$UsersTableReferences
@@ -12503,6 +12721,16 @@ class $$UsersTableFilterComposer extends Composer<_$AppDatabase, $UsersTable> {
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<String> get email => $composableBuilder(
+    column: $table.email,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get passwordHash => $composableBuilder(
+    column: $table.passwordHash,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<String> get pin => $composableBuilder(
     column: $table.pin,
     builder: (column) => ColumnFilters(column),
@@ -12520,6 +12748,11 @@ class $$UsersTableFilterComposer extends Composer<_$AppDatabase, $UsersTable> {
 
   ColumnFilters<String> get avatarColor => $composableBuilder(
     column: $table.avatarColor,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get biometricEnabled => $composableBuilder(
+    column: $table.biometricEnabled,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -12645,6 +12878,16 @@ class $$UsersTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get email => $composableBuilder(
+    column: $table.email,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get passwordHash => $composableBuilder(
+    column: $table.passwordHash,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get pin => $composableBuilder(
     column: $table.pin,
     builder: (column) => ColumnOrderings(column),
@@ -12664,6 +12907,11 @@ class $$UsersTableOrderingComposer
     column: $table.avatarColor,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<bool> get biometricEnabled => $composableBuilder(
+    column: $table.biometricEnabled,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$UsersTableAnnotationComposer
@@ -12681,6 +12929,14 @@ class $$UsersTableAnnotationComposer
   GeneratedColumn<String> get name =>
       $composableBuilder(column: $table.name, builder: (column) => column);
 
+  GeneratedColumn<String> get email =>
+      $composableBuilder(column: $table.email, builder: (column) => column);
+
+  GeneratedColumn<String> get passwordHash => $composableBuilder(
+    column: $table.passwordHash,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<String> get pin =>
       $composableBuilder(column: $table.pin, builder: (column) => column);
 
@@ -12692,6 +12948,11 @@ class $$UsersTableAnnotationComposer
 
   GeneratedColumn<String> get avatarColor => $composableBuilder(
     column: $table.avatarColor,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get biometricEnabled => $composableBuilder(
+    column: $table.biometricEnabled,
     builder: (column) => column,
   );
 
@@ -12835,33 +13096,45 @@ class $$UsersTableTableManager
               ({
                 Value<int> id = const Value.absent(),
                 Value<String> name = const Value.absent(),
+                Value<String?> email = const Value.absent(),
+                Value<String?> passwordHash = const Value.absent(),
                 Value<String> pin = const Value.absent(),
                 Value<String> role = const Value.absent(),
                 Value<int> roleTier = const Value.absent(),
                 Value<String> avatarColor = const Value.absent(),
+                Value<bool> biometricEnabled = const Value.absent(),
               }) => UsersCompanion(
                 id: id,
                 name: name,
+                email: email,
+                passwordHash: passwordHash,
                 pin: pin,
                 role: role,
                 roleTier: roleTier,
                 avatarColor: avatarColor,
+                biometricEnabled: biometricEnabled,
               ),
           createCompanionCallback:
               ({
                 Value<int> id = const Value.absent(),
                 required String name,
+                Value<String?> email = const Value.absent(),
+                Value<String?> passwordHash = const Value.absent(),
                 required String pin,
                 required String role,
                 Value<int> roleTier = const Value.absent(),
                 Value<String> avatarColor = const Value.absent(),
+                Value<bool> biometricEnabled = const Value.absent(),
               }) => UsersCompanion.insert(
                 id: id,
                 name: name,
+                email: email,
+                passwordHash: passwordHash,
                 pin: pin,
                 role: role,
                 roleTier: roleTier,
                 avatarColor: avatarColor,
+                biometricEnabled: biometricEnabled,
               ),
           withReferenceMapper: (p0) => p0
               .map(
@@ -15697,6 +15970,7 @@ typedef $$OrdersTableCreateCompanionBuilder =
       required String status,
       Value<String> riderName,
       Value<String?> cancellationReason,
+      Value<String?> barcode,
       Value<int?> staffId,
     });
 typedef $$OrdersTableUpdateCompanionBuilder =
@@ -15715,6 +15989,7 @@ typedef $$OrdersTableUpdateCompanionBuilder =
       Value<String> status,
       Value<String> riderName,
       Value<String?> cancellationReason,
+      Value<String?> barcode,
       Value<int?> staffId,
     });
 
@@ -15895,6 +16170,11 @@ class $$OrdersTableFilterComposer
 
   ColumnFilters<String> get cancellationReason => $composableBuilder(
     column: $table.cancellationReason,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get barcode => $composableBuilder(
+    column: $table.barcode,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -16096,6 +16376,11 @@ class $$OrdersTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get barcode => $composableBuilder(
+    column: $table.barcode,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$CustomersTableOrderingComposer get customerId {
     final $$CustomersTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -16208,6 +16493,9 @@ class $$OrdersTableAnnotationComposer
     column: $table.cancellationReason,
     builder: (column) => column,
   );
+
+  GeneratedColumn<String> get barcode =>
+      $composableBuilder(column: $table.barcode, builder: (column) => column);
 
   $$CustomersTableAnnotationComposer get customerId {
     final $$CustomersTableAnnotationComposer composer = $composerBuilder(
@@ -16383,6 +16671,7 @@ class $$OrdersTableTableManager
                 Value<String> status = const Value.absent(),
                 Value<String> riderName = const Value.absent(),
                 Value<String?> cancellationReason = const Value.absent(),
+                Value<String?> barcode = const Value.absent(),
                 Value<int?> staffId = const Value.absent(),
               }) => OrdersCompanion(
                 id: id,
@@ -16399,6 +16688,7 @@ class $$OrdersTableTableManager
                 status: status,
                 riderName: riderName,
                 cancellationReason: cancellationReason,
+                barcode: barcode,
                 staffId: staffId,
               ),
           createCompanionCallback:
@@ -16417,6 +16707,7 @@ class $$OrdersTableTableManager
                 required String status,
                 Value<String> riderName = const Value.absent(),
                 Value<String?> cancellationReason = const Value.absent(),
+                Value<String?> barcode = const Value.absent(),
                 Value<int?> staffId = const Value.absent(),
               }) => OrdersCompanion.insert(
                 id: id,
@@ -16433,6 +16724,7 @@ class $$OrdersTableTableManager
                 status: status,
                 riderName: riderName,
                 cancellationReason: cancellationReason,
+                barcode: barcode,
                 staffId: staffId,
               ),
           withReferenceMapper: (p0) => p0

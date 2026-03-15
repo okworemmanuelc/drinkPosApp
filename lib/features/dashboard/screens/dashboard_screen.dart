@@ -74,7 +74,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         leading: const MenuButton(),
         title: const AppBarHeader(
           icon: FontAwesomeIcons.chartLine,
-          title: 'ONAFIA Pos',
+          title: 'Ribaplus POS',
           subtitle: 'Business Overview',
         ),
         actions: [
@@ -165,7 +165,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               const SizedBox(width: 16),
               const Expanded(
                 child: Text(
-                  'Welcome to ONAFIA Pos!',
+                  'Welcome to Ribaplus POS!',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 20,
