@@ -7,11 +7,12 @@ import '../../../core/theme/theme_notifier.dart';
 import '../../../core/utils/number_format.dart';
 import '../../../core/utils/responsive.dart';
 import '../../../shared/widgets/app_drawer.dart';
+import 'dart:async';
 import '../data/models/expense.dart';
-import '../data/services/expense_service.dart';
 import '../widgets/add_expense_sheet.dart';
 import '../../../core/utils/constants.dart';
 import '../../../shared/widgets/notification_bell.dart';
+import '../../../core/database/app_database.dart';
 
 class ExpensesScreen extends StatefulWidget {
   const ExpensesScreen({super.key});
@@ -25,6 +26,9 @@ class _ExpensesScreenState extends State<ExpensesScreen>
   late TabController _tabController;
   String _periodFilter = 'This Month';
 
+  List<ExpenseData> _allExpenses = [];
+  StreamSubscription? _expensesSub;
+
   bool get _isDark => themeNotifier.value == ThemeMode.dark;
   Color get _bg => _isDark ? dBg : lBg;
   Color get _surface => _isDark ? dSurface : lSurface;
@@ -36,13 +40,46 @@ class _ExpensesScreenState extends State<ExpensesScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _expensesSub = database.expensesDao.watchAll().listen((list) {
+      if (mounted) setState(() => _allExpenses = list);
+    });
   }
 
   @override
   void dispose() {
     _tabController.dispose();
+    _expensesSub?.cancel();
     super.dispose();
   }
+
+  bool _isInPeriod(DateTime date, String period) {
+    final now = DateTime.now();
+    final diff = now.difference(date);
+    switch (period) {
+      case 'Today':
+        return diff.inDays == 0 && now.day == date.day;
+      case 'This Week':
+        return diff.inDays <= 7;
+      case 'This Month':
+        return diff.inDays <= 30;
+      case 'This Year':
+        return diff.inDays <= 365;
+      default:
+        return true;
+    }
+  }
+
+  Expense _toExpense(ExpenseData d) => Expense(
+        id: d.id.toString(),
+        category: d.category,
+        amount: d.amountKobo / 100.0,
+        paymentMethod: d.paymentMethod ?? 'Cash',
+        description: d.description.isNotEmpty ? d.description : null,
+        date: d.timestamp,
+        createdAt: d.timestamp,
+        recordedBy: d.recordedBy ?? '',
+        reference: d.reference,
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -53,10 +90,12 @@ class _ExpensesScreenState extends State<ExpensesScreen>
           backgroundColor: _bg,
           drawer: const AppDrawer(activeRoute: 'expenses'),
           appBar: _buildAppBar(context),
-          body: ValueListenableBuilder<List<Expense>>(
-            valueListenable: expenseService,
-            builder: (context, expenses, child) {
-              final periodExpenses = expenseService.getByPeriod(_periodFilter);
+          body: Builder(
+            builder: (context) {
+              final periodExpenses = _allExpenses
+                  .where((e) => _isInPeriod(e.timestamp, _periodFilter))
+                  .map(_toExpense)
+                  .toList();
               final totalForPeriod = periodExpenses.fold(
                 0.0,
                 (sum, e) => sum + e.amount,
@@ -565,7 +604,10 @@ class _ExpensesScreenState extends State<ExpensesScreen>
   }
 
   Widget _buildAnnualProjectionCard(BuildContext context) {
-    final projection = expenseService.getAnnualProjection();
+    final now = DateTime.now();
+    final currentYearExpenses = _allExpenses.where((e) => e.timestamp.year == now.year);
+    final totalThisYear = currentYearExpenses.fold<double>(0, (s, e) => s + e.amountKobo / 100.0);
+    final projection = currentYearExpenses.isEmpty ? 0.0 : (totalThisYear / now.month) * 12;
     return Container(
       padding: EdgeInsets.all(context.getRSize(20)),
       decoration: BoxDecoration(

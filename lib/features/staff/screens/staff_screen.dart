@@ -1,4 +1,4 @@
-import 'package:drift/drift.dart' show Value;
+import 'package:drift/drift.dart' show Value, OrderingTerm;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -12,6 +12,9 @@ import '../../../shared/widgets/menu_button.dart';
 import '../../../shared/widgets/app_bar_header.dart';
 import '../../../shared/widgets/notification_bell.dart';
 import '../../../shared/widgets/role_guard.dart';
+
+// Sentinel value meaning "no warehouse filter applied"
+const int _kAllWarehouses = -1;
 
 // ── Role config ──────────────────────────────────────────────────────────────
 const _roleOptions = [
@@ -45,6 +48,8 @@ class StaffScreen extends StatefulWidget {
 
 class _StaffScreenState extends State<StaffScreen> {
   String _search = '';
+  int _warehouseFilter = _kAllWarehouses;
+  List<WarehouseData> _warehouses = [];
 
   bool get _isDark => themeNotifier.value == ThemeMode.dark;
   Color get _bg      => _isDark ? dBg      : lBg;
@@ -55,10 +60,21 @@ class _StaffScreenState extends State<StaffScreen> {
   Color get _card    => _isDark ? dCard    : lCard;
 
   @override
+  void initState() {
+    super.initState();
+    (database.select(database.warehouses)
+          ..orderBy([(t) => OrderingTerm.asc(t.name)]))
+        .watch()
+        .listen((wh) {
+      if (mounted) setState(() => _warehouses = wh);
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     return ValueListenableBuilder<ThemeMode>(
       valueListenable: themeNotifier,
-      builder: (_, __, ___)  => Scaffold(
+      builder: (_, __, ___) => Scaffold(
         backgroundColor: _bg,
         appBar: AppBar(
           backgroundColor: _surface,
@@ -133,58 +149,121 @@ class _StaffScreenState extends State<StaffScreen> {
               return const Center(child: CircularProgressIndicator());
             }
             final all = snap.data ?? [];
-            final filtered = _search.isEmpty
+
+            // Apply warehouse filter
+            final warehouseFiltered = _warehouseFilter == _kAllWarehouses
                 ? all
-                : all.where((u) =>
+                : all.where((u) => u.warehouseId == _warehouseFilter).toList();
+
+            // Apply search filter
+            final filtered = _search.isEmpty
+                ? warehouseFiltered
+                : warehouseFiltered.where((u) =>
                     u.name.toLowerCase().contains(_search) ||
                     u.role.toLowerCase().contains(_search)).toList();
 
-            if (filtered.isEmpty) {
-              return Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(FontAwesomeIcons.usersSlash,
-                        size: context.getRSize(48),
-                        color: _subtext.withValues(alpha: 0.4)),
-                    SizedBox(height: context.getRSize(12)),
-                    Text(_search.isEmpty ? 'No staff found.' : 'No results for "$_search".',
-                        style: TextStyle(color: _subtext,
-                            fontSize: context.getRFontSize(14))),
-                  ],
-                ),
-              );
-            }
-
-            // Group by role tier (descending)
-            final groups = <int, List<UserData>>{};
-            for (final u in filtered) {
-              groups.putIfAbsent(u.roleTier, () => []).add(u);
-            }
-            final sortedTiers = groups.keys.toList()..sort((a, b) => b.compareTo(a));
-
-            return ListView(
-              padding: EdgeInsets.fromLTRB(
-                context.getRSize(16),
-                context.getRSize(12),
-                context.getRSize(16),
-                context.getRSize(100),
-              ),
+            return Column(
               children: [
-                for (final tier in sortedTiers) ...[
-                  _buildSectionHeader(tier, groups[tier]!.length),
-                  SizedBox(height: context.getRSize(8)),
-                  for (final user in groups[tier]!) ...[
-                    _buildStaffCard(context, user),
-                    SizedBox(height: context.getRSize(10)),
-                  ],
-                  SizedBox(height: context.getRSize(8)),
-                ],
+                // ── Warehouse filter chips ──────────────────────────────
+                if (_warehouses.isNotEmpty)
+                  SizedBox(
+                    height: context.getRSize(44),
+                    child: ListView(
+                      scrollDirection: Axis.horizontal,
+                      padding: EdgeInsets.symmetric(
+                          horizontal: context.getRSize(16), vertical: context.getRSize(6)),
+                      children: [
+                        _filterChip('All', _warehouseFilter == _kAllWarehouses,
+                            () => setState(() => _warehouseFilter = _kAllWarehouses)),
+                        for (final wh in _warehouses)
+                          _filterChip(wh.name, _warehouseFilter == wh.id,
+                              () => setState(() => _warehouseFilter = wh.id)),
+                      ],
+                    ),
+                  ),
+
+                // ── Staff list ─────────────────────────────────────────
+                Expanded(
+                  child: filtered.isEmpty
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(FontAwesomeIcons.usersSlash,
+                                  size: context.getRSize(48),
+                                  color: _subtext.withValues(alpha: 0.4)),
+                              SizedBox(height: context.getRSize(12)),
+                              Text(
+                                _search.isEmpty
+                                    ? 'No staff in this warehouse.'
+                                    : 'No results for "$_search".',
+                                style: TextStyle(
+                                    color: _subtext,
+                                    fontSize: context.getRFontSize(14)),
+                              ),
+                            ],
+                          ),
+                        )
+                      : _buildGroupedList(filtered),
+                ),
               ],
             );
           },
         ),
       ),
+    );
+  }
+
+  Widget _filterChip(String label, bool selected, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        margin: EdgeInsets.only(right: context.getRSize(8)),
+        padding: EdgeInsets.symmetric(
+            horizontal: context.getRSize(14), vertical: context.getRSize(4)),
+        decoration: BoxDecoration(
+          color: selected ? blueMain : _card,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: selected ? blueMain : _border),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: selected ? Colors.white : _subtext,
+            fontSize: context.getRFontSize(12),
+            fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGroupedList(List<UserData> users) {
+    final groups = <int, List<UserData>>{};
+    for (final u in users) {
+      groups.putIfAbsent(u.roleTier, () => []).add(u);
+    }
+    final sortedTiers = groups.keys.toList()..sort((a, b) => b.compareTo(a));
+
+    return ListView(
+      padding: EdgeInsets.fromLTRB(
+        context.getRSize(16),
+        context.getRSize(12),
+        context.getRSize(16),
+        context.getRSize(100),
+      ),
+      children: [
+        for (final tier in sortedTiers) ...[
+          _buildSectionHeader(tier, groups[tier]!.length),
+          SizedBox(height: context.getRSize(8)),
+          for (final user in groups[tier]!) ...[
+            _buildStaffCard(context, user),
+            SizedBox(height: context.getRSize(10)),
+          ],
+          SizedBox(height: context.getRSize(8)),
+        ],
+      ],
     );
   }
 
@@ -360,7 +439,7 @@ class _StaffScreenState extends State<StaffScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => _StaffFormSheet(user: user),
+      builder: (_) => _StaffFormSheet(user: user, warehouses: _warehouses),
     );
   }
 
@@ -428,7 +507,8 @@ class _StaffScreenState extends State<StaffScreen> {
 // ── Add / Edit bottom sheet ──────────────────────────────────────────────────
 class _StaffFormSheet extends StatefulWidget {
   final UserData? user;
-  const _StaffFormSheet({this.user});
+  final List<WarehouseData> warehouses;
+  const _StaffFormSheet({this.user, required this.warehouses});
 
   @override
   State<_StaffFormSheet> createState() => _StaffFormSheetState();
@@ -439,6 +519,7 @@ class _StaffFormSheetState extends State<_StaffFormSheet> {
   late TextEditingController _nameCtrl;
   late TextEditingController _pinCtrl;
   late _RoleOption _selectedRole;
+  int? _selectedWarehouseId;
   bool _showPin = false;
 
   bool get _isDark => themeNotifier.value == ThemeMode.dark;
@@ -457,6 +538,7 @@ class _StaffFormSheetState extends State<_StaffFormSheet> {
     _nameCtrl = TextEditingController(text: u?.name ?? '');
     _pinCtrl  = TextEditingController(text: u?.pin  ?? '');
     _selectedRole = u != null ? _roleFor(u.role) : _roleOptions[3]; // default Cashier
+    _selectedWarehouseId = u?.warehouseId;
   }
 
   @override
@@ -600,6 +682,57 @@ class _StaffFormSheetState extends State<_StaffFormSheet> {
                     ),
                   ),
                 ),
+                // Warehouse assignment
+                if (widget.warehouses.isNotEmpty) ...[
+                  SizedBox(height: context.getRSize(14)),
+                  _label('Assign to Warehouse (optional)'),
+                  SizedBox(height: context.getRSize(6)),
+                  Container(
+                    padding: EdgeInsets.symmetric(
+                        horizontal: context.getRSize(12),
+                        vertical: context.getRSize(4)),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: _border),
+                      borderRadius: BorderRadius.circular(10),
+                      color: _bg,
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<int?>(
+                        value: _selectedWarehouseId,
+                        isExpanded: true,
+                        dropdownColor: _surface,
+                        style: TextStyle(
+                            color: _text, fontSize: context.getRFontSize(14)),
+                        hint: Text('No warehouse assigned',
+                            style: TextStyle(
+                                color: _subtext,
+                                fontSize: context.getRFontSize(14))),
+                        items: [
+                          DropdownMenuItem<int?>(
+                            value: null,
+                            child: Text('No warehouse',
+                                style: TextStyle(color: _subtext)),
+                          ),
+                          for (final wh in widget.warehouses)
+                            DropdownMenuItem<int?>(
+                              value: wh.id,
+                              child: Row(
+                                children: [
+                                  Icon(Icons.warehouse_outlined,
+                                      size: context.getRSize(14),
+                                      color: blueMain),
+                                  SizedBox(width: context.getRSize(8)),
+                                  Text(wh.name),
+                                ],
+                              ),
+                            ),
+                        ],
+                        onChanged: (v) =>
+                            setState(() => _selectedWarehouseId = v),
+                      ),
+                    ),
+                  ),
+                ],
                 SizedBox(height: context.getRSize(24)),
                 // Save button
                 SizedBox(
@@ -684,20 +817,22 @@ class _StaffFormSheetState extends State<_StaffFormSheet> {
       await (database.update(database.users)
             ..where((t) => t.id.equals(widget.user!.id)))
           .write(UsersCompanion(
-            name:       Value(name),
-            pin:        Value(pin),
-            role:       Value(_selectedRole.value),
-            roleTier:   Value(_selectedRole.tier),
+            name:        Value(name),
+            pin:         Value(pin),
+            role:        Value(_selectedRole.value),
+            roleTier:    Value(_selectedRole.tier),
             avatarColor: Value(colorHex),
+            warehouseId: Value(_selectedWarehouseId),
           ));
     } else {
       await database.into(database.users).insert(
             UsersCompanion.insert(
-              name:       name,
-              pin:        pin,
-              role:       _selectedRole.value,
-              roleTier:   Value(_selectedRole.tier),
+              name:        name,
+              pin:         pin,
+              role:        _selectedRole.value,
+              roleTier:    Value(_selectedRole.tier),
               avatarColor: Value(colorHex),
+              warehouseId: Value(_selectedWarehouseId),
             ),
           );
     }

@@ -642,33 +642,9 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
 
             const SizedBox(height: 12),
 
-            Row(
-              children: [
-                Expanded(
-                  child: _inputField(
-                    'Retail Price',
-                    line.retailPriceCtrl,
-                    '0',
-                    isNumber: true,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _inputField(
-                    'Bulk Breaker Price',
-                    line.bulkBreakerPriceCtrl,
-                    '0',
-                    isNumber: true,
-                  ),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 12),
-
             _inputField(
-              'Distributor Price',
-              line.distributorPriceCtrl,
+              'Retail Price',
+              line.retailPriceCtrl,
               '0',
               isNumber: true,
             ),

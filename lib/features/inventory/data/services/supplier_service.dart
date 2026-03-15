@@ -1,33 +1,34 @@
+import 'package:drift/drift.dart' show Value;
 import 'package:flutter/widgets.dart';
 import '../models/supplier.dart';
 import '../models/crate_group.dart';
+import '../../../../core/database/app_database.dart';
 
 class SupplierService extends ValueNotifier<List<Supplier>> {
-  SupplierService() : super(_initialSuppliers);
+  SupplierService() : super([]) {
+    _init();
+  }
 
-  static final List<Supplier> _initialSuppliers = [
-    Supplier(
-      id: 's1',
-      name: 'Nigerian Breweries Plc',
-      crateGroup: CrateGroup.nbPlc,
-      contactDetails: 'Plot 2, Igamu House, Lagos. Tel: 01-2703300',
-      supplierWallet: -150000.0, // Debt to supplier
-    ),
-    Supplier(
-      id: 's2',
-      name: 'Guinness Nigeria',
-      crateGroup: CrateGroup.guinness,
-      contactDetails: '24 Oba Akran Ave, Ikeja, Lagos. Tel: 01-2709100',
-      supplierWallet: 50000.0, // Credit with supplier
-    ),
-    Supplier(
-      id: 's3',
-      name: 'Coca-Cola Nigeria',
-      crateGroup: CrateGroup.cocaCola,
-      contactDetails: '1 Industrial Estate, Oyo State. Tel: 0800-265-22652',
-      supplierWallet: 0.0,
-    ),
-  ];
+  void _init() {
+    database.catalogDao.watchAllSupplierDatas().listen((dataList) {
+      value = dataList.map(_fromDb).toList();
+    });
+  }
+
+  static Supplier _fromDb(SupplierData d) {
+    final crateGroup = CrateGroup.values.firstWhere(
+      (cg) => cg.label == d.crateGroupName,
+      orElse: () => CrateGroup.nbPlc,
+    );
+    return Supplier(
+      id: d.id.toString(),
+      name: d.name,
+      crateGroup: crateGroup,
+      contactDetails: [d.phone, d.email, d.address]
+          .where((s) => s != null && s.isNotEmpty)
+          .join(', '),
+    );
+  }
 
   List<Supplier> getAll() => List.unmodifiable(value);
 
@@ -39,11 +40,18 @@ class SupplierService extends ValueNotifier<List<Supplier>> {
     }
   }
 
-  void addSupplier(Supplier supplier) {
-    value = [...value, supplier];
+  Future<void> addSupplier(Supplier supplier) async {
+    await database.catalogDao.insertSupplier(
+      SuppliersCompanion.insert(
+        name: supplier.name,
+        phone: Value(supplier.contactDetails.isNotEmpty ? supplier.contactDetails : null),
+        crateGroupName: Value(supplier.crateGroup.label),
+      ),
+    );
   }
 
   void updateSupplier(Supplier updatedSupplier) {
+    // In-memory update for legacy callers — DB write not needed here
     final index = value.indexWhere((s) => s.id == updatedSupplier.id);
     if (index != -1) {
       final newList = List<Supplier>.from(value);

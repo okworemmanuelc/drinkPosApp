@@ -168,16 +168,12 @@ class AppDrawer extends StatelessWidget {
           active: activeRoute == 'expenses',
           onTap: () => _navigateTo(context, 'expenses'),
         ),
-        RoleGuard(
-          minTier: 5,
-          fallback: const SizedBox.shrink(),
-          child: _navItem(
-            context,
-            FontAwesomeIcons.warehouse,
-            'Manage Warehouse',
-            active: activeRoute == 'warehouse',
-            onTap: () => _navigateTo(context, 'warehouse'),
-          ),
+        _navItem(
+          context,
+          FontAwesomeIcons.warehouse,
+          'Warehouse',
+          active: activeRoute == 'warehouse',
+          onTap: () => _navigateTo(context, 'warehouse'),
         ),
         RoleGuard(
           minTier: 4,

@@ -12,7 +12,7 @@ final List<Map<String, dynamic>> kProducts = [
     'distributorPrice': 4200,
     'category': 'Glass Crates',
     'icon': FontAwesomeIcons.beerMugEmpty,
-    'color': Color(0xFFF59E0B),
+    'color': const Color(0xFFF59E0B),
   },
   {
     'name': 'Heineken',
@@ -22,7 +22,7 @@ final List<Map<String, dynamic>> kProducts = [
     'distributorPrice': 7800,
     'category': 'Cans & PET',
     'icon': FontAwesomeIcons.wineBottle,
-    'color': Color(0xFF10B981),
+    'color': const Color(0xFF10B981),
   },
   {
     'name': 'Guinness',
@@ -32,7 +32,7 @@ final List<Map<String, dynamic>> kProducts = [
     'distributorPrice': 6500,
     'category': 'Glass Crates',
     'icon': FontAwesomeIcons.wineGlassEmpty,
-    'color': Color(0xFF334155),
+    'color': const Color(0xFF334155),
   },
   {
     'name': 'Goldberg',
@@ -42,7 +42,7 @@ final List<Map<String, dynamic>> kProducts = [
     'distributorPrice': 13500,
     'category': 'Kegs',
     'icon': FontAwesomeIcons.database,
-    'color': Color(0xFFD97706),
+    'color': const Color(0xFFD97706),
   },
   {
     'name': 'Tiger Beer',
@@ -52,7 +52,7 @@ final List<Map<String, dynamic>> kProducts = [
     'distributorPrice': 7200,
     'category': 'Cans & PET',
     'icon': FontAwesomeIcons.wineBottle,
-    'color': Color(0xFF3B82F6),
+    'color': const Color(0xFF3B82F6),
   },
   {
     'name': '33 Export',
@@ -62,7 +62,7 @@ final List<Map<String, dynamic>> kProducts = [
     'distributorPrice': 4100,
     'category': 'Glass Crates',
     'icon': FontAwesomeIcons.beerMugEmpty,
-    'color': Color(0xFFEA580C),
+    'color': const Color(0xFFEA580C),
   },
   {
     'name': 'Desperados',
@@ -72,7 +72,7 @@ final List<Map<String, dynamic>> kProducts = [
     'distributorPrice': 8200,
     'category': 'Cans & PET',
     'icon': FontAwesomeIcons.wineBottle,
-    'color': Color(0xFFE11D48),
+    'color': const Color(0xFFE11D48),
   },
   {
     'name': 'Legend Stout',
@@ -82,7 +82,7 @@ final List<Map<String, dynamic>> kProducts = [
     'distributorPrice': 14800,
     'category': 'Kegs',
     'icon': FontAwesomeIcons.database,
-    'color': Color(0xFF475569),
+    'color': const Color(0xFF475569),
   },
   {
     'name': 'Life Lager',
@@ -92,7 +92,7 @@ final List<Map<String, dynamic>> kProducts = [
     'distributorPrice': 4200,
     'category': 'Glass Crates',
     'icon': FontAwesomeIcons.beerMugEmpty,
-    'color': Color(0xFFEAB308),
+    'color': const Color(0xFFEAB308),
   },
   {
     'name': 'Maltina',
@@ -102,7 +102,7 @@ final List<Map<String, dynamic>> kProducts = [
     'distributorPrice': 4400,
     'category': 'Cans & PET',
     'icon': FontAwesomeIcons.wineBottle,
-    'color': Color(0xFF78350F),
+    'color': const Color(0xFF78350F),
   },
   {
     'name': 'Amstel Malta',
@@ -112,6 +112,6 @@ final List<Map<String, dynamic>> kProducts = [
     'distributorPrice': 4900,
     'category': 'Cans & PET',
     'icon': FontAwesomeIcons.wineBottle,
-    'color': Color(0xFFC2410C),
+    'color': const Color(0xFFC2410C),
   },
 ];

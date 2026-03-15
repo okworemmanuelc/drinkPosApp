@@ -128,7 +128,7 @@ class _AddCustomerSheetState extends State<AddCustomerSheet> {
               menuMaxHeight: 350,
               borderRadius: BorderRadius.circular(12),
               dropdownColor: _surface,
-              icon: Icon(Icons.keyboard_arrow_down, color: blueMain),
+              icon: const Icon(Icons.keyboard_arrow_down, color: blueMain),
               items: CustomerGroup.values.map((group) {
                 String label = '';
                 switch (group) {
@@ -182,8 +182,9 @@ class _AddCustomerSheetState extends State<AddCustomerSheet> {
             child: Container(
               decoration: BoxDecoration(
                 color: _surface,
-                borderRadius:
-                    const BorderRadius.vertical(top: Radius.circular(28)),
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(28),
+                ),
               ),
               child: Form(
                 key: _formKey,
@@ -342,8 +343,7 @@ class _AddCustomerSheetState extends State<AddCustomerSheet> {
                           onPressed: () {
                             if (_formKey.currentState!.validate()) {
                               final newCustomer = Customer(
-                                id: DateTime.now()
-                                    .millisecondsSinceEpoch
+                                id: DateTime.now().millisecondsSinceEpoch
                                     .toString(),
                                 name: _nameCtrl.text.trim(),
                                 addressText: _addressCtrl.text.trim(),

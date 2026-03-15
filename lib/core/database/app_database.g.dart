@@ -40,8 +40,20 @@ class $CrateGroupsTable extends CrateGroups
     type: DriftSqlType.int,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _emptyCrateStockMeta = const VerificationMeta(
+    'emptyCrateStock',
+  );
   @override
-  List<GeneratedColumn> get $columns => [id, name, size];
+  late final GeneratedColumn<int> emptyCrateStock = GeneratedColumn<int>(
+    'empty_crate_stock',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [id, name, size, emptyCrateStock];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -73,6 +85,15 @@ class $CrateGroupsTable extends CrateGroups
     } else if (isInserting) {
       context.missing(_sizeMeta);
     }
+    if (data.containsKey('empty_crate_stock')) {
+      context.handle(
+        _emptyCrateStockMeta,
+        emptyCrateStock.isAcceptableOrUnknown(
+          data['empty_crate_stock']!,
+          _emptyCrateStockMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -94,6 +115,10 @@ class $CrateGroupsTable extends CrateGroups
         DriftSqlType.int,
         data['${effectivePrefix}size'],
       )!,
+      emptyCrateStock: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}empty_crate_stock'],
+      )!,
     );
   }
 
@@ -107,10 +132,12 @@ class CrateGroupData extends DataClass implements Insertable<CrateGroupData> {
   final int id;
   final String name;
   final int size;
+  final int emptyCrateStock;
   const CrateGroupData({
     required this.id,
     required this.name,
     required this.size,
+    required this.emptyCrateStock,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -118,6 +145,7 @@ class CrateGroupData extends DataClass implements Insertable<CrateGroupData> {
     map['id'] = Variable<int>(id);
     map['name'] = Variable<String>(name);
     map['size'] = Variable<int>(size);
+    map['empty_crate_stock'] = Variable<int>(emptyCrateStock);
     return map;
   }
 
@@ -126,6 +154,7 @@ class CrateGroupData extends DataClass implements Insertable<CrateGroupData> {
       id: Value(id),
       name: Value(name),
       size: Value(size),
+      emptyCrateStock: Value(emptyCrateStock),
     );
   }
 
@@ -138,6 +167,7 @@ class CrateGroupData extends DataClass implements Insertable<CrateGroupData> {
       id: serializer.fromJson<int>(json['id']),
       name: serializer.fromJson<String>(json['name']),
       size: serializer.fromJson<int>(json['size']),
+      emptyCrateStock: serializer.fromJson<int>(json['emptyCrateStock']),
     );
   }
   @override
@@ -147,19 +177,29 @@ class CrateGroupData extends DataClass implements Insertable<CrateGroupData> {
       'id': serializer.toJson<int>(id),
       'name': serializer.toJson<String>(name),
       'size': serializer.toJson<int>(size),
+      'emptyCrateStock': serializer.toJson<int>(emptyCrateStock),
     };
   }
 
-  CrateGroupData copyWith({int? id, String? name, int? size}) => CrateGroupData(
+  CrateGroupData copyWith({
+    int? id,
+    String? name,
+    int? size,
+    int? emptyCrateStock,
+  }) => CrateGroupData(
     id: id ?? this.id,
     name: name ?? this.name,
     size: size ?? this.size,
+    emptyCrateStock: emptyCrateStock ?? this.emptyCrateStock,
   );
   CrateGroupData copyWithCompanion(CrateGroupsCompanion data) {
     return CrateGroupData(
       id: data.id.present ? data.id.value : this.id,
       name: data.name.present ? data.name.value : this.name,
       size: data.size.present ? data.size.value : this.size,
+      emptyCrateStock: data.emptyCrateStock.present
+          ? data.emptyCrateStock.value
+          : this.emptyCrateStock,
     );
   }
 
@@ -168,46 +208,53 @@ class CrateGroupData extends DataClass implements Insertable<CrateGroupData> {
     return (StringBuffer('CrateGroupData(')
           ..write('id: $id, ')
           ..write('name: $name, ')
-          ..write('size: $size')
+          ..write('size: $size, ')
+          ..write('emptyCrateStock: $emptyCrateStock')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, name, size);
+  int get hashCode => Object.hash(id, name, size, emptyCrateStock);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       (other is CrateGroupData &&
           other.id == this.id &&
           other.name == this.name &&
-          other.size == this.size);
+          other.size == this.size &&
+          other.emptyCrateStock == this.emptyCrateStock);
 }
 
 class CrateGroupsCompanion extends UpdateCompanion<CrateGroupData> {
   final Value<int> id;
   final Value<String> name;
   final Value<int> size;
+  final Value<int> emptyCrateStock;
   const CrateGroupsCompanion({
     this.id = const Value.absent(),
     this.name = const Value.absent(),
     this.size = const Value.absent(),
+    this.emptyCrateStock = const Value.absent(),
   });
   CrateGroupsCompanion.insert({
     this.id = const Value.absent(),
     required String name,
     required int size,
+    this.emptyCrateStock = const Value.absent(),
   }) : name = Value(name),
        size = Value(size);
   static Insertable<CrateGroupData> custom({
     Expression<int>? id,
     Expression<String>? name,
     Expression<int>? size,
+    Expression<int>? emptyCrateStock,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (name != null) 'name': name,
       if (size != null) 'size': size,
+      if (emptyCrateStock != null) 'empty_crate_stock': emptyCrateStock,
     });
   }
 
@@ -215,11 +262,13 @@ class CrateGroupsCompanion extends UpdateCompanion<CrateGroupData> {
     Value<int>? id,
     Value<String>? name,
     Value<int>? size,
+    Value<int>? emptyCrateStock,
   }) {
     return CrateGroupsCompanion(
       id: id ?? this.id,
       name: name ?? this.name,
       size: size ?? this.size,
+      emptyCrateStock: emptyCrateStock ?? this.emptyCrateStock,
     );
   }
 
@@ -235,6 +284,9 @@ class CrateGroupsCompanion extends UpdateCompanion<CrateGroupData> {
     if (size.present) {
       map['size'] = Variable<int>(size.value);
     }
+    if (emptyCrateStock.present) {
+      map['empty_crate_stock'] = Variable<int>(emptyCrateStock.value);
+    }
     return map;
   }
 
@@ -243,7 +295,8 @@ class CrateGroupsCompanion extends UpdateCompanion<CrateGroupData> {
     return (StringBuffer('CrateGroupsCompanion(')
           ..write('id: $id, ')
           ..write('name: $name, ')
-          ..write('size: $size')
+          ..write('size: $size, ')
+          ..write('emptyCrateStock: $emptyCrateStock')
           ..write(')'))
         .toString();
   }
@@ -603,6 +656,20 @@ class $UsersTable extends Users with TableInfo<$UsersTable, UserData> {
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _warehouseIdMeta = const VerificationMeta(
+    'warehouseId',
+  );
+  @override
+  late final GeneratedColumn<int> warehouseId = GeneratedColumn<int>(
+    'warehouse_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES warehouses (id)',
+    ),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -614,6 +681,7 @@ class $UsersTable extends Users with TableInfo<$UsersTable, UserData> {
     roleTier,
     avatarColor,
     biometricEnabled,
+    warehouseId,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -693,6 +761,15 @@ class $UsersTable extends Users with TableInfo<$UsersTable, UserData> {
         ),
       );
     }
+    if (data.containsKey('warehouse_id')) {
+      context.handle(
+        _warehouseIdMeta,
+        warehouseId.isAcceptableOrUnknown(
+          data['warehouse_id']!,
+          _warehouseIdMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -738,6 +815,10 @@ class $UsersTable extends Users with TableInfo<$UsersTable, UserData> {
         DriftSqlType.bool,
         data['${effectivePrefix}biometric_enabled'],
       )!,
+      warehouseId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}warehouse_id'],
+      ),
     );
   }
 
@@ -757,6 +838,7 @@ class UserData extends DataClass implements Insertable<UserData> {
   final int roleTier;
   final String avatarColor;
   final bool biometricEnabled;
+  final int? warehouseId;
   const UserData({
     required this.id,
     required this.name,
@@ -767,6 +849,7 @@ class UserData extends DataClass implements Insertable<UserData> {
     required this.roleTier,
     required this.avatarColor,
     required this.biometricEnabled,
+    this.warehouseId,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -784,6 +867,9 @@ class UserData extends DataClass implements Insertable<UserData> {
     map['role_tier'] = Variable<int>(roleTier);
     map['avatar_color'] = Variable<String>(avatarColor);
     map['biometric_enabled'] = Variable<bool>(biometricEnabled);
+    if (!nullToAbsent || warehouseId != null) {
+      map['warehouse_id'] = Variable<int>(warehouseId);
+    }
     return map;
   }
 
@@ -802,6 +888,9 @@ class UserData extends DataClass implements Insertable<UserData> {
       roleTier: Value(roleTier),
       avatarColor: Value(avatarColor),
       biometricEnabled: Value(biometricEnabled),
+      warehouseId: warehouseId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(warehouseId),
     );
   }
 
@@ -820,6 +909,7 @@ class UserData extends DataClass implements Insertable<UserData> {
       roleTier: serializer.fromJson<int>(json['roleTier']),
       avatarColor: serializer.fromJson<String>(json['avatarColor']),
       biometricEnabled: serializer.fromJson<bool>(json['biometricEnabled']),
+      warehouseId: serializer.fromJson<int?>(json['warehouseId']),
     );
   }
   @override
@@ -835,6 +925,7 @@ class UserData extends DataClass implements Insertable<UserData> {
       'roleTier': serializer.toJson<int>(roleTier),
       'avatarColor': serializer.toJson<String>(avatarColor),
       'biometricEnabled': serializer.toJson<bool>(biometricEnabled),
+      'warehouseId': serializer.toJson<int?>(warehouseId),
     };
   }
 
@@ -848,6 +939,7 @@ class UserData extends DataClass implements Insertable<UserData> {
     int? roleTier,
     String? avatarColor,
     bool? biometricEnabled,
+    Value<int?> warehouseId = const Value.absent(),
   }) => UserData(
     id: id ?? this.id,
     name: name ?? this.name,
@@ -858,6 +950,7 @@ class UserData extends DataClass implements Insertable<UserData> {
     roleTier: roleTier ?? this.roleTier,
     avatarColor: avatarColor ?? this.avatarColor,
     biometricEnabled: biometricEnabled ?? this.biometricEnabled,
+    warehouseId: warehouseId.present ? warehouseId.value : this.warehouseId,
   );
   UserData copyWithCompanion(UsersCompanion data) {
     return UserData(
@@ -876,6 +969,9 @@ class UserData extends DataClass implements Insertable<UserData> {
       biometricEnabled: data.biometricEnabled.present
           ? data.biometricEnabled.value
           : this.biometricEnabled,
+      warehouseId: data.warehouseId.present
+          ? data.warehouseId.value
+          : this.warehouseId,
     );
   }
 
@@ -890,7 +986,8 @@ class UserData extends DataClass implements Insertable<UserData> {
           ..write('role: $role, ')
           ..write('roleTier: $roleTier, ')
           ..write('avatarColor: $avatarColor, ')
-          ..write('biometricEnabled: $biometricEnabled')
+          ..write('biometricEnabled: $biometricEnabled, ')
+          ..write('warehouseId: $warehouseId')
           ..write(')'))
         .toString();
   }
@@ -906,6 +1003,7 @@ class UserData extends DataClass implements Insertable<UserData> {
     roleTier,
     avatarColor,
     biometricEnabled,
+    warehouseId,
   );
   @override
   bool operator ==(Object other) =>
@@ -919,7 +1017,8 @@ class UserData extends DataClass implements Insertable<UserData> {
           other.role == this.role &&
           other.roleTier == this.roleTier &&
           other.avatarColor == this.avatarColor &&
-          other.biometricEnabled == this.biometricEnabled);
+          other.biometricEnabled == this.biometricEnabled &&
+          other.warehouseId == this.warehouseId);
 }
 
 class UsersCompanion extends UpdateCompanion<UserData> {
@@ -932,6 +1031,7 @@ class UsersCompanion extends UpdateCompanion<UserData> {
   final Value<int> roleTier;
   final Value<String> avatarColor;
   final Value<bool> biometricEnabled;
+  final Value<int?> warehouseId;
   const UsersCompanion({
     this.id = const Value.absent(),
     this.name = const Value.absent(),
@@ -942,6 +1042,7 @@ class UsersCompanion extends UpdateCompanion<UserData> {
     this.roleTier = const Value.absent(),
     this.avatarColor = const Value.absent(),
     this.biometricEnabled = const Value.absent(),
+    this.warehouseId = const Value.absent(),
   });
   UsersCompanion.insert({
     this.id = const Value.absent(),
@@ -953,6 +1054,7 @@ class UsersCompanion extends UpdateCompanion<UserData> {
     this.roleTier = const Value.absent(),
     this.avatarColor = const Value.absent(),
     this.biometricEnabled = const Value.absent(),
+    this.warehouseId = const Value.absent(),
   }) : name = Value(name),
        pin = Value(pin),
        role = Value(role);
@@ -966,6 +1068,7 @@ class UsersCompanion extends UpdateCompanion<UserData> {
     Expression<int>? roleTier,
     Expression<String>? avatarColor,
     Expression<bool>? biometricEnabled,
+    Expression<int>? warehouseId,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -977,6 +1080,7 @@ class UsersCompanion extends UpdateCompanion<UserData> {
       if (roleTier != null) 'role_tier': roleTier,
       if (avatarColor != null) 'avatar_color': avatarColor,
       if (biometricEnabled != null) 'biometric_enabled': biometricEnabled,
+      if (warehouseId != null) 'warehouse_id': warehouseId,
     });
   }
 
@@ -990,6 +1094,7 @@ class UsersCompanion extends UpdateCompanion<UserData> {
     Value<int>? roleTier,
     Value<String>? avatarColor,
     Value<bool>? biometricEnabled,
+    Value<int?>? warehouseId,
   }) {
     return UsersCompanion(
       id: id ?? this.id,
@@ -1001,6 +1106,7 @@ class UsersCompanion extends UpdateCompanion<UserData> {
       roleTier: roleTier ?? this.roleTier,
       avatarColor: avatarColor ?? this.avatarColor,
       biometricEnabled: biometricEnabled ?? this.biometricEnabled,
+      warehouseId: warehouseId ?? this.warehouseId,
     );
   }
 
@@ -1034,6 +1140,9 @@ class UsersCompanion extends UpdateCompanion<UserData> {
     if (biometricEnabled.present) {
       map['biometric_enabled'] = Variable<bool>(biometricEnabled.value);
     }
+    if (warehouseId.present) {
+      map['warehouse_id'] = Variable<int>(warehouseId.value);
+    }
     return map;
   }
 
@@ -1048,7 +1157,8 @@ class UsersCompanion extends UpdateCompanion<UserData> {
           ..write('role: $role, ')
           ..write('roleTier: $roleTier, ')
           ..write('avatarColor: $avatarColor, ')
-          ..write('biometricEnabled: $biometricEnabled')
+          ..write('biometricEnabled: $biometricEnabled, ')
+          ..write('warehouseId: $warehouseId')
           ..write(')'))
         .toString();
   }
@@ -1341,6 +1451,31 @@ class $ProductsTable extends Products
       'REFERENCES categories (id)',
     ),
   );
+  static const VerificationMeta _crateGroupIdMeta = const VerificationMeta(
+    'crateGroupId',
+  );
+  @override
+  late final GeneratedColumn<int> crateGroupId = GeneratedColumn<int>(
+    'crate_group_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES crate_groups (id)',
+    ),
+  );
+  static const VerificationMeta _crateSizeMeta = const VerificationMeta(
+    'crateSize',
+  );
+  @override
+  late final GeneratedColumn<String> crateSize = GeneratedColumn<String>(
+    'crate_size',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _nameMeta = const VerificationMeta('name');
   @override
   late final GeneratedColumn<String> name = GeneratedColumn<String>(
@@ -1492,6 +1627,8 @@ class $ProductsTable extends Products
   List<GeneratedColumn> get $columns => [
     id,
     categoryId,
+    crateGroupId,
+    crateSize,
     name,
     subtitle,
     sku,
@@ -1525,6 +1662,21 @@ class $ProductsTable extends Products
       context.handle(
         _categoryIdMeta,
         categoryId.isAcceptableOrUnknown(data['category_id']!, _categoryIdMeta),
+      );
+    }
+    if (data.containsKey('crate_group_id')) {
+      context.handle(
+        _crateGroupIdMeta,
+        crateGroupId.isAcceptableOrUnknown(
+          data['crate_group_id']!,
+          _crateGroupIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('crate_size')) {
+      context.handle(
+        _crateSizeMeta,
+        crateSize.isAcceptableOrUnknown(data['crate_size']!, _crateSizeMeta),
       );
     }
     if (data.containsKey('name')) {
@@ -1645,6 +1797,14 @@ class $ProductsTable extends Products
         DriftSqlType.int,
         data['${effectivePrefix}category_id'],
       ),
+      crateGroupId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}crate_group_id'],
+      ),
+      crateSize: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}crate_size'],
+      ),
       name: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}name'],
@@ -1709,6 +1869,8 @@ class $ProductsTable extends Products
 class ProductData extends DataClass implements Insertable<ProductData> {
   final int id;
   final int? categoryId;
+  final int? crateGroupId;
+  final String? crateSize;
   final String name;
   final String? subtitle;
   final String? sku;
@@ -1725,6 +1887,8 @@ class ProductData extends DataClass implements Insertable<ProductData> {
   const ProductData({
     required this.id,
     this.categoryId,
+    this.crateGroupId,
+    this.crateSize,
     required this.name,
     this.subtitle,
     this.sku,
@@ -1745,6 +1909,12 @@ class ProductData extends DataClass implements Insertable<ProductData> {
     map['id'] = Variable<int>(id);
     if (!nullToAbsent || categoryId != null) {
       map['category_id'] = Variable<int>(categoryId);
+    }
+    if (!nullToAbsent || crateGroupId != null) {
+      map['crate_group_id'] = Variable<int>(crateGroupId);
+    }
+    if (!nullToAbsent || crateSize != null) {
+      map['crate_size'] = Variable<String>(crateSize);
     }
     map['name'] = Variable<String>(name);
     if (!nullToAbsent || subtitle != null) {
@@ -1780,6 +1950,12 @@ class ProductData extends DataClass implements Insertable<ProductData> {
       categoryId: categoryId == null && nullToAbsent
           ? const Value.absent()
           : Value(categoryId),
+      crateGroupId: crateGroupId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(crateGroupId),
+      crateSize: crateSize == null && nullToAbsent
+          ? const Value.absent()
+          : Value(crateSize),
       name: Value(name),
       subtitle: subtitle == null && nullToAbsent
           ? const Value.absent()
@@ -1814,6 +1990,8 @@ class ProductData extends DataClass implements Insertable<ProductData> {
     return ProductData(
       id: serializer.fromJson<int>(json['id']),
       categoryId: serializer.fromJson<int?>(json['categoryId']),
+      crateGroupId: serializer.fromJson<int?>(json['crateGroupId']),
+      crateSize: serializer.fromJson<String?>(json['crateSize']),
       name: serializer.fromJson<String>(json['name']),
       subtitle: serializer.fromJson<String?>(json['subtitle']),
       sku: serializer.fromJson<String?>(json['sku']),
@@ -1839,6 +2017,8 @@ class ProductData extends DataClass implements Insertable<ProductData> {
     return <String, dynamic>{
       'id': serializer.toJson<int>(id),
       'categoryId': serializer.toJson<int?>(categoryId),
+      'crateGroupId': serializer.toJson<int?>(crateGroupId),
+      'crateSize': serializer.toJson<String?>(crateSize),
       'name': serializer.toJson<String>(name),
       'subtitle': serializer.toJson<String?>(subtitle),
       'sku': serializer.toJson<String?>(sku),
@@ -1858,6 +2038,8 @@ class ProductData extends DataClass implements Insertable<ProductData> {
   ProductData copyWith({
     int? id,
     Value<int?> categoryId = const Value.absent(),
+    Value<int?> crateGroupId = const Value.absent(),
+    Value<String?> crateSize = const Value.absent(),
     String? name,
     Value<String?> subtitle = const Value.absent(),
     Value<String?> sku = const Value.absent(),
@@ -1874,6 +2056,8 @@ class ProductData extends DataClass implements Insertable<ProductData> {
   }) => ProductData(
     id: id ?? this.id,
     categoryId: categoryId.present ? categoryId.value : this.categoryId,
+    crateGroupId: crateGroupId.present ? crateGroupId.value : this.crateGroupId,
+    crateSize: crateSize.present ? crateSize.value : this.crateSize,
     name: name ?? this.name,
     subtitle: subtitle.present ? subtitle.value : this.subtitle,
     sku: sku.present ? sku.value : this.sku,
@@ -1900,6 +2084,10 @@ class ProductData extends DataClass implements Insertable<ProductData> {
       categoryId: data.categoryId.present
           ? data.categoryId.value
           : this.categoryId,
+      crateGroupId: data.crateGroupId.present
+          ? data.crateGroupId.value
+          : this.crateGroupId,
+      crateSize: data.crateSize.present ? data.crateSize.value : this.crateSize,
       name: data.name.present ? data.name.value : this.name,
       subtitle: data.subtitle.present ? data.subtitle.value : this.subtitle,
       sku: data.sku.present ? data.sku.value : this.sku,
@@ -1935,6 +2123,8 @@ class ProductData extends DataClass implements Insertable<ProductData> {
     return (StringBuffer('ProductData(')
           ..write('id: $id, ')
           ..write('categoryId: $categoryId, ')
+          ..write('crateGroupId: $crateGroupId, ')
+          ..write('crateSize: $crateSize, ')
           ..write('name: $name, ')
           ..write('subtitle: $subtitle, ')
           ..write('sku: $sku, ')
@@ -1956,6 +2146,8 @@ class ProductData extends DataClass implements Insertable<ProductData> {
   int get hashCode => Object.hash(
     id,
     categoryId,
+    crateGroupId,
+    crateSize,
     name,
     subtitle,
     sku,
@@ -1976,6 +2168,8 @@ class ProductData extends DataClass implements Insertable<ProductData> {
       (other is ProductData &&
           other.id == this.id &&
           other.categoryId == this.categoryId &&
+          other.crateGroupId == this.crateGroupId &&
+          other.crateSize == this.crateSize &&
           other.name == this.name &&
           other.subtitle == this.subtitle &&
           other.sku == this.sku &&
@@ -1994,6 +2188,8 @@ class ProductData extends DataClass implements Insertable<ProductData> {
 class ProductsCompanion extends UpdateCompanion<ProductData> {
   final Value<int> id;
   final Value<int?> categoryId;
+  final Value<int?> crateGroupId;
+  final Value<String?> crateSize;
   final Value<String> name;
   final Value<String?> subtitle;
   final Value<String?> sku;
@@ -2010,6 +2206,8 @@ class ProductsCompanion extends UpdateCompanion<ProductData> {
   const ProductsCompanion({
     this.id = const Value.absent(),
     this.categoryId = const Value.absent(),
+    this.crateGroupId = const Value.absent(),
+    this.crateSize = const Value.absent(),
     this.name = const Value.absent(),
     this.subtitle = const Value.absent(),
     this.sku = const Value.absent(),
@@ -2027,6 +2225,8 @@ class ProductsCompanion extends UpdateCompanion<ProductData> {
   ProductsCompanion.insert({
     this.id = const Value.absent(),
     this.categoryId = const Value.absent(),
+    this.crateGroupId = const Value.absent(),
+    this.crateSize = const Value.absent(),
     required String name,
     this.subtitle = const Value.absent(),
     this.sku = const Value.absent(),
@@ -2044,6 +2244,8 @@ class ProductsCompanion extends UpdateCompanion<ProductData> {
   static Insertable<ProductData> custom({
     Expression<int>? id,
     Expression<int>? categoryId,
+    Expression<int>? crateGroupId,
+    Expression<String>? crateSize,
     Expression<String>? name,
     Expression<String>? subtitle,
     Expression<String>? sku,
@@ -2061,6 +2263,8 @@ class ProductsCompanion extends UpdateCompanion<ProductData> {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (categoryId != null) 'category_id': categoryId,
+      if (crateGroupId != null) 'crate_group_id': crateGroupId,
+      if (crateSize != null) 'crate_size': crateSize,
       if (name != null) 'name': name,
       if (subtitle != null) 'subtitle': subtitle,
       if (sku != null) 'sku': sku,
@@ -2082,6 +2286,8 @@ class ProductsCompanion extends UpdateCompanion<ProductData> {
   ProductsCompanion copyWith({
     Value<int>? id,
     Value<int?>? categoryId,
+    Value<int?>? crateGroupId,
+    Value<String?>? crateSize,
     Value<String>? name,
     Value<String?>? subtitle,
     Value<String?>? sku,
@@ -2099,6 +2305,8 @@ class ProductsCompanion extends UpdateCompanion<ProductData> {
     return ProductsCompanion(
       id: id ?? this.id,
       categoryId: categoryId ?? this.categoryId,
+      crateGroupId: crateGroupId ?? this.crateGroupId,
+      crateSize: crateSize ?? this.crateSize,
       name: name ?? this.name,
       subtitle: subtitle ?? this.subtitle,
       sku: sku ?? this.sku,
@@ -2123,6 +2331,12 @@ class ProductsCompanion extends UpdateCompanion<ProductData> {
     }
     if (categoryId.present) {
       map['category_id'] = Variable<int>(categoryId.value);
+    }
+    if (crateGroupId.present) {
+      map['crate_group_id'] = Variable<int>(crateGroupId.value);
+    }
+    if (crateSize.present) {
+      map['crate_size'] = Variable<String>(crateSize.value);
     }
     if (name.present) {
       map['name'] = Variable<String>(name.value);
@@ -2173,6 +2387,8 @@ class ProductsCompanion extends UpdateCompanion<ProductData> {
     return (StringBuffer('ProductsCompanion(')
           ..write('id: $id, ')
           ..write('categoryId: $categoryId, ')
+          ..write('crateGroupId: $crateGroupId, ')
+          ..write('crateSize: $crateSize, ')
           ..write('name: $name, ')
           ..write('subtitle: $subtitle, ')
           ..write('sku: $sku, ')
@@ -3014,8 +3230,26 @@ class $SuppliersTable extends Suppliers
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _crateGroupNameMeta = const VerificationMeta(
+    'crateGroupName',
+  );
   @override
-  List<GeneratedColumn> get $columns => [id, name, phone, email, address];
+  late final GeneratedColumn<String> crateGroupName = GeneratedColumn<String>(
+    'crate_group_name',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    name,
+    phone,
+    email,
+    address,
+    crateGroupName,
+  ];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -3057,6 +3291,15 @@ class $SuppliersTable extends Suppliers
         address.isAcceptableOrUnknown(data['address']!, _addressMeta),
       );
     }
+    if (data.containsKey('crate_group_name')) {
+      context.handle(
+        _crateGroupNameMeta,
+        crateGroupName.isAcceptableOrUnknown(
+          data['crate_group_name']!,
+          _crateGroupNameMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -3086,6 +3329,10 @@ class $SuppliersTable extends Suppliers
         DriftSqlType.string,
         data['${effectivePrefix}address'],
       ),
+      crateGroupName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}crate_group_name'],
+      ),
     );
   }
 
@@ -3101,12 +3348,14 @@ class SupplierData extends DataClass implements Insertable<SupplierData> {
   final String? phone;
   final String? email;
   final String? address;
+  final String? crateGroupName;
   const SupplierData({
     required this.id,
     required this.name,
     this.phone,
     this.email,
     this.address,
+    this.crateGroupName,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -3121,6 +3370,9 @@ class SupplierData extends DataClass implements Insertable<SupplierData> {
     }
     if (!nullToAbsent || address != null) {
       map['address'] = Variable<String>(address);
+    }
+    if (!nullToAbsent || crateGroupName != null) {
+      map['crate_group_name'] = Variable<String>(crateGroupName);
     }
     return map;
   }
@@ -3138,6 +3390,9 @@ class SupplierData extends DataClass implements Insertable<SupplierData> {
       address: address == null && nullToAbsent
           ? const Value.absent()
           : Value(address),
+      crateGroupName: crateGroupName == null && nullToAbsent
+          ? const Value.absent()
+          : Value(crateGroupName),
     );
   }
 
@@ -3152,6 +3407,7 @@ class SupplierData extends DataClass implements Insertable<SupplierData> {
       phone: serializer.fromJson<String?>(json['phone']),
       email: serializer.fromJson<String?>(json['email']),
       address: serializer.fromJson<String?>(json['address']),
+      crateGroupName: serializer.fromJson<String?>(json['crateGroupName']),
     );
   }
   @override
@@ -3163,6 +3419,7 @@ class SupplierData extends DataClass implements Insertable<SupplierData> {
       'phone': serializer.toJson<String?>(phone),
       'email': serializer.toJson<String?>(email),
       'address': serializer.toJson<String?>(address),
+      'crateGroupName': serializer.toJson<String?>(crateGroupName),
     };
   }
 
@@ -3172,12 +3429,16 @@ class SupplierData extends DataClass implements Insertable<SupplierData> {
     Value<String?> phone = const Value.absent(),
     Value<String?> email = const Value.absent(),
     Value<String?> address = const Value.absent(),
+    Value<String?> crateGroupName = const Value.absent(),
   }) => SupplierData(
     id: id ?? this.id,
     name: name ?? this.name,
     phone: phone.present ? phone.value : this.phone,
     email: email.present ? email.value : this.email,
     address: address.present ? address.value : this.address,
+    crateGroupName: crateGroupName.present
+        ? crateGroupName.value
+        : this.crateGroupName,
   );
   SupplierData copyWithCompanion(SuppliersCompanion data) {
     return SupplierData(
@@ -3186,6 +3447,9 @@ class SupplierData extends DataClass implements Insertable<SupplierData> {
       phone: data.phone.present ? data.phone.value : this.phone,
       email: data.email.present ? data.email.value : this.email,
       address: data.address.present ? data.address.value : this.address,
+      crateGroupName: data.crateGroupName.present
+          ? data.crateGroupName.value
+          : this.crateGroupName,
     );
   }
 
@@ -3196,13 +3460,15 @@ class SupplierData extends DataClass implements Insertable<SupplierData> {
           ..write('name: $name, ')
           ..write('phone: $phone, ')
           ..write('email: $email, ')
-          ..write('address: $address')
+          ..write('address: $address, ')
+          ..write('crateGroupName: $crateGroupName')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, name, phone, email, address);
+  int get hashCode =>
+      Object.hash(id, name, phone, email, address, crateGroupName);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -3211,7 +3477,8 @@ class SupplierData extends DataClass implements Insertable<SupplierData> {
           other.name == this.name &&
           other.phone == this.phone &&
           other.email == this.email &&
-          other.address == this.address);
+          other.address == this.address &&
+          other.crateGroupName == this.crateGroupName);
 }
 
 class SuppliersCompanion extends UpdateCompanion<SupplierData> {
@@ -3220,12 +3487,14 @@ class SuppliersCompanion extends UpdateCompanion<SupplierData> {
   final Value<String?> phone;
   final Value<String?> email;
   final Value<String?> address;
+  final Value<String?> crateGroupName;
   const SuppliersCompanion({
     this.id = const Value.absent(),
     this.name = const Value.absent(),
     this.phone = const Value.absent(),
     this.email = const Value.absent(),
     this.address = const Value.absent(),
+    this.crateGroupName = const Value.absent(),
   });
   SuppliersCompanion.insert({
     this.id = const Value.absent(),
@@ -3233,6 +3502,7 @@ class SuppliersCompanion extends UpdateCompanion<SupplierData> {
     this.phone = const Value.absent(),
     this.email = const Value.absent(),
     this.address = const Value.absent(),
+    this.crateGroupName = const Value.absent(),
   }) : name = Value(name);
   static Insertable<SupplierData> custom({
     Expression<int>? id,
@@ -3240,6 +3510,7 @@ class SuppliersCompanion extends UpdateCompanion<SupplierData> {
     Expression<String>? phone,
     Expression<String>? email,
     Expression<String>? address,
+    Expression<String>? crateGroupName,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -3247,6 +3518,7 @@ class SuppliersCompanion extends UpdateCompanion<SupplierData> {
       if (phone != null) 'phone': phone,
       if (email != null) 'email': email,
       if (address != null) 'address': address,
+      if (crateGroupName != null) 'crate_group_name': crateGroupName,
     });
   }
 
@@ -3256,6 +3528,7 @@ class SuppliersCompanion extends UpdateCompanion<SupplierData> {
     Value<String?>? phone,
     Value<String?>? email,
     Value<String?>? address,
+    Value<String?>? crateGroupName,
   }) {
     return SuppliersCompanion(
       id: id ?? this.id,
@@ -3263,6 +3536,7 @@ class SuppliersCompanion extends UpdateCompanion<SupplierData> {
       phone: phone ?? this.phone,
       email: email ?? this.email,
       address: address ?? this.address,
+      crateGroupName: crateGroupName ?? this.crateGroupName,
     );
   }
 
@@ -3284,6 +3558,9 @@ class SuppliersCompanion extends UpdateCompanion<SupplierData> {
     if (address.present) {
       map['address'] = Variable<String>(address.value);
     }
+    if (crateGroupName.present) {
+      map['crate_group_name'] = Variable<String>(crateGroupName.value);
+    }
     return map;
   }
 
@@ -3294,7 +3571,8 @@ class SuppliersCompanion extends UpdateCompanion<SupplierData> {
           ..write('name: $name, ')
           ..write('phone: $phone, ')
           ..write('email: $email, ')
-          ..write('address: $address')
+          ..write('address: $address, ')
+          ..write('crateGroupName: $crateGroupName')
           ..write(')'))
         .toString();
   }
@@ -5765,12 +6043,24 @@ class $ExpensesTable extends Expenses
   late final GeneratedColumn<int> categoryId = GeneratedColumn<int>(
     'category_id',
     aliasedName,
-    false,
+    true,
     type: DriftSqlType.int,
-    requiredDuringInsert: true,
+    requiredDuringInsert: false,
     defaultConstraints: GeneratedColumn.constraintIsAlways(
       'REFERENCES expense_categories (id)',
     ),
+  );
+  static const VerificationMeta _categoryMeta = const VerificationMeta(
+    'category',
+  );
+  @override
+  late final GeneratedColumn<String> category = GeneratedColumn<String>(
+    'category',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('Others'),
   );
   static const VerificationMeta _amountKoboMeta = const VerificationMeta(
     'amountKobo',
@@ -5794,6 +6084,39 @@ class $ExpensesTable extends Expenses
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _paymentMethodMeta = const VerificationMeta(
+    'paymentMethod',
+  );
+  @override
+  late final GeneratedColumn<String> paymentMethod = GeneratedColumn<String>(
+    'payment_method',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _recordedByMeta = const VerificationMeta(
+    'recordedBy',
+  );
+  @override
+  late final GeneratedColumn<String> recordedBy = GeneratedColumn<String>(
+    'recorded_by',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _referenceMeta = const VerificationMeta(
+    'reference',
+  );
+  @override
+  late final GeneratedColumn<String> reference = GeneratedColumn<String>(
+    'reference',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _timestampMeta = const VerificationMeta(
     'timestamp',
   );
@@ -5810,8 +6133,12 @@ class $ExpensesTable extends Expenses
   List<GeneratedColumn> get $columns => [
     id,
     categoryId,
+    category,
     amountKobo,
     description,
+    paymentMethod,
+    recordedBy,
+    reference,
     timestamp,
   ];
   @override
@@ -5834,8 +6161,12 @@ class $ExpensesTable extends Expenses
         _categoryIdMeta,
         categoryId.isAcceptableOrUnknown(data['category_id']!, _categoryIdMeta),
       );
-    } else if (isInserting) {
-      context.missing(_categoryIdMeta);
+    }
+    if (data.containsKey('category')) {
+      context.handle(
+        _categoryMeta,
+        category.isAcceptableOrUnknown(data['category']!, _categoryMeta),
+      );
     }
     if (data.containsKey('amount_kobo')) {
       context.handle(
@@ -5855,6 +6186,27 @@ class $ExpensesTable extends Expenses
       );
     } else if (isInserting) {
       context.missing(_descriptionMeta);
+    }
+    if (data.containsKey('payment_method')) {
+      context.handle(
+        _paymentMethodMeta,
+        paymentMethod.isAcceptableOrUnknown(
+          data['payment_method']!,
+          _paymentMethodMeta,
+        ),
+      );
+    }
+    if (data.containsKey('recorded_by')) {
+      context.handle(
+        _recordedByMeta,
+        recordedBy.isAcceptableOrUnknown(data['recorded_by']!, _recordedByMeta),
+      );
+    }
+    if (data.containsKey('reference')) {
+      context.handle(
+        _referenceMeta,
+        reference.isAcceptableOrUnknown(data['reference']!, _referenceMeta),
+      );
     }
     if (data.containsKey('timestamp')) {
       context.handle(
@@ -5878,6 +6230,10 @@ class $ExpensesTable extends Expenses
       categoryId: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}category_id'],
+      ),
+      category: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}category'],
       )!,
       amountKobo: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
@@ -5887,6 +6243,18 @@ class $ExpensesTable extends Expenses
         DriftSqlType.string,
         data['${effectivePrefix}description'],
       )!,
+      paymentMethod: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}payment_method'],
+      ),
+      recordedBy: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}recorded_by'],
+      ),
+      reference: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}reference'],
+      ),
       timestamp: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}timestamp'],
@@ -5902,24 +6270,44 @@ class $ExpensesTable extends Expenses
 
 class ExpenseData extends DataClass implements Insertable<ExpenseData> {
   final int id;
-  final int categoryId;
+  final int? categoryId;
+  final String category;
   final int amountKobo;
   final String description;
+  final String? paymentMethod;
+  final String? recordedBy;
+  final String? reference;
   final DateTime timestamp;
   const ExpenseData({
     required this.id,
-    required this.categoryId,
+    this.categoryId,
+    required this.category,
     required this.amountKobo,
     required this.description,
+    this.paymentMethod,
+    this.recordedBy,
+    this.reference,
     required this.timestamp,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
     map['id'] = Variable<int>(id);
-    map['category_id'] = Variable<int>(categoryId);
+    if (!nullToAbsent || categoryId != null) {
+      map['category_id'] = Variable<int>(categoryId);
+    }
+    map['category'] = Variable<String>(category);
     map['amount_kobo'] = Variable<int>(amountKobo);
     map['description'] = Variable<String>(description);
+    if (!nullToAbsent || paymentMethod != null) {
+      map['payment_method'] = Variable<String>(paymentMethod);
+    }
+    if (!nullToAbsent || recordedBy != null) {
+      map['recorded_by'] = Variable<String>(recordedBy);
+    }
+    if (!nullToAbsent || reference != null) {
+      map['reference'] = Variable<String>(reference);
+    }
     map['timestamp'] = Variable<DateTime>(timestamp);
     return map;
   }
@@ -5927,9 +6315,21 @@ class ExpenseData extends DataClass implements Insertable<ExpenseData> {
   ExpensesCompanion toCompanion(bool nullToAbsent) {
     return ExpensesCompanion(
       id: Value(id),
-      categoryId: Value(categoryId),
+      categoryId: categoryId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(categoryId),
+      category: Value(category),
       amountKobo: Value(amountKobo),
       description: Value(description),
+      paymentMethod: paymentMethod == null && nullToAbsent
+          ? const Value.absent()
+          : Value(paymentMethod),
+      recordedBy: recordedBy == null && nullToAbsent
+          ? const Value.absent()
+          : Value(recordedBy),
+      reference: reference == null && nullToAbsent
+          ? const Value.absent()
+          : Value(reference),
       timestamp: Value(timestamp),
     );
   }
@@ -5941,9 +6341,13 @@ class ExpenseData extends DataClass implements Insertable<ExpenseData> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return ExpenseData(
       id: serializer.fromJson<int>(json['id']),
-      categoryId: serializer.fromJson<int>(json['categoryId']),
+      categoryId: serializer.fromJson<int?>(json['categoryId']),
+      category: serializer.fromJson<String>(json['category']),
       amountKobo: serializer.fromJson<int>(json['amountKobo']),
       description: serializer.fromJson<String>(json['description']),
+      paymentMethod: serializer.fromJson<String?>(json['paymentMethod']),
+      recordedBy: serializer.fromJson<String?>(json['recordedBy']),
+      reference: serializer.fromJson<String?>(json['reference']),
       timestamp: serializer.fromJson<DateTime>(json['timestamp']),
     );
   }
@@ -5952,24 +6356,38 @@ class ExpenseData extends DataClass implements Insertable<ExpenseData> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return <String, dynamic>{
       'id': serializer.toJson<int>(id),
-      'categoryId': serializer.toJson<int>(categoryId),
+      'categoryId': serializer.toJson<int?>(categoryId),
+      'category': serializer.toJson<String>(category),
       'amountKobo': serializer.toJson<int>(amountKobo),
       'description': serializer.toJson<String>(description),
+      'paymentMethod': serializer.toJson<String?>(paymentMethod),
+      'recordedBy': serializer.toJson<String?>(recordedBy),
+      'reference': serializer.toJson<String?>(reference),
       'timestamp': serializer.toJson<DateTime>(timestamp),
     };
   }
 
   ExpenseData copyWith({
     int? id,
-    int? categoryId,
+    Value<int?> categoryId = const Value.absent(),
+    String? category,
     int? amountKobo,
     String? description,
+    Value<String?> paymentMethod = const Value.absent(),
+    Value<String?> recordedBy = const Value.absent(),
+    Value<String?> reference = const Value.absent(),
     DateTime? timestamp,
   }) => ExpenseData(
     id: id ?? this.id,
-    categoryId: categoryId ?? this.categoryId,
+    categoryId: categoryId.present ? categoryId.value : this.categoryId,
+    category: category ?? this.category,
     amountKobo: amountKobo ?? this.amountKobo,
     description: description ?? this.description,
+    paymentMethod: paymentMethod.present
+        ? paymentMethod.value
+        : this.paymentMethod,
+    recordedBy: recordedBy.present ? recordedBy.value : this.recordedBy,
+    reference: reference.present ? reference.value : this.reference,
     timestamp: timestamp ?? this.timestamp,
   );
   ExpenseData copyWithCompanion(ExpensesCompanion data) {
@@ -5978,12 +6396,20 @@ class ExpenseData extends DataClass implements Insertable<ExpenseData> {
       categoryId: data.categoryId.present
           ? data.categoryId.value
           : this.categoryId,
+      category: data.category.present ? data.category.value : this.category,
       amountKobo: data.amountKobo.present
           ? data.amountKobo.value
           : this.amountKobo,
       description: data.description.present
           ? data.description.value
           : this.description,
+      paymentMethod: data.paymentMethod.present
+          ? data.paymentMethod.value
+          : this.paymentMethod,
+      recordedBy: data.recordedBy.present
+          ? data.recordedBy.value
+          : this.recordedBy,
+      reference: data.reference.present ? data.reference.value : this.reference,
       timestamp: data.timestamp.present ? data.timestamp.value : this.timestamp,
     );
   }
@@ -5993,77 +6419,121 @@ class ExpenseData extends DataClass implements Insertable<ExpenseData> {
     return (StringBuffer('ExpenseData(')
           ..write('id: $id, ')
           ..write('categoryId: $categoryId, ')
+          ..write('category: $category, ')
           ..write('amountKobo: $amountKobo, ')
           ..write('description: $description, ')
+          ..write('paymentMethod: $paymentMethod, ')
+          ..write('recordedBy: $recordedBy, ')
+          ..write('reference: $reference, ')
           ..write('timestamp: $timestamp')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, categoryId, amountKobo, description, timestamp);
+  int get hashCode => Object.hash(
+    id,
+    categoryId,
+    category,
+    amountKobo,
+    description,
+    paymentMethod,
+    recordedBy,
+    reference,
+    timestamp,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       (other is ExpenseData &&
           other.id == this.id &&
           other.categoryId == this.categoryId &&
+          other.category == this.category &&
           other.amountKobo == this.amountKobo &&
           other.description == this.description &&
+          other.paymentMethod == this.paymentMethod &&
+          other.recordedBy == this.recordedBy &&
+          other.reference == this.reference &&
           other.timestamp == this.timestamp);
 }
 
 class ExpensesCompanion extends UpdateCompanion<ExpenseData> {
   final Value<int> id;
-  final Value<int> categoryId;
+  final Value<int?> categoryId;
+  final Value<String> category;
   final Value<int> amountKobo;
   final Value<String> description;
+  final Value<String?> paymentMethod;
+  final Value<String?> recordedBy;
+  final Value<String?> reference;
   final Value<DateTime> timestamp;
   const ExpensesCompanion({
     this.id = const Value.absent(),
     this.categoryId = const Value.absent(),
+    this.category = const Value.absent(),
     this.amountKobo = const Value.absent(),
     this.description = const Value.absent(),
+    this.paymentMethod = const Value.absent(),
+    this.recordedBy = const Value.absent(),
+    this.reference = const Value.absent(),
     this.timestamp = const Value.absent(),
   });
   ExpensesCompanion.insert({
     this.id = const Value.absent(),
-    required int categoryId,
+    this.categoryId = const Value.absent(),
+    this.category = const Value.absent(),
     required int amountKobo,
     required String description,
+    this.paymentMethod = const Value.absent(),
+    this.recordedBy = const Value.absent(),
+    this.reference = const Value.absent(),
     this.timestamp = const Value.absent(),
-  }) : categoryId = Value(categoryId),
-       amountKobo = Value(amountKobo),
+  }) : amountKobo = Value(amountKobo),
        description = Value(description);
   static Insertable<ExpenseData> custom({
     Expression<int>? id,
     Expression<int>? categoryId,
+    Expression<String>? category,
     Expression<int>? amountKobo,
     Expression<String>? description,
+    Expression<String>? paymentMethod,
+    Expression<String>? recordedBy,
+    Expression<String>? reference,
     Expression<DateTime>? timestamp,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (categoryId != null) 'category_id': categoryId,
+      if (category != null) 'category': category,
       if (amountKobo != null) 'amount_kobo': amountKobo,
       if (description != null) 'description': description,
+      if (paymentMethod != null) 'payment_method': paymentMethod,
+      if (recordedBy != null) 'recorded_by': recordedBy,
+      if (reference != null) 'reference': reference,
       if (timestamp != null) 'timestamp': timestamp,
     });
   }
 
   ExpensesCompanion copyWith({
     Value<int>? id,
-    Value<int>? categoryId,
+    Value<int?>? categoryId,
+    Value<String>? category,
     Value<int>? amountKobo,
     Value<String>? description,
+    Value<String?>? paymentMethod,
+    Value<String?>? recordedBy,
+    Value<String?>? reference,
     Value<DateTime>? timestamp,
   }) {
     return ExpensesCompanion(
       id: id ?? this.id,
       categoryId: categoryId ?? this.categoryId,
+      category: category ?? this.category,
       amountKobo: amountKobo ?? this.amountKobo,
       description: description ?? this.description,
+      paymentMethod: paymentMethod ?? this.paymentMethod,
+      recordedBy: recordedBy ?? this.recordedBy,
+      reference: reference ?? this.reference,
       timestamp: timestamp ?? this.timestamp,
     );
   }
@@ -6077,11 +6547,23 @@ class ExpensesCompanion extends UpdateCompanion<ExpenseData> {
     if (categoryId.present) {
       map['category_id'] = Variable<int>(categoryId.value);
     }
+    if (category.present) {
+      map['category'] = Variable<String>(category.value);
+    }
     if (amountKobo.present) {
       map['amount_kobo'] = Variable<int>(amountKobo.value);
     }
     if (description.present) {
       map['description'] = Variable<String>(description.value);
+    }
+    if (paymentMethod.present) {
+      map['payment_method'] = Variable<String>(paymentMethod.value);
+    }
+    if (recordedBy.present) {
+      map['recorded_by'] = Variable<String>(recordedBy.value);
+    }
+    if (reference.present) {
+      map['reference'] = Variable<String>(reference.value);
     }
     if (timestamp.present) {
       map['timestamp'] = Variable<DateTime>(timestamp.value);
@@ -6094,8 +6576,12 @@ class ExpensesCompanion extends UpdateCompanion<ExpenseData> {
     return (StringBuffer('ExpensesCompanion(')
           ..write('id: $id, ')
           ..write('categoryId: $categoryId, ')
+          ..write('category: $category, ')
           ..write('amountKobo: $amountKobo, ')
           ..write('description: $description, ')
+          ..write('paymentMethod: $paymentMethod, ')
+          ..write('recordedBy: $recordedBy, ')
+          ..write('reference: $reference, ')
           ..write('timestamp: $timestamp')
           ..write(')'))
         .toString();
@@ -11830,6 +12316,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final NotificationsDao notificationsDao = NotificationsDao(
     this as AppDatabase,
   );
+  late final WarehousesDao warehousesDao = WarehousesDao(this as AppDatabase);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -11872,17 +12359,40 @@ typedef $$CrateGroupsTableCreateCompanionBuilder =
       Value<int> id,
       required String name,
       required int size,
+      Value<int> emptyCrateStock,
     });
 typedef $$CrateGroupsTableUpdateCompanionBuilder =
     CrateGroupsCompanion Function({
       Value<int> id,
       Value<String> name,
       Value<int> size,
+      Value<int> emptyCrateStock,
     });
 
 final class $$CrateGroupsTableReferences
     extends BaseReferences<_$AppDatabase, $CrateGroupsTable, CrateGroupData> {
   $$CrateGroupsTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static MultiTypedResultKey<$ProductsTable, List<ProductData>>
+  _productsRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.products,
+    aliasName: $_aliasNameGenerator(
+      db.crateGroups.id,
+      db.products.crateGroupId,
+    ),
+  );
+
+  $$ProductsTableProcessedTableManager get productsRefs {
+    final manager = $$ProductsTableTableManager(
+      $_db,
+      $_db.products,
+    ).filter((f) => f.crateGroupId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_productsRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
 
   static MultiTypedResultKey<
     $CustomerCrateBalancesTable,
@@ -11937,6 +12447,36 @@ class $$CrateGroupsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<int> get emptyCrateStock => $composableBuilder(
+    column: $table.emptyCrateStock,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  Expression<bool> productsRefs(
+    Expression<bool> Function($$ProductsTableFilterComposer f) f,
+  ) {
+    final $$ProductsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.products,
+      getReferencedColumn: (t) => t.crateGroupId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ProductsTableFilterComposer(
+            $db: $db,
+            $table: $db.products,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
   Expression<bool> customerCrateBalancesRefs(
     Expression<bool> Function($$CustomerCrateBalancesTableFilterComposer f) f,
   ) {
@@ -11987,6 +12527,11 @@ class $$CrateGroupsTableOrderingComposer
     column: $table.size,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<int> get emptyCrateStock => $composableBuilder(
+    column: $table.emptyCrateStock,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$CrateGroupsTableAnnotationComposer
@@ -12006,6 +12551,36 @@ class $$CrateGroupsTableAnnotationComposer
 
   GeneratedColumn<int> get size =>
       $composableBuilder(column: $table.size, builder: (column) => column);
+
+  GeneratedColumn<int> get emptyCrateStock => $composableBuilder(
+    column: $table.emptyCrateStock,
+    builder: (column) => column,
+  );
+
+  Expression<T> productsRefs<T extends Object>(
+    Expression<T> Function($$ProductsTableAnnotationComposer a) f,
+  ) {
+    final $$ProductsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.products,
+      getReferencedColumn: (t) => t.crateGroupId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ProductsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.products,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 
   Expression<T> customerCrateBalancesRefs<T extends Object>(
     Expression<T> Function($$CustomerCrateBalancesTableAnnotationComposer a) f,
@@ -12047,7 +12622,10 @@ class $$CrateGroupsTableTableManager
           $$CrateGroupsTableUpdateCompanionBuilder,
           (CrateGroupData, $$CrateGroupsTableReferences),
           CrateGroupData,
-          PrefetchHooks Function({bool customerCrateBalancesRefs})
+          PrefetchHooks Function({
+            bool productsRefs,
+            bool customerCrateBalancesRefs,
+          })
         > {
   $$CrateGroupsTableTableManager(_$AppDatabase db, $CrateGroupsTable table)
     : super(
@@ -12065,13 +12643,25 @@ class $$CrateGroupsTableTableManager
                 Value<int> id = const Value.absent(),
                 Value<String> name = const Value.absent(),
                 Value<int> size = const Value.absent(),
-              }) => CrateGroupsCompanion(id: id, name: name, size: size),
+                Value<int> emptyCrateStock = const Value.absent(),
+              }) => CrateGroupsCompanion(
+                id: id,
+                name: name,
+                size: size,
+                emptyCrateStock: emptyCrateStock,
+              ),
           createCompanionCallback:
               ({
                 Value<int> id = const Value.absent(),
                 required String name,
                 required int size,
-              }) => CrateGroupsCompanion.insert(id: id, name: name, size: size),
+                Value<int> emptyCrateStock = const Value.absent(),
+              }) => CrateGroupsCompanion.insert(
+                id: id,
+                name: name,
+                size: size,
+                emptyCrateStock: emptyCrateStock,
+              ),
           withReferenceMapper: (p0) => p0
               .map(
                 (e) => (
@@ -12080,40 +12670,63 @@ class $$CrateGroupsTableTableManager
                 ),
               )
               .toList(),
-          prefetchHooksCallback: ({customerCrateBalancesRefs = false}) {
-            return PrefetchHooks(
-              db: db,
-              explicitlyWatchedTables: [
-                if (customerCrateBalancesRefs) db.customerCrateBalances,
-              ],
-              addJoins: null,
-              getPrefetchedDataCallback: (items) async {
-                return [
-                  if (customerCrateBalancesRefs)
-                    await $_getPrefetchedData<
-                      CrateGroupData,
-                      $CrateGroupsTable,
-                      CustomerCrateBalance
-                    >(
-                      currentTable: table,
-                      referencedTable: $$CrateGroupsTableReferences
-                          ._customerCrateBalancesRefsTable(db),
-                      managerFromTypedResult: (p0) =>
-                          $$CrateGroupsTableReferences(
-                            db,
-                            table,
-                            p0,
-                          ).customerCrateBalancesRefs,
-                      referencedItemsForCurrentItem: (item, referencedItems) =>
-                          referencedItems.where(
-                            (e) => e.crateGroupId == item.id,
-                          ),
-                      typedResults: items,
-                    ),
-                ];
+          prefetchHooksCallback:
+              ({productsRefs = false, customerCrateBalancesRefs = false}) {
+                return PrefetchHooks(
+                  db: db,
+                  explicitlyWatchedTables: [
+                    if (productsRefs) db.products,
+                    if (customerCrateBalancesRefs) db.customerCrateBalances,
+                  ],
+                  addJoins: null,
+                  getPrefetchedDataCallback: (items) async {
+                    return [
+                      if (productsRefs)
+                        await $_getPrefetchedData<
+                          CrateGroupData,
+                          $CrateGroupsTable,
+                          ProductData
+                        >(
+                          currentTable: table,
+                          referencedTable: $$CrateGroupsTableReferences
+                              ._productsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$CrateGroupsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).productsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.crateGroupId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                      if (customerCrateBalancesRefs)
+                        await $_getPrefetchedData<
+                          CrateGroupData,
+                          $CrateGroupsTable,
+                          CustomerCrateBalance
+                        >(
+                          currentTable: table,
+                          referencedTable: $$CrateGroupsTableReferences
+                              ._customerCrateBalancesRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$CrateGroupsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).customerCrateBalancesRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.crateGroupId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                    ];
+                  },
+                );
               },
-            );
-          },
         ),
       );
 }
@@ -12130,7 +12743,10 @@ typedef $$CrateGroupsTableProcessedTableManager =
       $$CrateGroupsTableUpdateCompanionBuilder,
       (CrateGroupData, $$CrateGroupsTableReferences),
       CrateGroupData,
-      PrefetchHooks Function({bool customerCrateBalancesRefs})
+      PrefetchHooks Function({
+        bool productsRefs,
+        bool customerCrateBalancesRefs,
+      })
     >;
 typedef $$WarehousesTableCreateCompanionBuilder =
     WarehousesCompanion Function({
@@ -12148,6 +12764,25 @@ typedef $$WarehousesTableUpdateCompanionBuilder =
 final class $$WarehousesTableReferences
     extends BaseReferences<_$AppDatabase, $WarehousesTable, WarehouseData> {
   $$WarehousesTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static MultiTypedResultKey<$UsersTable, List<UserData>> _usersRefsTable(
+    _$AppDatabase db,
+  ) => MultiTypedResultKey.fromTable(
+    db.users,
+    aliasName: $_aliasNameGenerator(db.warehouses.id, db.users.warehouseId),
+  );
+
+  $$UsersTableProcessedTableManager get usersRefs {
+    final manager = $$UsersTableTableManager(
+      $_db,
+      $_db.users,
+    ).filter((f) => f.warehouseId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_usersRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
 
   static MultiTypedResultKey<$InventoryTable, List<InventoryData>>
   _inventoryRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
@@ -12235,6 +12870,31 @@ class $$WarehousesTableFilterComposer
     column: $table.location,
     builder: (column) => ColumnFilters(column),
   );
+
+  Expression<bool> usersRefs(
+    Expression<bool> Function($$UsersTableFilterComposer f) f,
+  ) {
+    final $$UsersTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.users,
+      getReferencedColumn: (t) => t.warehouseId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$UsersTableFilterComposer(
+            $db: $db,
+            $table: $db.users,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 
   Expression<bool> inventoryRefs(
     Expression<bool> Function($$InventoryTableFilterComposer f) f,
@@ -12355,6 +13015,31 @@ class $$WarehousesTableAnnotationComposer
   GeneratedColumn<String> get location =>
       $composableBuilder(column: $table.location, builder: (column) => column);
 
+  Expression<T> usersRefs<T extends Object>(
+    Expression<T> Function($$UsersTableAnnotationComposer a) f,
+  ) {
+    final $$UsersTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.users,
+      getReferencedColumn: (t) => t.warehouseId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$UsersTableAnnotationComposer(
+            $db: $db,
+            $table: $db.users,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
   Expression<T> inventoryRefs<T extends Object>(
     Expression<T> Function($$InventoryTableAnnotationComposer a) f,
   ) {
@@ -12445,6 +13130,7 @@ class $$WarehousesTableTableManager
           (WarehouseData, $$WarehousesTableReferences),
           WarehouseData,
           PrefetchHooks Function({
+            bool usersRefs,
             bool inventoryRefs,
             bool orderItemsRefs,
             bool stockAdjustmentsRefs,
@@ -12487,6 +13173,7 @@ class $$WarehousesTableTableManager
               .toList(),
           prefetchHooksCallback:
               ({
+                usersRefs = false,
                 inventoryRefs = false,
                 orderItemsRefs = false,
                 stockAdjustmentsRefs = false,
@@ -12494,6 +13181,7 @@ class $$WarehousesTableTableManager
                 return PrefetchHooks(
                   db: db,
                   explicitlyWatchedTables: [
+                    if (usersRefs) db.users,
                     if (inventoryRefs) db.inventory,
                     if (orderItemsRefs) db.orderItems,
                     if (stockAdjustmentsRefs) db.stockAdjustments,
@@ -12501,6 +13189,27 @@ class $$WarehousesTableTableManager
                   addJoins: null,
                   getPrefetchedDataCallback: (items) async {
                     return [
+                      if (usersRefs)
+                        await $_getPrefetchedData<
+                          WarehouseData,
+                          $WarehousesTable,
+                          UserData
+                        >(
+                          currentTable: table,
+                          referencedTable: $$WarehousesTableReferences
+                              ._usersRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$WarehousesTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).usersRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.warehouseId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
                       if (inventoryRefs)
                         await $_getPrefetchedData<
                           WarehouseData,
@@ -12585,6 +13294,7 @@ typedef $$WarehousesTableProcessedTableManager =
       (WarehouseData, $$WarehousesTableReferences),
       WarehouseData,
       PrefetchHooks Function({
+        bool usersRefs,
         bool inventoryRefs,
         bool orderItemsRefs,
         bool stockAdjustmentsRefs,
@@ -12601,6 +13311,7 @@ typedef $$UsersTableCreateCompanionBuilder =
       Value<int> roleTier,
       Value<String> avatarColor,
       Value<bool> biometricEnabled,
+      Value<int?> warehouseId,
     });
 typedef $$UsersTableUpdateCompanionBuilder =
     UsersCompanion Function({
@@ -12613,11 +13324,31 @@ typedef $$UsersTableUpdateCompanionBuilder =
       Value<int> roleTier,
       Value<String> avatarColor,
       Value<bool> biometricEnabled,
+      Value<int?> warehouseId,
     });
 
 final class $$UsersTableReferences
     extends BaseReferences<_$AppDatabase, $UsersTable, UserData> {
   $$UsersTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static $WarehousesTable _warehouseIdTable(_$AppDatabase db) =>
+      db.warehouses.createAlias(
+        $_aliasNameGenerator(db.users.warehouseId, db.warehouses.id),
+      );
+
+  $$WarehousesTableProcessedTableManager? get warehouseId {
+    final $_column = $_itemColumn<int>('warehouse_id');
+    if ($_column == null) return null;
+    final manager = $$WarehousesTableTableManager(
+      $_db,
+      $_db.warehouses,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_warehouseIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
 
   static MultiTypedResultKey<$OrdersTable, List<OrderData>> _ordersRefsTable(
     _$AppDatabase db,
@@ -12755,6 +13486,29 @@ class $$UsersTableFilterComposer extends Composer<_$AppDatabase, $UsersTable> {
     column: $table.biometricEnabled,
     builder: (column) => ColumnFilters(column),
   );
+
+  $$WarehousesTableFilterComposer get warehouseId {
+    final $$WarehousesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.warehouseId,
+      referencedTable: $db.warehouses,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$WarehousesTableFilterComposer(
+            $db: $db,
+            $table: $db.warehouses,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 
   Expression<bool> ordersRefs(
     Expression<bool> Function($$OrdersTableFilterComposer f) f,
@@ -12912,6 +13666,29 @@ class $$UsersTableOrderingComposer
     column: $table.biometricEnabled,
     builder: (column) => ColumnOrderings(column),
   );
+
+  $$WarehousesTableOrderingComposer get warehouseId {
+    final $$WarehousesTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.warehouseId,
+      referencedTable: $db.warehouses,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$WarehousesTableOrderingComposer(
+            $db: $db,
+            $table: $db.warehouses,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$UsersTableAnnotationComposer
@@ -12955,6 +13732,29 @@ class $$UsersTableAnnotationComposer
     column: $table.biometricEnabled,
     builder: (column) => column,
   );
+
+  $$WarehousesTableAnnotationComposer get warehouseId {
+    final $$WarehousesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.warehouseId,
+      referencedTable: $db.warehouses,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$WarehousesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.warehouses,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 
   Expression<T> ordersRefs<T extends Object>(
     Expression<T> Function($$OrdersTableAnnotationComposer a) f,
@@ -13075,6 +13875,7 @@ class $$UsersTableTableManager
           (UserData, $$UsersTableReferences),
           UserData,
           PrefetchHooks Function({
+            bool warehouseId,
             bool ordersRefs,
             bool activityLogsRefs,
             bool sessionsRefs,
@@ -13103,6 +13904,7 @@ class $$UsersTableTableManager
                 Value<int> roleTier = const Value.absent(),
                 Value<String> avatarColor = const Value.absent(),
                 Value<bool> biometricEnabled = const Value.absent(),
+                Value<int?> warehouseId = const Value.absent(),
               }) => UsersCompanion(
                 id: id,
                 name: name,
@@ -13113,6 +13915,7 @@ class $$UsersTableTableManager
                 roleTier: roleTier,
                 avatarColor: avatarColor,
                 biometricEnabled: biometricEnabled,
+                warehouseId: warehouseId,
               ),
           createCompanionCallback:
               ({
@@ -13125,6 +13928,7 @@ class $$UsersTableTableManager
                 Value<int> roleTier = const Value.absent(),
                 Value<String> avatarColor = const Value.absent(),
                 Value<bool> biometricEnabled = const Value.absent(),
+                Value<int?> warehouseId = const Value.absent(),
               }) => UsersCompanion.insert(
                 id: id,
                 name: name,
@@ -13135,6 +13939,7 @@ class $$UsersTableTableManager
                 roleTier: roleTier,
                 avatarColor: avatarColor,
                 biometricEnabled: biometricEnabled,
+                warehouseId: warehouseId,
               ),
           withReferenceMapper: (p0) => p0
               .map(
@@ -13144,6 +13949,7 @@ class $$UsersTableTableManager
               .toList(),
           prefetchHooksCallback:
               ({
+                warehouseId = false,
                 ordersRefs = false,
                 activityLogsRefs = false,
                 sessionsRefs = false,
@@ -13158,7 +13964,38 @@ class $$UsersTableTableManager
                     if (customerWalletTransactionsRefs)
                       db.customerWalletTransactions,
                   ],
-                  addJoins: null,
+                  addJoins:
+                      <
+                        T extends TableManagerState<
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic
+                        >
+                      >(state) {
+                        if (warehouseId) {
+                          state =
+                              state.withJoin(
+                                    currentTable: table,
+                                    currentColumn: table.warehouseId,
+                                    referencedTable: $$UsersTableReferences
+                                        ._warehouseIdTable(db),
+                                    referencedColumn: $$UsersTableReferences
+                                        ._warehouseIdTable(db)
+                                        .id,
+                                  )
+                                  as T;
+                        }
+
+                        return state;
+                      },
                   getPrefetchedDataCallback: (items) async {
                     return [
                       if (ordersRefs)
@@ -13262,6 +14099,7 @@ typedef $$UsersTableProcessedTableManager =
       (UserData, $$UsersTableReferences),
       UserData,
       PrefetchHooks Function({
+        bool warehouseId,
         bool ordersRefs,
         bool activityLogsRefs,
         bool sessionsRefs,
@@ -13531,6 +14369,8 @@ typedef $$ProductsTableCreateCompanionBuilder =
     ProductsCompanion Function({
       Value<int> id,
       Value<int?> categoryId,
+      Value<int?> crateGroupId,
+      Value<String?> crateSize,
       required String name,
       Value<String?> subtitle,
       Value<String?> sku,
@@ -13549,6 +14389,8 @@ typedef $$ProductsTableUpdateCompanionBuilder =
     ProductsCompanion Function({
       Value<int> id,
       Value<int?> categoryId,
+      Value<int?> crateGroupId,
+      Value<String?> crateSize,
       Value<String> name,
       Value<String?> subtitle,
       Value<String?> sku,
@@ -13581,6 +14423,25 @@ final class $$ProductsTableReferences
       $_db.categories,
     ).filter((f) => f.id.sqlEquals($_column));
     final item = $_typedResult.readTableOrNull(_categoryIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static $CrateGroupsTable _crateGroupIdTable(_$AppDatabase db) =>
+      db.crateGroups.createAlias(
+        $_aliasNameGenerator(db.products.crateGroupId, db.crateGroups.id),
+      );
+
+  $$CrateGroupsTableProcessedTableManager? get crateGroupId {
+    final $_column = $_itemColumn<int>('crate_group_id');
+    if ($_column == null) return null;
+    final manager = $$CrateGroupsTableTableManager(
+      $_db,
+      $_db.crateGroups,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_crateGroupIdTable($_db));
     if (item == null) return manager;
     return ProcessedTableManager(
       manager.$state.copyWith(prefetchedData: [item]),
@@ -13737,6 +14598,11 @@ class $$ProductsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<String> get crateSize => $composableBuilder(
+    column: $table.crateSize,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<String> get name => $composableBuilder(
     column: $table.name,
     builder: (column) => ColumnFilters(column),
@@ -13816,6 +14682,29 @@ class $$ProductsTableFilterComposer
           }) => $$CategoriesTableFilterComposer(
             $db: $db,
             $table: $db.categories,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$CrateGroupsTableFilterComposer get crateGroupId {
+    final $$CrateGroupsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.crateGroupId,
+      referencedTable: $db.crateGroups,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$CrateGroupsTableFilterComposer(
+            $db: $db,
+            $table: $db.crateGroups,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -14015,6 +14904,11 @@ class $$ProductsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get crateSize => $composableBuilder(
+    column: $table.crateSize,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get name => $composableBuilder(
     column: $table.name,
     builder: (column) => ColumnOrderings(column),
@@ -14102,6 +14996,29 @@ class $$ProductsTableOrderingComposer
     );
     return composer;
   }
+
+  $$CrateGroupsTableOrderingComposer get crateGroupId {
+    final $$CrateGroupsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.crateGroupId,
+      referencedTable: $db.crateGroups,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$CrateGroupsTableOrderingComposer(
+            $db: $db,
+            $table: $db.crateGroups,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$ProductsTableAnnotationComposer
@@ -14115,6 +15032,9 @@ class $$ProductsTableAnnotationComposer
   });
   GeneratedColumn<int> get id =>
       $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get crateSize =>
+      $composableBuilder(column: $table.crateSize, builder: (column) => column);
 
   GeneratedColumn<String> get name =>
       $composableBuilder(column: $table.name, builder: (column) => column);
@@ -14183,6 +15103,29 @@ class $$ProductsTableAnnotationComposer
           }) => $$CategoriesTableAnnotationComposer(
             $db: $db,
             $table: $db.categories,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$CrateGroupsTableAnnotationComposer get crateGroupId {
+    final $$CrateGroupsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.crateGroupId,
+      referencedTable: $db.crateGroups,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$CrateGroupsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.crateGroups,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -14383,6 +15326,7 @@ class $$ProductsTableTableManager
           ProductData,
           PrefetchHooks Function({
             bool categoryId,
+            bool crateGroupId,
             bool inventoryRefs,
             bool orderItemsRefs,
             bool purchaseItemsRefs,
@@ -14407,6 +15351,8 @@ class $$ProductsTableTableManager
               ({
                 Value<int> id = const Value.absent(),
                 Value<int?> categoryId = const Value.absent(),
+                Value<int?> crateGroupId = const Value.absent(),
+                Value<String?> crateSize = const Value.absent(),
                 Value<String> name = const Value.absent(),
                 Value<String?> subtitle = const Value.absent(),
                 Value<String?> sku = const Value.absent(),
@@ -14423,6 +15369,8 @@ class $$ProductsTableTableManager
               }) => ProductsCompanion(
                 id: id,
                 categoryId: categoryId,
+                crateGroupId: crateGroupId,
+                crateSize: crateSize,
                 name: name,
                 subtitle: subtitle,
                 sku: sku,
@@ -14441,6 +15389,8 @@ class $$ProductsTableTableManager
               ({
                 Value<int> id = const Value.absent(),
                 Value<int?> categoryId = const Value.absent(),
+                Value<int?> crateGroupId = const Value.absent(),
+                Value<String?> crateSize = const Value.absent(),
                 required String name,
                 Value<String?> subtitle = const Value.absent(),
                 Value<String?> sku = const Value.absent(),
@@ -14457,6 +15407,8 @@ class $$ProductsTableTableManager
               }) => ProductsCompanion.insert(
                 id: id,
                 categoryId: categoryId,
+                crateGroupId: crateGroupId,
+                crateSize: crateSize,
                 name: name,
                 subtitle: subtitle,
                 sku: sku,
@@ -14482,6 +15434,7 @@ class $$ProductsTableTableManager
           prefetchHooksCallback:
               ({
                 categoryId = false,
+                crateGroupId = false,
                 inventoryRefs = false,
                 orderItemsRefs = false,
                 purchaseItemsRefs = false,
@@ -14526,6 +15479,19 @@ class $$ProductsTableTableManager
                                         ._categoryIdTable(db),
                                     referencedColumn: $$ProductsTableReferences
                                         ._categoryIdTable(db)
+                                        .id,
+                                  )
+                                  as T;
+                        }
+                        if (crateGroupId) {
+                          state =
+                              state.withJoin(
+                                    currentTable: table,
+                                    currentColumn: table.crateGroupId,
+                                    referencedTable: $$ProductsTableReferences
+                                        ._crateGroupIdTable(db),
+                                    referencedColumn: $$ProductsTableReferences
+                                        ._crateGroupIdTable(db)
                                         .id,
                                   )
                                   as T;
@@ -14704,6 +15670,7 @@ typedef $$ProductsTableProcessedTableManager =
       ProductData,
       PrefetchHooks Function({
         bool categoryId,
+        bool crateGroupId,
         bool inventoryRefs,
         bool orderItemsRefs,
         bool purchaseItemsRefs,
@@ -15666,6 +16633,7 @@ typedef $$SuppliersTableCreateCompanionBuilder =
       Value<String?> phone,
       Value<String?> email,
       Value<String?> address,
+      Value<String?> crateGroupName,
     });
 typedef $$SuppliersTableUpdateCompanionBuilder =
     SuppliersCompanion Function({
@@ -15674,6 +16642,7 @@ typedef $$SuppliersTableUpdateCompanionBuilder =
       Value<String?> phone,
       Value<String?> email,
       Value<String?> address,
+      Value<String?> crateGroupName,
     });
 
 final class $$SuppliersTableReferences
@@ -15730,6 +16699,11 @@ class $$SuppliersTableFilterComposer
 
   ColumnFilters<String> get address => $composableBuilder(
     column: $table.address,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get crateGroupName => $composableBuilder(
+    column: $table.crateGroupName,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -15792,6 +16766,11 @@ class $$SuppliersTableOrderingComposer
     column: $table.address,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get crateGroupName => $composableBuilder(
+    column: $table.crateGroupName,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$SuppliersTableAnnotationComposer
@@ -15817,6 +16796,11 @@ class $$SuppliersTableAnnotationComposer
 
   GeneratedColumn<String> get address =>
       $composableBuilder(column: $table.address, builder: (column) => column);
+
+  GeneratedColumn<String> get crateGroupName => $composableBuilder(
+    column: $table.crateGroupName,
+    builder: (column) => column,
+  );
 
   Expression<T> purchasesRefs<T extends Object>(
     Expression<T> Function($$PurchasesTableAnnotationComposer a) f,
@@ -15877,12 +16861,14 @@ class $$SuppliersTableTableManager
                 Value<String?> phone = const Value.absent(),
                 Value<String?> email = const Value.absent(),
                 Value<String?> address = const Value.absent(),
+                Value<String?> crateGroupName = const Value.absent(),
               }) => SuppliersCompanion(
                 id: id,
                 name: name,
                 phone: phone,
                 email: email,
                 address: address,
+                crateGroupName: crateGroupName,
               ),
           createCompanionCallback:
               ({
@@ -15891,12 +16877,14 @@ class $$SuppliersTableTableManager
                 Value<String?> phone = const Value.absent(),
                 Value<String?> email = const Value.absent(),
                 Value<String?> address = const Value.absent(),
+                Value<String?> crateGroupName = const Value.absent(),
               }) => SuppliersCompanion.insert(
                 id: id,
                 name: name,
                 phone: phone,
                 email: email,
                 address: address,
+                crateGroupName: crateGroupName,
               ),
           withReferenceMapper: (p0) => p0
               .map(
@@ -18526,17 +19514,25 @@ typedef $$ExpenseCategoriesTableProcessedTableManager =
 typedef $$ExpensesTableCreateCompanionBuilder =
     ExpensesCompanion Function({
       Value<int> id,
-      required int categoryId,
+      Value<int?> categoryId,
+      Value<String> category,
       required int amountKobo,
       required String description,
+      Value<String?> paymentMethod,
+      Value<String?> recordedBy,
+      Value<String?> reference,
       Value<DateTime> timestamp,
     });
 typedef $$ExpensesTableUpdateCompanionBuilder =
     ExpensesCompanion Function({
       Value<int> id,
-      Value<int> categoryId,
+      Value<int?> categoryId,
+      Value<String> category,
       Value<int> amountKobo,
       Value<String> description,
+      Value<String?> paymentMethod,
+      Value<String?> recordedBy,
+      Value<String?> reference,
       Value<DateTime> timestamp,
     });
 
@@ -18549,9 +19545,9 @@ final class $$ExpensesTableReferences
         $_aliasNameGenerator(db.expenses.categoryId, db.expenseCategories.id),
       );
 
-  $$ExpenseCategoriesTableProcessedTableManager get categoryId {
-    final $_column = $_itemColumn<int>('category_id')!;
-
+  $$ExpenseCategoriesTableProcessedTableManager? get categoryId {
+    final $_column = $_itemColumn<int>('category_id');
+    if ($_column == null) return null;
     final manager = $$ExpenseCategoriesTableTableManager(
       $_db,
       $_db.expenseCategories,
@@ -18578,6 +19574,11 @@ class $$ExpensesTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<String> get category => $composableBuilder(
+    column: $table.category,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<int> get amountKobo => $composableBuilder(
     column: $table.amountKobo,
     builder: (column) => ColumnFilters(column),
@@ -18585,6 +19586,21 @@ class $$ExpensesTableFilterComposer
 
   ColumnFilters<String> get description => $composableBuilder(
     column: $table.description,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get paymentMethod => $composableBuilder(
+    column: $table.paymentMethod,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get recordedBy => $composableBuilder(
+    column: $table.recordedBy,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get reference => $composableBuilder(
+    column: $table.reference,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -18631,6 +19647,11 @@ class $$ExpensesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get category => $composableBuilder(
+    column: $table.category,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get amountKobo => $composableBuilder(
     column: $table.amountKobo,
     builder: (column) => ColumnOrderings(column),
@@ -18638,6 +19659,21 @@ class $$ExpensesTableOrderingComposer
 
   ColumnOrderings<String> get description => $composableBuilder(
     column: $table.description,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get paymentMethod => $composableBuilder(
+    column: $table.paymentMethod,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get recordedBy => $composableBuilder(
+    column: $table.recordedBy,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get reference => $composableBuilder(
+    column: $table.reference,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -18682,6 +19718,9 @@ class $$ExpensesTableAnnotationComposer
   GeneratedColumn<int> get id =>
       $composableBuilder(column: $table.id, builder: (column) => column);
 
+  GeneratedColumn<String> get category =>
+      $composableBuilder(column: $table.category, builder: (column) => column);
+
   GeneratedColumn<int> get amountKobo => $composableBuilder(
     column: $table.amountKobo,
     builder: (column) => column,
@@ -18691,6 +19730,19 @@ class $$ExpensesTableAnnotationComposer
     column: $table.description,
     builder: (column) => column,
   );
+
+  GeneratedColumn<String> get paymentMethod => $composableBuilder(
+    column: $table.paymentMethod,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get recordedBy => $composableBuilder(
+    column: $table.recordedBy,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get reference =>
+      $composableBuilder(column: $table.reference, builder: (column) => column);
 
   GeneratedColumn<DateTime> get timestamp =>
       $composableBuilder(column: $table.timestamp, builder: (column) => column);
@@ -18749,29 +19801,45 @@ class $$ExpensesTableTableManager
           updateCompanionCallback:
               ({
                 Value<int> id = const Value.absent(),
-                Value<int> categoryId = const Value.absent(),
+                Value<int?> categoryId = const Value.absent(),
+                Value<String> category = const Value.absent(),
                 Value<int> amountKobo = const Value.absent(),
                 Value<String> description = const Value.absent(),
+                Value<String?> paymentMethod = const Value.absent(),
+                Value<String?> recordedBy = const Value.absent(),
+                Value<String?> reference = const Value.absent(),
                 Value<DateTime> timestamp = const Value.absent(),
               }) => ExpensesCompanion(
                 id: id,
                 categoryId: categoryId,
+                category: category,
                 amountKobo: amountKobo,
                 description: description,
+                paymentMethod: paymentMethod,
+                recordedBy: recordedBy,
+                reference: reference,
                 timestamp: timestamp,
               ),
           createCompanionCallback:
               ({
                 Value<int> id = const Value.absent(),
-                required int categoryId,
+                Value<int?> categoryId = const Value.absent(),
+                Value<String> category = const Value.absent(),
                 required int amountKobo,
                 required String description,
+                Value<String?> paymentMethod = const Value.absent(),
+                Value<String?> recordedBy = const Value.absent(),
+                Value<String?> reference = const Value.absent(),
                 Value<DateTime> timestamp = const Value.absent(),
               }) => ExpensesCompanion.insert(
                 id: id,
                 categoryId: categoryId,
+                category: category,
                 amountKobo: amountKobo,
                 description: description,
+                paymentMethod: paymentMethod,
+                recordedBy: recordedBy,
+                reference: reference,
                 timestamp: timestamp,
               ),
           withReferenceMapper: (p0) => p0

@@ -41,7 +41,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   @override
   void initState() {
     super.initState();
-    _monthlyTargetController = TextEditingController(text: _monthlyTarget.toString());
+    _monthlyTargetController = TextEditingController(
+      text: _monthlyTarget.toString(),
+    );
   }
 
   @override
@@ -78,7 +80,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   // ═══════════════════════════════════════════════════════════════════════════
 
   Widget _buildSliverAppBar(BuildContext context) {
-    final isLow = widget.item.totalStock > 0 && widget.item.totalStock <= widget.item.lowStockThreshold;
+    final isLow =
+        widget.item.totalStock > 0 &&
+        widget.item.totalStock <= widget.item.lowStockThreshold;
     final isOut = widget.item.totalStock == 0;
     Color statusColor = success;
     String statusLabel = 'In Stock';
@@ -130,7 +134,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 // Product icon
                 Container(
                   width: context.getRSize(80),
-                   height: context.getRSize(80),
+                  height: context.getRSize(80),
                   decoration: BoxDecoration(
                     color: Colors.white.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(24),
@@ -278,17 +282,27 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               context,
               FontAwesomeIcons.cubesStacked,
               'Total Quantity',
-              widget.item.totalStock.toStringAsFixed(widget.item.totalStock % 1 == 0 ? 0 : 1),
+              widget.item.totalStock.toStringAsFixed(
+                widget.item.totalStock % 1 == 0 ? 0 : 1,
+              ),
               blueMain,
               trailing: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   IconButton(
-                    icon: Icon(FontAwesomeIcons.circleMinus, size: context.getRSize(16), color: danger),
+                    icon: Icon(
+                      FontAwesomeIcons.circleMinus,
+                      size: context.getRSize(16),
+                      color: danger,
+                    ),
                     onPressed: () => _updateQuantity(-1),
                   ),
                   IconButton(
-                    icon: Icon(FontAwesomeIcons.circlePlus, size: context.getRSize(16), color: success),
+                    icon: Icon(
+                      FontAwesomeIcons.circlePlus,
+                      size: context.getRSize(16),
+                      color: success,
+                    ),
                     onPressed: () => _updateQuantity(1),
                   ),
                 ],
@@ -399,7 +413,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           // ── Last Delivery ───────────────────────────────────────────
           _sectionTitle(context, 'Last Delivery'),
           SizedBox(height: context.getRSize(12)),
-          _buildDeliveryCard(context, deliveryLogs, (widget.item.buyingPrice ?? 0).toInt()),
+          _buildDeliveryCard(
+            context,
+            deliveryLogs,
+            (widget.item.buyingPrice ?? 0).toInt(),
+          ),
 
           SizedBox(height: context.getRSize(40)),
         ],
@@ -436,10 +454,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               ),
               elevation: 0,
             ),
-            icon: Icon(
-              FontAwesomeIcons.trashCan,
-              size: context.getRSize(16),
-            ),
+            icon: Icon(FontAwesomeIcons.trashCan, size: context.getRSize(16)),
             label: Text(
               'Delete Product',
               style: TextStyle(
@@ -573,16 +588,22 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   // ── Sales Target Grid ─────────────────────────────────────────────────────
   Widget _buildTargetGrid(BuildContext context) {
     // Mock current sales (Quantity Sold)
-    final int currentMonthly = 62;
-    final int currentWeekly = 18;
-    final int currentDaily = 4;
+    const int currentMonthly = 62;
+    const int currentWeekly = 18;
+    const int currentDaily = 4;
 
     return _infoCard(context, [
       _targetRow(context, 'Daily', currentDaily, _monthlyTarget ~/ 30),
       _divider(context),
       _targetRow(context, 'Weekly', currentWeekly, _monthlyTarget ~/ 4),
       _divider(context),
-      _targetRow(context, 'Monthly', currentMonthly, _monthlyTarget, isEditable: true),
+      _targetRow(
+        context,
+        'Monthly',
+        currentMonthly,
+        _monthlyTarget,
+        isEditable: true,
+      ),
     ]);
   }
 
@@ -749,7 +770,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     if (deliveryLogs.isEmpty) {
       // Mock delivery data when no logs exist
       final mockDate = DateTime.now().subtract(const Duration(days: 3));
-      final mockQty = 10;
+      const mockQty = 10;
       return _infoCard(context, [
         _infoRow(
           context,
@@ -808,7 +829,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         context,
         FontAwesomeIcons.dollarSign,
         'Price Per Unit',
-          formatCurrency(widget.item.buyingPrice ?? 0),
+        formatCurrency(widget.item.buyingPrice ?? 0),
         const Color(0xFFF59E0B),
       ),
       _divider(context),
@@ -857,7 +878,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             child: Container(
               decoration: BoxDecoration(
                 color: _surface,
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(28),
+                ),
               ),
               child: Column(
                 children: [
@@ -889,10 +912,19 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         if (index == 0) {
                           return ListTile(
                             leading: CircleAvatar(
-                              backgroundColor: Colors.grey.withValues(alpha: 0.1),
-                              child: Icon(Icons.close, color: _subtext, size: 18),
+                              backgroundColor: Colors.grey.withValues(
+                                alpha: 0.1,
+                              ),
+                              child: Icon(
+                                Icons.close,
+                                color: _subtext,
+                                size: 18,
+                              ),
                             ),
-                            title: Text('No Supplier', style: TextStyle(color: _text)),
+                            title: Text(
+                              'No Supplier',
+                              style: TextStyle(color: _text),
+                            ),
                             onTap: () {
                               setState(() {
                                 widget.item.supplierId = null;
@@ -905,11 +937,27 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         final isSelected = widget.item.supplierId == s.id;
                         return ListTile(
                           leading: CircleAvatar(
-                            backgroundColor: s.crateGroup.color.withValues(alpha: 0.1),
-                            child: Icon(FontAwesomeIcons.building, color: s.crateGroup.color, size: 16),
+                            backgroundColor: s.crateGroup.color.withValues(
+                              alpha: 0.1,
+                            ),
+                            child: Icon(
+                              FontAwesomeIcons.building,
+                              color: s.crateGroup.color,
+                              size: 16,
+                            ),
                           ),
-                          title: Text(s.name, style: TextStyle(color: _text, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
-                          trailing: isSelected ? Icon(Icons.check_circle, color: success) : null,
+                          title: Text(
+                            s.name,
+                            style: TextStyle(
+                              color: _text,
+                              fontWeight: isSelected
+                                  ? FontWeight.bold
+                                  : FontWeight.normal,
+                            ),
+                          ),
+                          trailing: isSelected
+                              ? const Icon(Icons.check_circle, color: success)
+                              : null,
                           onTap: () {
                             setState(() {
                               widget.item.supplierId = s.id;
@@ -941,7 +989,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         ? widget.item.warehouseStock.keys.first
         : 'w1';
     final current = widget.item.warehouseStock[warehouseId] ?? 0;
-    
+
     setState(() {
       widget.item.warehouseStock[warehouseId] = current + delta;
 
@@ -971,18 +1019,25 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
   void _editPrice(String field) {
     final controller = TextEditingController(
-      text: field == 'sellingPrice' ? (widget.item.sellingPrice ?? 0).toString() :
-            field == 'buyingPrice' ? (widget.item.buyingPrice ?? 0).toString() :
-            field == 'retailPrice' ? (widget.item.retailPrice ?? 0).toString() :
-            field == 'bulkBreakerPrice' ? (widget.item.bulkBreakerPrice ?? 0).toString() :
-            (widget.item.distributorPrice ?? 0).toString(),
+      text: field == 'sellingPrice'
+          ? (widget.item.sellingPrice ?? 0).toString()
+          : field == 'buyingPrice'
+          ? (widget.item.buyingPrice ?? 0).toString()
+          : field == 'retailPrice'
+          ? (widget.item.retailPrice ?? 0).toString()
+          : field == 'bulkBreakerPrice'
+          ? (widget.item.bulkBreakerPrice ?? 0).toString()
+          : (widget.item.distributorPrice ?? 0).toString(),
     );
 
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: _surface,
-        title: Text('Edit ${field.replaceAll('Price', ' Price')}', style: TextStyle(color: _text)),
+        title: Text(
+          'Edit ${field.replaceAll('Price', ' Price')}',
+          style: TextStyle(color: _text),
+        ),
         content: TextField(
           controller: controller,
           keyboardType: TextInputType.number,
@@ -990,11 +1045,16 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           decoration: InputDecoration(
             hintText: 'Enter new price',
             hintStyle: TextStyle(color: _subtext),
-            enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: _border)),
+            enabledBorder: UnderlineInputBorder(
+              borderSide: BorderSide(color: _border),
+            ),
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
           TextButton(
             onPressed: () {
               setState(() {
@@ -1031,12 +1091,17 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           style: TextStyle(color: _text),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
           TextButton(
             onPressed: () {
               setState(() {
                 kInventoryItems.removeWhere((p) => p.id == widget.item.id);
-                kProducts.removeWhere((p) => p['name'] == widget.item.productName);
+                kProducts.removeWhere(
+                  (p) => p['name'] == widget.item.productName,
+                );
               });
               Navigator.pop(ctx); // close dialog
               Navigator.pop(context); // close detail screen

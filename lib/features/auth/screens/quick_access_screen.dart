@@ -104,9 +104,17 @@ class _QuickAccessScreenState extends State<QuickAccessScreen>
     if (_user == null) return;
 
     if (_enteredPin == _user!.pin) {
-      // Create session
+      // Show signing-in dialog immediately to eliminate the visible lag.
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => const _SigningInDialog(),
+      );
       await authService.loginWithPin(_enteredPin);
-      _navigateToHome();
+      if (mounted) {
+        Navigator.of(context, rootNavigator: true).pop(); // close dialog
+        _navigateToHome();
+      }
     } else {
       _handleFailure();
     }
@@ -407,6 +415,40 @@ class _QuickAccessScreenState extends State<QuickAccessScreen>
             onTap: _cooldownSeconds > 0 ? null : onTap,
             child: Center(child: child),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SigningInDialog extends StatelessWidget {
+  const _SigningInDialog();
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 28),
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.75),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: const Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
+            SizedBox(height: 18),
+            Text(
+              'Signing in…',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
         ),
       ),
     );

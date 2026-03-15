@@ -25,7 +25,8 @@ class PaymentsScreen extends StatefulWidget {
   State<PaymentsScreen> createState() => _PaymentsScreenState();
 }
 
-class _PaymentsScreenState extends State<PaymentsScreen> with SingleTickerProviderStateMixin {
+class _PaymentsScreenState extends State<PaymentsScreen>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
   String _periodFilter = 'This Month';
   String _supplierFilter = 'All';
@@ -272,47 +273,47 @@ class _PaymentsScreenState extends State<PaymentsScreen> with SingleTickerProvid
                   menuMaxHeight: 350,
                   borderRadius: BorderRadius.circular(12),
                   value: _periodFilter,
-                icon: Icon(
-                  FontAwesomeIcons.chevronDown,
-                  size: context.getRSize(12),
-                  color: _text,
+                  icon: Icon(
+                    FontAwesomeIcons.chevronDown,
+                    size: context.getRSize(12),
+                    color: _text,
+                  ),
+                  dropdownColor: _surface,
+                  style: TextStyle(
+                    color: _text,
+                    fontSize: context.getRFontSize(13),
+                    fontWeight: FontWeight.w600,
+                  ),
+                  items:
+                      [
+                        'Today',
+                        'This Week',
+                        'This Month',
+                        'This Year',
+                        'All Time',
+                      ].map((String val) {
+                        return DropdownMenuItem<String>(
+                          value: val,
+                          child: Text(val),
+                        );
+                      }).toList(),
+                  onChanged: (val) {
+                    if (val != null) {
+                      setState(() {
+                        _periodFilter = val;
+                        _supplierFilter =
+                            'All'; // Reset supplier filter on period change
+                      });
+                    }
+                  },
                 ),
-                dropdownColor: _surface,
-                style: TextStyle(
-                  color: _text,
-                  fontSize: context.getRFontSize(13),
-                  fontWeight: FontWeight.w600,
-                ),
-                items:
-                    [
-                      'Today',
-                      'This Week',
-                      'This Month',
-                      'This Year',
-                      'All Time',
-                    ].map((String val) {
-                      return DropdownMenuItem<String>(
-                        value: val,
-                        child: Text(val),
-                      );
-                    }).toList(),
-                onChanged: (val) {
-                  if (val != null) {
-                    setState(() {
-                      _periodFilter = val;
-                      _supplierFilter =
-                          'All'; // Reset supplier filter on period change
-                    });
-                  }
-                },
               ),
             ),
           ),
-        ),
-      ],
-    ),
-  );
-}
+        ],
+      ),
+    );
+  }
 
   Widget _buildFilterChips(BuildContext context, List<String> suppliers) {
     return Container(
@@ -409,7 +410,8 @@ class _PaymentsScreenState extends State<PaymentsScreen> with SingleTickerProvid
         return Column(
           children: [
             _buildHeaderArea(context, totalForPeriod),
-            if (supplierList.length > 1) _buildFilterChips(context, supplierList),
+            if (supplierList.length > 1)
+              _buildFilterChips(context, supplierList),
             Expanded(child: _buildPaymentsList(context, filteredPayments)),
           ],
         );
@@ -548,12 +550,16 @@ class _PaymentsScreenState extends State<PaymentsScreen> with SingleTickerProvid
       builder: (_) => StatefulBuilder(
         builder: (ctx, setB) => Padding(
           padding: EdgeInsets.only(
-            bottom: MediaQuery.of(ctx).viewInsets.bottom + MediaQuery.of(ctx).padding.bottom,
+            bottom:
+                MediaQuery.of(ctx).viewInsets.bottom +
+                MediaQuery.of(ctx).padding.bottom,
           ),
           child: Container(
             decoration: BoxDecoration(
               color: _isDark ? dSurface : lSurface,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(28),
+              ),
             ),
             padding: EdgeInsets.fromLTRB(
               ctx.getRSize(20),
@@ -611,7 +617,9 @@ class _PaymentsScreenState extends State<PaymentsScreen> with SingleTickerProvid
                     style: ElevatedButton.styleFrom(
                       backgroundColor: blueMain,
                       foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
                       padding: EdgeInsets.symmetric(vertical: ctx.getRSize(16)),
                       elevation: 0,
                     ),
@@ -690,7 +698,7 @@ class _PaymentsScreenState extends State<PaymentsScreen> with SingleTickerProvid
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: blueMain),
+              borderSide: const BorderSide(color: blueMain),
             ),
             contentPadding: EdgeInsets.all(context.getRSize(16)),
           ),

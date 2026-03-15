@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import '../database/app_database.dart';
 import '../database/daos.dart';
@@ -15,7 +14,9 @@ class SyncService {
   }
 
   void _init() {
-    _connectivitySubscription = _connectivity.onConnectivityChanged.listen((results) {
+    _connectivitySubscription = _connectivity.onConnectivityChanged.listen((
+      results,
+    ) {
       if (results.any((r) => r != ConnectivityResult.none)) {
         processQueue();
       }
@@ -47,17 +48,24 @@ class SyncService {
       // Mocking the API call logic
       // In a real app, you'd use a repository or API client here.
       // Based on actionType and payload, you would send data to the server.
-      
+
       final response = await _mockApiCall(item.actionType, item.payload);
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
         await _syncDao.markDone(item.id);
       } else if (response.statusCode >= 400 && response.statusCode < 500) {
         // 4xx error: Client error, don't retry
-        await _syncDao.markFailed(item.id, 'Client error: ${response.statusCode} - ${response.body}', permanent: true);
+        await _syncDao.markFailed(
+          item.id,
+          'Client error: ${response.statusCode} - ${response.body}',
+          permanent: true,
+        );
       } else {
         // 5xx or other error: Server error, retry
-        await _syncDao.markFailed(item.id, 'Server error: ${response.statusCode} - ${response.body}');
+        await _syncDao.markFailed(
+          item.id,
+          'Server error: ${response.statusCode} - ${response.body}',
+        );
       }
     } catch (e) {
       // Network timeout or other exceptions

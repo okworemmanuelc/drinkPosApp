@@ -83,8 +83,9 @@ class _PinSetupScreenState extends State<PinSetupScreen>
       }
     } else {
       if (_confirmPin.isNotEmpty) {
-        setState(() =>
-            _confirmPin = _confirmPin.substring(0, _confirmPin.length - 1));
+        setState(
+          () => _confirmPin = _confirmPin.substring(0, _confirmPin.length - 1),
+        );
       }
     }
   }
@@ -183,9 +184,7 @@ class _PinSetupScreenState extends State<PinSetupScreen>
                           ? 'Re-enter your 4-digit PIN to confirm'
                           : 'Create a 4-digit PIN for quick sign-in',
                       textAlign: TextAlign.center,
-                      style: context.bodyMedium.copyWith(
-                        color: Colors.white60,
-                      ),
+                      style: context.bodyMedium.copyWith(color: Colors.white60),
                     ),
                   ),
 
@@ -213,26 +212,32 @@ class _PinSetupScreenState extends State<PinSetupScreen>
                       padding: const EdgeInsets.symmetric(horizontal: 32),
                       child: GlassCard(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 8),
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
                         borderRadius: BorderRadius.circular(14),
                         opacity: 0.08,
                         child: Row(
                           children: [
-                            const Icon(Icons.fingerprint,
-                                color: Colors.white70, size: 24),
+                            const Icon(
+                              Icons.fingerprint,
+                              color: Colors.white70,
+                              size: 24,
+                            ),
                             const SizedBox(width: 12),
                             Expanded(
                               child: Text(
                                 'Enable Fingerprint',
-                                style: context.bodyMedium
-                                    .copyWith(color: Colors.white),
+                                style: context.bodyMedium.copyWith(
+                                  color: Colors.white,
+                                ),
                               ),
                             ),
                             Switch(
                               value: _enableBiometric,
                               onChanged: (v) =>
                                   setState(() => _enableBiometric = v),
-                              activeColor: const Color(0xFF60A5FA),
+                              activeThumbColor: const Color(0xFF60A5FA),
                             ),
                           ],
                         ),
@@ -262,10 +267,7 @@ class _PinSetupScreenState extends State<PinSetupScreen>
                     onPressed: _skipSetup,
                     child: const Text(
                       'Skip for now',
-                      style: TextStyle(
-                        color: Colors.white38,
-                        fontSize: 14,
-                      ),
+                      style: TextStyle(color: Colors.white38, fontSize: 14),
                     ),
                   ),
                   SizedBox(height: isSmall ? 8 : 16),
@@ -290,7 +292,9 @@ class _PinSetupScreenState extends State<PinSetupScreen>
           height: 18,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: isFilled ? Colors.white : Colors.white.withValues(alpha: 0.15),
+            color: isFilled
+                ? Colors.white
+                : Colors.white.withValues(alpha: 0.15),
             border: Border.all(
               color: isFilled
                   ? Colors.white
@@ -318,8 +322,11 @@ class _PinSetupScreenState extends State<PinSetupScreen>
           if (item == null) return const Expanded(child: SizedBox());
           if (item == 'delete') {
             return _buildKey(
-              child: const Icon(Icons.backspace_outlined,
-                  color: Colors.white70, size: 22),
+              child: const Icon(
+                Icons.backspace_outlined,
+                color: Colors.white70,
+                size: 22,
+              ),
               onTap: _onDelete,
             );
           }

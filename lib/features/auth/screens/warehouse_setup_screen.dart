@@ -31,13 +31,11 @@ class _WarehouseSetupScreenState extends State<WarehouseSetupScreen>
       vsync: this,
       duration: const Duration(milliseconds: 600),
     );
-    _fadeAnim =
-        CurvedAnimation(parent: _animController, curve: Curves.easeOut);
-    _slideAnim = Tween<Offset>(
-      begin: const Offset(0, 0.06),
-      end: Offset.zero,
-    ).animate(
-        CurvedAnimation(parent: _animController, curve: Curves.easeOutCubic));
+    _fadeAnim = CurvedAnimation(parent: _animController, curve: Curves.easeOut);
+    _slideAnim = Tween<Offset>(begin: const Offset(0, 0.06), end: Offset.zero)
+        .animate(
+          CurvedAnimation(parent: _animController, curve: Curves.easeOutCubic),
+        );
     _animController.forward();
   }
 
@@ -73,10 +71,14 @@ class _WarehouseSetupScreenState extends State<WarehouseSetupScreen>
         final name = entry.nameController.text.trim();
         final location = entry.locationController.text.trim();
         if (name.isEmpty) continue;
-        await database.into(database.warehouses).insert(
+        await database
+            .into(database.warehouses)
+            .insert(
               WarehousesCompanion.insert(
                 name: name,
-                location: location.isEmpty ? const Value.absent() : Value(location),
+                location: location.isEmpty
+                    ? const Value.absent()
+                    : Value(location),
               ),
             );
       }
@@ -95,10 +97,12 @@ class _WarehouseSetupScreenState extends State<WarehouseSetupScreen>
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Error saving warehouse: $e'),
-          backgroundColor: AppColors.danger,
-        ));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error saving warehouse: $e'),
+            backgroundColor: AppColors.danger,
+          ),
+        );
       }
     }
   }
@@ -140,16 +144,16 @@ class _WarehouseSetupScreenState extends State<WarehouseSetupScreen>
             child: Column(
               children: [
                 // Top row: progress hint
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(16, 12, 16, 0),
                   child: Row(
                     children: [
                       // Step chips
-                      const _StepChip(label: 'Business', done: true),
-                      const SizedBox(width: 6),
-                      const _StepChip(label: 'Warehouse', active: true),
-                      const SizedBox(width: 6),
-                      const _StepChip(label: 'PIN'),
+                      _StepChip(label: 'Business', done: true),
+                      SizedBox(width: 6),
+                      _StepChip(label: 'Warehouse', active: true),
+                      SizedBox(width: 6),
+                      _StepChip(label: 'PIN'),
                     ],
                   ),
                 ),
@@ -180,9 +184,13 @@ class _WarehouseSetupScreenState extends State<WarehouseSetupScreen>
                                   child: Column(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      ..._entries.asMap().entries.map((e) =>
-                                          _buildWarehouseCard(
-                                              e.key, e.value, isSmall)),
+                                      ..._entries.asMap().entries.map(
+                                        (e) => _buildWarehouseCard(
+                                          e.key,
+                                          e.value,
+                                          isSmall,
+                                        ),
+                                      ),
 
                                       // Add another button
                                       const SizedBox(height: 12),
@@ -204,10 +212,12 @@ class _WarehouseSetupScreenState extends State<WarehouseSetupScreen>
                                           ),
                                           style: OutlinedButton.styleFrom(
                                             padding: const EdgeInsets.symmetric(
-                                                vertical: 14),
+                                              vertical: 14,
+                                            ),
                                             side: BorderSide(
-                                              color: const Color(0xFF60A5FA)
-                                                  .withValues(alpha: 0.4),
+                                              color: const Color(
+                                                0xFF60A5FA,
+                                              ).withValues(alpha: 0.4),
                                             ),
                                             shape: RoundedRectangleBorder(
                                               borderRadius:
@@ -231,22 +241,26 @@ class _WarehouseSetupScreenState extends State<WarehouseSetupScreen>
                                                 Color(0xFF7C3AED),
                                               ],
                                             ),
-                                            borderRadius:
-                                                BorderRadius.circular(16),
+                                            borderRadius: BorderRadius.circular(
+                                              16,
+                                            ),
                                             boxShadow: [
                                               BoxShadow(
-                                                color: const Color(0xFF2563EB)
-                                                    .withValues(alpha: 0.4),
+                                                color: const Color(
+                                                  0xFF2563EB,
+                                                ).withValues(alpha: 0.4),
                                                 blurRadius: 12,
                                                 offset: const Offset(0, 4),
                                               ),
                                             ],
                                           ),
                                           child: ElevatedButton(
-                                            onPressed:
-                                                _isLoading ? null : _handleSubmit,
+                                            onPressed: _isLoading
+                                                ? null
+                                                : _handleSubmit,
                                             style: ElevatedButton.styleFrom(
-                                              backgroundColor: Colors.transparent,
+                                              backgroundColor:
+                                                  Colors.transparent,
                                               shadowColor: Colors.transparent,
                                               shape: RoundedRectangleBorder(
                                                 borderRadius:
@@ -259,13 +273,14 @@ class _WarehouseSetupScreenState extends State<WarehouseSetupScreen>
                                                     height: 22,
                                                     child:
                                                         CircularProgressIndicator(
-                                                      strokeWidth: 2.5,
-                                                      color: Colors.white,
-                                                    ),
+                                                          strokeWidth: 2.5,
+                                                          color: Colors.white,
+                                                        ),
                                                   )
                                                 : const Row(
                                                     mainAxisAlignment:
-                                                        MainAxisAlignment.center,
+                                                        MainAxisAlignment
+                                                            .center,
                                                     children: [
                                                       Text(
                                                         'Save & Continue',
@@ -278,7 +293,8 @@ class _WarehouseSetupScreenState extends State<WarehouseSetupScreen>
                                                       ),
                                                       SizedBox(width: 8),
                                                       Icon(
-                                                        Icons.arrow_forward_rounded,
+                                                        Icons
+                                                            .arrow_forward_rounded,
                                                         color: Colors.white,
                                                         size: 18,
                                                       ),
@@ -379,7 +395,10 @@ class _WarehouseSetupScreenState extends State<WarehouseSetupScreen>
             Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFF2563EB).withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(20),
@@ -453,7 +472,10 @@ class _WarehouseSetupScreenState extends State<WarehouseSetupScreen>
       decoration: InputDecoration(
         labelText: label,
         hintText: hint,
-        hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.25), fontSize: 13),
+        hintStyle: TextStyle(
+          color: Colors.white.withValues(alpha: 0.25),
+          fontSize: 13,
+        ),
         labelStyle: TextStyle(color: Colors.white.withValues(alpha: 0.6)),
         prefixIcon: Icon(icon, color: Colors.white54, size: 20),
         filled: true,
@@ -474,8 +496,10 @@ class _WarehouseSetupScreenState extends State<WarehouseSetupScreen>
           borderRadius: BorderRadius.circular(14),
           borderSide: const BorderSide(color: Colors.redAccent),
         ),
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 16,
+        ),
       ),
     );
   }
@@ -517,8 +541,8 @@ class _StepChip extends StatelessWidget {
           color: done
               ? AppColors.success.withValues(alpha: 0.4)
               : active
-                  ? const Color(0xFF60A5FA).withValues(alpha: 0.4)
-                  : Colors.white.withValues(alpha: 0.1),
+              ? const Color(0xFF60A5FA).withValues(alpha: 0.4)
+              : Colors.white.withValues(alpha: 0.1),
         ),
       ),
       child: Row(

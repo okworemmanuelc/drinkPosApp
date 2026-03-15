@@ -74,8 +74,10 @@ class DeliveryReceiptService extends ValueNotifier<List<DeliveryReceipt>> {
   }
 
   String generateReference() {
-    final prefix = 'DEL-';
-    final timestamp = DateTime.now().millisecondsSinceEpoch.toString().substring(7);
+    const prefix = 'DEL-';
+    final timestamp = DateTime.now().millisecondsSinceEpoch
+        .toString()
+        .substring(7);
     final random = (1000 + (DateTime.now().microsecond % 9000)).toString();
     return '$prefix$timestamp$random';
   }

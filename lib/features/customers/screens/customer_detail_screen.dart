@@ -324,9 +324,9 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                 ),
               ),
               SizedBox(height: context.getRSize(8)),
-                Text(
-                  walletStr,
-                  style: TextStyle(
+              Text(
+                walletStr,
+                style: TextStyle(
                   fontSize: context.getRFontSize(32),
                   fontWeight: FontWeight.w800,
                   color: balanceColor,
@@ -1816,12 +1816,12 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                                   });
                                 });
                               },
-                              icon: Icon(
+                              icon: const Icon(
                                 FontAwesomeIcons.plus,
                                 size: 14,
                                 color: blueMain,
                               ),
-                              label: Text(
+                              label: const Text(
                                 'Add Row',
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,

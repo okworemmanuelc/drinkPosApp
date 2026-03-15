@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/design_tokens.dart';
 import '../../../shared/widgets/glass_card.dart';
 import '../../../shared/services/auth_service.dart';
+import '../../../core/database/app_database.dart';
 import 'pin_setup_screen.dart';
 import 'business_setup_screen.dart';
+import 'warehouse_setup_screen.dart';
+import 'onboarding_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -85,7 +88,7 @@ class _LoginScreenState extends State<LoginScreen>
         _errorMessage = error;
       });
     } else {
-      _navigateToNext();
+      await _navigateToNext();
     }
   }
 
@@ -99,26 +102,49 @@ class _LoginScreenState extends State<LoginScreen>
     if (!mounted) return;
 
     if (result != null) {
-      setState(() {
-        _isLoading = false;
-        if (result == 'USER_NOT_FOUND') {
-          _isSignUp = true;
-          _errorMessage = 'Account not found. Please sign up first.';
-          _animController.reset();
-          _animController.forward();
-        } else {
+      if (!mounted) return;
+      if (result == 'USER_NOT_FOUND') {
+        // No account found — send user back to onboarding to sign up
+        Navigator.pushReplacement(
+          context,
+          PageRouteBuilder(
+            pageBuilder: (_, __, ___) => const OnboardingScreen(),
+            transitionsBuilder: (_, anim, __, child) =>
+                FadeTransition(opacity: anim, child: child),
+            transitionDuration: const Duration(milliseconds: 400),
+          ),
+        );
+      } else {
+        setState(() {
+          _isLoading = false;
           _errorMessage = result;
-        }
-      });
+        });
+      }
     } else {
-      _navigateToNext();
+      await _navigateToNext();
     }
   }
 
-  void _navigateToNext() {
-    final destination = _isSignUp
-        ? const BusinessSetupScreen()
-        : const PinSetupScreen();
+  Future<void> _navigateToNext() async {
+    if (!mounted) return;
+    if (_isSignUp) {
+      Navigator.pushReplacement(
+        context,
+        PageRouteBuilder(
+          pageBuilder: (_, __, ___) => const BusinessSetupScreen(),
+          transitionsBuilder: (_, anim, __, child) =>
+              FadeTransition(opacity: anim, child: child),
+          transitionDuration: const Duration(milliseconds: 400),
+        ),
+      );
+      return;
+    }
+
+    // Sign-in: check if any warehouses exist; if not, send to warehouse setup
+    final warehouses = await database.select(database.warehouses).get();
+    if (!mounted) return;
+    final destination =
+        warehouses.isEmpty ? const WarehouseSetupScreen() : const PinSetupScreen();
     Navigator.pushReplacement(
       context,
       PageRouteBuilder(

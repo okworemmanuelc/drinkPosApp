@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/theme_notifier.dart';
 import '../../../core/utils/number_format.dart';
@@ -8,15 +10,14 @@ import '../../../shared/widgets/shared_scaffold.dart';
 import '../../../shared/widgets/menu_button.dart';
 import '../../../shared/widgets/app_bar_header.dart';
 import '../../../shared/widgets/notification_bell.dart';
-import '../../inventory/data/inventory_data.dart';
 import '../../../core/theme/design_tokens.dart';
 import '../../../shared/models/order.dart';
 import '../../../shared/services/order_service.dart';
-import '../../expenses/data/services/expense_service.dart';
-import '../../customers/data/services/customer_service.dart';
+import '../../../core/database/app_database.dart';
+import '../../customers/data/models/customer.dart';
 import '../../../shared/widgets/user_tips_modal.dart';
 
-final Color warning = Color(0xFFF59E0B);
+const Color warning = Color(0xFFF59E0B);
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -29,6 +30,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
   String _selectedPeriod = 'Day';
   final List<String> _periods = ['Day', 'Week', 'Month', 'Year', 'To Date'];
 
+  // Warehouse filter (null = All)
+  int? _selectedWarehouseId;
+  List<WarehouseData> _warehouses = [];
+  StreamSubscription? _warehousesSub;
+
+  // Pro-tips hero visibility
+  bool _showProTips = false;
+
+  // DB-backed data
+  List<Order> _allOrders = [];
+  List<ExpenseData> _allExpenses = [];
+  List<Customer> _customers = [];
+  double _totalStockValue = 0;
+
+  StreamSubscription? _ordersSub;
+  StreamSubscription? _expensesSub;
+  StreamSubscription? _customersSub;
+  StreamSubscription? _inventorySub;
+
   bool get _isDark => themeNotifier.value == ThemeMode.dark;
   Color get _bg => _isDark ? dBg : lBg;
   Color get _surface => _isDark ? dSurface : lSurface;
@@ -37,10 +57,65 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Color get _subtext => _isDark ? dSubtext : lSubtext;
   Color get _border => _isDark ? dBorder : lBorder;
 
+  @override
+  void initState() {
+    super.initState();
+
+    // Track login count to hide pro tips after first visit
+    SharedPreferences.getInstance().then((prefs) {
+      final count = (prefs.getInt('dashboard_visit_count') ?? 0) + 1;
+      prefs.setInt('dashboard_visit_count', count);
+      if (mounted) setState(() => _showProTips = count <= 1);
+    });
+
+    // Warehouses for the filter dropdown
+    _warehousesSub = database.select(database.warehouses).watch().listen((wh) {
+      if (mounted) setState(() => _warehouses = wh);
+    });
+
+    _ordersSub = orderService.watchAllOrders().listen((orders) {
+      if (mounted) setState(() => _allOrders = orders);
+    });
+
+    _expensesSub = database.expensesDao.watchAll().listen((expenses) {
+      if (mounted) setState(() => _allExpenses = expenses);
+    });
+
+    _customersSub = database.customersDao.watchAllCustomers().listen((
+      customers,
+    ) {
+      if (mounted) setState(() => _customers = customers);
+    });
+
+    _inventorySub = database.inventoryDao
+        .watchAllProductDatasWithStock()
+        .listen((items) {
+          if (mounted) {
+            setState(() {
+              _totalStockValue = items.fold<double>(
+                0,
+                (sum, item) =>
+                    sum +
+                    (item.totalStock * item.product.sellingPriceKobo / 100.0),
+              );
+            });
+          }
+        });
+  }
+
+  @override
+  void dispose() {
+    _warehousesSub?.cancel();
+    _ordersSub?.cancel();
+    _expensesSub?.cancel();
+    _customersSub?.cancel();
+    _inventorySub?.cancel();
+    super.dispose();
+  }
+
   bool _isDateInPeriod(DateTime date, String period) {
     final now = DateTime.now();
     final diff = now.difference(date);
-
     switch (period) {
       case 'Day':
         return diff.inDays == 0 && now.day == date.day;
@@ -57,76 +132,86 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
-  double get _totalStockValue {
-    return kInventoryItems.fold(0.0, (sum, item) {
-      return sum + (item.totalStock * 5000); // Mock cost price of 5000 per unit
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
-    return SharedScaffold(
-      activeRoute: 'dashboard',
-      backgroundColor: _bg,
-      appBar: AppBar(
-        backgroundColor: _surface,
-        elevation: 0,
-        leading: const MenuButton(),
-        title: const AppBarHeader(
-          icon: FontAwesomeIcons.chartLine,
-          title: 'Ribaplus POS',
-          subtitle: 'Business Overview',
+    // Filter by selected period
+    final filteredOrders = _allOrders
+        .where(
+          (o) =>
+              _isDateInPeriod(o.createdAt, _selectedPeriod) &&
+              o.status == 'completed',
+        )
+        .toList();
+
+    final filteredExpenses = _allExpenses
+        .where((e) => _isDateInPeriod(e.timestamp, _selectedPeriod))
+        .toList();
+
+    // Metrics
+    final totalSales = filteredOrders.fold<double>(
+      0,
+      (sum, o) => sum + o.totalAmount,
+    );
+    final totalExpenses = filteredExpenses.fold<double>(
+      0,
+      (sum, e) => sum + e.amountKobo / 100.0,
+    );
+    final netProfit = totalSales - totalExpenses;
+    final pendingOrdersCount = _allOrders
+        .where((o) => o.status == 'pending')
+        .length;
+
+    final totalCredit = _customers.fold<double>(
+      0,
+      (sum, c) =>
+          sum + (c.walletBalanceKobo > 0 ? c.walletBalanceKobo / 100.0 : 0),
+    );
+    final totalDebt = _customers.fold<double>(
+      0,
+      (sum, c) =>
+          sum +
+          (c.walletBalanceKobo < 0 ? c.walletBalanceKobo.abs() / 100.0 : 0),
+    );
+
+    return ValueListenableBuilder<ThemeMode>(
+      valueListenable: themeNotifier,
+      builder: (_, _, _) => SharedScaffold(
+        activeRoute: 'dashboard',
+        backgroundColor: _bg,
+        appBar: AppBar(
+          backgroundColor: _surface,
+          elevation: 0,
+          leading: const MenuButton(),
+          title: const AppBarHeader(
+            icon: FontAwesomeIcons.chartLine,
+            title: 'Ribaplus POS',
+            subtitle: 'Business Overview',
+          ),
+          actions: [
+            const NotificationBell(),
+            SizedBox(width: context.getRSize(8)),
+          ],
         ),
-        actions: [
-          const NotificationBell(),
-          SizedBox(width: context.getRSize(8)),
-        ],
-      ),
-      body: StreamBuilder<List<Order>>(
-        stream: orderService.watchAllOrders(),
-        builder: (context, snapshot) {
-          final orders = snapshot.data ?? [];
-          
-          return AnimatedBuilder(
-            animation: Listenable.merge([expenseService, customerService]),
-            builder: (context, _) {
-              final expenses = expenseService.value;
-              final customers = customerService.value;
-
-              // Filter data by period
-              final filteredOrders = orders.where((o) => _isDateInPeriod(o.createdAt, _selectedPeriod) && o.status == 'completed').toList();
-              final filteredExpenses = expenses.where((e) => _isDateInPeriod(e.date, _selectedPeriod)).toList();
-
-              // Calculate Metrics
-              final totalSales = filteredOrders.fold(0.0, (sum, o) => sum + o.totalAmount);
-              final totalExpenses = filteredExpenses.fold(0.0, (sum, e) => sum + e.amount);
-              final netProfit = totalSales - totalExpenses;
-              final pendingOrdersCount = orders.where((o) => o.status == 'pending').length;
-
-              final totalCredit = customers.fold(0.0, (sum, c) => sum + (c.walletBalanceKobo > 0 ? c.customerWallet : 0));
-              final totalDebt = customers.fold(0.0, (sum, c) => sum + (c.walletBalanceKobo < 0 ? c.customerWallet.abs() : 0));
-
-              return ListView(
-                padding: EdgeInsets.all(context.spacingM),
-                children: [
-                  _buildQuickStartHero(),
-                  SizedBox(height: context.spacingL),
-                  _buildPeriodHeader(),
-                  SizedBox(height: context.spacingM),
-                  _buildMetricsList(
-                    sales: totalSales,
-                    pending: pendingOrdersCount,
-                    profit: netProfit,
-                    credit: totalCredit,
-                    debt: totalDebt,
-                    expenses: totalExpenses,
-                  ),
-                  SizedBox(height: context.spacingL),
-                ],
-              );
-            },
-          );
-        },
+        body: ListView(
+          padding: EdgeInsets.all(context.spacingM),
+          children: [
+            if (_showProTips) ...[
+              _buildQuickStartHero(),
+              SizedBox(height: context.spacingL),
+            ],
+            _buildPeriodHeader(),
+            SizedBox(height: context.spacingM),
+            _buildMetricsList(
+              sales: totalSales,
+              pending: pendingOrdersCount,
+              profit: netProfit,
+              credit: totalCredit,
+              debt: totalDebt,
+              expenses: totalExpenses,
+            ),
+            SizedBox(height: context.spacingL),
+          ],
+        ),
       ),
     );
   }
@@ -160,7 +245,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   color: Colors.white.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(FontAwesomeIcons.rocket, color: Colors.white, size: 20),
+                child: const Icon(
+                  FontAwesomeIcons.rocket,
+                  color: Colors.white,
+                  size: 20,
+                ),
               ),
               const SizedBox(width: 16),
               const Expanded(
@@ -193,9 +282,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
               foregroundColor: blueMain,
               elevation: 0,
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
-            child: const Text('View Pro Tips', style: TextStyle(fontWeight: FontWeight.bold)),
+            child: const Text(
+              'View Pro Tips',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
           ),
         ],
       ),
@@ -225,8 +319,61 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ],
         ),
-        _buildPeriodDropdown(),
+        Row(
+          children: [
+            if (_warehouses.isNotEmpty) ...[
+              _buildWarehouseDropdown(),
+              SizedBox(width: context.getRSize(8)),
+            ],
+            _buildPeriodDropdown(),
+          ],
+        ),
       ],
+    );
+  }
+
+  Widget _buildWarehouseDropdown() {
+    return Container(
+      constraints: BoxConstraints(maxWidth: context.getRSize(130)),
+      padding: EdgeInsets.symmetric(horizontal: context.getRSize(10)),
+      decoration: BoxDecoration(
+        color: _cardBg,
+        borderRadius: BorderRadius.circular(context.radiusM),
+        border: Border.all(color: _border),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<int?>(
+          value: _selectedWarehouseId,
+          isExpanded: true,
+          dropdownColor: _surface,
+          style: TextStyle(
+              color: _text, fontSize: context.getRFontSize(12)),
+          hint: Text('All',
+              style: TextStyle(
+                  color: _subtext, fontSize: context.getRFontSize(12))),
+          items: [
+            DropdownMenuItem<int?>(
+              value: null,
+              child: Text('All',
+                  style: TextStyle(
+                      color: _text,
+                      fontSize: context.getRFontSize(12))),
+            ),
+            for (final wh in _warehouses)
+              DropdownMenuItem<int?>(
+                value: wh.id,
+                child: Text(
+                  wh.name,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                      color: _text,
+                      fontSize: context.getRFontSize(12)),
+                ),
+              ),
+          ],
+          onChanged: (v) => setState(() => _selectedWarehouseId = v),
+        ),
+      ),
     );
   }
 
@@ -289,11 +436,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
         _robustMetricCard(
           label: 'Total Sales',
           value: formatCurrency(sales),
-          subtitle: 'Generated from ${(_selectedPeriod)} transactions',
+          subtitle: 'Generated from $_selectedPeriod transactions',
           icon: FontAwesomeIcons.nairaSign,
           color: blueMain,
-          trend: '+12.5%',
-          isPositive: true,
+          trend: sales > 0 ? 'Active' : 'No sales',
+          isNeutral: true,
         ),
         SizedBox(height: context.spacingM),
         _robustMetricCard(
@@ -302,7 +449,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           subtitle: 'After all deductions',
           icon: FontAwesomeIcons.chartLine,
           color: profit >= 0 ? success : danger,
-          trend: profit >= 0 ? '+8.2%' : '-4.5%',
+          trend: profit >= 0 ? 'Positive' : 'Negative',
           isPositive: profit >= 0,
         ),
         SizedBox(height: context.spacingM),
@@ -312,7 +459,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           subtitle: 'Orders awaiting fulfillment',
           icon: FontAwesomeIcons.clock,
           color: warning,
-          trend: 'Attention',
+          trend: pending > 0 ? 'Attention' : 'Clear',
           isNeutral: true,
         ),
         SizedBox(height: context.spacingM),
@@ -322,8 +469,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
           subtitle: 'Including operations & staff',
           icon: FontAwesomeIcons.fileInvoiceDollar,
           color: danger,
-          trend: '-5.1%',
-          isPositive: false, // Expenses going down is good, but value is cost
+          trend: expenses > 0 ? 'Recorded' : 'None',
+          isPositive: false,
           inverted: true,
         ),
         SizedBox(height: context.spacingM),
@@ -333,7 +480,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           subtitle: 'Estimated inventory worth',
           icon: FontAwesomeIcons.boxesStacked,
           color: blueMain,
-          trend: 'Stable',
+          trend: 'Live',
           isNeutral: true,
         ),
         SizedBox(height: context.spacingM),
@@ -388,7 +535,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
             height: context.getRSize(56),
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [color.withValues(alpha: 0.1), color.withValues(alpha: 0.05)],
+                colors: [
+                  color.withValues(alpha: 0.1),
+                  color.withValues(alpha: 0.05),
+                ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
@@ -458,5 +608,4 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
     );
   }
-
 }

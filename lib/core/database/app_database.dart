@@ -13,7 +13,8 @@ part 'app_database.g.dart';
 class CrateGroups extends Table {
   IntColumn get id => integer().autoIncrement()();
   TextColumn get name => text()();
-  IntColumn get size => integer()(); // e.g., 24, 12
+  IntColumn get size => integer()(); // 12=big, 20=medium, 24=small
+  IntColumn get emptyCrateStock => integer().withDefault(const Constant(0))();
 }
 
 // 2. Warehouses
@@ -36,6 +37,7 @@ class Users extends Table {
   IntColumn get roleTier => integer().withDefault(const Constant(1))(); // 1=Staff, 4=Manager, 5=CEO
   TextColumn get avatarColor => text().withDefault(const Constant('#3B82F6'))(); // HEX color
   BoolColumn get biometricEnabled => boolean().withDefault(const Constant(false))();
+  IntColumn get warehouseId => integer().nullable().references(Warehouses, #id)();
 }
 
 // 4. Categories
@@ -51,6 +53,8 @@ class Categories extends Table {
 class Products extends Table {
   IntColumn get id => integer().autoIncrement()();
   IntColumn get categoryId => integer().nullable().references(Categories, #id)();
+  IntColumn get crateGroupId => integer().nullable().references(CrateGroups, #id)();
+  TextColumn get crateSize => text().nullable()(); // 'big'(12) | 'medium'(20) | 'small'(24)
   TextColumn get name => text()();
   TextColumn get subtitle => text().nullable()();
   TextColumn get sku => text().nullable()();
@@ -95,6 +99,7 @@ class Suppliers extends Table {
   TextColumn get phone => text().nullable()();
   TextColumn get email => text().nullable()();
   TextColumn get address => text().nullable()();
+  TextColumn get crateGroupName => text().nullable()();
 }
 
 // 9. Orders
@@ -156,9 +161,13 @@ class PurchaseItems extends Table {
 @DataClassName('ExpenseData')
 class Expenses extends Table {
   IntColumn get id => integer().autoIncrement()();
-  IntColumn get categoryId => integer().references(ExpenseCategories, #id)();
+  IntColumn get categoryId => integer().nullable().references(ExpenseCategories, #id)();
+  TextColumn get category => text().withDefault(const Constant('Others'))();
   IntColumn get amountKobo => integer()();
   TextColumn get description => text()();
+  TextColumn get paymentMethod => text().nullable()();
+  TextColumn get recordedBy => text().nullable()();
+  TextColumn get reference => text().nullable()();
   DateTimeColumn get timestamp => dateTime().withDefault(currentDateAndTime)();
 }
 
@@ -361,13 +370,13 @@ class CustomerWalletTransactions extends Table {
     Sessions,
     CustomerWalletTransactions,
   ],
-  daos: [CatalogDao, InventoryDao, OrdersDao, CustomersDao, DeliveriesDao, ExpensesDao, SyncDao, ActivityLogDao, NotificationsDao],
+  daos: [CatalogDao, InventoryDao, OrdersDao, CustomersDao, DeliveriesDao, ExpensesDao, SyncDao, ActivityLogDao, NotificationsDao, WarehousesDao],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 7;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -392,8 +401,9 @@ class AppDatabase extends _$AppDatabase {
     // Only seed reference/config data — no users, warehouses, products or inventory.
     // Everything else is created by the user during onboarding.
     await batch((b) {
-      b.insert(crateGroups, CrateGroupsCompanion.insert(name: 'Full Crate 24', size: 24));
-      b.insert(crateGroups, CrateGroupsCompanion.insert(name: 'Half Crate 12', size: 12));
+      b.insert(crateGroups, CrateGroupsCompanion.insert(name: 'Big Crate 12', size: 12));
+      b.insert(crateGroups, CrateGroupsCompanion.insert(name: 'Medium Crate 20', size: 20));
+      b.insert(crateGroups, CrateGroupsCompanion.insert(name: 'Small Crate 24', size: 24));
     });
   }
 

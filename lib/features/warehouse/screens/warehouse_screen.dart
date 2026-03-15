@@ -31,17 +31,24 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
   Stream<List<WarehouseData>> get _warehousesStream =>
       database.select(database.warehouses).watch();
 
-  Future<int> _getTotalStock(int warehouseId) async {
-    final rows = await (database.select(database.inventory)
+  Future<int> _getStaffCount(int warehouseId) async {
+    final rows = await (database.select(database.users)
           ..where((t) => t.warehouseId.equals(warehouseId)))
         .get();
+    return rows.length;
+  }
+
+  Future<int> _getTotalStock(int warehouseId) async {
+    final rows = await (database.select(
+      database.inventory,
+    )..where((t) => t.warehouseId.equals(warehouseId))).get();
     return rows.fold<int>(0, (sum, row) => sum + row.quantity);
   }
 
   Future<int> _getProductCount(int warehouseId) async {
-    final rows = await (database.select(database.inventory)
-          ..where((t) => t.warehouseId.equals(warehouseId)))
-        .get();
+    final rows = await (database.select(
+      database.inventory,
+    )..where((t) => t.warehouseId.equals(warehouseId))).get();
     return rows.where((r) => r.quantity > 0).length;
   }
 
@@ -64,7 +71,9 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
           child: Container(
             decoration: BoxDecoration(
               color: _surface,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(24),
+              ),
             ),
             padding: EdgeInsets.fromLTRB(
               rSize(ctx, 24),
@@ -100,8 +109,11 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
                           color: blueMain.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: Icon(FontAwesomeIcons.warehouse,
-                            color: blueMain, size: rSize(ctx, 18)),
+                        child: Icon(
+                          FontAwesomeIcons.warehouse,
+                          color: blueMain,
+                          size: rSize(ctx, 18),
+                        ),
                       ),
                       SizedBox(width: rSize(ctx, 12)),
                       Text(
@@ -165,16 +177,17 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
                             : () async {
                                 if (!formKey.currentState!.validate()) return;
                                 setSheet(() => saving = true);
-                                final location =
-                                    locationCtrl.text.trim();
+                                final location = locationCtrl.text.trim();
                                 await database
                                     .into(database.warehouses)
-                                    .insert(WarehousesCompanion.insert(
-                                  name: nameCtrl.text.trim(),
-                                  location: location.isEmpty
-                                      ? const Value.absent()
-                                      : Value(location),
-                                ));
+                                    .insert(
+                                      WarehousesCompanion.insert(
+                                        name: nameCtrl.text.trim(),
+                                        location: location.isEmpty
+                                            ? const Value.absent()
+                                            : Value(location),
+                                      ),
+                                    );
                                 if (ctx.mounted) Navigator.pop(ctx);
                               },
                         style: ElevatedButton.styleFrom(
@@ -216,8 +229,7 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
   // ── Edit Warehouse ─────────────────────────────────────────────────────────
   void _showEditSheet(BuildContext context, WarehouseData warehouse) {
     final nameCtrl = TextEditingController(text: warehouse.name);
-    final locationCtrl =
-        TextEditingController(text: warehouse.location ?? '');
+    final locationCtrl = TextEditingController(text: warehouse.location ?? '');
     final formKey = GlobalKey<FormState>();
     bool saving = false;
 
@@ -233,8 +245,9 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
           child: Container(
             decoration: BoxDecoration(
               color: _surface,
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(24)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(24),
+              ),
             ),
             padding: EdgeInsets.fromLTRB(
               rSize(ctx, 24),
@@ -267,8 +280,11 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
                           color: blueMain.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: Icon(FontAwesomeIcons.penToSquare,
-                            color: blueMain, size: rSize(ctx, 18)),
+                        child: Icon(
+                          FontAwesomeIcons.penToSquare,
+                          color: blueMain,
+                          size: rSize(ctx, 18),
+                        ),
                       ),
                       SizedBox(width: rSize(ctx, 12)),
                       Text(
@@ -326,16 +342,17 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
                             : () async {
                                 if (!formKey.currentState!.validate()) return;
                                 setSheet(() => saving = true);
-                                final location =
-                                    locationCtrl.text.trim();
+                                final location = locationCtrl.text.trim();
                                 await (database.update(database.warehouses)
-                                      ..where(
-                                          (t) => t.id.equals(warehouse.id)))
-                                    .write(WarehousesCompanion(
-                                  name: Value(nameCtrl.text.trim()),
-                                  location: Value(
-                                      location.isEmpty ? null : location),
-                                ));
+                                      ..where((t) => t.id.equals(warehouse.id)))
+                                    .write(
+                                      WarehousesCompanion(
+                                        name: Value(nameCtrl.text.trim()),
+                                        location: Value(
+                                          location.isEmpty ? null : location,
+                                        ),
+                                      ),
+                                    );
                                 if (ctx.mounted) Navigator.pop(ctx);
                               },
                         style: ElevatedButton.styleFrom(
@@ -376,7 +393,9 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
 
   // ── Delete Warehouse ───────────────────────────────────────────────────────
   Future<void> _confirmDelete(
-      BuildContext context, WarehouseData warehouse) async {
+    BuildContext context,
+    WarehouseData warehouse,
+  ) async {
     final stock = await _getTotalStock(warehouse.id);
     if (!context.mounted) return;
 
@@ -384,12 +403,14 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: _surface,
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Text(
           'Delete Warehouse',
-          style:
-              TextStyle(color: _text, fontWeight: FontWeight.bold, fontSize: 18),
+          style: TextStyle(
+            color: _text,
+            fontWeight: FontWeight.bold,
+            fontSize: 18,
+          ),
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -402,26 +423,33 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
             if (stock > 0) ...[
               const SizedBox(height: 12),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
                 decoration: BoxDecoration(
                   color: AppColors.warning.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(
-                      color: AppColors.warning.withValues(alpha: 0.3)),
+                    color: AppColors.warning.withValues(alpha: 0.3),
+                  ),
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.warning_amber_rounded,
-                        color: AppColors.warning, size: 18),
+                    const Icon(
+                      Icons.warning_amber_rounded,
+                      color: AppColors.warning,
+                      size: 18,
+                    ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         'This warehouse has $stock units in stock. Deleting it will also remove its inventory records.',
-                        style: TextStyle(
-                            color: AppColors.warning,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500),
+                        style: const TextStyle(
+                          color: AppColors.warning,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                     ),
                   ],
@@ -439,18 +467,19 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
             onPressed: () async {
               Navigator.pop(ctx);
               // Delete inventory first (FK), then warehouse
-              await (database.delete(database.inventory)
-                    ..where((t) => t.warehouseId.equals(warehouse.id)))
-                  .go();
-              await (database.delete(database.warehouses)
-                    ..where((t) => t.id.equals(warehouse.id)))
-                  .go();
+              await (database.delete(
+                database.inventory,
+              )..where((t) => t.warehouseId.equals(warehouse.id))).go();
+              await (database.delete(
+                database.warehouses,
+              )..where((t) => t.id.equals(warehouse.id))).go();
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.danger,
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
             child: const Text('Delete'),
           ),
@@ -506,7 +535,9 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
             label: const Text(
               'Add Warehouse',
               style: TextStyle(
-                  fontWeight: FontWeight.bold, color: Colors.white),
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
             ),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
@@ -591,10 +622,12 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
       future: Future.wait([
         _getTotalStock(warehouse.id),
         _getProductCount(warehouse.id),
+        _getStaffCount(warehouse.id),
       ]),
       builder: (context, snapshot) {
         final totalStock = snapshot.data?[0] ?? 0;
         final productCount = snapshot.data?[1] ?? 0;
+        final staffCount = snapshot.data?[2] ?? 0;
 
         return Container(
           margin: EdgeInsets.only(bottom: rSize(context, 14)),
@@ -615,12 +648,13 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
               // Main row
               InkWell(
                 onTap: () {
-                  navigationService.selectedWarehouseId.value =
-                      warehouse.id.toString();
+                  navigationService.selectedWarehouseId.value = warehouse.id
+                      .toString();
                   navigationService.setIndex(2); // Inventory
                 },
-                borderRadius:
-                    const BorderRadius.vertical(top: Radius.circular(16)),
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(16),
+                ),
                 child: Padding(
                   padding: EdgeInsets.all(rSize(context, 16)),
                   child: Row(
@@ -655,9 +689,11 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
                               SizedBox(height: rSize(context, 3)),
                               Row(
                                 children: [
-                                  Icon(Icons.location_on_outlined,
-                                      size: rSize(context, 12),
-                                      color: _subtext),
+                                  Icon(
+                                    Icons.location_on_outlined,
+                                    size: rSize(context, 12),
+                                    color: _subtext,
+                                  ),
                                   SizedBox(width: rSize(context, 4)),
                                   Expanded(
                                     child: Text(
@@ -691,7 +727,8 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
                 decoration: BoxDecoration(
                   color: _card,
                   borderRadius: const BorderRadius.vertical(
-                      bottom: Radius.circular(16)),
+                    bottom: Radius.circular(16),
+                  ),
                 ),
                 child: Row(
                   children: [
@@ -715,6 +752,26 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
                         value: productCount.toString(),
                         color: AppColors.success,
                       ),
+                    ),
+                    Container(width: 1, height: 36, color: _border),
+                    // Staff stat
+                    Expanded(
+                      child: _statCell(
+                        context,
+                        icon: FontAwesomeIcons.userGroup,
+                        label: 'Staff',
+                        value: staffCount.toString(),
+                        color: const Color(0xFFA855F7),
+                      ),
+                    ),
+                    Container(width: 1, height: 36, color: _border),
+                    // View Staff action
+                    _actionButton(
+                      context,
+                      icon: FontAwesomeIcons.usersGear,
+                      color: const Color(0xFFA855F7),
+                      tooltip: 'View Staff',
+                      onTap: () => navigationService.setIndex(8),
                     ),
                     Container(width: 1, height: 36, color: _border),
                     // Edit action
@@ -753,7 +810,9 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
   }) {
     return Padding(
       padding: EdgeInsets.symmetric(
-          vertical: rSize(context, 10), horizontal: rSize(context, 12)),
+        vertical: rSize(context, 10),
+        horizontal: rSize(context, 12),
+      ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
@@ -796,12 +855,12 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
       message: tooltip,
       child: InkWell(
         onTap: onTap,
-        borderRadius: const BorderRadius.only(
-          bottomRight: Radius.circular(16),
-        ),
+        borderRadius: const BorderRadius.only(bottomRight: Radius.circular(16)),
         child: Padding(
           padding: EdgeInsets.symmetric(
-              vertical: rSize(context, 10), horizontal: rSize(context, 16)),
+            vertical: rSize(context, 10),
+            horizontal: rSize(context, 16),
+          ),
           child: Icon(icon, size: rSize(context, 14), color: color),
         ),
       ),
@@ -825,8 +884,10 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
         labelText: label,
         hintText: hint,
         labelStyle: TextStyle(color: _subtext),
-        hintStyle:
-            TextStyle(color: _subtext.withValues(alpha: 0.5), fontSize: 13),
+        hintStyle: TextStyle(
+          color: _subtext.withValues(alpha: 0.5),
+          fontSize: 13,
+        ),
         prefixIcon: Icon(icon, color: _subtext, size: 20),
         filled: true,
         fillColor: _bg,
@@ -846,8 +907,10 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
           borderRadius: BorderRadius.circular(14),
           borderSide: const BorderSide(color: AppColors.danger),
         ),
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 16,
+        ),
       ),
     );
   }

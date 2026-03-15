@@ -109,6 +109,8 @@ class AuthService extends ValueNotifier<UserData?> {
 
       final googleSignIn = GoogleSignIn(serverClientId: webClientId);
 
+      // Always show the account chooser, even if already signed in.
+      await googleSignIn.signOut();
       final googleUser = await googleSignIn.signIn();
       if (googleUser == null) return 'Google Sign-In cancelled.';
 

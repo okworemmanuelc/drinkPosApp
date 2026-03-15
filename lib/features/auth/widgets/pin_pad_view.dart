@@ -80,7 +80,43 @@ class _PinPadViewState extends State<PinPadView>
   }
 
   Future<void> _verifyPin() async {
+    // Show loading dialog immediately to eliminate the visible lag on the
+    // last digit press while the DB session write completes.
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => Dialog(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 28),
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.75),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: const Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
+              SizedBox(height: 18),
+              Text(
+                'Signing in…',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
     final success = await authService.loginWithPin(_enteredPin);
+
+    if (!mounted) return;
+    Navigator.of(context, rootNavigator: true).pop(); // close dialog
 
     if (success) {
       widget.onSuccess();

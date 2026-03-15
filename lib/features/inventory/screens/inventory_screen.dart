@@ -57,7 +57,9 @@ class _InventoryScreenState extends State<InventoryScreen>
     });
 
     // Listen for cross-screen warehouse selection
-    navigationService.selectedWarehouseId.addListener(_handleWarehouseNavigation);
+    navigationService.selectedWarehouseId.addListener(
+      _handleWarehouseNavigation,
+    );
   }
 
   void _handleWarehouseNavigation() {
@@ -73,7 +75,9 @@ class _InventoryScreenState extends State<InventoryScreen>
 
   @override
   void dispose() {
-    navigationService.selectedWarehouseId.removeListener(_handleWarehouseNavigation);
+    navigationService.selectedWarehouseId.removeListener(
+      _handleWarehouseNavigation,
+    );
     _tabController.dispose();
     super.dispose();
   }
@@ -124,7 +128,10 @@ class _InventoryScreenState extends State<InventoryScreen>
         title: 'Inventory',
         subtitle: 'Stock Management',
       ),
-      actions: const [NotificationBell(), SizedBox(width: AppSpacing.s)],
+      actions: const [
+        NotificationBell(),
+        SizedBox(width: AppSpacing.s),
+      ],
     );
   }
 
@@ -134,13 +141,22 @@ class _InventoryScreenState extends State<InventoryScreen>
       stream: database.inventoryDao.watchAllProductDatasWithStock(),
       builder: (context, snapshot) {
         final products = snapshot.data ?? [];
-        
+
         final totalItems = products.length;
-        final lowStock = products.where((p) => p.totalStock > 0 && p.totalStock <= p.product.lowStockThreshold).length;
+        final lowStock = products
+            .where(
+              (p) =>
+                  p.totalStock > 0 &&
+                  p.totalStock <= p.product.lowStockThreshold,
+            )
+            .length;
         final outOfStock = products.where((p) => p.totalStock == 0).length;
-        
+
         // Crate groups summary (keeping legacy for now until CrateDao is implemented)
-        final totalCrates = _activeCrateGroups.fold<double>(0, (s, c) => s + c.available);
+        final totalCrates = _activeCrateGroups.fold<double>(
+          0,
+          (s, c) => s + c.available,
+        );
 
         final cards = [
           _summaryCard(
@@ -194,7 +210,10 @@ class _InventoryScreenState extends State<InventoryScreen>
 
         return Container(
           color: _surface,
-          padding: EdgeInsets.only(top: context.getRSize(12), bottom: context.getRSize(16)),
+          padding: EdgeInsets.only(
+            top: context.getRSize(12),
+            bottom: context.getRSize(16),
+          ),
           child: SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             padding: EdgeInsets.symmetric(horizontal: context.spacingM),
@@ -203,8 +222,12 @@ class _InventoryScreenState extends State<InventoryScreen>
                 final int index = entry.key;
                 final Widget card = entry.value;
                 return Container(
-                  width: context.isPhone ? context.getRSize(130) : context.getRSize(180),
-                  margin: EdgeInsets.only(right: index < cards.length - 1 ? context.getRSize(12) : 0),
+                  width: context.isPhone
+                      ? context.getRSize(130)
+                      : context.getRSize(180),
+                  margin: EdgeInsets.only(
+                    right: index < cards.length - 1 ? context.getRSize(12) : 0,
+                  ),
                   child: card,
                 );
               }).toList(),
@@ -315,14 +338,22 @@ class _InventoryScreenState extends State<InventoryScreen>
       stream: database.inventoryDao.watchAllProductDatasWithStock(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator(color: blueMain));
+          return const Center(
+            child: CircularProgressIndicator(color: blueMain),
+          );
         }
-        
+
         var list = snapshot.data ?? [];
 
         // Apply filters
         if (_stockFilter == 'low') {
-          list = list.where((p) => p.totalStock > 0 && p.totalStock <= p.product.lowStockThreshold).toList();
+          list = list
+              .where(
+                (p) =>
+                    p.totalStock > 0 &&
+                    p.totalStock <= p.product.lowStockThreshold,
+              )
+              .toList();
         } else if (_stockFilter == 'out') {
           list = list.where((p) => p.totalStock == 0).toList();
         }
@@ -331,18 +362,23 @@ class _InventoryScreenState extends State<InventoryScreen>
           children: [
             _buildSupplierFilter(context),
             Expanded(
-              child: list.isEmpty 
-              ? Center(child: Text('No products matching filters', style: TextStyle(color: _subtext)))
-              : ListView.builder(
-                padding: EdgeInsets.fromLTRB(
-                  context.getRSize(16),
-                  context.getRSize(12),
-                  context.getRSize(16),
-                  context.getRSize(120),
-                ),
-                itemCount: list.length,
-                itemBuilder: (_, i) => _buildProductRow(context, list[i]),
-              ),
+              child: list.isEmpty
+                  ? Center(
+                      child: Text(
+                        'No products matching filters',
+                        style: TextStyle(color: _subtext),
+                      ),
+                    )
+                  : ListView.builder(
+                      padding: EdgeInsets.fromLTRB(
+                        context.getRSize(16),
+                        context.getRSize(12),
+                        context.getRSize(16),
+                        context.getRSize(120),
+                      ),
+                      itemCount: list.length,
+                      itemBuilder: (_, i) => _buildProductRow(context, list[i]),
+                    ),
             ),
           ],
         );
@@ -481,19 +517,23 @@ class _InventoryScreenState extends State<InventoryScreen>
               .toList();
 
     if (_selectedWarehouseId != 'all') {
-      list = list.where((i) => i.warehouseStock.containsKey(_selectedWarehouseId)).toList();
+      list = list
+          .where((i) => i.warehouseStock.containsKey(_selectedWarehouseId))
+          .toList();
     }
 
     if (_stockFilter == 'low') {
-      return list
-          .where((i) {
-            final stock = _selectedWarehouseId == 'all' ? i.totalStock : i.getStockForWarehouse(_selectedWarehouseId);
-            return stock > 0 && stock <= i.lowStockThreshold;
-          })
-          .toList();
+      return list.where((i) {
+        final stock = _selectedWarehouseId == 'all'
+            ? i.totalStock
+            : i.getStockForWarehouse(_selectedWarehouseId);
+        return stock > 0 && stock <= i.lowStockThreshold;
+      }).toList();
     } else if (_stockFilter == 'out') {
       return list.where((i) {
-        final stock = _selectedWarehouseId == 'all' ? i.totalStock : i.getStockForWarehouse(_selectedWarehouseId);
+        final stock = _selectedWarehouseId == 'all'
+            ? i.totalStock
+            : i.getStockForWarehouse(_selectedWarehouseId);
         return stock == 0;
       }).toList();
     }
@@ -536,8 +576,16 @@ class _InventoryScreenState extends State<InventoryScreen>
               label: 'Warehouse',
               value: _selectedWarehouseId,
               items: [
-                const DropdownMenuItem(value: 'all', child: Text('All Warehouses')),
-                ..._warehouses.map((w) => DropdownMenuItem(value: w.id.toString(), child: Text(w.name))),
+                const DropdownMenuItem(
+                  value: 'all',
+                  child: Text('All Warehouses'),
+                ),
+                ..._warehouses.map(
+                  (w) => DropdownMenuItem(
+                    value: w.id.toString(),
+                    child: Text(w.name),
+                  ),
+                ),
               ],
               onChanged: (val) => setState(() => _selectedWarehouseId = val!),
             ),
@@ -549,7 +597,10 @@ class _InventoryScreenState extends State<InventoryScreen>
               label: 'Supplier',
               value: _selectedSupplierId,
               items: [
-                const DropdownMenuItem(value: 'all', child: Text('All Suppliers')),
+                const DropdownMenuItem(
+                  value: 'all',
+                  child: Text('All Suppliers'),
+                ),
                 ...supplierService.getAll().map(
                   (s) => DropdownMenuItem(value: s.id, child: Text(s.name)),
                 ),
@@ -596,7 +647,11 @@ class _InventoryScreenState extends State<InventoryScreen>
               isExpanded: true,
               alignment: AlignmentDirectional.bottomStart,
               menuMaxHeight: 350,
-              icon: Icon(Icons.keyboard_arrow_down, color: blueMain, size: context.getRSize(18)),
+              icon: Icon(
+                Icons.keyboard_arrow_down,
+                color: blueMain,
+                size: context.getRSize(18),
+              ),
               style: TextStyle(
                 fontSize: context.getRFontSize(13),
                 fontWeight: FontWeight.w600,
@@ -627,7 +682,7 @@ class _InventoryScreenState extends State<InventoryScreen>
       statusLabel = 'Low Stock';
     }
 
-    final accent = product.colorHex != null 
+    final accent = product.colorHex != null
         ? Color(int.parse(product.colorHex!.replaceFirst('#', '0xFF')))
         : blueMain;
 
@@ -647,8 +702,12 @@ class _InventoryScreenState extends State<InventoryScreen>
           lowStockThreshold: product.lowStockThreshold.toDouble(),
           sellingPrice: product.sellingPriceKobo / 100.0,
           retailPrice: product.retailPriceKobo / 100.0,
-          bulkBreakerPrice: product.bulkBreakerPriceKobo != null ? product.bulkBreakerPriceKobo! / 100.0 : null,
-          distributorPrice: product.distributorPriceKobo != null ? product.distributorPriceKobo! / 100.0 : null,
+          bulkBreakerPrice: product.bulkBreakerPriceKobo != null
+              ? product.bulkBreakerPriceKobo! / 100.0
+              : null,
+          distributorPrice: product.distributorPriceKobo != null
+              ? product.distributorPriceKobo! / 100.0
+              : null,
           category: product.categoryId?.toString(),
         );
         Navigator.push(
@@ -667,7 +726,11 @@ class _InventoryScreenState extends State<InventoryScreen>
           color: _cardBg,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: isOut ? danger.withValues(alpha: 0.3) : (isLow ? const Color(0xFFF59E0B).withValues(alpha: 0.3) : _border),
+            color: isOut
+                ? danger.withValues(alpha: 0.3)
+                : (isLow
+                      ? const Color(0xFFF59E0B).withValues(alpha: 0.3)
+                      : _border),
           ),
         ),
         child: Padding(
@@ -682,7 +745,11 @@ class _InventoryScreenState extends State<InventoryScreen>
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: Icon(
-                  IconData(product.iconCodePoint ?? 0xf0fc, fontFamily: 'FontAwesomeSolid', fontPackage: 'font_awesome_flutter'),
+                  IconData(
+                    product.iconCodePoint ?? 0xf0fc,
+                    fontFamily: 'FontAwesomeSolid',
+                    fontPackage: 'font_awesome_flutter',
+                  ),
                   color: accent,
                   size: context.getRSize(24),
                 ),
@@ -708,15 +775,34 @@ class _InventoryScreenState extends State<InventoryScreen>
                         ),
                         SizedBox(width: context.getRSize(8)),
                         Container(
-                          padding: EdgeInsets.symmetric(horizontal: context.getRSize(8), vertical: context.getRSize(2)),
-                          decoration: BoxDecoration(color: statusColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(6)),
-                          child: Text(statusLabel, style: TextStyle(fontSize: context.getRFontSize(10), fontWeight: FontWeight.bold, color: statusColor)),
+                          padding: EdgeInsets.symmetric(
+                            horizontal: context.getRSize(8),
+                            vertical: context.getRSize(2),
+                          ),
+                          decoration: BoxDecoration(
+                            color: statusColor.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            statusLabel,
+                            style: TextStyle(
+                              fontSize: context.getRFontSize(10),
+                              fontWeight: FontWeight.bold,
+                              color: statusColor,
+                            ),
+                          ),
                         ),
                       ],
                     ),
                     if (product.subtitle != null) ...[
                       SizedBox(height: context.getRSize(4)),
-                      Text(product.subtitle!, style: TextStyle(fontSize: context.getRFontSize(12), color: _subtext)),
+                      Text(
+                        product.subtitle!,
+                        style: TextStyle(
+                          fontSize: context.getRFontSize(12),
+                          color: _subtext,
+                        ),
+                      ),
                     ],
                   ],
                 ),
@@ -731,11 +817,19 @@ class _InventoryScreenState extends State<InventoryScreen>
                       style: TextStyle(
                         fontSize: context.getRFontSize(22),
                         fontWeight: FontWeight.w800,
-                        color: isOut ? danger : (isLow ? const Color(0xFFF59E0B) : _text),
+                        color: isOut
+                            ? danger
+                            : (isLow ? const Color(0xFFF59E0B) : _text),
                       ),
                     ),
                   ),
-                  Text(product.unit, style: TextStyle(fontSize: context.getRFontSize(11), color: _subtext)),
+                  Text(
+                    product.unit,
+                    style: TextStyle(
+                      fontSize: context.getRFontSize(11),
+                      color: _subtext,
+                    ),
+                  ),
                 ],
               ),
             ],
@@ -855,10 +949,10 @@ class _InventoryScreenState extends State<InventoryScreen>
     final linkedProducts = kInventoryItems
         .where((item) {
           if (item.supplierId == null) return false;
-          final supplier = supplierService.getAll().cast<Supplier?>().firstWhere(
-            (s) => s?.id == item.supplierId,
-            orElse: () => null,
-          );
+          final supplier = supplierService
+              .getAll()
+              .cast<Supplier?>()
+              .firstWhere((s) => s?.id == item.supplierId, orElse: () => null);
           return supplier?.crateGroup == cs.group;
         })
         .map((i) => i.productName)
@@ -1452,7 +1546,7 @@ class _InventoryScreenState extends State<InventoryScreen>
                                 color: success.withValues(alpha: 0.3),
                               ),
                             ),
-                            child: Row(
+                            child: const Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 Icon(
@@ -1460,7 +1554,7 @@ class _InventoryScreenState extends State<InventoryScreen>
                                   size: 14,
                                   color: success,
                                 ),
-                                const SizedBox(width: 10),
+                                SizedBox(width: 10),
                                 Text(
                                   'Update Price',
                                   style: TextStyle(
@@ -1529,8 +1623,9 @@ class _InventoryScreenState extends State<InventoryScreen>
 
                         setState(() {
                           // Update the specific warehouse stock
-                          final newStockMap =
-                              Map<String, double>.from(item.warehouseStock);
+                          final newStockMap = Map<String, double>.from(
+                            item.warehouseStock,
+                          );
                           newStockMap[warehouseId] = newWarehouseQty;
                           item.warehouseStock = newStockMap;
 
@@ -1541,18 +1636,18 @@ class _InventoryScreenState extends State<InventoryScreen>
                             final supplier = item.supplierId == null
                                 ? null
                                 : supplierService
-                                    .getAll()
-                                    .cast<Supplier?>()
-                                    .firstWhere(
-                                      (s) => s?.id == item.supplierId,
-                                      orElse: () => null,
-                                    );
+                                      .getAll()
+                                      .cast<Supplier?>()
+                                      .firstWhere(
+                                        (s) => s?.id == item.supplierId,
+                                        orElse: () => null,
+                                      );
 
                             final cStockIndex = supplier == null
                                 ? -1
                                 : kCrateStocks.indexWhere(
-                                      (c) => c.group == supplier.crateGroup,
-                                    );
+                                    (c) => c.group == supplier.crateGroup,
+                                  );
 
                             if (cStockIndex != -1) {
                               kCrateStocks[cStockIndex].available += diff;
@@ -1659,7 +1754,7 @@ class _InventoryScreenState extends State<InventoryScreen>
                                 color: success.withValues(alpha: 0.15),
                                 borderRadius: BorderRadius.circular(12),
                               ),
-                              child: Icon(
+                              child: const Icon(
                                 FontAwesomeIcons.tag,
                                 color: success,
                                 size: 20,
@@ -2163,10 +2258,22 @@ class _InventoryScreenState extends State<InventoryScreen>
                               alignment: AlignmentDirectional.bottomStart,
                               menuMaxHeight: 350,
                               borderRadius: BorderRadius.circular(12),
-                              onChanged: (v) => setB(() => selectedCategory = v!),
-                              items: ['Glass Crates', 'Cans & PET', 'Kegs', 'Other'].map(
-                                (c) => DropdownMenuItem(value: c, child: Text(c)),
-                              ).toList(),
+                              onChanged: (v) =>
+                                  setB(() => selectedCategory = v!),
+                              items:
+                                  [
+                                        'Glass Crates',
+                                        'Cans & PET',
+                                        'Kegs',
+                                        'Other',
+                                      ]
+                                      .map(
+                                        (c) => DropdownMenuItem(
+                                          value: c,
+                                          child: Text(c),
+                                        ),
+                                      )
+                                      .toList(),
                             ),
                           ),
                         ),
@@ -2200,11 +2307,23 @@ class _InventoryScreenState extends State<InventoryScreen>
                                 alignment: AlignmentDirectional.bottomStart,
                                 menuMaxHeight: 350,
                                 borderRadius: BorderRadius.circular(12),
-                                hint: Text('Select Crate Group', style: TextStyle(color: _subtext, fontSize: 14)),
-                                onChanged: (v) => setB(() => selectedCrateGroup = v),
-                                items: CrateGroup.values.map(
-                                  (cg) => DropdownMenuItem(value: cg, child: Text(cg.label)),
-                                ).toList(),
+                                hint: Text(
+                                  'Select Crate Group',
+                                  style: TextStyle(
+                                    color: _subtext,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                                onChanged: (v) =>
+                                    setB(() => selectedCrateGroup = v),
+                                items: CrateGroup.values
+                                    .map(
+                                      (cg) => DropdownMenuItem(
+                                        value: cg,
+                                        child: Text(cg.label),
+                                      ),
+                                    )
+                                    .toList(),
                               ),
                             ),
                           ),
@@ -2257,11 +2376,11 @@ class _InventoryScreenState extends State<InventoryScreen>
                                   ),
                                 ),
                                 ...supplierService.getAll().map(
-                                      (s) => DropdownMenuItem(
-                                        value: s.id,
-                                        child: Text(s.name),
-                                      ),
-                                    ),
+                                  (s) => DropdownMenuItem(
+                                    value: s.id,
+                                    child: Text(s.name),
+                                  ),
+                                ),
                               ],
                             ),
                           ),
@@ -2274,32 +2393,10 @@ class _InventoryScreenState extends State<InventoryScreen>
                           isNumber: true,
                         ),
                         const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _inputField(
-                                'Retail Price',
-                                retailPriceCtrl,
-                                'e.g. 500',
-                                isNumber: true,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: _inputField(
-                                'Bulk Breaker',
-                                bulkBreakerPriceCtrl,
-                                'e.g. 450',
-                                isNumber: true,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
                         _inputField(
-                          'Distributor Price',
-                          distributorPriceCtrl,
-                          'e.g. 420',
+                          'Retail Price',
+                          retailPriceCtrl,
+                          'e.g. 500',
                           isNumber: true,
                         ),
                       ],
@@ -2332,13 +2429,19 @@ class _InventoryScreenState extends State<InventoryScreen>
                           icon: FontAwesomeIcons.wineBottle,
                           color: blueMain,
                           warehouseStock: {
-                            'w1': double.tryParse(stockCtrl.text) ?? 0
+                            'w1': double.tryParse(stockCtrl.text) ?? 0,
                           },
                           category: selectedCategory,
                           retailPrice: double.tryParse(retailPriceCtrl.text),
-                          bulkBreakerPrice: double.tryParse(bulkBreakerPriceCtrl.text),
-                          distributorPrice: double.tryParse(distributorPriceCtrl.text),
-                          sellingPrice: double.tryParse(retailPriceCtrl.text), // Use retail as default selling
+                          bulkBreakerPrice: double.tryParse(
+                            bulkBreakerPriceCtrl.text,
+                          ),
+                          distributorPrice: double.tryParse(
+                            distributorPriceCtrl.text,
+                          ),
+                          sellingPrice: double.tryParse(
+                            retailPriceCtrl.text,
+                          ), // Use retail as default selling
                           needsEmptyCrate: selectedCategory == 'Glass Crates',
                           crateGroupName: selectedCrateGroup?.label,
                         );
@@ -2355,6 +2458,22 @@ class _InventoryScreenState extends State<InventoryScreen>
                         setState(() {
                           kInventoryItems.add(newItem);
                           kInventoryLogs.add(log);
+
+                          // Auto-add empty crates when a Glass Crates product
+                          // is created — equivalent number to initial stock.
+                          if (selectedCategory == 'Glass Crates' &&
+                              selectedCrateGroup != null) {
+                            final qty =
+                                double.tryParse(stockCtrl.text) ?? 0;
+                            if (qty > 0) {
+                              final cStockIdx = kCrateStocks.indexWhere(
+                                (c) => c.group == selectedCrateGroup,
+                              );
+                              if (cStockIdx != -1) {
+                                kCrateStocks[cStockIdx].available += qty;
+                              }
+                            }
+                          }
 
                           // Also add to POS products data
                           kProducts.add({

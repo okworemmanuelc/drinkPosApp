@@ -5,8 +5,10 @@ part of 'daos.dart';
 // ignore_for_file: type=lint
 mixin _$CatalogDaoMixin on DatabaseAccessor<AppDatabase> {
   $CategoriesTable get categories => attachedDatabase.categories;
+  $CrateGroupsTable get crateGroups => attachedDatabase.crateGroups;
   $ProductsTable get products => attachedDatabase.products;
   $AppSettingsTable get appSettings => attachedDatabase.appSettings;
+  $SuppliersTable get suppliers => attachedDatabase.suppliers;
   CatalogDaoManager get managers => CatalogDaoManager(this);
 }
 
@@ -15,19 +17,25 @@ class CatalogDaoManager {
   CatalogDaoManager(this._db);
   $$CategoriesTableTableManager get categories =>
       $$CategoriesTableTableManager(_db.attachedDatabase, _db.categories);
+  $$CrateGroupsTableTableManager get crateGroups =>
+      $$CrateGroupsTableTableManager(_db.attachedDatabase, _db.crateGroups);
   $$ProductsTableTableManager get products =>
       $$ProductsTableTableManager(_db.attachedDatabase, _db.products);
   $$AppSettingsTableTableManager get appSettings =>
       $$AppSettingsTableTableManager(_db.attachedDatabase, _db.appSettings);
+  $$SuppliersTableTableManager get suppliers =>
+      $$SuppliersTableTableManager(_db.attachedDatabase, _db.suppliers);
 }
 
 mixin _$InventoryDaoMixin on DatabaseAccessor<AppDatabase> {
   $CategoriesTable get categories => attachedDatabase.categories;
+  $CrateGroupsTable get crateGroups => attachedDatabase.crateGroups;
   $ProductsTable get products => attachedDatabase.products;
   $WarehousesTable get warehouses => attachedDatabase.warehouses;
   $InventoryTable get inventory => attachedDatabase.inventory;
   $StockAdjustmentsTable get stockAdjustments =>
       attachedDatabase.stockAdjustments;
+  $SyncQueueTable get syncQueue => attachedDatabase.syncQueue;
   InventoryDaoManager get managers => InventoryDaoManager(this);
 }
 
@@ -36,6 +44,8 @@ class InventoryDaoManager {
   InventoryDaoManager(this._db);
   $$CategoriesTableTableManager get categories =>
       $$CategoriesTableTableManager(_db.attachedDatabase, _db.categories);
+  $$CrateGroupsTableTableManager get crateGroups =>
+      $$CrateGroupsTableTableManager(_db.attachedDatabase, _db.crateGroups);
   $$ProductsTableTableManager get products =>
       $$ProductsTableTableManager(_db.attachedDatabase, _db.products);
   $$WarehousesTableTableManager get warehouses =>
@@ -47,18 +57,20 @@ class InventoryDaoManager {
         _db.attachedDatabase,
         _db.stockAdjustments,
       );
+  $$SyncQueueTableTableManager get syncQueue =>
+      $$SyncQueueTableTableManager(_db.attachedDatabase, _db.syncQueue);
 }
 
 mixin _$OrdersDaoMixin on DatabaseAccessor<AppDatabase> {
   $CustomersTable get customers => attachedDatabase.customers;
+  $WarehousesTable get warehouses => attachedDatabase.warehouses;
   $UsersTable get users => attachedDatabase.users;
   $OrdersTable get orders => attachedDatabase.orders;
   $CategoriesTable get categories => attachedDatabase.categories;
+  $CrateGroupsTable get crateGroups => attachedDatabase.crateGroups;
   $ProductsTable get products => attachedDatabase.products;
-  $WarehousesTable get warehouses => attachedDatabase.warehouses;
   $OrderItemsTable get orderItems => attachedDatabase.orderItems;
   $InventoryTable get inventory => attachedDatabase.inventory;
-  $CrateGroupsTable get crateGroups => attachedDatabase.crateGroups;
   $CustomerCrateBalancesTable get customerCrateBalances =>
       attachedDatabase.customerCrateBalances;
   $SyncQueueTable get syncQueue => attachedDatabase.syncQueue;
@@ -72,22 +84,22 @@ class OrdersDaoManager {
   OrdersDaoManager(this._db);
   $$CustomersTableTableManager get customers =>
       $$CustomersTableTableManager(_db.attachedDatabase, _db.customers);
+  $$WarehousesTableTableManager get warehouses =>
+      $$WarehousesTableTableManager(_db.attachedDatabase, _db.warehouses);
   $$UsersTableTableManager get users =>
       $$UsersTableTableManager(_db.attachedDatabase, _db.users);
   $$OrdersTableTableManager get orders =>
       $$OrdersTableTableManager(_db.attachedDatabase, _db.orders);
   $$CategoriesTableTableManager get categories =>
       $$CategoriesTableTableManager(_db.attachedDatabase, _db.categories);
+  $$CrateGroupsTableTableManager get crateGroups =>
+      $$CrateGroupsTableTableManager(_db.attachedDatabase, _db.crateGroups);
   $$ProductsTableTableManager get products =>
       $$ProductsTableTableManager(_db.attachedDatabase, _db.products);
-  $$WarehousesTableTableManager get warehouses =>
-      $$WarehousesTableTableManager(_db.attachedDatabase, _db.warehouses);
   $$OrderItemsTableTableManager get orderItems =>
       $$OrderItemsTableTableManager(_db.attachedDatabase, _db.orderItems);
   $$InventoryTableTableManager get inventory =>
       $$InventoryTableTableManager(_db.attachedDatabase, _db.inventory);
-  $$CrateGroupsTableTableManager get crateGroups =>
-      $$CrateGroupsTableTableManager(_db.attachedDatabase, _db.crateGroups);
   $$CustomerCrateBalancesTableTableManager get customerCrateBalances =>
       $$CustomerCrateBalancesTableTableManager(
         _db.attachedDatabase,
@@ -103,6 +115,7 @@ class OrdersDaoManager {
 
 mixin _$CustomersDaoMixin on DatabaseAccessor<AppDatabase> {
   $CustomersTable get customers => attachedDatabase.customers;
+  $WarehousesTable get warehouses => attachedDatabase.warehouses;
   $UsersTable get users => attachedDatabase.users;
   $OrdersTable get orders => attachedDatabase.orders;
   $CustomerWalletTransactionsTable get customerWalletTransactions =>
@@ -118,6 +131,8 @@ class CustomersDaoManager {
   CustomersDaoManager(this._db);
   $$CustomersTableTableManager get customers =>
       $$CustomersTableTableManager(_db.attachedDatabase, _db.customers);
+  $$WarehousesTableTableManager get warehouses =>
+      $$WarehousesTableTableManager(_db.attachedDatabase, _db.warehouses);
   $$UsersTableTableManager get users =>
       $$UsersTableTableManager(_db.attachedDatabase, _db.users);
   $$OrdersTableTableManager get orders =>
@@ -141,6 +156,7 @@ mixin _$DeliveriesDaoMixin on DatabaseAccessor<AppDatabase> {
   $SuppliersTable get suppliers => attachedDatabase.suppliers;
   $PurchasesTable get purchases => attachedDatabase.purchases;
   $CategoriesTable get categories => attachedDatabase.categories;
+  $CrateGroupsTable get crateGroups => attachedDatabase.crateGroups;
   $ProductsTable get products => attachedDatabase.products;
   $PurchaseItemsTable get purchaseItems => attachedDatabase.purchaseItems;
   $WarehousesTable get warehouses => attachedDatabase.warehouses;
@@ -161,6 +177,8 @@ class DeliveriesDaoManager {
       $$PurchasesTableTableManager(_db.attachedDatabase, _db.purchases);
   $$CategoriesTableTableManager get categories =>
       $$CategoriesTableTableManager(_db.attachedDatabase, _db.categories);
+  $$CrateGroupsTableTableManager get crateGroups =>
+      $$CrateGroupsTableTableManager(_db.attachedDatabase, _db.crateGroups);
   $$ProductsTableTableManager get products =>
       $$ProductsTableTableManager(_db.attachedDatabase, _db.products);
   $$PurchaseItemsTableTableManager get purchaseItems =>
@@ -212,6 +230,7 @@ class SyncDaoManager {
 }
 
 mixin _$ActivityLogDaoMixin on DatabaseAccessor<AppDatabase> {
+  $WarehousesTable get warehouses => attachedDatabase.warehouses;
   $UsersTable get users => attachedDatabase.users;
   $ActivityLogsTable get activityLogs => attachedDatabase.activityLogs;
   ActivityLogDaoManager get managers => ActivityLogDaoManager(this);
@@ -220,10 +239,27 @@ mixin _$ActivityLogDaoMixin on DatabaseAccessor<AppDatabase> {
 class ActivityLogDaoManager {
   final _$ActivityLogDaoMixin _db;
   ActivityLogDaoManager(this._db);
+  $$WarehousesTableTableManager get warehouses =>
+      $$WarehousesTableTableManager(_db.attachedDatabase, _db.warehouses);
   $$UsersTableTableManager get users =>
       $$UsersTableTableManager(_db.attachedDatabase, _db.users);
   $$ActivityLogsTableTableManager get activityLogs =>
       $$ActivityLogsTableTableManager(_db.attachedDatabase, _db.activityLogs);
+}
+
+mixin _$WarehousesDaoMixin on DatabaseAccessor<AppDatabase> {
+  $WarehousesTable get warehouses => attachedDatabase.warehouses;
+  $UsersTable get users => attachedDatabase.users;
+  WarehousesDaoManager get managers => WarehousesDaoManager(this);
+}
+
+class WarehousesDaoManager {
+  final _$WarehousesDaoMixin _db;
+  WarehousesDaoManager(this._db);
+  $$WarehousesTableTableManager get warehouses =>
+      $$WarehousesTableTableManager(_db.attachedDatabase, _db.warehouses);
+  $$UsersTableTableManager get users =>
+      $$UsersTableTableManager(_db.attachedDatabase, _db.users);
 }
 
 mixin _$NotificationsDaoMixin on DatabaseAccessor<AppDatabase> {

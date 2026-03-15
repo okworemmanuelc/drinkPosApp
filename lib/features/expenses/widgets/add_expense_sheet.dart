@@ -8,8 +8,8 @@ import '../../../core/utils/number_format.dart';
 import '../../../core/utils/responsive.dart';
 import '../../../shared/services/activity_log_service.dart';
 import '../../../core/utils/currency_input_formatter.dart';
-import '../data/models/expense.dart';
-import '../data/services/expense_service.dart';
+import 'package:drift/drift.dart' show Value;
+import '../../../core/database/app_database.dart';
 import '../../../shared/services/auth_service.dart';
 import '../../../core/utils/constants.dart';
 import 'package:file_picker/file_picker.dart';
@@ -58,7 +58,9 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
   final _amountCtrl = TextEditingController();
   final _descCtrl = TextEditingController();
   final _refCtrl = TextEditingController();
-  final _recordedByCtrl = TextEditingController(text: authService.currentUser?.name ?? 'Admin');
+  final _recordedByCtrl = TextEditingController(
+    text: authService.currentUser?.name ?? 'Admin',
+  );
   final _formKey = GlobalKey<FormState>();
 
   PlatformFile? _receiptFile;
@@ -125,8 +127,8 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
 
     if (isOthers && desc.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Description is required for "Others" category.'),
+        const SnackBar(
+          content: Text('Description is required for "Others" category.'),
           backgroundColor: danger,
           behavior: SnackBarBehavior.floating,
         ),
@@ -137,8 +139,10 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
     final needsReceipt = amount >= largeExpenseThreshold;
     if (needsReceipt && _receiptFile == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Receipt upload is required for expenses of 20,000 and above.'),
+        const SnackBar(
+          content: Text(
+            'Receipt upload is required for expenses of 20,000 and above.',
+          ),
           backgroundColor: danger,
           behavior: SnackBarBehavior.floating,
         ),
@@ -146,25 +150,21 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
       return;
     }
 
-    final expense = Expense(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      category: _selectedCategory,
-      amount: amount,
-      paymentMethod: _paymentMethod,
-      description: desc.isEmpty ? null : desc,
-      date: _selectedDate,
-      createdAt: DateTime.now(),
-      recordedBy: _recordedByCtrl.text.trim(),
-      reference: _refCtrl.text.trim().isEmpty ? null : _refCtrl.text.trim(),
-      receiptPath: _receiptFile?.name,
+    await database.expensesDao.addExpense(
+      ExpensesCompanion.insert(
+        category: Value(_selectedCategory),
+        amountKobo: (amount * 100).round(),
+        description: desc.isEmpty ? _selectedCategory : desc,
+        paymentMethod: Value(_paymentMethod),
+        recordedBy: Value(_recordedByCtrl.text.trim()),
+        reference: Value(_refCtrl.text.trim().isEmpty ? null : _refCtrl.text.trim()),
+        timestamp: Value(_selectedDate),
+      ),
     );
-
-    expenseService.addExpense(expense);
 
     await activityLogService.logAction(
       'Expense Recorded',
       'Logged $_selectedCategory expense of ${formatCurrency(amount)} via $_paymentMethod',
-      relatedEntityId: expense.id,
       relatedEntityType: 'expense',
     );
 
@@ -220,8 +220,9 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
             child: Container(
               decoration: BoxDecoration(
                 color: _surface,
-                borderRadius:
-                    const BorderRadius.vertical(top: Radius.circular(28)),
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(28),
+                ),
               ),
               child: Form(
                 key: _formKey,
@@ -415,9 +416,9 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
                                     MainAxisAlignment.spaceBetween,
                                 children: [
                                   Text(
-                                    DateFormat('MMM d, y').format(
-                                      _selectedDate,
-                                    ),
+                                    DateFormat(
+                                      'MMM d, y',
+                                    ).format(_selectedDate),
                                     style: TextStyle(
                                       fontSize: context.getRFontSize(14),
                                       fontWeight: FontWeight.bold,
