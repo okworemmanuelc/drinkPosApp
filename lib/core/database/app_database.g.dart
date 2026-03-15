@@ -52,8 +52,26 @@ class $CrateGroupsTable extends CrateGroups
     requiredDuringInsert: false,
     defaultValue: const Constant(0),
   );
+  static const VerificationMeta _depositAmountKoboMeta = const VerificationMeta(
+    'depositAmountKobo',
+  );
   @override
-  List<GeneratedColumn> get $columns => [id, name, size, emptyCrateStock];
+  late final GeneratedColumn<int> depositAmountKobo = GeneratedColumn<int>(
+    'deposit_amount_kobo',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    name,
+    size,
+    emptyCrateStock,
+    depositAmountKobo,
+  ];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -94,6 +112,15 @@ class $CrateGroupsTable extends CrateGroups
         ),
       );
     }
+    if (data.containsKey('deposit_amount_kobo')) {
+      context.handle(
+        _depositAmountKoboMeta,
+        depositAmountKobo.isAcceptableOrUnknown(
+          data['deposit_amount_kobo']!,
+          _depositAmountKoboMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -119,6 +146,10 @@ class $CrateGroupsTable extends CrateGroups
         DriftSqlType.int,
         data['${effectivePrefix}empty_crate_stock'],
       )!,
+      depositAmountKobo: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}deposit_amount_kobo'],
+      )!,
     );
   }
 
@@ -133,11 +164,13 @@ class CrateGroupData extends DataClass implements Insertable<CrateGroupData> {
   final String name;
   final int size;
   final int emptyCrateStock;
+  final int depositAmountKobo;
   const CrateGroupData({
     required this.id,
     required this.name,
     required this.size,
     required this.emptyCrateStock,
+    required this.depositAmountKobo,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -146,6 +179,7 @@ class CrateGroupData extends DataClass implements Insertable<CrateGroupData> {
     map['name'] = Variable<String>(name);
     map['size'] = Variable<int>(size);
     map['empty_crate_stock'] = Variable<int>(emptyCrateStock);
+    map['deposit_amount_kobo'] = Variable<int>(depositAmountKobo);
     return map;
   }
 
@@ -155,6 +189,7 @@ class CrateGroupData extends DataClass implements Insertable<CrateGroupData> {
       name: Value(name),
       size: Value(size),
       emptyCrateStock: Value(emptyCrateStock),
+      depositAmountKobo: Value(depositAmountKobo),
     );
   }
 
@@ -168,6 +203,7 @@ class CrateGroupData extends DataClass implements Insertable<CrateGroupData> {
       name: serializer.fromJson<String>(json['name']),
       size: serializer.fromJson<int>(json['size']),
       emptyCrateStock: serializer.fromJson<int>(json['emptyCrateStock']),
+      depositAmountKobo: serializer.fromJson<int>(json['depositAmountKobo']),
     );
   }
   @override
@@ -178,6 +214,7 @@ class CrateGroupData extends DataClass implements Insertable<CrateGroupData> {
       'name': serializer.toJson<String>(name),
       'size': serializer.toJson<int>(size),
       'emptyCrateStock': serializer.toJson<int>(emptyCrateStock),
+      'depositAmountKobo': serializer.toJson<int>(depositAmountKobo),
     };
   }
 
@@ -186,11 +223,13 @@ class CrateGroupData extends DataClass implements Insertable<CrateGroupData> {
     String? name,
     int? size,
     int? emptyCrateStock,
+    int? depositAmountKobo,
   }) => CrateGroupData(
     id: id ?? this.id,
     name: name ?? this.name,
     size: size ?? this.size,
     emptyCrateStock: emptyCrateStock ?? this.emptyCrateStock,
+    depositAmountKobo: depositAmountKobo ?? this.depositAmountKobo,
   );
   CrateGroupData copyWithCompanion(CrateGroupsCompanion data) {
     return CrateGroupData(
@@ -200,6 +239,9 @@ class CrateGroupData extends DataClass implements Insertable<CrateGroupData> {
       emptyCrateStock: data.emptyCrateStock.present
           ? data.emptyCrateStock.value
           : this.emptyCrateStock,
+      depositAmountKobo: data.depositAmountKobo.present
+          ? data.depositAmountKobo.value
+          : this.depositAmountKobo,
     );
   }
 
@@ -209,13 +251,15 @@ class CrateGroupData extends DataClass implements Insertable<CrateGroupData> {
           ..write('id: $id, ')
           ..write('name: $name, ')
           ..write('size: $size, ')
-          ..write('emptyCrateStock: $emptyCrateStock')
+          ..write('emptyCrateStock: $emptyCrateStock, ')
+          ..write('depositAmountKobo: $depositAmountKobo')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, name, size, emptyCrateStock);
+  int get hashCode =>
+      Object.hash(id, name, size, emptyCrateStock, depositAmountKobo);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -223,7 +267,8 @@ class CrateGroupData extends DataClass implements Insertable<CrateGroupData> {
           other.id == this.id &&
           other.name == this.name &&
           other.size == this.size &&
-          other.emptyCrateStock == this.emptyCrateStock);
+          other.emptyCrateStock == this.emptyCrateStock &&
+          other.depositAmountKobo == this.depositAmountKobo);
 }
 
 class CrateGroupsCompanion extends UpdateCompanion<CrateGroupData> {
@@ -231,17 +276,20 @@ class CrateGroupsCompanion extends UpdateCompanion<CrateGroupData> {
   final Value<String> name;
   final Value<int> size;
   final Value<int> emptyCrateStock;
+  final Value<int> depositAmountKobo;
   const CrateGroupsCompanion({
     this.id = const Value.absent(),
     this.name = const Value.absent(),
     this.size = const Value.absent(),
     this.emptyCrateStock = const Value.absent(),
+    this.depositAmountKobo = const Value.absent(),
   });
   CrateGroupsCompanion.insert({
     this.id = const Value.absent(),
     required String name,
     required int size,
     this.emptyCrateStock = const Value.absent(),
+    this.depositAmountKobo = const Value.absent(),
   }) : name = Value(name),
        size = Value(size);
   static Insertable<CrateGroupData> custom({
@@ -249,12 +297,14 @@ class CrateGroupsCompanion extends UpdateCompanion<CrateGroupData> {
     Expression<String>? name,
     Expression<int>? size,
     Expression<int>? emptyCrateStock,
+    Expression<int>? depositAmountKobo,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (name != null) 'name': name,
       if (size != null) 'size': size,
       if (emptyCrateStock != null) 'empty_crate_stock': emptyCrateStock,
+      if (depositAmountKobo != null) 'deposit_amount_kobo': depositAmountKobo,
     });
   }
 
@@ -263,12 +313,14 @@ class CrateGroupsCompanion extends UpdateCompanion<CrateGroupData> {
     Value<String>? name,
     Value<int>? size,
     Value<int>? emptyCrateStock,
+    Value<int>? depositAmountKobo,
   }) {
     return CrateGroupsCompanion(
       id: id ?? this.id,
       name: name ?? this.name,
       size: size ?? this.size,
       emptyCrateStock: emptyCrateStock ?? this.emptyCrateStock,
+      depositAmountKobo: depositAmountKobo ?? this.depositAmountKobo,
     );
   }
 
@@ -287,6 +339,9 @@ class CrateGroupsCompanion extends UpdateCompanion<CrateGroupData> {
     if (emptyCrateStock.present) {
       map['empty_crate_stock'] = Variable<int>(emptyCrateStock.value);
     }
+    if (depositAmountKobo.present) {
+      map['deposit_amount_kobo'] = Variable<int>(depositAmountKobo.value);
+    }
     return map;
   }
 
@@ -296,7 +351,8 @@ class CrateGroupsCompanion extends UpdateCompanion<CrateGroupData> {
           ..write('id: $id, ')
           ..write('name: $name, ')
           ..write('size: $size, ')
-          ..write('emptyCrateStock: $emptyCrateStock')
+          ..write('emptyCrateStock: $emptyCrateStock, ')
+          ..write('depositAmountKobo: $depositAmountKobo')
           ..write(')'))
         .toString();
   }
@@ -12360,6 +12416,7 @@ typedef $$CrateGroupsTableCreateCompanionBuilder =
       required String name,
       required int size,
       Value<int> emptyCrateStock,
+      Value<int> depositAmountKobo,
     });
 typedef $$CrateGroupsTableUpdateCompanionBuilder =
     CrateGroupsCompanion Function({
@@ -12367,6 +12424,7 @@ typedef $$CrateGroupsTableUpdateCompanionBuilder =
       Value<String> name,
       Value<int> size,
       Value<int> emptyCrateStock,
+      Value<int> depositAmountKobo,
     });
 
 final class $$CrateGroupsTableReferences
@@ -12452,6 +12510,11 @@ class $$CrateGroupsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<int> get depositAmountKobo => $composableBuilder(
+    column: $table.depositAmountKobo,
+    builder: (column) => ColumnFilters(column),
+  );
+
   Expression<bool> productsRefs(
     Expression<bool> Function($$ProductsTableFilterComposer f) f,
   ) {
@@ -12532,6 +12595,11 @@ class $$CrateGroupsTableOrderingComposer
     column: $table.emptyCrateStock,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<int> get depositAmountKobo => $composableBuilder(
+    column: $table.depositAmountKobo,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$CrateGroupsTableAnnotationComposer
@@ -12554,6 +12622,11 @@ class $$CrateGroupsTableAnnotationComposer
 
   GeneratedColumn<int> get emptyCrateStock => $composableBuilder(
     column: $table.emptyCrateStock,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get depositAmountKobo => $composableBuilder(
+    column: $table.depositAmountKobo,
     builder: (column) => column,
   );
 
@@ -12644,11 +12717,13 @@ class $$CrateGroupsTableTableManager
                 Value<String> name = const Value.absent(),
                 Value<int> size = const Value.absent(),
                 Value<int> emptyCrateStock = const Value.absent(),
+                Value<int> depositAmountKobo = const Value.absent(),
               }) => CrateGroupsCompanion(
                 id: id,
                 name: name,
                 size: size,
                 emptyCrateStock: emptyCrateStock,
+                depositAmountKobo: depositAmountKobo,
               ),
           createCompanionCallback:
               ({
@@ -12656,11 +12731,13 @@ class $$CrateGroupsTableTableManager
                 required String name,
                 required int size,
                 Value<int> emptyCrateStock = const Value.absent(),
+                Value<int> depositAmountKobo = const Value.absent(),
               }) => CrateGroupsCompanion.insert(
                 id: id,
                 name: name,
                 size: size,
                 emptyCrateStock: emptyCrateStock,
+                depositAmountKobo: depositAmountKobo,
               ),
           withReferenceMapper: (p0) => p0
               .map(

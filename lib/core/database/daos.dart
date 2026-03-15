@@ -28,6 +28,10 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> with _$CatalogDaoMixin {
     return (select(products)..where((t) => t.id.equals(id))).getSingleOrNull();
   }
 
+  Future<void> softDeleteProduct(int productId) =>
+      (update(products)..where((t) => t.id.equals(productId)))
+          .write(ProductsCompanion(isDeleted: const Value(true)));
+
   int getPriceForCustomerGroup(ProductData p, String customerGroup) {
     switch (customerGroup.toLowerCase()) {
       case 'retail':

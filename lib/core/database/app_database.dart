@@ -15,6 +15,7 @@ class CrateGroups extends Table {
   TextColumn get name => text()();
   IntColumn get size => integer()(); // 12=big, 20=medium, 24=small
   IntColumn get emptyCrateStock => integer().withDefault(const Constant(0))();
+  IntColumn get depositAmountKobo => integer().withDefault(const Constant(0))(); // deposit per crate in kobo
 }
 
 // 2. Warehouses
@@ -376,7 +377,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 7;
+  int get schemaVersion => 8;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -402,9 +403,9 @@ class AppDatabase extends _$AppDatabase {
     // Everything else is created by the user during onboarding.
     await batch((b) {
       // Crate groups: Big=12 bottles, Medium=20, Small=24
-      b.insert(crateGroups, CrateGroupsCompanion.insert(name: 'Big Crate 12', size: 12));
-      b.insert(crateGroups, CrateGroupsCompanion.insert(name: 'Medium Crate 20', size: 20));
-      b.insert(crateGroups, CrateGroupsCompanion.insert(name: 'Small Crate 24', size: 24));
+      b.insert(crateGroups, CrateGroupsCompanion.insert(name: 'Big Crate 12', size: 12, depositAmountKobo: const Value(150000)));
+      b.insert(crateGroups, CrateGroupsCompanion.insert(name: 'Medium Crate 20', size: 20, depositAmountKobo: const Value(150000)));
+      b.insert(crateGroups, CrateGroupsCompanion.insert(name: 'Small Crate 24', size: 24, depositAmountKobo: const Value(120000)));
 
       // Standard product categories
       b.insert(categories, CategoriesCompanion.insert(name: 'Glass Crates'));

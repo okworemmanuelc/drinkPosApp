@@ -10,9 +10,7 @@ import '../../customers/widgets/add_customer_sheet.dart';
 import '../../../core/utils/stock_calculator.dart';
 import '../../../core/utils/currency_input_formatter.dart';
 import '../../customers/data/services/customer_service.dart';
-import '../../inventory/data/inventory_data.dart';
-import '../../inventory/data/models/crate_group.dart';
-import '../../inventory/data/services/supplier_service.dart';
+import '../../../core/database/app_database.dart';
 import '../../../shared/services/cart_service.dart';
 import '../../../shared/widgets/shared_scaffold.dart';
 import '../../../shared/widgets/menu_button.dart';
@@ -43,12 +41,29 @@ class CartScreen extends StatefulWidget {
 class _CartScreenState extends State<CartScreen> {
   late double _crateDeposit;
   Customer? _activeCustomer;
+  List<CrateGroupData> _crateGroups = [];
+
+  static const _cgColors = [
+    Color(0xFFF59E0B),
+    Color(0xFF334155),
+    Color(0xFFEF4444),
+    Color(0xFF8B5CF6),
+    Color(0xFF6366F1),
+    Color(0xFF0EA5E9),
+    Color(0xFF14B8A6),
+    Color(0xFFF97316),
+  ];
+
+  Color _crateColor(CrateGroupData cg) => _cgColors[cg.id % _cgColors.length];
 
   @override
   void initState() {
     super.initState();
     _crateDeposit = 0;
     _activeCustomer = widget.activeCustomer;
+    database.select(database.crateGroups).watch().listen((data) {
+      if (mounted) setState(() => _crateGroups = data);
+    });
   }
 
   bool get _isDark => themeNotifier.value == ThemeMode.dark;
@@ -730,23 +745,15 @@ class _CartScreenState extends State<CartScreen> {
 
     // ── Glass detection & crate deposit computation ──
     final glassItems = cartItems
-        .where((i) => i['category'] == 'Glass Crates')
+        .where((i) => i['crateGroupId'] != null)
         .toList();
     final hasGlass = glassItems.isNotEmpty;
 
-    // Aggregate qty per CrateGroup
-    final Map<CrateGroup, double> crateQtyMap = {};
+    // Aggregate qty per crateGroupId
+    final Map<int, double> crateQtyMap = {};
     for (final item in glassItems) {
-      final invItem = kInventoryItems.firstWhere(
-        (inv) => inv.productName == item['name'],
-        orElse: () => kInventoryItems.first,
-      );
-      final supplier = supplierService.getAll().firstWhere(
-        (s) => s.id == invItem.supplierId,
-        orElse: () => supplierService.getAll().first,
-      );
-      final group = supplier.crateGroup;
-      crateQtyMap[group] = (crateQtyMap[group] ?? 0) + 
+      final groupId = item['crateGroupId'] as int;
+      crateQtyMap[groupId] = (crateQtyMap[groupId] ?? 0) +
           (item['qty'] as num).toDouble();
     }
 
@@ -754,10 +761,18 @@ class _CartScreenState extends State<CartScreen> {
     double computedDeposit = 0;
     final List<_CrateDepositLine> depositLines = [];
     for (final entry in crateQtyMap.entries) {
-      final amount = entry.value * entry.key.deposit;
+      final cg = _crateGroups.where((g) => g.id == entry.key).firstOrNull;
+      if (cg == null) continue;
+      final depositPerCrate = cg.depositAmountKobo / 100.0;
+      final amount = entry.value * depositPerCrate;
       computedDeposit += amount;
       depositLines.add(
-        _CrateDepositLine(group: entry.key, qty: entry.value, amount: amount),
+        _CrateDepositLine(
+          label: cg.name,
+          color: _crateColor(cg),
+          qty: entry.value,
+          amount: amount,
+        ),
       );
     }
 
@@ -765,9 +780,11 @@ class _CartScreenState extends State<CartScreen> {
     double customerCrateCredit = 0;
     if (hasGlass && _activeCustomer != null) {
       for (final entry in crateQtyMap.entries) {
-        final balKey = entry.key.label;
-        final bal = _activeCustomer!.emptyCratesBalance[balKey] ?? 0;
-        customerCrateCredit += bal * entry.key.deposit;
+        final cg = _crateGroups.where((g) => g.id == entry.key).firstOrNull;
+        if (cg == null) continue;
+        final depositPerCrate = cg.depositAmountKobo / 100.0;
+        final bal = _activeCustomer!.emptyCratesBalance[cg.name] ?? 0;
+        customerCrateCredit += bal * depositPerCrate;
       }
     }
 
@@ -1165,9 +1182,7 @@ class _CartScreenState extends State<CartScreen> {
                                                             .getRSize(8),
                                                         decoration:
                                                             BoxDecoration(
-                                                              color: line
-                                                                  .group
-                                                                  .color,
+                                                              color: line.color,
                                                               shape: BoxShape
                                                                   .circle,
                                                             ),
@@ -1178,7 +1193,7 @@ class _CartScreenState extends State<CartScreen> {
                                                         ),
                                                       ),
                                                       Text(
-                                                        '${line.group.label}  ×${line.qty.toStringAsFixed(1)}',
+                                                        '${line.label}  ×${line.qty.toStringAsFixed(1)}',
                                                         style: TextStyle(
                                                           fontSize: context
                                                               .getRFontSize(13),
@@ -1437,12 +1452,14 @@ class _CartScreenState extends State<CartScreen> {
 }
 
 class _CrateDepositLine {
-  final CrateGroup group;
+  final String label;
+  final Color color;
   final double qty;
   final double amount;
 
   const _CrateDepositLine({
-    required this.group,
+    required this.label,
+    required this.color,
     required this.qty,
     required this.amount,
   });
