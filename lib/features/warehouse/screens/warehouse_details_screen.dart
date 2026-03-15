@@ -327,3 +327,4 @@ class _WarehouseDetailsScreenState extends State<WarehouseDetailsScreen> {
     );
   }
 }
+

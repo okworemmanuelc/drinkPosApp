@@ -16,6 +16,7 @@ import '../../../shared/services/order_service.dart';
 import '../../../core/database/app_database.dart';
 import '../../customers/data/models/customer.dart';
 import '../../../shared/widgets/user_tips_modal.dart';
+import '../../../shared/widgets/fluid_menu.dart';
 
 const Color warning = Color(0xFFF59E0B);
 
@@ -52,7 +53,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
   bool get _isDark => themeNotifier.value == ThemeMode.dark;
   Color get _bg => _isDark ? dBg : lBg;
   Color get _surface => _isDark ? dSurface : lSurface;
-  Color get _cardBg => _isDark ? dCard : lSurface;
   Color get _text => _isDark ? dText : lText;
   Color get _subtext => _isDark ? dSubtext : lSubtext;
   Color get _border => _isDark ? dBorder : lBorder;
@@ -330,91 +330,29 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildWarehouseDropdown() {
-    return Container(
-      constraints: BoxConstraints(maxWidth: context.getRSize(130)),
-      padding: EdgeInsets.symmetric(horizontal: context.getRSize(10)),
-      decoration: BoxDecoration(
-        color: _cardBg,
-        borderRadius: BorderRadius.circular(context.radiusM),
-        border: Border.all(color: _border),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<int?>(
-          value: _selectedWarehouseId,
-          isExpanded: true,
-          dropdownColor: _surface,
-          style: TextStyle(
-              color: _text, fontSize: context.getRFontSize(12)),
-          hint: Text('All',
-              style: TextStyle(
-                  color: _subtext, fontSize: context.getRFontSize(12))),
-          items: [
-            DropdownMenuItem<int?>(
-              value: null,
-              child: Text('All',
-                  style: TextStyle(
-                      color: _text,
-                      fontSize: context.getRFontSize(12))),
-            ),
-            for (final wh in _warehouses)
-              DropdownMenuItem<int?>(
-                value: wh.id,
-                child: Text(
-                  wh.name,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                      color: _text,
-                      fontSize: context.getRFontSize(12)),
-                ),
-              ),
-          ],
-          onChanged: (v) => setState(() => _selectedWarehouseId = v),
-        ),
+    return SizedBox(
+      width: context.getRSize(140),
+      child: FluidMenu<int?>(
+        value: _selectedWarehouseId,
+        placeholder: 'All',
+        items: [
+          const FluidMenuItem<int?>(value: null, label: 'All Warehouses'),
+          ..._warehouses.map((wh) => FluidMenuItem(value: wh.id, label: wh.name)),
+        ],
+        onChanged: (v) => setState(() => _selectedWarehouseId = v),
       ),
     );
   }
 
   Widget _buildPeriodDropdown() {
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: context.getRSize(12)),
-      decoration: BoxDecoration(
-        color: _cardBg,
-        borderRadius: BorderRadius.circular(context.radiusM),
-        border: Border.all(color: _border),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<String>(
-          value: _selectedPeriod,
-          isExpanded: true,
-          alignment: AlignmentDirectional.bottomStart,
-          menuMaxHeight: 350,
-          borderRadius: BorderRadius.circular(12),
-          icon: Padding(
-            padding: EdgeInsets.only(left: context.getRSize(8)),
-            child: Icon(
-              FontAwesomeIcons.chevronDown,
-              size: context.getRSize(10),
-              color: blueMain,
-            ),
-          ),
-          dropdownColor: _surface,
-          items: _periods.map((p) {
-            return DropdownMenuItem(
-              value: p,
-              child: Text(
-                p,
-                style: TextStyle(
-                  fontSize: context.getRFontSize(12),
-                  fontWeight: FontWeight.bold,
-                  color: _text,
-                ),
-              ),
-            );
-          }).toList(),
-          onChanged: (val) {
-            if (val != null) setState(() => _selectedPeriod = val);
-          },
-        ),
+    return SizedBox(
+      width: context.getRSize(120),
+      child: FluidMenu<String>(
+        value: _selectedPeriod,
+        items: _periods.map((p) => FluidMenuItem(value: p, label: p)).toList(),
+        onChanged: (val) {
+          if (val != null) setState(() => _selectedPeriod = val);
+        },
       ),
     );
   }
@@ -605,3 +543,4 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 }
+

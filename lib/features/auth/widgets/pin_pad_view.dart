@@ -4,6 +4,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../../core/theme/design_tokens.dart';
 import '../../../shared/services/auth_service.dart';
 import '../../../core/database/app_database.dart';
+import '../../../core/services/biometric_service.dart';
 
 class PinPadView extends StatefulWidget {
   final UserData staff;
@@ -29,6 +30,7 @@ class _PinPadViewState extends State<PinPadView>
   Timer? _timer;
   bool _isShaking = false;
   bool _isProcessing = false;
+  bool _biometricAvailable = false;
   late AnimationController _shakeController;
 
   @override
@@ -38,6 +40,26 @@ class _PinPadViewState extends State<PinPadView>
       vsync: this,
       duration: const Duration(milliseconds: 500),
     );
+    _checkBiometric();
+  }
+
+  Future<void> _checkBiometric() async {
+    if (widget.staff.biometricEnabled) {
+      final available = await biometricService.isAvailable;
+      if (mounted) setState(() => _biometricAvailable = available);
+    }
+  }
+
+  Future<void> _authenticateWithBiometric() async {
+    final success =
+        await biometricService.authenticate(reason: 'Unlock Ribaplus POS');
+    if (success && mounted) {
+      setState(() => _isProcessing = true);
+      await authService.loginWithPin(widget.staff.pin);
+      if (!mounted) return;
+      await Future.delayed(const Duration(milliseconds: 300));
+      widget.onSuccess();
+    }
   }
 
   @override
@@ -177,7 +199,7 @@ class _PinPadViewState extends State<PinPadView>
                   _buildRow(['1', '2', '3']),
                   _buildRow(['4', '5', '6']),
                   _buildRow(['7', '8', '9']),
-                  _buildRow([null, '0', 'delete']),
+                  _buildRow([_biometricAvailable ? 'biometric' : null, '0', 'delete']),
                 ],
               ),
             ),
@@ -264,6 +286,13 @@ class _PinPadViewState extends State<PinPadView>
               onTap: _onDelete,
             );
           }
+          if (item == 'biometric') {
+            return _buildKey(
+              child: const Icon(Icons.fingerprint,
+                  color: Colors.white70, size: 28),
+              onTap: _authenticateWithBiometric,
+            );
+          }
           return _buildKey(
             child: Text(
               item,
@@ -296,3 +325,4 @@ class _PinPadViewState extends State<PinPadView>
     );
   }
 }
+

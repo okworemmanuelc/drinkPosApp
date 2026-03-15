@@ -10,6 +10,7 @@ import '../../features/inventory/data/inventory_data.dart';
 import '../../features/warehouse/data/models/warehouse.dart';
 import 'app_drawer.dart';
 import 'notification_bell.dart';
+import 'fluid_menu.dart';
 
 class ActivityLogScreen extends StatefulWidget {
   const ActivityLogScreen({super.key});
@@ -198,81 +199,18 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
         color: surfaceCol,
         border: Border(bottom: BorderSide(color: borderCol)),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Filter by Warehouse',
-            style: TextStyle(
-              fontSize: context.getRFontSize(12),
-              color: subtextCol,
-              fontWeight: FontWeight.w600,
-            ),
+      child: FluidMenu<String?>(
+            label: 'Filter by Warehouse',
+            value: _selectedWarehouseId,
+            placeholder: 'All Warehouses',
+            items: [
+              const FluidMenuItem<String?>(value: null, label: 'All Warehouses'),
+              ...kWarehouses.map((w) {
+                return FluidMenuItem<String?>(value: w.id, label: w.name);
+              }),
+            ],
+            onChanged: (val) => setState(() => _selectedWarehouseId = val),
           ),
-          SizedBox(height: context.getRSize(8)),
-          Container(
-            padding: EdgeInsets.symmetric(horizontal: context.getRSize(12)),
-            decoration: BoxDecoration(
-              color: textCol.withValues(alpha: 0.05),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: borderCol),
-            ),
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<String?>(
-                value: _selectedWarehouseId,
-                isExpanded: true,
-                alignment: AlignmentDirectional.bottomStart,
-                menuMaxHeight: 350,
-                borderRadius: BorderRadius.circular(12),
-                hint: Text(
-                  'All Warehouses',
-                  style: TextStyle(
-                    color: textCol,
-                    fontSize: context.getRFontSize(14),
-                  ),
-                ),
-                items: [
-                  DropdownMenuItem<String?>(
-                    value: null,
-                    child: Text(
-                      'All Warehouses',
-                      style: TextStyle(
-                        color: textCol,
-                        fontSize: context.getRFontSize(14),
-                        fontWeight: _selectedWarehouseId == null ? FontWeight.bold : FontWeight.normal,
-                      ),
-                    ),
-                  ),
-                  ...kWarehouses.map((w) {
-                    return DropdownMenuItem<String?>(
-                      value: w.id,
-                      child: Text(
-                        w.name,
-                        style: TextStyle(
-                          color: textCol,
-                          fontSize: context.getRFontSize(14),
-                          fontWeight: _selectedWarehouseId == w.id ? FontWeight.bold : FontWeight.normal,
-                        ),
-                      ),
-                    );
-                  }),
-                ],
-                onChanged: (val) {
-                  setState(() {
-                    _selectedWarehouseId = val;
-                  });
-                },
-                dropdownColor: surfaceCol,
-                icon: Icon(
-                  FontAwesomeIcons.chevronDown,
-                  size: context.getRSize(14),
-                  color: blueMain,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 
@@ -481,3 +419,4 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
     return DateFormat('MMM d').format(timestamp);
   }
 }
+

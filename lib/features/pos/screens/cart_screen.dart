@@ -138,9 +138,7 @@ class _CartScreenState extends State<CartScreen> {
                                   children: [
                                     TextButton.icon(
                                       style: TextButton.styleFrom(
-                                        backgroundColor: blueMain.withValues(
-                                          alpha: 0.1,
-                                        ),
+                                        backgroundColor: blueMain.withValues(alpha: 0.1),
                                       ),
                                       onPressed: () {
                                         Navigator.pop(modalCtx);
@@ -1016,9 +1014,11 @@ class _CartScreenState extends State<CartScreen> {
                                             ),
                                           ),
                                           child: Icon(
-                                            item['icon'] is IconData
-                                                ? item['icon'] as IconData
-                                                : IconData(item['icon'] as int, fontFamily: 'FontAwesomeSolid', fontPackage: 'font_awesome_flutter'),
+                                            item['icon'] == null
+                                                ? FontAwesomeIcons.box
+                                                : item['icon'] is IconData
+                                                    ? item['icon'] as IconData
+                                                    : IconData(item['icon'] as int, fontFamily: 'FontAwesomeSolid', fontPackage: 'font_awesome_flutter'),
                                             color: c,
                                             size: context.getRSize(22),
                                           ),
@@ -1282,9 +1282,7 @@ class _CartScreenState extends State<CartScreen> {
                                         ),
                                         borderRadius: BorderRadius.circular(14),
                                         border: Border.all(
-                                          color: blueMain.withValues(
-                                            alpha: 0.12,
-                                          ),
+                                          color: blueMain.withValues(alpha: 0.12),
                                         ),
                                       ),
                                       child: Row(
@@ -1393,9 +1391,7 @@ class _CartScreenState extends State<CartScreen> {
                                         borderRadius: BorderRadius.circular(16),
                                         boxShadow: [
                                           BoxShadow(
-                                            color: blueMain.withValues(
-                                              alpha: 0.3,
-                                            ),
+                                            color: blueMain.withValues(alpha: 0.3),
                                             blurRadius: 14,
                                             offset: const Offset(0, 6),
                                           ),
@@ -1451,3 +1447,5 @@ class _CrateDepositLine {
     required this.amount,
   });
 }
+
+

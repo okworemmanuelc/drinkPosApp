@@ -12,6 +12,7 @@ import '../data/models/expense.dart';
 import '../widgets/add_expense_sheet.dart';
 import '../../../core/utils/constants.dart';
 import '../../../shared/widgets/notification_bell.dart';
+import '../../../shared/widgets/fluid_menu.dart';
 import '../../../core/database/app_database.dart';
 
 class ExpensesScreen extends StatefulWidget {
@@ -318,61 +319,21 @@ class _ExpensesScreenState extends State<ExpensesScreen>
                     ),
                   ],
                 ),
-                Container(
-                  width: context.getRSize(130), // Increased width
-                  padding: EdgeInsets.symmetric(
-                    horizontal: context.getRSize(12),
-                  ),
-                  decoration: BoxDecoration(
-                    color: _bg,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: _border),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.03),
-                        blurRadius: 4,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<String>(
-                      value: _periodFilter,
-                      isExpanded: true, // Make it fill the container
-                      alignment: AlignmentDirectional.bottomStart,
-                      menuMaxHeight: 350,
-                      icon: Padding(
-                        padding: EdgeInsets.only(left: context.getRSize(8)), // Responsive spacing
-                        child: Icon(
-                          FontAwesomeIcons.chevronDown,
-                          size: context.getRSize(10),
-                          color: danger,
-                        ),
-                      ),
-                      dropdownColor: _surface,
-                      borderRadius: BorderRadius.circular(16),
-                      style: TextStyle(
-                        color: _text,
-                        fontSize: context.getRFontSize(13),
-                        fontWeight: FontWeight.w700,
-                      ),
-                      items: [
-                        'Today',
-                        'This Week',
-                        'This Month',
-                        'This Year',
-                        'All Time',
-                      ].map((String val) {
-                        return DropdownMenuItem<String>(
-                          value: val,
-                          child: Text(val),
-                        );
-                      }).toList(),
-                      onChanged: (val) {
-                        if (val != null) setState(() => _periodFilter = val);
-                      },
-                    ),
-                  ),
+                FluidMenu<String>(
+                  value: _periodFilter,
+                  width: context.getRSize(130),
+                  items: [
+                    'Today',
+                    'This Week',
+                    'This Month',
+                    'This Year',
+                    'All Time',
+                  ].map((String val) {
+                    return FluidMenuItem<String>(value: val, label: val);
+                  }).toList(),
+                  onChanged: (val) {
+                    if (val != null) setState(() => _periodFilter = val);
+                  },
                 ),
               ],
             ),
@@ -939,3 +900,4 @@ class _ExpenseCard extends StatelessWidget {
 class ThemeNotifier {
   static final instance = themeNotifier;
 }
+

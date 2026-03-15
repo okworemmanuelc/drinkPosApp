@@ -725,8 +725,9 @@ class DeliveriesDao extends DatabaseAccessor<AppDatabase>
       final supplier = await (select(
         attachedDatabase.suppliers,
       )..where((t) => t.name.equals(delivery.supplierName))).getSingleOrNull();
-      if (supplier == null)
+      if (supplier == null) {
         throw Exception("SupplierData ${delivery.supplierName} not found");
+      }
 
       // 2. Insert into purchases
       final purchaseId = await into(attachedDatabase.purchases).insert(
@@ -741,8 +742,9 @@ class DeliveriesDao extends DatabaseAccessor<AppDatabase>
       // 3. Insert items
       for (final item in items) {
         final prodId = int.tryParse(item.productId);
-        if (prodId == null)
+        if (prodId == null) {
           throw Exception("Invalid product ID: ${item.productId}");
+        }
 
         await into(attachedDatabase.purchaseItems).insert(
           PurchaseItemsCompanion.insert(
@@ -759,8 +761,9 @@ class DeliveriesDao extends DatabaseAccessor<AppDatabase>
 
   Future<void> confirmDelivery(String deliveryIdStr, String confirmedBy) async {
     final purchaseId = int.tryParse(deliveryIdStr);
-    if (purchaseId == null)
+    if (purchaseId == null) {
       throw Exception("Invalid delivery ID: $deliveryIdStr");
+    }
 
     return transaction(() async {
       final purchase = await (select(

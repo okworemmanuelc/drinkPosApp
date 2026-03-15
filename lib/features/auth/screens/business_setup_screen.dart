@@ -654,3 +654,4 @@ class _BusinessSetupScreenState extends State<BusinessSetupScreen>
     );
   }
 }
+

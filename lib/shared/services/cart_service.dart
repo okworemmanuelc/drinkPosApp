@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../features/customers/data/models/customer.dart';
 import '../../core/database/app_database.dart';
 
@@ -29,7 +30,7 @@ class CartService extends ValueNotifier<List<Map<String, dynamic>>> {
         'subtitle': product is ProductData ? product.subtitle : product['subtitle'],
         'price': product is ProductData ? product.sellingPriceKobo / 100.0 : product['price'], // Convert kobo to double for UI
         'qty': qty,
-        'icon': product is ProductData ? product.iconCodePoint : product['icon'],
+        'icon': product is ProductData ? (product.iconCodePoint ?? FontAwesomeIcons.box.codePoint) : product['icon'],
         'color': product is ProductData ? product.colorHex : product['color'],
         'category': product is ProductData ? product.categoryId : product['category'], // Note: category is Int in DB
         'crateGroupName': product is ProductData ? null : product['crateGroupName'], // TODO: Map this properly

@@ -576,3 +576,4 @@ class _WarehouseEntry {
     locationController.dispose();
   }
 }
+

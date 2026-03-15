@@ -14,6 +14,7 @@ import '../../../shared/models/order.dart';
 import '../../../shared/services/order_service.dart';
 import '../../../shared/widgets/receipt_widget.dart';
 import '../../../core/utils/currency_input_formatter.dart';
+import '../../../shared/widgets/fluid_menu.dart';
 
 class CustomerDetailScreen extends StatefulWidget {
   final String customerId;
@@ -690,9 +691,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                                             context.getRSize(10),
                                           ),
                                           decoration: BoxDecoration(
-                                            color: blueMain.withValues(
-                                              alpha: 0.1,
-                                            ),
+                                            color: blueMain.withValues(alpha: 0.1),
                                             shape: BoxShape.circle,
                                           ),
                                           child: Icon(
@@ -1672,45 +1671,13 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                                         crossAxisAlignment:
                                             CrossAxisAlignment.start,
                                         children: [
-                                          Text(
-                                            'Crate Group',
-                                            style: TextStyle(
-                                              fontSize: modalCtx.getRFontSize(
-                                                12,
-                                              ),
-                                              fontWeight: FontWeight.w700,
-                                              color: subtextCol,
-                                            ),
-                                          ),
-                                          SizedBox(
-                                            height: modalCtx.getRSize(8),
-                                          ),
-                                          DropdownButtonFormField<String>(
-                                            initialValue: rowData['group'],
-                                            dropdownColor: cardCol,
-                                            style: TextStyle(
-                                              fontSize: 14,
-                                              color: textCol,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                            decoration: InputDecoration(
-                                              filled: true,
-                                              fillColor: cardCol,
-                                              border: OutlineInputBorder(
-                                                borderRadius:
-                                                    BorderRadius.circular(14),
-                                                borderSide: BorderSide.none,
-                                              ),
-                                              contentPadding:
-                                                  const EdgeInsets.symmetric(
-                                                    horizontal: 16,
-                                                    vertical: 14,
-                                                  ),
-                                            ),
+                                          FluidMenu<String>(
+                                            label: 'Crate Group',
+                                            value: rowData['group'],
                                             items: allGroups.map((g) {
-                                              return DropdownMenuItem(
+                                              return FluidMenuItem(
                                                 value: g,
-                                                child: Text(g),
+                                                label: g,
                                               );
                                             }).toList(),
                                             onChanged: (val) {
@@ -1829,9 +1796,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                                 ),
                               ),
                               style: TextButton.styleFrom(
-                                backgroundColor: blueMain.withValues(
-                                  alpha: 0.1,
-                                ),
+                                backgroundColor: blueMain.withValues(alpha: 0.1),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12),
                                 ),
@@ -2051,3 +2016,5 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
     );
   }
 }
+
+

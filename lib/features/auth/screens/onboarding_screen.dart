@@ -128,7 +128,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                       children: [
                         // App logo
                         Hero(
-                          tag: 'auth_logo',
+                          tag: 'onboarding_logo',
                           child: Container(
                             width: (screenWidth * 0.22).clamp(72.0, 100.0),
                             height: (screenWidth * 0.22).clamp(72.0, 100.0),
@@ -227,3 +227,4 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     );
   }
 }
+

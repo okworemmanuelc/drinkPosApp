@@ -98,6 +98,7 @@ class _SupervisorOverlayModalState extends State<SupervisorOverlayModal> {
                         staff: _selectedSupervisor!,
                         onBack: () => setState(() => _selectedSupervisor = null),
                         onSuccess: () async {
+                          final nav = Navigator.of(context);
                           // Log the action
                           await database.into(database.activityLogs).insert(
                                 ActivityLogsCompanion.insert(
@@ -107,7 +108,7 @@ class _SupervisorOverlayModalState extends State<SupervisorOverlayModal> {
                                   timestamp: drift.Value(DateTime.now()),
                                 ),
                               );
-                          if (mounted) Navigator.pop(context, true);
+                          nav.pop(true);
                         },
                       ),
           ),
@@ -116,3 +117,4 @@ class _SupervisorOverlayModalState extends State<SupervisorOverlayModal> {
     );
   }
 }
+

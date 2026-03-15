@@ -12,6 +12,7 @@ import '../../inventory/data/models/inventory_log.dart';
 import '../../inventory/data/models/supplier.dart';
 import '../../inventory/data/models/crate_group.dart';
 import '../../inventory/data/services/supplier_service.dart';
+import '../../../shared/widgets/fluid_menu.dart';
 import '../../pos/data/products_data.dart';
 import '../data/models/delivery.dart';
 import '../data/services/delivery_service.dart';
@@ -239,6 +240,8 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
       relatedEntityId: delivery.id,
       relatedEntityType: "delivery",
     );
+
+    if (!mounted) return;
 
     Navigator.pop(context);
     ScaffoldMessenger.of(context).showSnackBar(
@@ -516,128 +519,40 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
 
             const SizedBox(height: 12),
 
-            Text(
-              'Category',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                color: _subtext,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              decoration: BoxDecoration(
-                color: _cardBg,
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: DropdownButtonHideUnderline(
-                child: DropdownButton<String>(
-                  value: line.selectedCategory,
-                  dropdownColor: _isDark ? dCard : lSurface,
-                  style: TextStyle(
-                    color: _text,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                  ),
-                  isExpanded: true,
-                  alignment: AlignmentDirectional.bottomStart,
-                  menuMaxHeight: 350,
-                  borderRadius: BorderRadius.circular(12),
-                  onChanged: (v) => setState(() => line.selectedCategory = v!),
-                  items: ['Glass Crates', 'Cans & PET', 'Kegs', 'Other'].map(
-                    (c) => DropdownMenuItem(value: c, child: Text(c)),
-                  ).toList(),
-                ),
-              ),
+            FluidMenu<String>(
+              label: 'Category',
+              value: line.selectedCategory,
+              items: ['Glass Crates', 'Cans & PET', 'Kegs', 'Other']
+                  .map((c) => FluidMenuItem(value: c, label: c))
+                  .toList(),
+              onChanged: (v) => setState(() => line.selectedCategory = v!),
             ),
 
             if (line.selectedCategory == 'Glass Crates') ...[
               const SizedBox(height: 12),
-              Text(
-                'Crate Group',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  color: _subtext,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                decoration: BoxDecoration(
-                  color: _cardBg,
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: DropdownButtonHideUnderline(
-                  child: DropdownButton<CrateGroupData>(
-                    value: line.selectedCrateGroup,
-                    dropdownColor: _isDark ? dCard : lSurface,
-                    style: TextStyle(
-                      color: _text,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                    ),
-                    isExpanded: true,
-                    alignment: AlignmentDirectional.bottomStart,
-                    menuMaxHeight: 350,
-                    borderRadius: BorderRadius.circular(12),
-                    hint: Text('Select Crate Group', style: TextStyle(color: _subtext, fontSize: 14)),
-                    onChanged: (v) => setState(() => line.selectedCrateGroup = v),
-                    items: _crateGroups.map(
-                      (cg) => DropdownMenuItem(
-                        value: cg,
-                        child: Text('${cg.name} (${cg.size} bottles)'),
-                      ),
-                    ).toList(),
-                  ),
-                ),
+              FluidMenu<CrateGroupData>(
+                label: 'Crate Group',
+                value: line.selectedCrateGroup,
+                placeholder: 'Select Crate Group',
+                items: _crateGroups.map((cg) {
+                  return FluidMenuItem(
+                    value: cg,
+                    label: '${cg.name} (${cg.size} bottles)',
+                  );
+                }).toList(),
+                onChanged: (v) => setState(() => line.selectedCrateGroup = v),
               ),
             ],
 
             const SizedBox(height: 12),
 
-            Text(
-              'Supplier',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                color: _subtext,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              decoration: BoxDecoration(
-                color: _cardBg,
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: DropdownButtonHideUnderline(
-                child: DropdownButton<Supplier>(
-                  value: line.selectedSupplier,
-                  dropdownColor: _isDark ? dCard : lSurface,
-                  style: TextStyle(
-                    color: _text,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                  ),
-                  isExpanded: true,
-                  alignment: AlignmentDirectional.bottomStart,
-                  menuMaxHeight: 350,
-                  borderRadius: BorderRadius.circular(12),
-                  onChanged: (val) {
-                    setState(() {
-                      line.selectedSupplier = val;
-                    });
-                  },
-                  items: supplierService.getAll().map((s) {
-                    return DropdownMenuItem(
-                      value: s,
-                      child: Text(s.name, style: TextStyle(color: _text)),
-                    );
-                  }).toList(),
-                ),
-              ),
+            FluidMenu<Supplier>(
+              label: 'Supplier',
+              value: line.selectedSupplier,
+              items: supplierService.getAll().map((s) {
+                return FluidMenuItem(value: s, label: s.name);
+              }).toList(),
+              onChanged: (val) => setState(() => line.selectedSupplier = val),
             ),
 
             const SizedBox(height: 12),
@@ -771,3 +686,4 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
     );
   }
 }
+

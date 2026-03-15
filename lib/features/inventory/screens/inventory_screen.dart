@@ -17,7 +17,6 @@ import '../../../shared/widgets/shared_scaffold.dart';
 import '../../../shared/widgets/menu_button.dart';
 import '../../../shared/widgets/app_bar_header.dart';
 import '../../../shared/widgets/notification_bell.dart';
-import '../../pos/data/products_data.dart';
 import 'supplier_detail_screen.dart';
 import 'product_detail_screen.dart';
 import '../../../core/theme/design_tokens.dart';
@@ -25,6 +24,7 @@ import 'package:drift/drift.dart' hide Column;
 import '../../../core/database/app_database.dart';
 import '../../../core/database/daos.dart';
 import '../../../shared/services/auth_service.dart';
+import '../../../shared/widgets/fluid_menu.dart';
 
 class InventoryScreen extends StatefulWidget {
   const InventoryScreen({super.key});
@@ -511,36 +511,6 @@ class _InventoryScreenState extends State<InventoryScreen>
     );
   }
 
-  List<InventoryItem> get _filteredItems {
-    var list = _selectedSupplierId == 'all'
-        ? kInventoryItems
-        : kInventoryItems
-              .where((i) => i.supplierId == _selectedSupplierId)
-              .toList();
-
-    if (_selectedWarehouseId != 'all') {
-      list = list
-          .where((i) => i.warehouseStock.containsKey(_selectedWarehouseId))
-          .toList();
-    }
-
-    if (_stockFilter == 'low') {
-      return list.where((i) {
-        final stock = _selectedWarehouseId == 'all'
-            ? i.totalStock
-            : i.getStockForWarehouse(_selectedWarehouseId);
-        return stock > 0 && stock <= i.lowStockThreshold;
-      }).toList();
-    } else if (_stockFilter == 'out') {
-      return list.where((i) {
-        final stock = _selectedWarehouseId == 'all'
-            ? i.totalStock
-            : i.getStockForWarehouse(_selectedWarehouseId);
-        return stock == 0;
-      }).toList();
-    }
-    return list;
-  }
 
   List<CrateStock> get _activeCrateGroups {
     // 1. Get all unique crate groups used by current inventory items
@@ -574,19 +544,13 @@ class _InventoryScreenState extends State<InventoryScreen>
         children: [
           // Warehouse Dropdown
           Expanded(
-            child: _buildFilterDropdown(
+            child: FluidMenu<String>(
               label: 'Warehouse',
               value: _selectedWarehouseId,
               items: [
-                const DropdownMenuItem(
-                  value: 'all',
-                  child: Text('All Warehouses'),
-                ),
+                const FluidMenuItem(value: 'all', label: 'All Warehouses'),
                 ..._warehouses.map(
-                  (w) => DropdownMenuItem(
-                    value: w.id.toString(),
-                    child: Text(w.name),
-                  ),
+                  (w) => FluidMenuItem(value: w.id.toString(), label: w.name),
                 ),
               ],
               onChanged: (val) => setState(() => _selectedWarehouseId = val!),
@@ -595,16 +559,13 @@ class _InventoryScreenState extends State<InventoryScreen>
           SizedBox(width: context.getRSize(12)),
           // Supplier Dropdown
           Expanded(
-            child: _buildFilterDropdown(
+            child: FluidMenu<String>(
               label: 'Supplier',
               value: _selectedSupplierId,
               items: [
-                const DropdownMenuItem(
-                  value: 'all',
-                  child: Text('All Suppliers'),
-                ),
+                const FluidMenuItem(value: 'all', label: 'All Suppliers'),
                 ...supplierService.getAll().map(
-                  (s) => DropdownMenuItem(value: s.id, child: Text(s.name)),
+                  (s) => FluidMenuItem(value: s.id, label: s.name),
                 ),
               ],
               onChanged: (val) => setState(() => _selectedSupplierId = val!),
@@ -615,58 +576,7 @@ class _InventoryScreenState extends State<InventoryScreen>
     );
   }
 
-  Widget _buildFilterDropdown({
-    required String label,
-    required String value,
-    required List<DropdownMenuItem<String>> items,
-    required ValueChanged<String?> onChanged,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: context.getRFontSize(11),
-            fontWeight: FontWeight.w700,
-            color: _subtext,
-            letterSpacing: 0.5,
-          ),
-        ),
-        SizedBox(height: context.getRSize(6)),
-        Container(
-          padding: EdgeInsets.symmetric(horizontal: context.getRSize(12)),
-          decoration: BoxDecoration(
-            color: _isDark ? dCard : lCard,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: _border),
-          ),
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<String>(
-              value: value,
-              items: items,
-              onChanged: onChanged,
-              isExpanded: true,
-              alignment: AlignmentDirectional.bottomStart,
-              menuMaxHeight: 350,
-              icon: Icon(
-                Icons.keyboard_arrow_down,
-                color: blueMain,
-                size: context.getRSize(18),
-              ),
-              style: TextStyle(
-                fontSize: context.getRFontSize(13),
-                fontWeight: FontWeight.w600,
-                color: _text,
-              ),
-              dropdownColor: _surface,
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
+  // Removed old _buildFilterDropdown as it is replaced by FluidMenu
 
   Widget _buildProductRow(BuildContext context, ProductDataWithStock item) {
     final product = item.product;
@@ -1319,615 +1229,8 @@ class _InventoryScreenState extends State<InventoryScreen>
     );
   }
 
-  // ── UPDATE STOCK DIALOG ───────────────────────────────────────────────────────
-  void _showUpdateStockDialog(InventoryItem item) {
-    final ctrl = TextEditingController(text: '');
-    final noteCtrl = TextEditingController();
-    String action = 'restock';
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => StatefulBuilder(
-        builder: (ctx, setB) => Padding(
-          padding: EdgeInsets.only(
-            bottom:
-                MediaQuery.of(ctx).viewInsets.bottom +
-                MediaQuery.of(ctx).padding.bottom,
-          ),
-          child: Container(
-            constraints: BoxConstraints(
-              maxHeight: MediaQuery.of(ctx).size.height * 0.85,
-            ),
-            decoration: BoxDecoration(
-              color: _isDark ? dSurface : lSurface,
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(28),
-              ),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: EdgeInsets.fromLTRB(
-                    ctx.getRSize(20),
-                    ctx.getRSize(20),
-                    ctx.getRSize(20),
-                    0,
-                  ), // RESPONSIVE
-                  child: Center(
-                    child: Container(
-                      width: ctx.getRSize(40), // RESPONSIVE
-                      height: ctx.getRSize(4), // RESPONSIVE
-                      decoration: BoxDecoration(
-                        color: _border,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                  ),
-                ),
-                SizedBox(height: ctx.getRSize(20)), // RESPONSIVE
-                Flexible(
-                  child: SingleChildScrollView(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: ctx.getRSize(20),
-                    ), // RESPONSIVE
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              width: ctx.getRSize(44), // RESPONSIVE
-                              height: ctx.getRSize(44), // RESPONSIVE
-                              decoration: BoxDecoration(
-                                color: item.color.withValues(alpha: 0.15),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Icon(
-                                item.icon,
-                                color: item.color,
-                                size: ctx.getRSize(20),
-                              ), // RESPONSIVE
-                            ),
-                            SizedBox(width: ctx.getRSize(14)), // RESPONSIVE
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  FittedBox(
-                                    // RESPONSIVE
-                                    fit: BoxFit.scaleDown,
-                                    child: Text(
-                                      'Update Stock',
-                                      style: TextStyle(
-                                        fontSize: ctx.getRFontSize(
-                                          18,
-                                        ), // RESPONSIVE
-                                        fontWeight: FontWeight.w800,
-                                        color: _text,
-                                      ),
-                                    ),
-                                  ),
-                                  Text(
-                                    item.productName,
-                                    style: TextStyle(
-                                      fontSize: ctx.getRFontSize(
-                                        13,
-                                      ), // RESPONSIVE
-                                      color: blueMain,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                        SizedBox(height: ctx.getRSize(20)), // RESPONSIVE
-                        Text(
-                          'Action',
-                          style: TextStyle(
-                            fontSize: ctx.getRFontSize(12), // RESPONSIVE
-                            fontWeight: FontWeight.w700,
-                            color: _subtext,
-                          ),
-                        ),
-                        SizedBox(height: ctx.getRSize(8)), // RESPONSIVE
-                        Row(
-                          children: [
-                            Expanded(
-                              // RESPONSIVE: use Expanded to fit buttons evenly
-                              child: _actionChip(
-                                ctx,
-                                'restock',
-                                'Restock',
-                                action,
-                                (v) => setB(() => action = v),
-                              ),
-                            ),
-                            SizedBox(width: ctx.getRSize(8)), // RESPONSIVE
-                            Expanded(
-                              // RESPONSIVE: use Expanded
-                              child: _actionChip(
-                                ctx,
-                                'adjustment',
-                                'Adjust',
-                                action,
-                                (v) => setB(() => action = v),
-                              ),
-                            ),
-                          ],
-                        ),
-                        SizedBox(height: ctx.getRSize(16)), // RESPONSIVE
-                        Text(
-                          action == 'restock'
-                              ? 'Quantity to Add'
-                              : 'Set Stock To',
-                          style: TextStyle(
-                            fontSize: ctx.getRFontSize(12), // RESPONSIVE
-                            fontWeight: FontWeight.w700,
-                            color: _subtext,
-                          ),
-                        ),
-                        SizedBox(height: ctx.getRSize(8)), // RESPONSIVE
-                        TextField(
-                          controller: ctrl,
-                          keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true,
-                          ),
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: _text,
-                          ),
-                          decoration: InputDecoration(
-                            hintText: action == 'restock'
-                                ? 'e.g. 10 (will be added to current stock)'
-                                : 'e.g. 18 (replaces current stock)',
-                            hintStyle: TextStyle(color: _subtext),
-                            filled: true,
-                            fillColor: _isDark ? dCard : lCard,
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(14),
-                              borderSide: BorderSide.none,
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(14),
-                              borderSide: const BorderSide(
-                                color: blueMain,
-                                width: 2,
-                              ),
-                            ),
-                            contentPadding: const EdgeInsets.all(16),
-                            suffixText: item.subtitle,
-                            suffixStyle: TextStyle(
-                              color: _subtext,
-                              fontSize: 14,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        TextField(
-                          controller: noteCtrl,
-                          style: TextStyle(fontSize: 14, color: _text),
-                          decoration: InputDecoration(
-                            hintText: 'Note (optional)',
-                            hintStyle: TextStyle(color: _subtext),
-                            filled: true,
-                            fillColor: _isDark ? dCard : lCard,
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(14),
-                              borderSide: BorderSide.none,
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(14),
-                              borderSide: const BorderSide(
-                                color: blueMain,
-                                width: 2,
-                              ),
-                            ),
-                            contentPadding: const EdgeInsets.all(16),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        GestureDetector(
-                          onTap: () {
-                            Navigator.pop(ctx);
-                            _showUpdatePriceDialog(item);
-                          },
-                          child: Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            decoration: BoxDecoration(
-                              color: success.withValues(alpha: 0.08),
-                              borderRadius: BorderRadius.circular(14),
-                              border: Border.all(
-                                color: success.withValues(alpha: 0.3),
-                              ),
-                            ),
-                            child: const Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  FontAwesomeIcons.tag,
-                                  size: 14,
-                                  color: success,
-                                ),
-                                SizedBox(width: 10),
-                                Text(
-                                  'Update Price',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.bold,
-                                    color: success,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        // Pad the bottom of the scroll view
-                        const SizedBox(height: 32),
-                      ],
-                    ),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
-                  child: SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: blueMain,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        elevation: 0,
-                      ),
-                      onPressed: () async {
-                        final entered = double.tryParse(ctrl.text) ?? 0;
-                        // For now, we update the first warehouse available
-                        final warehouseId = item.warehouseStock.keys.isNotEmpty
-                            ? item.warehouseStock.keys.first
-                            : 'w1';
-                        final currentWarehouseStock =
-                            item.warehouseStock[warehouseId] ?? 0.0;
-
-                        final newWarehouseQty = action == 'restock'
-                            ? currentWarehouseStock + entered
-                            : entered;
-                        final diff = action == 'restock'
-                            ? entered
-                            : entered - currentWarehouseStock;
-
-                        final log = InventoryLog(
-                          timestamp: DateTime.now(),
-                          user: 'John Cashier',
-                          itemId: item.id,
-                          itemName: item.productName,
-                          action: action,
-                          previousValue: currentWarehouseStock,
-                          newValue: newWarehouseQty,
-                          note: noteCtrl.text.isEmpty ? null : noteCtrl.text,
-                        );
-
-                        // Adjust crate stock if it's a "Glass Crates" product
-                        // 1. Check product category
-                        final productData = kProducts.firstWhere(
-                          (p) => p['name'] == item.productName,
-                          orElse: () => <String, dynamic>{},
-                        );
-
-                        setState(() {
-                          // Update the specific warehouse stock
-                          final newStockMap = Map<String, double>.from(
-                            item.warehouseStock,
-                          );
-                          newStockMap[warehouseId] = newWarehouseQty;
-                          item.warehouseStock = newStockMap;
-
-                          kInventoryLogs.add(log);
-
-                          if (productData.isNotEmpty &&
-                              productData['category'] == 'Glass Crates') {
-                            final supplier = item.supplierId == null
-                                ? null
-                                : supplierService
-                                      .getAll()
-                                      .cast<Supplier?>()
-                                      .firstWhere(
-                                        (s) => s?.id == item.supplierId,
-                                        orElse: () => null,
-                                      );
-
-                            final cStockIndex = supplier == null
-                                ? -1
-                                : kCrateStocks.indexWhere(
-                                    (c) => c.group == supplier.crateGroup,
-                                  );
-
-                            if (cStockIndex != -1) {
-                              kCrateStocks[cStockIndex].available += diff;
-                            }
-                          }
-                        });
-
-                        // Mirror to Global Activity Log
-                        await activityLogService.logAction(
-                          action == 'restock'
-                              ? "Inventory Restock"
-                              : "Stock Adjustment",
-                          "${action == 'restock' ? 'Restocked' : 'Adjusted'} ${item.productName}: ${log.previousValue.toInt()} -> ${log.newValue.toInt()}${noteCtrl.text.isNotEmpty ? ' (Note: ${noteCtrl.text})' : ''}",
-                          relatedEntityId: item.id,
-                          relatedEntityType: "inventory",
-                          warehouseId: warehouseId,
-                        );
-
-                        if (mounted) Navigator.pop(ctx);
-                      },
-                      child: const Text(
-                        'Save Update',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 15,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
   // ── UPDATE PRICE DIALOG ───────────────────────────────────────────────────────
-  void _showUpdatePriceDialog(InventoryItem item) {
-    final existingParams = kProducts.firstWhere(
-      (p) => p['name'] == item.productName,
-      orElse: () => {'price': 0, 'wholesale_price': 0, 'category': 'Other'},
-    );
-    final priceCtrl = TextEditingController(
-      text: (existingParams['price'] ?? 0).toString(),
-    );
 
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => StatefulBuilder(
-        builder: (ctx, setB) => Padding(
-          padding: EdgeInsets.only(
-            bottom:
-                MediaQuery.of(ctx).viewInsets.bottom +
-                MediaQuery.of(ctx).padding.bottom,
-          ),
-          child: Container(
-            constraints: BoxConstraints(
-              maxHeight: MediaQuery.of(ctx).size.height * 0.9,
-            ),
-            decoration: BoxDecoration(
-              color: _isDark ? dSurface : lSurface,
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(28),
-              ),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-                  child: Column(
-                    children: [
-                      Center(
-                        child: Container(
-                          width: 40,
-                          height: 4,
-                          decoration: BoxDecoration(
-                            color: _border,
-                            borderRadius: BorderRadius.circular(2),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                    ],
-                  ),
-                ),
-                Flexible(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              width: 44,
-                              height: 44,
-                              decoration: BoxDecoration(
-                                color: success.withValues(alpha: 0.15),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: const Icon(
-                                FontAwesomeIcons.tag,
-                                color: success,
-                                size: 20,
-                              ),
-                            ),
-                            const SizedBox(width: 14),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Update Price',
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w800,
-                                    color: _text,
-                                  ),
-                                ),
-                                Text(
-                                  item.productName,
-                                  style: const TextStyle(
-                                    fontSize: 13,
-                                    color: blueMain,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 20),
-                        Text(
-                          'Retail Selling Price (₦)',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: _subtext,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        TextField(
-                          controller: priceCtrl,
-                          keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true,
-                          ),
-                          style: TextStyle(
-                            fontSize: ctx.getRFontSize(18), // RESPONSIVE
-                            fontWeight: FontWeight.bold,
-                            color: _text,
-                          ),
-                          decoration: InputDecoration(
-                            hintText: 'Enter price (e.g. 5000)',
-                            hintStyle: TextStyle(color: _subtext),
-                            filled: true,
-                            fillColor: _isDark ? dCard : lCard,
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(14),
-                              borderSide: BorderSide.none,
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(14),
-                              borderSide: const BorderSide(
-                                color: blueMain,
-                                width: 2,
-                              ),
-                            ),
-                            contentPadding: EdgeInsets.all(
-                              ctx.getRSize(16),
-                            ), // RESPONSIVE
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                Padding(
-                  padding: EdgeInsets.fromLTRB(
-                    ctx.getRSize(20),
-                    ctx.getRSize(24),
-                    ctx.getRSize(20),
-                    ctx.getRSize(32),
-                  ), // RESPONSIVE
-                  child: SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: success,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        padding: EdgeInsets.symmetric(
-                          vertical: ctx.getRSize(16),
-                        ), // RESPONSIVE
-                        elevation: 0,
-                      ),
-                      onPressed: () {
-                        final newPrice =
-                            int.tryParse(priceCtrl.text) ??
-                            existingParams['price'];
-                        setState(() {
-                          final idx = kProducts.indexWhere(
-                            (p) => p['name'] == item.productName,
-                          );
-                          if (idx != -1) {
-                            kProducts[idx]['price'] = newPrice;
-                          } else {
-                            kProducts.add({
-                              'name': item.productName,
-                              'subtitle': item.subtitle,
-                              'price': newPrice,
-                              'wholesale_price': newPrice, // fallback
-                              'category': 'Other', // fallback
-                              'icon': item.icon,
-                              'color': item.color,
-                            });
-                          }
-                        });
-                        Navigator.pop(ctx);
-                      },
-                      child: const Text(
-                        'Save Price',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 15,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _actionChip(
-    BuildContext context, // RESPONSIVE: pass context
-    String value,
-    String label,
-    String current,
-    Function(String) onTap,
-  ) {
-    final active = current == value;
-    return GestureDetector(
-      onTap: () => onTap(value),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        padding: EdgeInsets.symmetric(
-          horizontal: context.getRSize(20),
-          vertical: context.getRSize(10),
-        ), // RESPONSIVE
-        decoration: BoxDecoration(
-          color: active ? blueMain : (_isDark ? dCard : lCard),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: active ? blueMain : _border),
-        ),
-        child: Center(
-          child: Text(
-            label,
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: context.getRFontSize(13), // RESPONSIVE
-              color: active ? Colors.white : _subtext,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 
   // ── UPDATE CRATES DIALOG ──────────────────────────────────────────────────────
   void _showUpdateCratesDialog(CrateStock cs) {
@@ -2245,162 +1548,49 @@ class _InventoryScreenState extends State<InventoryScreen>
                           'e.g. Crate, Can, Keg',
                         ),
                         const SizedBox(height: 12),
-                        Text(
-                          'Category',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: _subtext,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          decoration: BoxDecoration(
-                            color: _isDark ? dCard : lCard,
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                          child: DropdownButtonHideUnderline(
-                            child: DropdownButton<String>(
-                              value: selectedCategory,
-                              dropdownColor: _isDark ? dCard : lSurface,
-                              style: TextStyle(
-                                color: _text,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                              ),
-                              isExpanded: true,
-                              alignment: AlignmentDirectional.bottomStart,
-                              menuMaxHeight: 350,
-                              borderRadius: BorderRadius.circular(12),
-                              onChanged: (v) =>
-                                  setB(() => selectedCategory = v!),
-                              items:
-                                  [
-                                        'Glass Crates',
-                                        'Cans & PET',
-                                        'Kegs',
-                                        'Other',
-                                      ]
-                                      .map(
-                                        (c) => DropdownMenuItem(
-                                          value: c,
-                                          child: Text(c),
-                                        ),
-                                      )
-                                      .toList(),
-                            ),
-                          ),
+                        FluidMenu<String>(
+                          label: 'Category',
+                          value: selectedCategory,
+                          items: [
+                            'Glass Crates',
+                            'Cans & PET',
+                            'Kegs',
+                            'Other',
+                          ].map((c) => FluidMenuItem(value: c, label: c)).toList(),
+                          onChanged: (v) => setB(() => selectedCategory = v!),
                         ),
                         if (selectedCategory == 'Glass Crates') ...[
                           const SizedBox(height: 12),
-                          Text(
-                            'Crate Group',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              color: _subtext,
+                            FluidMenu<CrateGroupData>(
+                              label: 'Crate Group',
+                              value: selectedCrateGroup,
+                              placeholder: 'Select Crate Group',
+                              items: crateGroupsList
+                                  .map(
+                                    (cg) => FluidMenuItem(
+                                      value: cg,
+                                      label: '${cg.name} (${cg.size} bottles)',
+                                    ),
+                                  )
+                                  .toList(),
+                              onChanged: (v) => setB(() => selectedCrateGroup = v),
                             ),
-                          ),
-                          const SizedBox(height: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 16),
-                            decoration: BoxDecoration(
-                              color: _isDark ? dCard : lCard,
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                            child: DropdownButtonHideUnderline(
-                              child: DropdownButton<CrateGroupData>(
-                                value: selectedCrateGroup,
-                                dropdownColor: _isDark ? dCard : lSurface,
-                                style: TextStyle(
-                                  color: _text,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                                isExpanded: true,
-                                alignment: AlignmentDirectional.bottomStart,
-                                menuMaxHeight: 350,
-                                borderRadius: BorderRadius.circular(12),
-                                hint: Text(
-                                  'Select Crate Group',
-                                  style: TextStyle(
-                                    color: _subtext,
-                                    fontSize: 14,
-                                  ),
-                                ),
-                                onChanged: (v) =>
-                                    setB(() => selectedCrateGroup = v),
-                                items: crateGroupsList
-                                    .map(
-                                      (cg) => DropdownMenuItem(
-                                        value: cg,
-                                        child: Text(
-                                          '${cg.name} (${cg.size} bottles)',
-                                        ),
-                                      ),
-                                    )
-                                    .toList(),
-                              ),
-                            ),
-                          ),
                         ],
                         const SizedBox(height: 12),
-                        Text(
-                          'Supplier',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: _subtext,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          decoration: BoxDecoration(
-                            color: _isDark ? dCard : lCard,
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                          child: DropdownButtonHideUnderline(
-                            child: DropdownButton<int>(
-                              value: selectedSupplierDbId,
-                              dropdownColor: _isDark ? dCard : lSurface,
-                              style: TextStyle(
-                                color: _text,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                              ),
-                              isExpanded: true,
-                              alignment: AlignmentDirectional.bottomStart,
-                              menuMaxHeight: 350,
-                              borderRadius: BorderRadius.circular(12),
-                              hint: Text(
-                                'Select Supplier (Optional)',
-                                style: TextStyle(
-                                  color: _subtext,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                              onChanged: (v) =>
-                                  setB(() => selectedSupplierDbId = v),
-                              items: [
-                                DropdownMenuItem<int>(
-                                  value: null,
-                                  child: Text(
-                                    'No Supplier / Pair Later',
-                                    style: TextStyle(color: _subtext),
-                                  ),
-                                ),
-                                ...dbSuppliers.map(
-                                  (s) => DropdownMenuItem(
-                                    value: s.id,
-                                    child: Text(s.name),
-                                  ),
-                                ),
-                              ],
+                        FluidMenu<int>(
+                          label: 'Supplier',
+                          value: selectedSupplierDbId,
+                          placeholder: 'Select Supplier (Optional)',
+                          items: [
+                            const FluidMenuItem<int>(
+                              value: 0, // Using 0 for null as workaround if FluidMenuItem value is not nullable, or handle null in FluidMenu
+                              label: 'No Supplier / Pair Later',
                             ),
-                          ),
+                            ...dbSuppliers.map(
+                              (s) => FluidMenuItem(value: s.id, label: s.name),
+                            ),
+                          ],
+                          onChanged: (v) => setB(() => selectedSupplierDbId = v),
                         ),
                         const SizedBox(height: 12),
                         _inputField(
@@ -2863,3 +2053,4 @@ class _InventoryScreenState extends State<InventoryScreen>
     );
   }
 }
+

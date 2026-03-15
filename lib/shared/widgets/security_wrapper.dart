@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:ribaplus_pos/shared/services/auth_service.dart';
 import 'package:ribaplus_pos/shared/services/cart_service.dart';
 import 'package:ribaplus_pos/shared/widgets/lock_overlay.dart';
-import 'package:ribaplus_pos/features/auth/screens/login_screen.dart';
+import 'package:ribaplus_pos/features/auth/screens/quick_access_screen.dart';
 
 class SecurityWrapper extends StatefulWidget {
   final Widget child;
@@ -52,11 +52,11 @@ class _SecurityWrapperState extends State<SecurityWrapper> with WidgetsBindingOb
   }
 
   void _handleLogout() {
-    authService.logout(clearQuickAccess: true);
+    authService.logout();
     cartService.clear();
     if (mounted) {
       Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const LoginScreen()),
+        MaterialPageRoute(builder: (_) => const QuickAccessScreen()),
         (route) => false,
       );
     }

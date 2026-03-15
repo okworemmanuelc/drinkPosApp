@@ -941,9 +941,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     const Divider(height: 1),
                     ...groups.map(
                       (cg) => ListTile(
-                        leading: Icon(
+                        leading: const Icon(
                           Icons.layers,
-                          color: const Color(0xFF8B5CF6),
+                          color: Color(0xFF8B5CF6),
                         ),
                         title: Text(
                           cg.name,
@@ -1049,9 +1049,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         if (index == 0) {
                           return ListTile(
                             leading: CircleAvatar(
-                              backgroundColor: Colors.grey.withValues(
-                                alpha: 0.1,
-                              ),
+                              backgroundColor: Colors.grey.withValues(alpha: 0.1),
                               child: Icon(
                                 Icons.close,
                                 color: _subtext,
@@ -1074,9 +1072,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         final isSelected = widget.item.supplierId == s.id;
                         return ListTile(
                           leading: CircleAvatar(
-                            backgroundColor: s.crateGroup.color.withValues(
-                              alpha: 0.1,
-                            ),
+                            backgroundColor: s.crateGroup.color.withValues(alpha: 0.1),
                             child: Icon(
                               FontAwesomeIcons.building,
                               color: s.crateGroup.color,
@@ -1253,3 +1249,5 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     );
   }
 }
+
+

@@ -12,6 +12,7 @@ import '../../../shared/widgets/shared_scaffold.dart';
 import '../../../shared/widgets/menu_button.dart';
 import '../../../shared/widgets/app_bar_header.dart';
 import '../../../shared/widgets/notification_bell.dart';
+import '../../../shared/widgets/fluid_menu.dart';
 import '../../../core/theme/design_tokens.dart';
 import '../../../core/database/app_database.dart';
 
@@ -165,7 +166,7 @@ class _PosHomeScreenState extends State<PosHomeScreen>
             child: Stack(
               clipBehavior: Clip.none,
               children: [
-                _buildDropdown<CustomerGroup>(
+                FluidMenu<CustomerGroup>(
                   value: _selectedGroup,
                   items: CustomerGroup.values.map((g) {
                     String label = g == CustomerGroup.retailer
@@ -173,10 +174,7 @@ class _PosHomeScreenState extends State<PosHomeScreen>
                         : (g == CustomerGroup.bulkBreaker
                             ? 'Bulk'
                             : 'Distr.');
-                    return DropdownMenuItem(
-                      value: g,
-                      child: Text(label),
-                    );
+                    return FluidMenuItem(value: g, label: label);
                   }).toList(),
                   onChanged: (val) {
                     if (val != null) setState(() => _selectedGroup = val);
@@ -208,14 +206,13 @@ class _PosHomeScreenState extends State<PosHomeScreen>
           // Supplier Filter Dropdown
           Expanded(
             flex: 5,
-            child: _buildDropdown<String>(
+            child: FluidMenu<String>(
               value: _selectedSupplierId,
               items: [
-                const DropdownMenuItem(
-                    value: 'All', child: Text('All Suppliers')),
-                ...supplierService.getAll().map((s) => DropdownMenuItem(
+                const FluidMenuItem(value: 'All', label: 'All Suppliers'),
+                ...supplierService.getAll().map((s) => FluidMenuItem(
                       value: s.id,
-                      child: Text(s.name),
+                      label: s.name,
                     )),
               ],
               onChanged: (val) {
@@ -269,51 +266,6 @@ class _PosHomeScreenState extends State<PosHomeScreen>
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildDropdown<T>({
-    required T value,
-    required List<DropdownMenuItem<T>> items,
-    required ValueChanged<T?> onChanged,
-  }) {
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: context.spacingS),
-      decoration: BoxDecoration(
-        color: _cardBg,
-        borderRadius: BorderRadius.circular(context.radiusM),
-        border: Border.all(color: _border),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<T>(
-          value: value,
-          isExpanded: true,
-          alignment: AlignmentDirectional.bottomStart,
-          menuMaxHeight: 350,
-          icon: Icon(
-            FontAwesomeIcons.chevronDown,
-            size: context.getRSize(10),
-            color: blueMain,
-          ),
-          dropdownColor: _surface,
-          borderRadius: BorderRadius.circular(12),
-          items: items.map((item) {
-            return DropdownMenuItem<T>(
-              value: item.value,
-              child: DefaultTextStyle.merge(
-                style: TextStyle(
-                  fontSize: context.getRFontSize(11),
-                  fontWeight: FontWeight.bold,
-                  color: _text,
-                ),
-                overflow: TextOverflow.ellipsis,
-                child: item.child,
-              ),
-            );
-          }).toList(),
-          onChanged: onChanged,
-        ),
       ),
     );
   }
@@ -768,3 +720,4 @@ class _PosHomeScreenState extends State<PosHomeScreen>
     );
   }
 }
+

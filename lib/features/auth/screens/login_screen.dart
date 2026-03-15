@@ -6,6 +6,8 @@ import '../../../core/database/app_database.dart';
 import 'pin_setup_screen.dart';
 import 'business_setup_screen.dart';
 import 'warehouse_setup_screen.dart';
+import '../../../shared/widgets/security_wrapper.dart';
+import '../../../shared/widgets/main_layout.dart';
 import 'onboarding_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -140,15 +142,45 @@ class _LoginScreenState extends State<LoginScreen>
       return;
     }
 
-    // Sign-in: check if any warehouses exist; if not, send to warehouse setup
+    // Sign-in: check setup state
     final warehouses = await database.select(database.warehouses).get();
     if (!mounted) return;
-    final destination =
-        warehouses.isEmpty ? const WarehouseSetupScreen() : const PinSetupScreen();
+
+    if (warehouses.isEmpty) {
+      Navigator.pushReplacement(
+        context,
+        PageRouteBuilder(
+          pageBuilder: (_, __, ___) => const WarehouseSetupScreen(),
+          transitionsBuilder: (_, anim, __, child) =>
+              FadeTransition(opacity: anim, child: child),
+          transitionDuration: const Duration(milliseconds: 400),
+        ),
+      );
+      return;
+    }
+
+    // If user already has a PIN, skip setup and go straight to the app
+    final currentUser = authService.value;
+    if (currentUser != null && currentUser.pin.isNotEmpty) {
+      await authService.enableQuickAccess();
+      if (!mounted) return;
+      Navigator.pushReplacement(
+        context,
+        PageRouteBuilder(
+          pageBuilder: (_, __, ___) =>
+              const SecurityWrapper(child: MainLayout()),
+          transitionsBuilder: (_, anim, __, child) =>
+              FadeTransition(opacity: anim, child: child),
+          transitionDuration: const Duration(milliseconds: 400),
+        ),
+      );
+      return;
+    }
+
     Navigator.pushReplacement(
       context,
       PageRouteBuilder(
-        pageBuilder: (_, __, ___) => destination,
+        pageBuilder: (_, __, ___) => const PinSetupScreen(),
         transitionsBuilder: (_, anim, __, child) =>
             FadeTransition(opacity: anim, child: child),
         transitionDuration: const Duration(milliseconds: 400),
@@ -172,7 +204,7 @@ class _LoginScreenState extends State<LoginScreen>
             ),
           ),
           Positioned.fill(
-            child: Container(color: Colors.black.withValues(alpha: 0.4)),
+            child: Container(color: Colors.black.withValues(alpha: 0.3)),
           ),
 
           SafeArea(
@@ -185,7 +217,7 @@ class _LoginScreenState extends State<LoginScreen>
                     width: 40,
                     height: 5,
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.3),
+                      color: Colors.white.withValues(alpha: 0.4),
                       borderRadius: BorderRadius.circular(10),
                     ),
                   ),
@@ -324,7 +356,7 @@ class _LoginScreenState extends State<LoginScreen>
                                             horizontal: 12, vertical: 8),
                                         decoration: BoxDecoration(
                                           color: Colors.red
-                                              .withValues(alpha: 0.15),
+                                              .withValues(alpha: 0.1),
                                           borderRadius: BorderRadius.circular(8),
                                         ),
                                         child: Row(
@@ -365,7 +397,7 @@ class _LoginScreenState extends State<LoginScreen>
                                           boxShadow: [
                                             BoxShadow(
                                               color: const Color(0xFF2563EB)
-                                                  .withValues(alpha: 0.4),
+                                                  .withValues(alpha: 0.3),
                                               blurRadius: 12,
                                               offset: const Offset(0, 4),
                                             ),
@@ -416,7 +448,7 @@ class _LoginScreenState extends State<LoginScreen>
                                           child: Container(
                                             height: 1,
                                             color: Colors.white
-                                                .withValues(alpha: 0.15),
+                                                .withValues(alpha: 0.2),
                                           ),
                                         ),
                                         Padding(
@@ -432,7 +464,7 @@ class _LoginScreenState extends State<LoginScreen>
                                           child: Container(
                                             height: 1,
                                             color: Colors.white
-                                                .withValues(alpha: 0.15),
+                                                .withValues(alpha: 0.2),
                                           ),
                                         ),
                                       ],
@@ -469,7 +501,7 @@ class _LoginScreenState extends State<LoginScreen>
                                         style: OutlinedButton.styleFrom(
                                           side: BorderSide(
                                             color: Colors.white
-                                                .withValues(alpha: 0.25),
+                                                .withValues(alpha: 0.1),
                                           ),
                                           shape: RoundedRectangleBorder(
                                             borderRadius:
@@ -524,7 +556,7 @@ class _LoginScreenState extends State<LoginScreen>
           if (_isLoading)
             Positioned.fill(
               child: Container(
-                color: Colors.black.withValues(alpha: 0.55),
+                color: Colors.black.withValues(alpha: 0.7),
                 child: const Center(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
@@ -577,7 +609,7 @@ class _LoginScreenState extends State<LoginScreen>
         prefixIcon: Icon(icon, color: Colors.white54, size: 20),
         suffixIcon: suffixIcon,
         filled: true,
-        fillColor: Colors.white.withValues(alpha: 0.07),
+        fillColor: Colors.white.withValues(alpha: 0.05),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide.none,
@@ -585,7 +617,7 @@ class _LoginScreenState extends State<LoginScreen>
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
           borderSide:
-              BorderSide(color: Colors.white.withValues(alpha: 0.12)),
+              BorderSide(color: Colors.white.withValues(alpha: 0.1)),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
@@ -601,3 +633,4 @@ class _LoginScreenState extends State<LoginScreen>
     );
   }
 }
+

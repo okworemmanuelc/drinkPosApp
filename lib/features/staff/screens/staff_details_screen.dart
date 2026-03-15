@@ -130,7 +130,7 @@ class _StaffDetailsScreenState extends State<StaffDetailsScreen> {
 
   Widget _buildRoleTag(RoleOption role, {bool isInteractive = false}) {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
         color: role.color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(20),
@@ -148,7 +148,7 @@ class _StaffDetailsScreenState extends State<StaffDetailsScreen> {
             ),
           ),
           if (isInteractive) ...[
-            SizedBox(width: 8),
+            const SizedBox(width: 8),
             Icon(Icons.edit_rounded, size: 12, color: role.color),
           ],
         ],
@@ -160,15 +160,15 @@ class _StaffDetailsScreenState extends State<StaffDetailsScreen> {
     showModalBottomSheet(
       context: context,
       backgroundColor: _surface,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (context) => Container(
-        padding: EdgeInsets.all(24),
+        padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('Change Role', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _text)),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
             ...roleOptions.map((role) => ListTile(
               leading: Container(
                 width: 12,
@@ -203,21 +203,20 @@ class _StaffDetailsScreenState extends State<StaffDetailsScreen> {
           ),
           ElevatedButton(
             onPressed: () async {
+              final messenger = ScaffoldMessenger.of(context);
               Navigator.pop(context);
               await (database.update(database.users)..where((t) => t.id.equals(widget.user.id)))
                   .write(UsersCompanion(
                     role: Value(newRole.value),
                     roleTier: Value(newRole.tier),
-                    avatarColor: Value('#${newRole.color.value.toRadixString(16).substring(2)}'),
+                    avatarColor: Value('#${newRole.color.toARGB32().toRadixString(16).padLeft(8, '0').substring(2)}'),
                   ));
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Role updated to ${newRole.label}')),
-                );
-              }
+              messenger.showSnackBar(
+                SnackBar(content: Text('Role updated to ${newRole.label}')),
+              );
             },
             style: ElevatedButton.styleFrom(backgroundColor: blueMain),
-            child: Text('Change Role', style: TextStyle(color: Colors.white)),
+            child: const Text('Change Role', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -323,7 +322,7 @@ class _StaffDetailsScreenState extends State<StaffDetailsScreen> {
       child: Row(
         children: [
           Icon(icon, size: 12, color: _subtext),
-          SizedBox(width: 12),
+          const SizedBox(width: 12),
           Text(label, style: TextStyle(color: _subtext, fontSize: rFontSize(context, 13))),
           const Spacer(),
           Text(value, style: TextStyle(color: _text, fontWeight: FontWeight.bold, fontSize: rFontSize(context, 13))),
@@ -347,3 +346,4 @@ class _StaffDetailsScreenState extends State<StaffDetailsScreen> {
     }
   }
 }
+

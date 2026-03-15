@@ -14,6 +14,7 @@ import '../../../shared/widgets/notification_bell.dart';
 import '../../../shared/widgets/role_guard.dart';
 import 'staff_constants.dart';
 import 'staff_details_screen.dart';
+import '../../../shared/widgets/fluid_menu.dart';
 
 const int _kAllWarehouses = -1;
 
@@ -61,9 +62,9 @@ class _StaffScreenState extends State<StaffScreen> {
               title: 'Staff Management',
               subtitle: 'Manage your team & roles',
             ),
-            actions: [
-              const NotificationBell(),
-              const SizedBox(width: 8),
+            actions: const [
+              NotificationBell(),
+              SizedBox(width: 8),
             ],
             bottom: PreferredSize(
               preferredSize: const Size.fromHeight(60),
@@ -565,73 +566,36 @@ class _StaffFormSheetState extends State<_StaffFormSheet> {
                   
                   const SizedBox(height: 16),
                   
-                  // Role Dropdown
-                  Text('Role & Access Level', style: TextStyle(color: _subtext, fontSize: 13)),
-                  const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: _border),
-                      borderRadius: BorderRadius.circular(12),
-                      color: _bg,
-                    ),
-                    child: DropdownButtonHideUnderline(
-                      child: DropdownButton<RoleOption>(
-                        value: _selectedRole,
-                        isExpanded: true,
-                        dropdownColor: _surface,
-                        style: TextStyle(color: _text, fontSize: 14),
-                        items: roleOptions.map((r) {
-                          return DropdownMenuItem<RoleOption>(
-                            value: r,
-                            child: Row(
-                              children: [
-                                Container(
-                                  width: 8,
-                                  height: 8,
-                                  decoration: BoxDecoration(
-                                      color: r.color,
-                                      shape: BoxShape.circle),
-                                ),
-                                const SizedBox(width: 12),
-                                Text(r.label),
-                              ],
-                            ),
-                          );
-                        }).toList(),
-                        onChanged: (r) => setState(() => _selectedRole = r!),
-                      ),
-                    ),
+                  FluidMenu<RoleOption>(
+                    label: 'Role & Access Level',
+                    value: _selectedRole,
+                    items: roleOptions.map((r) {
+                      return FluidMenuItem<RoleOption>(
+                        value: r,
+                        label: r.label,
+                        leading: Container(
+                          width: 8,
+                          height: 8,
+                          decoration: BoxDecoration(color: r.color, shape: BoxShape.circle),
+                        ),
+                      );
+                    }).toList(),
+                    onChanged: (r) => setState(() => _selectedRole = r!),
                   ),
 
                   const SizedBox(height: 16),
                   
-                  // Warehouse Dropdown
-                  Text('Assigned Warehouse', style: TextStyle(color: _subtext, fontSize: 13)),
-                  const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: _border),
-                      borderRadius: BorderRadius.circular(12),
-                      color: _bg,
-                    ),
-                    child: DropdownButtonHideUnderline(
-                      child: DropdownButton<int>(
-                        value: _selectedWarehouseId,
-                        isExpanded: true,
-                        dropdownColor: _surface,
-                        hint: Text('Select Warehouse', style: TextStyle(color: _subtext, fontSize: 14)),
-                        style: TextStyle(color: _text, fontSize: 14),
-                        items: widget.warehouses.map((w) {
-                          return DropdownMenuItem<int>(
-                            value: w.id,
-                            child: Text(w.name),
-                          );
-                        }).toList(),
-                        onChanged: (id) => setState(() => _selectedWarehouseId = id!),
-                      ),
-                    ),
+                  FluidMenu<int>(
+                    label: 'Assigned Warehouse',
+                    value: _selectedWarehouseId,
+                    placeholder: 'Select Warehouse',
+                    items: widget.warehouses.map((w) {
+                      return FluidMenuItem<int>(
+                        value: w.id,
+                        label: w.name,
+                      );
+                    }).toList(),
+                    onChanged: (id) => setState(() => _selectedWarehouseId = id!),
                   ),
 
                   const SizedBox(height: 32),
@@ -682,7 +646,7 @@ class _StaffFormSheetState extends State<_StaffFormSheet> {
         role: role,
         roleTier: Value(tier),
         warehouseId: Value(_selectedWarehouseId!),
-        avatarColor: Value('#${_selectedRole.color.value.toRadixString(16).substring(2)}'),
+        avatarColor: Value('#${_selectedRole.color.toARGB32().toRadixString(16).padLeft(8, '0').substring(2)}'),
       ));
     } else {
       await (database.update(database.users)..where((t) => t.id.equals(widget.user!.id)))
@@ -715,8 +679,9 @@ class _StaffFormSheetState extends State<_StaffFormSheet> {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: blueMain),
+        borderSide: const BorderSide(color: blueMain),
       ),
     );
   }
 }
+

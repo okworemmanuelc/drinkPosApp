@@ -6,6 +6,7 @@ import '../../../core/theme/theme_notifier.dart';
 import '../../../core/utils/responsive.dart';
 import '../data/models/customer.dart';
 import '../data/services/customer_service.dart';
+import '../../../shared/widgets/fluid_menu.dart';
 
 class AddCustomerSheet extends StatefulWidget {
   const AddCustomerSheet({super.key});
@@ -103,62 +104,28 @@ class _AddCustomerSheetState extends State<AddCustomerSheet> {
 
   Widget _groupDropdown() {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Customer Group',
-          style: TextStyle(
-            fontSize: context.getRFontSize(12),
-            fontWeight: FontWeight.w700,
-            color: _subtext,
-          ),
-        ),
-        SizedBox(height: context.getRSize(8)),
-        Container(
-          padding: EdgeInsets.symmetric(horizontal: context.getRSize(16)),
-          decoration: BoxDecoration(
-            color: _cardBg,
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<CustomerGroup>(
-              value: _selectedGroup,
-              isExpanded: true,
-              alignment: AlignmentDirectional.bottomStart,
-              menuMaxHeight: 350,
-              borderRadius: BorderRadius.circular(12),
-              dropdownColor: _surface,
-              icon: const Icon(Icons.keyboard_arrow_down, color: blueMain),
-              items: CustomerGroup.values.map((group) {
-                String label = '';
-                switch (group) {
-                  case CustomerGroup.distributor:
-                    label = 'Distributor';
-                    break;
-                  case CustomerGroup.bulkBreaker:
-                    label = 'Bulk Breaker';
-                    break;
-                  case CustomerGroup.retailer:
-                    label = 'Retailer';
-                    break;
-                }
-                return DropdownMenuItem(
-                  value: group,
-                  child: Text(
-                    label,
-                    style: TextStyle(
-                      fontSize: context.getRFontSize(14),
-                      fontWeight: FontWeight.bold,
-                      color: _text,
-                    ),
-                  ),
-                );
-              }).toList(),
-              onChanged: (val) {
-                if (val != null) setState(() => _selectedGroup = val);
-              },
-            ),
-          ),
+        FluidMenu<CustomerGroup>(
+          label: 'Customer Group',
+          value: _selectedGroup,
+          items: CustomerGroup.values.map((group) {
+            String label = '';
+            switch (group) {
+              case CustomerGroup.distributor:
+                label = 'Distributor';
+                break;
+              case CustomerGroup.bulkBreaker:
+                label = 'Bulk Breaker';
+                break;
+              case CustomerGroup.retailer:
+                label = 'Retailer';
+                break;
+            }
+            return FluidMenuItem(value: group, label: label);
+          }).toList(),
+          onChanged: (val) {
+            if (val != null) setState(() => _selectedGroup = val);
+          },
         ),
         SizedBox(height: context.getRSize(16)),
       ],
@@ -378,3 +345,4 @@ class _AddCustomerSheetState extends State<AddCustomerSheet> {
     );
   }
 }
+

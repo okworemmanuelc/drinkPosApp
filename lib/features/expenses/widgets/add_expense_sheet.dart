@@ -13,6 +13,7 @@ import '../../../core/database/app_database.dart';
 import '../../../shared/services/auth_service.dart';
 import '../../../core/utils/constants.dart';
 import 'package:file_picker/file_picker.dart';
+import '../../../shared/widgets/fluid_menu.dart';
 
 class AddExpenseSheet extends StatefulWidget {
   const AddExpenseSheet({super.key});
@@ -373,31 +374,17 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
                           SizedBox(height: context.getRSize(16)),
 
                           // Payment Method
-                          _buildLabel('Payment Method'),
-                          DropdownButton<String>(
+                          FluidMenu<String>(
+                            label: 'Payment Method',
                             value: _paymentMethod,
-                            isExpanded: true,
-                            alignment: AlignmentDirectional.bottomStart,
-                            menuMaxHeight: 350,
-                            borderRadius: BorderRadius.circular(12),
-                            underline: const SizedBox(),
                             items: ['Cash', 'Transfer', 'POS', 'Credit']
-                                .map(
-                                  (e) => DropdownMenuItem(
-                                    value: e,
-                                    child: Text(
-                                      e,
-                                      style: TextStyle(color: _text),
-                                    ),
-                                  ),
-                                )
+                                .map((e) => FluidMenuItem(value: e, label: e))
                                 .toList(),
                             onChanged: (val) {
                               if (val != null) {
                                 setState(() => _paymentMethod = val);
                               }
                             },
-                            dropdownColor: _surface,
                           ),
                           SizedBox(height: context.getRSize(16)),
 
@@ -618,3 +605,4 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
     );
   }
 }
+

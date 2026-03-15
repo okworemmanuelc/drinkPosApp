@@ -7,6 +7,7 @@ import '../../../core/theme/theme_notifier.dart';
 import '../../../core/utils/number_format.dart';
 import '../../../core/utils/responsive.dart';
 import '../../../shared/services/activity_log_service.dart';
+import '../../../shared/widgets/fluid_menu.dart';
 
 import '../../deliveries/data/services/delivery_service.dart';
 import '../data/models/payment.dart';
@@ -385,31 +386,15 @@ class _AddPaymentSheetState extends State<AddPaymentSheet> {
                           SizedBox(height: context.getRSize(16)),
 
                           // Payment Method
-                          _buildLabel('Payment Method'),
-                          DropdownButton<String>(
+                          FluidMenu<String>(
+                            label: 'Payment Method',
                             value: _paymentMethod,
-                            isExpanded: true,
-                            alignment: AlignmentDirectional.bottomStart,
-                            menuMaxHeight: 350,
-                            borderRadius: BorderRadius.circular(12),
-                            underline: const SizedBox(),
                             items: ['Cash', 'Transfer', 'Cheque', 'POS']
-                                .map(
-                                  (e) => DropdownMenuItem(
-                                    value: e,
-                                    child: Text(
-                                      e,
-                                      style: TextStyle(color: _text),
-                                    ),
-                                  ),
-                                )
+                                .map((e) => FluidMenuItem(value: e, label: e))
                                 .toList(),
                             onChanged: (val) {
-                              if (val != null) {
-                                setState(() => _paymentMethod = val);
-                              }
+                              if (val != null) setState(() => _paymentMethod = val);
                             },
-                            dropdownColor: _surface,
                           ),
                           SizedBox(height: context.getRSize(16)),
 
@@ -449,39 +434,19 @@ class _AddPaymentSheetState extends State<AddPaymentSheet> {
                           SizedBox(height: context.getRSize(16)),
 
                           // Link to Delivery
-                          _buildLabel('Link to Delivery (Optional)'),
-                          DropdownButton<String?>(
+                          FluidMenu<String?>(
+                            label: 'Link to Delivery (Optional)',
                             value: _selectedDeliveryId,
-                            isExpanded: true,
-                            alignment: AlignmentDirectional.bottomStart,
-                            menuMaxHeight: 350,
-                            borderRadius: BorderRadius.circular(12),
-                            underline: const SizedBox(),
+                            placeholder: 'None',
                             items: [
-                              DropdownMenuItem<String?>(
-                                value: null,
-                                child: Text(
-                                  'None',
-                                  style: TextStyle(color: _text),
-                                ),
-                              ),
+                              const FluidMenuItem<String?>(value: null, label: 'None'),
                               ...recentDeliveries.map((d) {
                                 final label =
                                     '${DateFormat('MMM d').format(d.deliveredAt)} - ${d.supplierName}';
-                                return DropdownMenuItem<String?>(
-                                  value: d.id,
-                                  child: Text(
-                                    label,
-                                    style: TextStyle(color: _text),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                );
+                                return FluidMenuItem<String?>(value: d.id, label: label);
                               }),
                             ],
-                            onChanged: (val) =>
-                                setState(() => _selectedDeliveryId = val),
-                            dropdownColor: _surface,
+                            onChanged: (val) => setState(() => _selectedDeliveryId = val),
                           ),
                           SizedBox(height: context.getRSize(16)),
 
@@ -576,3 +541,4 @@ class _AddPaymentSheetState extends State<AddPaymentSheet> {
     );
   }
 }
+

@@ -211,9 +211,7 @@ class _SupplierDetailScreenState extends State<SupplierDetailScreen> {
                 width: context.getRSize(40),
                 height: context.getRSize(40),
                 decoration: BoxDecoration(
-                  color: widget.supplier.crateGroup.color.withValues(
-                    alpha: 0.1,
-                  ),
+                  color: widget.supplier.crateGroup.color.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(
@@ -469,3 +467,5 @@ class _SupplierDetailScreenState extends State<SupplierDetailScreen> {
     );
   }
 }
+
+

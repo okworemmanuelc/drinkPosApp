@@ -11,6 +11,7 @@ import '../data/models/payment.dart';
 import '../data/services/payment_service.dart';
 import '../widgets/add_payment_sheet.dart';
 import '../../../shared/widgets/notification_bell.dart';
+import '../../../shared/widgets/fluid_menu.dart';
 import '../../inventory/data/models/supplier.dart';
 import '../../inventory/data/services/supplier_service.dart';
 import '../../inventory/screens/supplier_detail_screen.dart';
@@ -257,59 +258,27 @@ class _PaymentsScreenState extends State<PaymentsScreen>
               ),
             ],
           ),
-          SizedBox(
-            width: context.getRSize(130),
-            child: Container(
-              padding: EdgeInsets.symmetric(horizontal: context.getRSize(12)),
-              decoration: BoxDecoration(
-                color: _bg,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: _border),
-              ),
-              child: DropdownButtonHideUnderline(
-                child: DropdownButton<String>(
-                  isExpanded: true,
-                  alignment: AlignmentDirectional.bottomStart,
-                  menuMaxHeight: 350,
-                  borderRadius: BorderRadius.circular(12),
-                  value: _periodFilter,
-                  icon: Icon(
-                    FontAwesomeIcons.chevronDown,
-                    size: context.getRSize(12),
-                    color: _text,
-                  ),
-                  dropdownColor: _surface,
-                  style: TextStyle(
-                    color: _text,
-                    fontSize: context.getRFontSize(13),
-                    fontWeight: FontWeight.w600,
-                  ),
-                  items:
-                      [
-                        'Today',
-                        'This Week',
-                        'This Month',
-                        'This Year',
-                        'All Time',
-                      ].map((String val) {
-                        return DropdownMenuItem<String>(
-                          value: val,
-                          child: Text(val),
-                        );
-                      }).toList(),
-                  onChanged: (val) {
-                    if (val != null) {
-                      setState(() {
-                        _periodFilter = val;
-                        _supplierFilter =
-                            'All'; // Reset supplier filter on period change
-                      });
-                    }
-                  },
-                ),
-              ),
+            FluidMenu<String>(
+              value: _periodFilter,
+              width: context.getRSize(130),
+              items: [
+                'Today',
+                'This Week',
+                'This Month',
+                'This Year',
+                'All Time',
+              ].map((String val) {
+                return FluidMenuItem<String>(value: val, label: val);
+              }).toList(),
+              onChanged: (val) {
+                if (val != null) {
+                  setState(() {
+                    _periodFilter = val;
+                    _supplierFilter = 'All'; // Reset supplier filter on period change
+                  });
+                }
+              },
             ),
-          ),
         ],
       ),
     );
@@ -878,3 +847,4 @@ class _PaymentCard extends StatelessWidget {
 class ThemeNotifier {
   static final instance = themeNotifier;
 }
+

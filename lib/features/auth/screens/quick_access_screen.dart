@@ -442,3 +442,4 @@ class _QuickAccessScreenState extends State<QuickAccessScreen>
     );
   }
 }
+

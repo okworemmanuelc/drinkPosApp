@@ -10,6 +10,7 @@ import '../../inventory/data/models/inventory_item.dart';
 import '../../inventory/data/models/inventory_log.dart';
 import '../../../core/utils/currency_input_formatter.dart';
 import '../../warehouse/data/models/warehouse.dart';
+import '../../../shared/widgets/fluid_menu.dart';
 
 class StockTransferScreen extends StatefulWidget {
   const StockTransferScreen({super.key});
@@ -137,6 +138,8 @@ class _StockTransferScreenState extends State<StockTransferScreen> {
       relatedEntityType: "inventory",
       warehouseId: _destinationWarehouse!.id,
     );
+
+    if (!mounted) return;
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -279,24 +282,15 @@ class _StockTransferScreenState extends State<StockTransferScreen> {
             ),
           ),
           SizedBox(height: context.getRSize(16)),
-          _buildDropdownLabel('Source Warehouse'),
-          DropdownButton<Warehouse>(
+          FluidMenu<Warehouse>(
+            label: 'Source Warehouse',
             value: _sourceWarehouse,
-            isExpanded: true,
-            alignment: AlignmentDirectional.bottomStart,
-            menuMaxHeight: 350,
-            borderRadius: BorderRadius.circular(12),
-            underline: const SizedBox(),
             items: kWarehouses.map((w) {
-              return DropdownMenuItem(
-                value: w,
-                child: Text(w.name, style: TextStyle(color: _text)),
-              );
+              return FluidMenuItem(value: w, label: w.name);
             }).toList(),
             onChanged: (val) {
               setState(() {
                 _sourceWarehouse = val;
-                // If source changes, check if current product is still available there
                 if (_selectedProduct != null && val != null) {
                   final avail = _selectedProduct!.getStockForWarehouse(val.id);
                   if (avail <= 0) {
@@ -307,25 +301,15 @@ class _StockTransferScreenState extends State<StockTransferScreen> {
                 }
               });
             },
-            dropdownColor: _surface,
           ),
-          Divider(color: _border, height: 32),
-          _buildDropdownLabel('Destination Warehouse'),
-          DropdownButton<Warehouse>(
+          SizedBox(height: context.getRSize(16)),
+          FluidMenu<Warehouse>(
+            label: 'Destination Warehouse',
             value: _destinationWarehouse,
-            isExpanded: true,
-            alignment: AlignmentDirectional.bottomStart,
-            menuMaxHeight: 350,
-            borderRadius: BorderRadius.circular(12),
-            underline: const SizedBox(),
             items: kWarehouses.map((w) {
-              return DropdownMenuItem(
-                value: w,
-                child: Text(w.name, style: TextStyle(color: _text)),
-              );
+              return FluidMenuItem(value: w, label: w.name);
             }).toList(),
             onChanged: (val) => setState(() => _destinationWarehouse = val),
-            dropdownColor: _surface,
           ),
         ],
       ),
@@ -521,20 +505,6 @@ class _StockTransferScreenState extends State<StockTransferScreen> {
     );
   }
 
-  Widget _buildDropdownLabel(String label) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4.0),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: _subtext,
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-    );
-  }
-
   Widget _buildFieldLabel(String label) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 6.0),
@@ -549,3 +519,4 @@ class _StockTransferScreenState extends State<StockTransferScreen> {
     );
   }
 }
+
