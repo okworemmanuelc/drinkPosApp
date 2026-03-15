@@ -32,20 +32,15 @@ void main() async {
   final isNewUser = existingUsers.isEmpty;
   final hasQuickAccess = isNewUser ? false : await authService.hasQuickAccess();
 
-  runApp(RibaplusPosApp(
-    startWithQuickAccess: hasQuickAccess,
-    isNewUser: isNewUser,
-  ));
+  runApp(RibaplusPosApp(startWithQuickAccess: hasQuickAccess));
 }
 
 class RibaplusPosApp extends StatelessWidget {
   final bool startWithQuickAccess;
-  final bool isNewUser;
 
   const RibaplusPosApp({
     super.key,
     this.startWithQuickAccess = false,
-    this.isNewUser = false,
   });
 
   @override
@@ -60,7 +55,7 @@ class RibaplusPosApp extends StatelessWidget {
         darkTheme: AppTheme.dark(),
         home: startWithQuickAccess
             ? const QuickAccessScreen()
-            : OnboardingScreen(startInSignUp: isNewUser),
+            : const OnboardingScreen(),
       ),
     );
   }

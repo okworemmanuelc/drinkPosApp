@@ -6,8 +6,7 @@ import 'pin_setup_screen.dart';
 import 'business_setup_screen.dart';
 
 class LoginScreen extends StatefulWidget {
-  final bool initialIsSignUp;
-  const LoginScreen({super.key, this.initialIsSignUp = false});
+  const LoginScreen({super.key});
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -15,7 +14,7 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen>
     with SingleTickerProviderStateMixin {
-  late bool _isSignUp;
+  bool _isSignUp = false;
   bool _isLoading = false;
   bool _obscurePassword = true;
   String? _errorMessage;
@@ -31,7 +30,6 @@ class _LoginScreenState extends State<LoginScreen>
   @override
   void initState() {
     super.initState();
-    _isSignUp = widget.initialIsSignUp;
     _animController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 800),
@@ -182,21 +180,25 @@ class _LoginScreenState extends State<LoginScreen>
                             Hero(
                               tag: 'auth_logo',
                               child: Container(
-                                width: isSmall ? 100 : 140,
-                                height: isSmall ? 100 : 140,
+                                width: isSmall ? 56 : 72,
+                                height: isSmall ? 56 : 72,
                                 decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(20),
                                   boxShadow: [
                                     BoxShadow(
                                       color: AppColors.primary
-                                          .withValues(alpha: 0.3),
-                                      blurRadius: 30,
+                                          .withValues(alpha: 0.5),
+                                      blurRadius: 24,
                                       spreadRadius: 2,
                                     ),
                                   ],
                                 ),
-                                child: Image.asset(
-                                  'assets/images/ribaplus_logo.png',
-                                  fit: BoxFit.contain,
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(20),
+                                  child: Image.asset(
+                                    'assets/images/ribaplus_logo.png',
+                                    fit: BoxFit.cover,
+                                  ),
                                 ),
                               ),
                             ),

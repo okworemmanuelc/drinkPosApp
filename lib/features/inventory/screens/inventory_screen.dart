@@ -36,6 +36,7 @@ class _InventoryScreenState extends State<InventoryScreen>
   String _selectedSupplierId = 'all';
   String _selectedWarehouseId = 'all';
   String _stockFilter = 'all'; // 'all' | 'low' | 'out' | 'empty_crates'
+  List<WarehouseData> _warehouses = [];
 
   bool get _isDark => themeNotifier.value == ThemeMode.dark;
   Color get _bg => _isDark ? dBg : lBg;
@@ -49,7 +50,12 @@ class _InventoryScreenState extends State<InventoryScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
-    
+
+    // Load warehouses from DB
+    database.select(database.warehouses).get().then((list) {
+      if (mounted) setState(() => _warehouses = list);
+    });
+
     // Listen for cross-screen warehouse selection
     navigationService.selectedWarehouseId.addListener(_handleWarehouseNavigation);
   }
@@ -531,7 +537,7 @@ class _InventoryScreenState extends State<InventoryScreen>
               value: _selectedWarehouseId,
               items: [
                 const DropdownMenuItem(value: 'all', child: Text('All Warehouses')),
-                ...kWarehouses.map((w) => DropdownMenuItem(value: w.id, child: Text(w.name))),
+                ..._warehouses.map((w) => DropdownMenuItem(value: w.id.toString(), child: Text(w.name))),
               ],
               onChanged: (val) => setState(() => _selectedWarehouseId = val!),
             ),
