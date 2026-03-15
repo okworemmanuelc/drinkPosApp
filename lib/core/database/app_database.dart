@@ -367,7 +367,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -389,66 +389,11 @@ class AppDatabase extends _$AppDatabase {
       );
 
   Future<void> _seedData() async {
+    // Only seed reference/config data — no users, warehouses, products or inventory.
+    // Everything else is created by the user during onboarding.
     await batch((b) {
-      b.insert(
-        crateGroups,
-        CrateGroupsCompanion.insert(name: 'Full Crate 24', size: 24),
-      );
-      b.insert(
-        crateGroups,
-        CrateGroupsCompanion.insert(name: 'Half Crate 12', size: 12),
-      );
-      b.insert(
-        warehouses,
-        WarehousesCompanion.insert(name: 'Main Warehouse', location: const Value('Default Location')),
-      );
-      b.insert(
-        users,
-        UsersCompanion.insert(name: 'CEO Admin', pin: '1234', role: 'ceo', roleTier: const Value(5), avatarColor: const Value('#FEF08A')),
-      );
-      b.insert(
-        users,
-        UsersCompanion.insert(name: 'Manager Mike', pin: '1111', role: 'manager', roleTier: const Value(4), avatarColor: const Value('#A855F7')),
-      );
-      b.insert(
-        users,
-        UsersCompanion.insert(name: 'John Cashier', pin: '0000', role: 'staff', roleTier: const Value(1), avatarColor: const Value('#3B82F6')),
-      );
-      b.insert(
-        users,
-        UsersCompanion.insert(name: 'Sarah Waitress', pin: '5678', role: 'staff', roleTier: const Value(1), avatarColor: const Value('#F472B6')),
-      );
-
-      // Seed Categories
-      b.insert(categories, CategoriesCompanion.insert(name: 'Glass Crates', description: const Value('Traditional glass bottle crates')));
-      b.insert(categories, CategoriesCompanion.insert(name: 'Cans & PET', description: const Value('Aluminum cans and plastic bottles')));
-
-      // Seed Products
-      b.insert(products, ProductsCompanion.insert(
-        categoryId: const Value(1),
-        name: 'Star Lager',
-        subtitle: const Value('Crate'),
-        unit: const Value('Crate'),
-        retailPriceKobo: const Value(500000), // 5,000.00
-        sellingPriceKobo: const Value(500000),
-        iconCodePoint: const Value(0xf0fc), // beer-mug-empty
-        colorHex: const Value('#F59E0B'),
-      ));
-      
-      b.insert(products, ProductsCompanion.insert(
-        categoryId: const Value(2),
-        name: 'Heineken',
-        subtitle: const Value('Can'),
-        unit: const Value('Can'),
-        retailPriceKobo: const Value(850000),
-        sellingPriceKobo: const Value(850000),
-        iconCodePoint: const Value(0xf72f), // wine-bottle
-        colorHex: const Value('#10B981'),
-      ));
-
-      // Seed Inventory
-      b.insert(inventory, InventoryCompanion.insert(productId: 1, warehouseId: 1, quantity: const Value(50)));
-      b.insert(inventory, InventoryCompanion.insert(productId: 2, warehouseId: 1, quantity: const Value(100)));
+      b.insert(crateGroups, CrateGroupsCompanion.insert(name: 'Full Crate 24', size: 24));
+      b.insert(crateGroups, CrateGroupsCompanion.insert(name: 'Half Crate 12', size: 12));
     });
   }
 

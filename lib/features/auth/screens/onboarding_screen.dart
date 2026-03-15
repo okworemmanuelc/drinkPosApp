@@ -3,7 +3,8 @@ import '../../../core/theme/design_tokens.dart';
 import 'login_screen.dart';
 
 class OnboardingScreen extends StatefulWidget {
-  const OnboardingScreen({super.key});
+  final bool startInSignUp;
+  const OnboardingScreen({super.key, this.startInSignUp = false});
 
   @override
   State<OnboardingScreen> createState() => _OnboardingScreenState();
@@ -73,7 +74,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
         physics: const BouncingScrollPhysics(),
         children: [
           _buildOnboardingPage(context),
-          const LoginScreen(),
+          LoginScreen(initialIsSignUp: widget.startInSignUp),
         ],
       ),
     );
@@ -130,25 +131,22 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                         Hero(
                           tag: 'auth_logo',
                           child: Container(
-                            width: (screenWidth * 0.22).clamp(72.0, 100.0),
-                            height: (screenWidth * 0.22).clamp(72.0, 100.0),
+                            width: (screenWidth * 0.4).clamp(140.0, 200.0),
+                            height: (screenWidth * 0.4).clamp(140.0, 200.0),
                             decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(24),
+                              shape: BoxShape.circle,
                               boxShadow: [
                                 BoxShadow(
                                   color: const Color(0xFF2563EB)
-                                      .withValues(alpha: 0.5),
-                                  blurRadius: 30,
-                                  spreadRadius: 2,
+                                      .withValues(alpha: 0.3),
+                                  blurRadius: 40,
+                                  spreadRadius: 5,
                                 ),
                               ],
                             ),
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(24),
-                              child: Image.asset(
-                                'assets/images/ribaplus_logo.png',
-                                fit: BoxFit.cover,
-                              ),
+                            child: Image.asset(
+                              'assets/images/ribaplus_logo.png',
+                              fit: BoxFit.contain,
                             ),
                           ),
                         ),
@@ -193,7 +191,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          'Swipe up to Sign In',
+                          widget.startInSignUp ? 'Swipe up to Sign Up' : 'Swipe up to Sign In',
                           style: context.bodyMedium.copyWith(
                             color: Colors.white70,
                             fontWeight: FontWeight.w600,

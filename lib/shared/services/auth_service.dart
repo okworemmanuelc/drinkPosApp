@@ -95,7 +95,14 @@ class AuthService extends ValueNotifier<UserData?> {
   }
 
   // ─── Google Sign-In ──────────────────────────────────────
-  Future<String?> signInWithGoogle() async {
+  Future<bool> userExists(String email) async {
+    final existing = await (database.select(database.users)
+          ..where((t) => t.email.equals(email)))
+        .getSingleOrNull();
+    return existing != null;
+  }
+
+  Future<String?> signInWithGoogle({bool isSignUp = false}) async {
     try {
       const webClientId =
           '803041471830-vougj3r36gktrh95fofr024qif9n3a0e.apps.googleusercontent.com';
@@ -104,6 +111,13 @@ class AuthService extends ValueNotifier<UserData?> {
 
       final googleUser = await googleSignIn.signIn();
       if (googleUser == null) return 'Google Sign-In cancelled.';
+
+      // RESTRICTION: Check if user exists in our DB before proceeding (unless signing up)
+      final exists = await userExists(googleUser.email);
+      if (!exists && !isSignUp) {
+        await googleSignIn.signOut();
+        return 'USER_NOT_FOUND';
+      }
 
       final googleAuth = await googleUser.authentication;
       final idToken = googleAuth.idToken;

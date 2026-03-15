@@ -20,7 +20,6 @@ void main() async {
     anonKey: 'sb_publishable_MDRuacQderDrgc2TXSKeaw_BjF0907r',
   );
 
-  await database.resetDatabase(); // TEMPORARY: Reset database for the user
   await authService.init();
   supabaseSyncService.start();
 
@@ -29,15 +28,25 @@ void main() async {
   );
 
   // Decide start screen
-  final hasQuickAccess = await authService.hasQuickAccess();
+  final existingUsers = await database.select(database.users).get();
+  final isNewUser = existingUsers.isEmpty;
+  final hasQuickAccess = isNewUser ? false : await authService.hasQuickAccess();
 
-  runApp(RibaplusPosApp(startWithQuickAccess: hasQuickAccess));
+  runApp(RibaplusPosApp(
+    startWithQuickAccess: hasQuickAccess,
+    isNewUser: isNewUser,
+  ));
 }
 
 class RibaplusPosApp extends StatelessWidget {
   final bool startWithQuickAccess;
+  final bool isNewUser;
 
-  const RibaplusPosApp({super.key, this.startWithQuickAccess = false});
+  const RibaplusPosApp({
+    super.key,
+    this.startWithQuickAccess = false,
+    this.isNewUser = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -51,7 +60,7 @@ class RibaplusPosApp extends StatelessWidget {
         darkTheme: AppTheme.dark(),
         home: startWithQuickAccess
             ? const QuickAccessScreen()
-            : const OnboardingScreen(),
+            : OnboardingScreen(startInSignUp: isNewUser),
       ),
     );
   }

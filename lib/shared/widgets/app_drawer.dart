@@ -512,11 +512,42 @@ class AppDrawer extends StatelessWidget {
   Widget _buildLogout(BuildContext context) {
     return InkWell(
       onTap: () {
-        // Logout logic - Clear any session and navigate back to Onboarding
-        Navigator.pop(context); // Close Drawer
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (context) => const OnboardingScreen()),
-          (route) => false,
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            backgroundColor: _surface,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            title: Text(
+              'Logout Confirmation',
+              style: TextStyle(color: _text, fontWeight: FontWeight.bold),
+            ),
+            content: Text(
+              'Are you sure you want to logout? Any unsaved changes might be lost.',
+              style: TextStyle(color: _subtext),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text('Cancel', style: TextStyle(color: _subtext)),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(context); // Close Dialog
+                  Navigator.pop(context); // Close Drawer
+                  Navigator.of(context).pushAndRemoveUntil(
+                    MaterialPageRoute(builder: (context) => const OnboardingScreen()),
+                    (route) => false,
+                  );
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: danger,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                child: const Text('Logout'),
+              ),
+            ],
+          ),
         );
       },
       borderRadius: BorderRadius.circular(14),

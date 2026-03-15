@@ -3,9 +3,11 @@ import '../../../core/theme/design_tokens.dart';
 import '../../../shared/widgets/glass_card.dart';
 import '../../../shared/services/auth_service.dart';
 import 'pin_setup_screen.dart';
+import 'business_setup_screen.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+  final bool initialIsSignUp;
+  const LoginScreen({super.key, this.initialIsSignUp = false});
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -13,7 +15,7 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen>
     with SingleTickerProviderStateMixin {
-  bool _isSignUp = false;
+  late bool _isSignUp;
   bool _isLoading = false;
   bool _obscurePassword = true;
   String? _errorMessage;
@@ -29,6 +31,7 @@ class _LoginScreenState extends State<LoginScreen>
   @override
   void initState() {
     super.initState();
+    _isSignUp = widget.initialIsSignUp;
     _animController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 800),
@@ -94,13 +97,20 @@ class _LoginScreenState extends State<LoginScreen>
       _errorMessage = null;
     });
 
-    final error = await authService.signInWithGoogle();
+    final result = await authService.signInWithGoogle(isSignUp: _isSignUp);
     if (!mounted) return;
 
-    if (error != null) {
+    if (result != null) {
       setState(() {
         _isLoading = false;
-        _errorMessage = error;
+        if (result == 'USER_NOT_FOUND') {
+          _isSignUp = true;
+          _errorMessage = 'Account not found. Please sign up first.';
+          _animController.reset();
+          _animController.forward();
+        } else {
+          _errorMessage = result;
+        }
       });
     } else {
       _navigateToNext();
@@ -108,10 +118,13 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   void _navigateToNext() {
+    final destination = _isSignUp
+        ? const BusinessSetupScreen()
+        : const PinSetupScreen();
     Navigator.pushReplacement(
       context,
       PageRouteBuilder(
-        pageBuilder: (_, __, ___) => const PinSetupScreen(),
+        pageBuilder: (_, __, ___) => destination,
         transitionsBuilder: (_, anim, __, child) =>
             FadeTransition(opacity: anim, child: child),
         transitionDuration: const Duration(milliseconds: 400),
@@ -169,25 +182,21 @@ class _LoginScreenState extends State<LoginScreen>
                             Hero(
                               tag: 'auth_logo',
                               child: Container(
-                                width: isSmall ? 56 : 72,
-                                height: isSmall ? 56 : 72,
+                                width: isSmall ? 100 : 140,
+                                height: isSmall ? 100 : 140,
                                 decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(20),
                                   boxShadow: [
                                     BoxShadow(
                                       color: AppColors.primary
-                                          .withValues(alpha: 0.5),
-                                      blurRadius: 24,
+                                          .withValues(alpha: 0.3),
+                                      blurRadius: 30,
                                       spreadRadius: 2,
                                     ),
                                   ],
                                 ),
-                                child: ClipRRect(
-                                  borderRadius: BorderRadius.circular(20),
-                                  child: Image.asset(
-                                    'assets/images/ribaplus_logo.png',
-                                    fit: BoxFit.cover,
-                                  ),
+                                child: Image.asset(
+                                  'assets/images/ribaplus_logo.png',
+                                  fit: BoxFit.contain,
                                 ),
                               ),
                             ),
