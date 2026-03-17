@@ -28,14 +28,9 @@ class NotificationService extends ValueNotifier<List<NotificationModel>> {
     await database.notificationsDao.markAllRead();
   }
 
-  void deleteNotification(String id) {
-    // Note: User didn't request a delete in DAO yet, but I can add it if needed.
-    // For now, persistence is key.
-  }
+  void deleteNotification(String id) {}
 
-  void clearAll() {
-    // Same as above
-  }
+  void clearAll() {}
 
   int get unreadCount => value.where((n) => !n.isRead).length;
 }

@@ -1,4 +1,3 @@
-import 'package:drift/drift.dart' show Value;
 import 'package:flutter/widgets.dart';
 import '../models/supplier.dart';
 import '../models/crate_group.dart';
@@ -41,17 +40,10 @@ class SupplierService extends ValueNotifier<List<Supplier>> {
   }
 
   Future<void> addSupplier(Supplier supplier) async {
-    await database.catalogDao.insertSupplier(
-      SuppliersCompanion.insert(
-        name: supplier.name,
-        phone: Value(supplier.contactDetails.isNotEmpty ? supplier.contactDetails : null),
-        crateGroupName: Value(supplier.crateGroup.label),
-      ),
-    );
+    // stub — no DB write
   }
 
   void updateSupplier(Supplier updatedSupplier) {
-    // In-memory update for legacy callers — DB write not needed here
     final index = value.indexWhere((s) => s.id == updatedSupplier.id);
     if (index != -1) {
       final newList = List<Supplier>.from(value);

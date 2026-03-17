@@ -24,6 +24,7 @@ class InventoryItem {
   String? category;
   String? pairedCrateItemId;
   String? imagePath;
+  String? manufacturer;
 
   InventoryItem({
     required this.id,
@@ -44,6 +45,7 @@ class InventoryItem {
     this.category,
     this.pairedCrateItemId,
     this.imagePath,
+    this.manufacturer,
   });
 
   double get totalStock =>
@@ -72,6 +74,7 @@ class InventoryItem {
     String? category,
     String? pairedCrateItemId,
     String? imagePath,
+    String? manufacturer,
   }) {
     return InventoryItem(
       id: id ?? this.id,
@@ -92,6 +95,7 @@ class InventoryItem {
       category: category ?? this.category,
       pairedCrateItemId: pairedCrateItemId ?? this.pairedCrateItemId,
       imagePath: imagePath ?? this.imagePath,
+      manufacturer: manufacturer ?? this.manufacturer,
     );
   }
 }

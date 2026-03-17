@@ -1672,7 +1672,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                                             CrossAxisAlignment.start,
                                         children: [
                                           FluidMenu<String>(
-                                            label: 'Crate Group',
+                                            label: 'Crate Company',
                                             value: rowData['group'],
                                             items: allGroups.map((g) {
                                               return FluidMenuItem(

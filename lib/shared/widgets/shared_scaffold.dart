@@ -44,7 +44,7 @@ class SharedScaffold extends StatelessWidget {
           behavior: HitTestBehavior.translucent,
           onHorizontalDragEnd: (details) {
             // Right swipe detection
-            if (details.primaryVelocity! > 300) {
+            if ((details.primaryVelocity ?? 0) > 300) {
               Scaffold.of(innerContext).openDrawer();
             }
           },

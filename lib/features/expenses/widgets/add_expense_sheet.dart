@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:drift/drift.dart' hide Column;
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:intl/intl.dart';
 
@@ -8,7 +9,6 @@ import '../../../core/utils/number_format.dart';
 import '../../../core/utils/responsive.dart';
 import '../../../shared/services/activity_log_service.dart';
 import '../../../core/utils/currency_input_formatter.dart';
-import 'package:drift/drift.dart' show Value;
 import '../../../core/database/app_database.dart';
 import '../../../shared/services/auth_service.dart';
 import '../../../core/utils/constants.dart';
@@ -151,17 +151,17 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
       return;
     }
 
-    await database.expensesDao.addExpense(
-      ExpensesCompanion.insert(
-        category: Value(_selectedCategory),
-        amountKobo: (amount * 100).round(),
-        description: desc.isEmpty ? _selectedCategory : desc,
-        paymentMethod: Value(_paymentMethod),
-        recordedBy: Value(_recordedByCtrl.text.trim()),
-        reference: Value(_refCtrl.text.trim().isEmpty ? null : _refCtrl.text.trim()),
-        timestamp: Value(_selectedDate),
-      ),
-    );
+    final amtKobo = (amount * 100).toInt();
+    
+    await database.expensesDao.addExpense(ExpensesCompanion.insert(
+      category: Value(_selectedCategory),
+      amountKobo: amtKobo,
+      description: desc,
+      paymentMethod: Value(_paymentMethod),
+      recordedBy: Value(_recordedByCtrl.text),
+      reference: Value(_refCtrl.text),
+      timestamp: Value(_selectedDate),
+    ));
 
     await activityLogService.logAction(
       'Expense Recorded',

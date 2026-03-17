@@ -334,25 +334,33 @@ class _PosHomeScreenState extends State<PosHomeScreen>
 
   // ── PRODUCT GRID ─────────────────────────────────────────────────────────────
   Widget _buildGrid() {
-    return    StreamBuilder<List<ProductData>>(
-      stream: database.catalogDao.watchAvailableProductDatas(categoryId: _selectedCategoryId),
+    return StreamBuilder<List<ProductDataWithStock>>(
+      stream: database.inventoryDao.watchAllProductDatasWithStock(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator(color: blueMain));
         }
-        
-        var shown = snapshot.data ?? [];
+
+        var items = (snapshot.data ?? [])
+            .where((item) =>
+                item.totalStock > 0 &&
+                item.product.isAvailable &&
+                !item.product.isDeleted &&
+                (_selectedCategoryId == null ||
+                    item.product.categoryId == _selectedCategoryId))
+            .toList();
 
         // Manual search filter
         if (_searchQuery.isNotEmpty) {
           final q = _searchQuery.toLowerCase();
-          shown = shown.where((p) => 
-            p.name.toLowerCase().contains(q) || 
-            (p.subtitle?.toLowerCase().contains(q) ?? false)
-          ).toList();
+          items = items
+              .where((item) =>
+                  item.product.name.toLowerCase().contains(q) ||
+                  (item.product.subtitle?.toLowerCase().contains(q) ?? false))
+              .toList();
         }
 
-        if (shown.isEmpty) {
+        if (items.isEmpty) {
           return Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -389,10 +397,10 @@ class _PosHomeScreenState extends State<PosHomeScreen>
             crossAxisSpacing: context.spacingM,
             mainAxisSpacing: context.spacingM,
           ),
-          itemCount: shown.length,
+          itemCount: items.length,
           itemBuilder: (_, i) => ValueListenableBuilder<List<Map<String, dynamic>>>(
             valueListenable: cartService,
-            builder: (context, cart, _) => _buildProductCard(shown[i], cart),
+            builder: (context, cart, _) => _buildProductCard(items[i].product, cart),
           ),
         );
       },

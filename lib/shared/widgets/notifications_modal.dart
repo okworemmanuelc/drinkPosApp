@@ -6,6 +6,7 @@ import '../models/notification.dart';
 import '../../core/utils/responsive.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/theme_notifier.dart';
+import '../../core/database/app_database.dart';
 
 class NotificationsModal extends StatelessWidget {
   const NotificationsModal({super.key});
@@ -61,6 +62,64 @@ class NotificationsModal extends StatelessWidget {
                   ),
                   // Header
                   _buildHeader(context),
+                   
+                  // Sync Status Banner
+                  StreamBuilder<int>(
+                    stream: database.syncDao.watchPendingCount(),
+                    builder: (context, snap) {
+                      final count = snap.data ?? 0;
+                      if (count == 0) return const SizedBox.shrink();
+                       
+                      return Container(
+                        width: double.infinity,
+                        margin: EdgeInsets.symmetric(
+                          horizontal: context.getRSize(20),
+                          vertical: context.getRSize(8),
+                        ),
+                        padding: EdgeInsets.symmetric(
+                          horizontal: context.getRSize(16),
+                          vertical: context.getRSize(12),
+                        ),
+                        decoration: BoxDecoration(
+                          color: blueMain.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: blueMain.withValues(alpha: 0.2)),
+                        ),
+                        child: Row(
+                          children: [
+                            SizedBox(
+                              width: context.getRSize(14),
+                              height: context.getRSize(14),
+                              child: const CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: blueMain,
+                              ),
+                            ),
+                            SizedBox(width: context.getRSize(12)),
+                            Expanded(
+                              child: Text(
+                                'Syncing $count file${count == 1 ? '' : 's'} to cloud...',
+                                style: TextStyle(
+                                  color: blueMain,
+                                  fontSize: context.getRFontSize(13),
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                            Text(
+                              'Background',
+                              style: TextStyle(
+                                color: _subtext.withValues(alpha: 0.6),
+                                fontSize: context.getRFontSize(11),
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                   
                   Divider(height: 1, color: _border),
                   // List
                   Expanded(

@@ -1,10 +1,13 @@
 import 'dart:io';
 
+
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
+import 'package:flutter/foundation.dart';
 import 'daos.dart';
+export 'daos.dart';
 
 part 'app_database.g.dart';
 
@@ -15,7 +18,7 @@ class CrateGroups extends Table {
   TextColumn get name => text()();
   IntColumn get size => integer()(); // 12=big, 20=medium, 24=small
   IntColumn get emptyCrateStock => integer().withDefault(const Constant(0))();
-  IntColumn get depositAmountKobo => integer().withDefault(const Constant(0))(); // deposit per crate in kobo
+  IntColumn get depositAmountKobo => integer().withDefault(const Constant(0))(); 
 }
 
 // 2. Warehouses
@@ -34,9 +37,9 @@ class Users extends Table {
   TextColumn get email => text().nullable().unique()();
   TextColumn get passwordHash => text().nullable()();
   TextColumn get pin => text()(); // 4-digit PIN
-  TextColumn get role => text()(); // admin, staff, etc.
+  TextColumn get role => text()(); // admin, staff, CEO
   IntColumn get roleTier => integer().withDefault(const Constant(1))(); // 1=Staff, 4=Manager, 5=CEO
-  TextColumn get avatarColor => text().withDefault(const Constant('#3B82F6'))(); // HEX color
+  TextColumn get avatarColor => text().withDefault(const Constant('#3B82F6'))();
   BoolColumn get biometricEnabled => boolean().withDefault(const Constant(false))();
   IntColumn get warehouseId => integer().nullable().references(Warehouses, #id)();
 }
@@ -55,7 +58,7 @@ class Products extends Table {
   IntColumn get id => integer().autoIncrement()();
   IntColumn get categoryId => integer().nullable().references(Categories, #id)();
   IntColumn get crateGroupId => integer().nullable().references(CrateGroups, #id)();
-  TextColumn get crateSize => text().nullable()(); // 'big'(12) | 'medium'(20) | 'small'(24)
+  TextColumn get crateSize => text().nullable()(); // 'big' | 'medium' | 'small'
   TextColumn get name => text()();
   TextColumn get subtitle => text().nullable()();
   TextColumn get sku => text().nullable()();
@@ -63,12 +66,14 @@ class Products extends Table {
   IntColumn get bulkBreakerPriceKobo => integer().nullable()();
   IntColumn get distributorPriceKobo => integer().nullable()();
   IntColumn get sellingPriceKobo => integer().withDefault(const Constant(0))();
+  IntColumn get buyingPriceKobo => integer().withDefault(const Constant(0))();
   TextColumn get unit => text().withDefault(const Constant('Bottle'))();
   IntColumn get iconCodePoint => integer().nullable()();
   TextColumn get colorHex => text().nullable()();
   BoolColumn get isAvailable => boolean().withDefault(const Constant(true))();
   BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
   IntColumn get lowStockThreshold => integer().withDefault(const Constant(5))();
+  TextColumn get manufacturer => text().nullable()();
 }
 
 // 6. Inventory
@@ -107,13 +112,13 @@ class Suppliers extends Table {
 @DataClassName('OrderData')
 class Orders extends Table {
   IntColumn get id => integer().autoIncrement()();
-  TextColumn get orderNumber => text()(); // e.g. ORD-20240314-001
+  TextColumn get orderNumber => text()(); 
   IntColumn get customerId => integer().nullable().references(Customers, #id)();
   IntColumn get totalAmountKobo => integer()();
   IntColumn get discountKobo => integer().withDefault(const Constant(0))();
   IntColumn get netAmountKobo => integer()();
   IntColumn get amountPaidKobo => integer().withDefault(const Constant(0))();
-  TextColumn get paymentType => text()(); // cash, transfer, pos, wallet, multi
+  TextColumn get paymentType => text()();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
   DateTimeColumn get completedAt => dateTime().nullable()();
   DateTimeColumn get cancelledAt => dateTime().nullable()();
@@ -134,7 +139,7 @@ class OrderItems extends Table {
   IntColumn get quantity => integer()();
   IntColumn get unitPriceKobo => integer()();
   IntColumn get totalKobo => integer()();
-  TextColumn get priceSnapshot => text().nullable()(); // JSON detail
+  TextColumn get priceSnapshot => text().nullable()(); 
 }
 
 // 11. Purchases
@@ -266,12 +271,16 @@ class PaymentTransactions extends Table {
 // 23. Stock Transfers
 @DataClassName('StockTransferData')
 class StockTransfers extends Table {
-  IntColumn get id => integer().autoIncrement()();
-  IntColumn get fromWarehouseId => integer().references(Warehouses, #id)();
-  IntColumn get toWarehouseId => integer().references(Warehouses, #id)();
+  IntColumn get transferId => integer().autoIncrement()();
+  IntColumn get fromLocationId => integer().references(Warehouses, #id)();
+  IntColumn get toLocationId => integer().references(Warehouses, #id)();
   IntColumn get productId => integer().references(Products, #id)();
   IntColumn get quantity => integer()();
-  DateTimeColumn get timestamp => dateTime().withDefault(currentDateAndTime)();
+  TextColumn get status => text().withDefault(const Constant('pending'))(); // pending, in_transit, received, cancelled
+  IntColumn get initiatedBy => integer().references(Users, #id)();
+  IntColumn get receivedBy => integer().nullable().references(Users, #id)();
+  DateTimeColumn get initiatedAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get receivedAt => dateTime().nullable()();
 }
 
 // 24. Stock Adjustments
@@ -298,7 +307,7 @@ class ActivityLogs extends Table {
   DateTimeColumn get timestamp => dateTime().withDefault(currentDateAndTime)();
 }
 
-// 23. Notifications
+// 26. Notifications
 @DataClassName('NotificationData')
 class Notifications extends Table {
   IntColumn get id => integer().autoIncrement()();
@@ -309,7 +318,7 @@ class Notifications extends Table {
   TextColumn get linkedRecordId => text().nullable()();
 }
 
-// 24. Settings
+// 27. Settings
 @DataClassName('SettingData')
 class Settings extends Table {
   IntColumn get id => integer().autoIncrement()();
@@ -317,7 +326,33 @@ class Settings extends Table {
   TextColumn get value => text()();
 }
 
-// 25. Sessions
+// 28. Stock Transactions Ledger — source of truth for all stock movements
+@DataClassName('StockTransactionData')
+class StockTransactions extends Table {
+  // UUID v4 text PK — caller must set before insert
+  TextColumn get transactionId => text()();
+
+  IntColumn get productId    => integer().references(Products, #id)();
+  IntColumn get locationId   => integer().references(Warehouses, #id)();
+
+  // Negative = outflow (sale, damage, transfer_out)
+  // Positive = inflow  (purchase_received, return, transfer_in, adjustment)
+  IntColumn get quantityDelta => integer()();
+
+  // movement_type: sale | return | damage | transfer_out | transfer_in | purchase_received | adjustment
+  TextColumn get movementType => text()();
+  
+  TextColumn get referenceId  => text().nullable()(); // orderId, transferId, etc.
+  IntColumn get performedBy   => integer().references(Users, #id)();
+
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get syncedAt  => dateTime().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {transactionId};
+}
+
+// 29. Sessions
 @DataClassName('SessionData')
 class Sessions extends Table {
   IntColumn get id => integer().autoIncrement()();
@@ -326,7 +361,7 @@ class Sessions extends Table {
   DateTimeColumn get timestamp => dateTime().withDefault(currentDateAndTime)();
 }
 
-// 26. Customer Wallet Transactions
+// 30. Customer Wallet Transactions
 @DataClassName('CustomerWalletTransactionData')
 class CustomerWalletTransactions extends Table {
   IntColumn get id => integer().autoIncrement()();
@@ -370,48 +405,66 @@ class CustomerWalletTransactions extends Table {
     Settings,
     Sessions,
     CustomerWalletTransactions,
+    StockTransactions,
   ],
-  daos: [CatalogDao, InventoryDao, OrdersDao, CustomersDao, DeliveriesDao, ExpensesDao, SyncDao, ActivityLogDao, NotificationsDao, WarehousesDao],
+  daos: [
+    CatalogDao, 
+    InventoryDao, 
+    OrdersDao, 
+    CustomersDao, 
+    DeliveriesDao, 
+    ExpensesDao, 
+    SyncDao, 
+    ActivityLogDao, 
+    NotificationsDao, 
+    WarehousesDao, 
+    StockLedgerDao, 
+    StockTransferDao
+  ],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 8;
+  int get schemaVersion => 10;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
         onCreate: (m) async {
-          await m.createAll();
+          debugPrint('[AppDatabase] onCreate: Creating database tables...');
+          await m.createAll().timeout(const Duration(seconds: 15), onTimeout: () {
+            throw Exception('Database creation timed out.');
+          });
+          debugPrint('[AppDatabase] onCreate: Seeding initial data...');
           await _seedData();
+          debugPrint('[AppDatabase] onCreate: Database setup complete.');
         },
         onUpgrade: (m, from, to) async {
-          // Development strategy: drop all tables and recreate fresh.
-          // Replace with incremental ALTER TABLE steps before production.
-          await customStatement('PRAGMA foreign_keys = OFF');
-          for (final table in allTables) {
-            await m.drop(table);
+          debugPrint('[AppDatabase] onUpgrade: Upgrading from version $from to $to...');
+          try {
+            await customStatement('PRAGMA foreign_keys = OFF');
+            for (final table in allTables) {
+              await m.drop(table).timeout(const Duration(seconds: 5));
+            }
+            await m.createAll().timeout(const Duration(seconds: 15));
+            await customStatement('PRAGMA foreign_keys = ON');
+            await _seedData();
+          } catch (e) {
+            debugPrint('[AppDatabase] CRITICAL MIGRATION ERROR: $e');
           }
-          await m.createAll();
-          await customStatement('PRAGMA foreign_keys = ON');
-          await _seedData();
         },
       );
 
   Future<void> _seedData() async {
-    // Only seed reference/config data — no users, warehouses, products or inventory.
-    // Everything else is created by the user during onboarding.
     await batch((b) {
-      // Crate groups: Big=12 bottles, Medium=20, Small=24
-      b.insert(crateGroups, CrateGroupsCompanion.insert(name: 'Big Crate 12', size: 12, depositAmountKobo: const Value(150000)));
-      b.insert(crateGroups, CrateGroupsCompanion.insert(name: 'Medium Crate 20', size: 20, depositAmountKobo: const Value(150000)));
-      b.insert(crateGroups, CrateGroupsCompanion.insert(name: 'Small Crate 24', size: 24, depositAmountKobo: const Value(120000)));
+      b.insert(crateGroups, const CrateGroupsCompanion(name: Value('Big Crate 12'), size: Value(12), depositAmountKobo: Value(150000)));
+      b.insert(crateGroups, const CrateGroupsCompanion(name: Value('Medium Crate 20'), size: Value(20), depositAmountKobo: Value(150000)));
+      b.insert(crateGroups, const CrateGroupsCompanion(name: Value('Small Crate 24'), size: Value(24), depositAmountKobo: Value(120000)));
 
-      // Standard product categories
-      b.insert(categories, CategoriesCompanion.insert(name: 'Glass Crates'));
-      b.insert(categories, CategoriesCompanion.insert(name: 'Cans & PET'));
-      b.insert(categories, CategoriesCompanion.insert(name: 'Kegs'));
-      b.insert(categories, CategoriesCompanion.insert(name: 'Other'));
+      b.insert(categories, const CategoriesCompanion(name: Value('Glass Crates')));
+      b.insert(categories, const CategoriesCompanion(name: Value('Cans & PET')));
+      b.insert(categories, const CategoriesCompanion(name: Value('Kegs')));
+      b.insert(categories, const CategoriesCompanion(name: Value('Other')));
     });
   }
 

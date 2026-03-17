@@ -32,7 +32,6 @@ class ReceiveDeliverySheet extends StatefulWidget {
 class _DeliveryItemLine {
   final TextEditingController productCtrl = TextEditingController();
   final TextEditingController qtyCtrl = TextEditingController();
-  final TextEditingController subtitleCtrl = TextEditingController();
   final TextEditingController retailPriceCtrl = TextEditingController();
 
   ProductData? selectedProduct;
@@ -48,7 +47,6 @@ class _DeliveryItemLine {
   void dispose() {
     productCtrl.dispose();
     qtyCtrl.dispose();
-    subtitleCtrl.dispose();
     retailPriceCtrl.dispose();
   }
 }
@@ -157,25 +155,6 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
       totalQty += qty;
 
       if (l.selectedProduct != null) {
-        final product = l.selectedProduct!;
-        final retailPriceKobo =
-            ((double.tryParse(l.retailPriceCtrl.text) ?? 0) * 100).toInt();
-
-        // Update product metadata in DB
-        await (database.update(database.products)
-              ..where((t) => t.id.equals(product.id)))
-            .write(
-              ProductsCompanion(
-                subtitle: Value(
-                  l.subtitleCtrl.text.trim().isEmpty
-                      ? 'Unit'
-                      : l.subtitleCtrl.text.trim(),
-                ),
-                retailPriceKobo: Value(retailPriceKobo),
-                sellingPriceKobo: Value(retailPriceKobo),
-              ),
-            );
-
         // Auto-add empty crates to DB for glass products (1:1 with quantity)
         if (l.selectedCrateGroup != null) {
           await database.inventoryDao.addEmptyCrates(
@@ -260,7 +239,6 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
               setState(() {
                 line.selectedProduct = selection;
                 line.productCtrl.text = selection.name;
-                line.subtitleCtrl.text = selection.subtitle ?? '';
                 line.selectedCategory = 'Other';
                 line.retailPriceCtrl.text =
                     (selection.retailPriceKobo / 100).round().toString();
@@ -472,11 +450,7 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
 
             const SizedBox(height: 12),
 
-            _inputField(
-              'Type / Packaging',
-              line.subtitleCtrl,
-              'e.g. Crate, Can, Keg',
-            ),
+            const SizedBox(height: 0),
 
             const SizedBox(height: 12),
 
@@ -492,9 +466,9 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
             if (line.selectedCategory == 'Glass Crates') ...[
               const SizedBox(height: 12),
               FluidMenu<CrateGroupData>(
-                label: 'Crate Group',
+                label: 'Crate Company',
                 value: line.selectedCrateGroup,
-                placeholder: 'Select Crate Group',
+                placeholder: 'Select Crate Company',
                 items: _crateGroups.map((cg) {
                   return FluidMenuItem(
                     value: cg,

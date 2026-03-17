@@ -7,7 +7,6 @@ import '../../../core/database/app_database.dart';
 import '../../../shared/services/navigation_service.dart';
 import '../../../shared/widgets/shared_scaffold.dart';
 import '../../../shared/widgets/app_bar_header.dart';
-import '../../../core/database/daos.dart';
 import '../../../core/utils/number_format.dart';
 
 class WarehouseDetailsScreen extends StatefulWidget {

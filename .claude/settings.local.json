@@ -9,7 +9,14 @@
       "Bash(curl -s \"http://127.0.0.1:62761/YTufraTdOs0=/reloadSources?isolateId=isolates%2F8990133901965243\")",
       "Bash(curl -s \"http://127.0.0.1:64734/3i6Xkk1-1nI=/getVM\")",
       "Bash(curl -s \"http://127.0.0.1:64734/3i6Xkk1-1nI=/reloadSources?isolateId=isolates%2F3499532122748995\")",
-      "Bash(flutter analyze:*)"
+      "Bash(flutter analyze:*)",
+      "Bash(cd:*)",
+      "Bash(kill:*)",
+      "Bash(find:*)",
+      "Bash(adb:*)",
+      "Bash(cat:*)",
+      "mcp__ide__getDiagnostics",
+      "Bash(node -e \":*)"
     ]
   }
 }

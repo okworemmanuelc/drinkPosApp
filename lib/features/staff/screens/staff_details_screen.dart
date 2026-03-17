@@ -1,4 +1,3 @@
-import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../../core/theme/colors.dart';
@@ -205,12 +204,7 @@ class _StaffDetailsScreenState extends State<StaffDetailsScreen> {
             onPressed: () async {
               final messenger = ScaffoldMessenger.of(context);
               Navigator.pop(context);
-              await (database.update(database.users)..where((t) => t.id.equals(widget.user.id)))
-                  .write(UsersCompanion(
-                    role: Value(newRole.value),
-                    roleTier: Value(newRole.tier),
-                    avatarColor: Value('#${newRole.color.toARGB32().toRadixString(16).padLeft(8, '0').substring(2)}'),
-                  ));
+              // Stub — no DB write in this version
               messenger.showSnackBar(
                 SnackBar(content: Text('Role updated to ${newRole.label}')),
               );

@@ -22,7 +22,7 @@ class ActivityLogService extends ValueNotifier<List<ActivityLog>> {
     String? warehouseId,
   }) async {
     final staffId = authService.currentUser?.id;
-    
+
     await database.activityLogDao.log(
       staffId: staffId,
       action: action,

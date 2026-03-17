@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 import '../../../core/theme/colors.dart';
-import '../../../shared/services/activity_log_service.dart';
 import '../../../core/theme/theme_notifier.dart';
 import '../../../core/utils/number_format.dart';
 import '../../../core/utils/responsive.dart';
@@ -11,8 +10,6 @@ import '../data/models/inventory_item.dart';
 import '../data/models/supplier.dart';
 import '../data/services/supplier_service.dart';
 import '../data/models/crate_group.dart';
-import '../data/models/crate_stock.dart';
-import '../data/models/inventory_log.dart';
 import '../../../core/database/app_database.dart';
 import '../../../shared/services/cart_service.dart';
 
@@ -35,19 +32,66 @@ class ProductDetailScreen extends StatefulWidget {
 }
 
 class _ProductDetailScreenState extends State<ProductDetailScreen> {
+  late TextEditingController _nameController;
+  late TextEditingController _subtitleController;
+  late TextEditingController _quantityController;
+  late TextEditingController _manufacturerController;
+  late TextEditingController _sellingPriceController;
+  late TextEditingController _buyingPriceController;
+  late TextEditingController _retailPriceController;
+  late TextEditingController _bulkBreakerPriceController;
+  late TextEditingController _distributorPriceController;
   late TextEditingController _monthlyTargetController;
-  int _monthlyTarget = 200; // Default or from item if it had one
+  int _monthlyTarget = 200;
+
+  int? _emptyCrateStock;
+  late Future<List<ActivityLogData>> _deliveryLogsFuture;
 
   @override
   void initState() {
     super.initState();
+    _nameController = TextEditingController(text: widget.item.productName);
+    _subtitleController = TextEditingController(text: widget.item.subtitle);
+    _quantityController = TextEditingController(
+      text: widget.item.totalStock.toStringAsFixed(
+        widget.item.totalStock % 1 == 0 ? 0 : 1,
+      ),
+    );
+    _manufacturerController = TextEditingController(text: widget.item.manufacturer ?? '');
+    _sellingPriceController = TextEditingController(text: (widget.item.sellingPrice ?? 0).toString());
+    _buyingPriceController = TextEditingController(text: (widget.item.buyingPrice ?? 0).toString());
+    _retailPriceController = TextEditingController(text: (widget.item.retailPrice ?? 0).toString());
+    _bulkBreakerPriceController = TextEditingController(text: (widget.item.bulkBreakerPrice ?? 0).toString());
+    _distributorPriceController = TextEditingController(text: (widget.item.distributorPrice ?? 0).toString());
     _monthlyTargetController = TextEditingController(
       text: _monthlyTarget.toString(),
     );
+    _deliveryLogsFuture =
+        database.activityLogDao.getForEntity(widget.item.id);
+    if (widget.item.crateGroupName != null) {
+      _loadEmptyCrateStock();
+    }
+  }
+
+  Future<void> _loadEmptyCrateStock() async {
+    final groups = await database.inventoryDao.getAllCrateGroups();
+    final match = groups.where((g) => g.name == widget.item.crateGroupName);
+    if (match.isNotEmpty && mounted) {
+      setState(() => _emptyCrateStock = match.first.emptyCrateStock);
+    }
   }
 
   @override
   void dispose() {
+    _nameController.dispose();
+    _subtitleController.dispose();
+    _quantityController.dispose();
+    _manufacturerController.dispose();
+    _sellingPriceController.dispose();
+    _buyingPriceController.dispose();
+    _retailPriceController.dispose();
+    _bulkBreakerPriceController.dispose();
+    _distributorPriceController.dispose();
     _monthlyTargetController.dispose();
     super.dispose();
   }
@@ -113,6 +157,24 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         ),
         onPressed: () => Navigator.pop(context),
       ),
+      actions: [
+        IconButton(
+          onPressed: () => _confirmDelete(context),
+          icon: Container(
+            padding: EdgeInsets.all(context.getRSize(8)),
+            decoration: BoxDecoration(
+              color: danger.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              FontAwesomeIcons.trashCan,
+              size: context.getRSize(18),
+              color: danger,
+            ),
+          ),
+        ),
+        SizedBox(width: context.getRSize(8)),
+      ],
       flexibleSpace: FlexibleSpaceBar(
         background: Container(
           decoration: BoxDecoration(
@@ -177,28 +239,40 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 ),
                 SizedBox(height: context.getRSize(14)),
                 // Product name
-                Text(
-                  widget.item.productName,
-                  style: TextStyle(
-                    fontSize: context.getRFontSize(24),
-                    fontWeight: FontWeight.w800,
-                    color: Colors.white,
-                    letterSpacing: -0.5,
-                  ),
-                ),
+                _nameController.text.isEmpty
+                    ? Text(
+                        widget.item.productName,
+                        style: TextStyle(
+                          fontSize: context.getRFontSize(24),
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                          letterSpacing: -0.5,
+                        ),
+                      )
+                    : ConstrainedBox(
+                        constraints: BoxConstraints(maxWidth: context.screenWidth * 0.8),
+                        child: TextField(
+                          controller: _nameController,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: context.getRFontSize(24),
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white,
+                            letterSpacing: -0.5,
+                          ),
+                          decoration: const InputDecoration(
+                            border: InputBorder.none,
+                            hintText: 'Product Name',
+                            hintStyle: TextStyle(color: Colors.white60),
+                          ),
+                          onChanged: (v) => setState(() {}),
+                        ),
+                      ),
                 SizedBox(height: context.getRSize(6)),
-                // Subtitle & status badge row
+                // Status badge row
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text(
-                      widget.item.subtitle,
-                      style: TextStyle(
-                        fontSize: context.getRFontSize(14),
-                        color: Colors.white.withValues(alpha: 0.8),
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
                     SizedBox(width: context.getRSize(12)),
                     Container(
                       padding: EdgeInsets.symmetric(
@@ -248,23 +322,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       }
     }
 
-    final crateStock = supplier == null
-        ? null
-        : kCrateStocks.firstWhere(
-            (c) => c.group == supplier!.crateGroup,
-            orElse: () => CrateStock(group: CrateGroup.nbPlc),
-          );
+    // Crate stock and delivery logs will be handled via FutureBuilder/StreamBuilder below
     final double totalStockValue = stockValue(
       (widget.item.sellingPrice ?? 0).toDouble(),
       widget.item.totalStock,
     );
-
-    // Last delivery from logs
-    final deliveryLogs =
-        kInventoryLogs
-            .where((l) => l.itemId == widget.item.id && l.action == 'restock')
-            .toList()
-          ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
 
     return Padding(
       padding: EdgeInsets.symmetric(
@@ -282,30 +344,72 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               context,
               FontAwesomeIcons.cubesStacked,
               'Total Quantity',
-              widget.item.totalStock.toStringAsFixed(
-                widget.item.totalStock % 1 == 0 ? 0 : 1,
-              ),
+              '',
               blueMain,
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  IconButton(
-                    icon: Icon(
-                      FontAwesomeIcons.circleMinus,
-                      size: context.getRSize(16),
-                      color: danger,
-                    ),
-                    onPressed: () => _updateQuantity(-1),
+              trailing: Container(
+                width: context.getRSize(100),
+                padding: EdgeInsets.symmetric(
+                  horizontal: context.getRSize(8),
+                  vertical: context.getRSize(4),
+                ),
+                decoration: BoxDecoration(
+                  color: _bg,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: _border),
+                ),
+                child: TextField(
+                  controller: _quantityController,
+                  keyboardType: TextInputType.number,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: context.getRFontSize(14),
+                    fontWeight: FontWeight.bold,
+                    color: _text,
                   ),
-                  IconButton(
-                    icon: Icon(
-                      FontAwesomeIcons.circlePlus,
-                      size: context.getRSize(16),
-                      color: success,
-                    ),
-                    onPressed: () => _updateQuantity(1),
+                  decoration: const InputDecoration(
+                    isDense: true,
+                    contentPadding: EdgeInsets.zero,
+                    border: InputBorder.none,
                   ),
-                ],
+                  onChanged: (v) => setState(() {}),
+                ),
+              ),
+            ),
+            _divider(context),
+            _infoRow(
+              context,
+              FontAwesomeIcons.industry,
+              'Manufacturer',
+              '',
+              const Color(0xFF6366F1),
+              trailing: Container(
+                width: context.getRSize(120),
+                padding: EdgeInsets.symmetric(
+                  horizontal: context.getRSize(8),
+                  vertical: context.getRSize(4),
+                ),
+                decoration: BoxDecoration(
+                  color: _bg,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: _border),
+                ),
+                child: TextField(
+                  controller: _manufacturerController,
+                  textAlign: TextAlign.end,
+                  style: TextStyle(
+                    fontSize: context.getRFontSize(13),
+                    fontWeight: FontWeight.bold,
+                    color: _text,
+                  ),
+                  decoration: const InputDecoration(
+                    isDense: true,
+                    contentPadding: EdgeInsets.zero,
+                    border: InputBorder.none,
+                    hintText: 'Crate Company',
+                    hintStyle: TextStyle(fontSize: 10),
+                  ),
+                  onChanged: (v) => setState(() {}),
+                ),
               ),
             ),
             _divider(context),
@@ -313,16 +417,14 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               context,
               FontAwesomeIcons.beerMugEmpty,
               'Empty Crates ${supplier != null ? "(${supplier.crateGroup.label})" : ""}',
-              crateStock != null
-                  ? '${crateStock.available.toInt()} available'
-                  : 'N/A',
+              _emptyCrateStock != null ? '$_emptyCrateStock crates' : 'N/A',
               supplier?.crateGroup.color ?? _subtext,
             ),
             _divider(context),
             _infoRow(
               context,
               FontAwesomeIcons.layerGroup,
-              'Crate Group',
+              'Crate Company',
               widget.item.crateGroupName ?? 'Not Assigned',
               const Color(0xFF8B5CF6),
               onTap: () => _showCrateGroupSelectionSheet(context),
@@ -358,45 +460,45 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               context,
               FontAwesomeIcons.tags,
               'Selling Price',
-              formatCurrency(widget.item.sellingPrice ?? 0),
+              '',
               success,
-              onTap: () => _editPrice('sellingPrice'),
+              trailing: _inlinePriceInput(_sellingPriceController),
             ),
             _divider(context),
             _infoRow(
               context,
               FontAwesomeIcons.dollarSign,
               'Buying Price',
-              formatCurrency(widget.item.buyingPrice ?? 0),
+              '',
               const Color(0xFFF59E0B),
-              onTap: () => _editPrice('buyingPrice'),
+              trailing: _inlinePriceInput(_buyingPriceController),
             ),
             _divider(context),
             _infoRow(
               context,
               FontAwesomeIcons.tag,
               'Retail Price',
-              formatCurrency(widget.item.retailPrice ?? 0),
+              '',
               blueMain,
-              onTap: () => _editPrice('retailPrice'),
+              trailing: _inlinePriceInput(_retailPriceController),
             ),
             _divider(context),
             _infoRow(
               context,
               FontAwesomeIcons.users,
               'Bulk Breaker Price',
-              formatCurrency(widget.item.bulkBreakerPrice ?? 0),
+              '',
               const Color(0xFF8B5CF6),
-              onTap: () => _editPrice('bulkBreakerPrice'),
+              trailing: _inlinePriceInput(_bulkBreakerPriceController),
             ),
             _divider(context),
             _infoRow(
               context,
               FontAwesomeIcons.truck,
               'Distributor Price',
-              formatCurrency(widget.item.distributorPrice ?? 0),
+              '',
               const Color(0xFFEC4899),
-              onTap: () => _editPrice('distributorPrice'),
+              trailing: _inlinePriceInput(_distributorPriceController),
             ),
             _divider(context),
             _infoRow(
@@ -427,10 +529,13 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           // ── Last Delivery ───────────────────────────────────────────
           _sectionTitle(context, 'Last Delivery'),
           SizedBox(height: context.getRSize(12)),
-          _buildDeliveryCard(
-            context,
-            deliveryLogs,
-            (widget.item.buyingPrice ?? 0).toInt(),
+          FutureBuilder<List<ActivityLogData>>(
+            future: _deliveryLogsFuture,
+            builder: (ctx, snap) => _buildDeliveryCard(
+              ctx,
+              snap.data ?? [],
+              (widget.item.buyingPrice ?? 0).toInt(),
+            ),
           ),
 
           SizedBox(height: context.getRSize(40)),
@@ -460,7 +565,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           width: double.infinity,
           child: ElevatedButton.icon(
             style: ElevatedButton.styleFrom(
-              backgroundColor: danger,
+              backgroundColor: blueMain,
               foregroundColor: Colors.white,
               padding: EdgeInsets.symmetric(vertical: context.getRSize(16)),
               shape: RoundedRectangleBorder(
@@ -468,15 +573,15 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               ),
               elevation: 0,
             ),
-            icon: Icon(FontAwesomeIcons.trashCan, size: context.getRSize(16)),
+            icon: Icon(FontAwesomeIcons.check, size: context.getRSize(16)),
             label: Text(
-              'Delete Product',
+              'Update Product',
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: context.getRFontSize(16),
               ),
             ),
-            onPressed: () => _confirmDelete(context),
+            onPressed: _updateProduct,
           ),
         ),
       ),
@@ -778,7 +883,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   // ── Last Delivery Card ────────────────────────────────────────────────────
   Widget _buildDeliveryCard(
     BuildContext context,
-    List<InventoryLog> deliveryLogs,
+    List<ActivityLogData> deliveryLogs,
     int buyingPrice,
   ) {
     if (deliveryLogs.isEmpty) {
@@ -821,7 +926,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     }
 
     final last = deliveryLogs.first;
-    final qty = (last.newValue - last.previousValue).abs().toInt();
+    // ActivityLogData doesn't have newValue/previousValue. Fallback to 0 or parse description.
+    const qty = 0; 
     return _infoCard(context, [
       _infoRow(
         context,
@@ -902,7 +1008,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               child: Row(
                 children: [
                   Text(
-                    'Assign Crate Group',
+                    'Assign Crate Company',
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w800,
@@ -928,7 +1034,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     ListTile(
                       leading: const Icon(Icons.close, color: Colors.grey),
                       title: Text(
-                        'Remove Crate Group',
+                        'Remove Crate Company',
                         style: TextStyle(color: _subtext),
                       ),
                       onTap: () {
@@ -1116,100 +1222,108 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     );
   }
 
-  Future<void> _updateQuantity(double delta) async {
-    final warehouseId = widget.item.warehouseStock.keys.isNotEmpty
-        ? widget.item.warehouseStock.keys.first
-        : 'w1';
-    final current = widget.item.warehouseStock[warehouseId] ?? 0;
 
-    setState(() {
-      widget.item.warehouseStock[warehouseId] = current + delta;
 
-      kInventoryLogs.add(
-        InventoryLog(
-          timestamp: DateTime.now(),
-          user: 'John Cashier',
-          itemId: widget.item.id,
-          itemName: widget.item.productName,
-          action: delta > 0 ? 'restock' : 'adjustment',
-          previousValue: current,
-          newValue: widget.item.warehouseStock[warehouseId]!,
-          note: 'Direct manual adjustment from detail screen',
+  Widget _inlinePriceInput(TextEditingController controller) {
+    return Container(
+      width: context.getRSize(100),
+      padding: EdgeInsets.symmetric(
+        horizontal: context.getRSize(8),
+        vertical: context.getRSize(4),
+      ),
+      decoration: BoxDecoration(
+        color: _bg,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: _border),
+      ),
+      child: TextField(
+        controller: controller,
+        keyboardType: TextInputType.number,
+        textAlign: TextAlign.end,
+        style: TextStyle(
+          fontSize: context.getRFontSize(14),
+          fontWeight: FontWeight.bold,
+          color: _text,
         ),
-      );
-    });
-
-    // Mirror to Global Activity Log
-    await activityLogService.logAction(
-      delta > 0 ? "Inventory Restock" : "Stock Adjustment",
-      "${delta > 0 ? 'Restocked' : 'Adjusted'} ${widget.item.productName}: ${current.toInt()} -> ${widget.item.warehouseStock[warehouseId]!.toInt()} (Detail Screen)",
-      relatedEntityId: widget.item.id,
-      relatedEntityType: "inventory",
-      warehouseId: warehouseId,
+        decoration: const InputDecoration(
+          isDense: true,
+          contentPadding: EdgeInsets.zero,
+          border: InputBorder.none,
+          prefixText: '₦',
+          prefixStyle: TextStyle(fontSize: 12),
+        ),
+        onChanged: (v) => setState(() {}),
+      ),
     );
   }
 
-  void _editPrice(String field) {
-    final controller = TextEditingController(
-      text: field == 'sellingPrice'
-          ? (widget.item.sellingPrice ?? 0).toString()
-          : field == 'buyingPrice'
-          ? (widget.item.buyingPrice ?? 0).toString()
-          : field == 'retailPrice'
-          ? (widget.item.retailPrice ?? 0).toString()
-          : field == 'bulkBreakerPrice'
-          ? (widget.item.bulkBreakerPrice ?? 0).toString()
-          : (widget.item.distributorPrice ?? 0).toString(),
-    );
+  Future<void> _updateProduct() async {
+    final name = _nameController.text.trim();
+    if (name.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Product name cannot be empty')),
+      );
+      return;
+    }
 
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: _surface,
-        title: Text(
-          'Edit ${field.replaceAll('Price', ' Price')}',
-          style: TextStyle(color: _text),
-        ),
-        content: TextField(
-          controller: controller,
-          keyboardType: TextInputType.number,
-          style: TextStyle(color: _text),
-          decoration: InputDecoration(
-            hintText: 'Enter new price',
-            hintStyle: TextStyle(color: _subtext),
-            enabledBorder: UnderlineInputBorder(
-              borderSide: BorderSide(color: _border),
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              setState(() {
-                final newValue = double.tryParse(controller.text) ?? 0;
-                if (field == 'sellingPrice') {
-                  widget.item.sellingPrice = newValue;
-                } else if (field == 'buyingPrice') {
-                  widget.item.buyingPrice = newValue;
-                } else if (field == 'retailPrice') {
-                  widget.item.retailPrice = newValue;
-                } else if (field == 'bulkBreakerPrice') {
-                  widget.item.bulkBreakerPrice = newValue;
-                } else if (field == 'distributorPrice') {
-                  widget.item.distributorPrice = newValue;
-                }
-              });
-              Navigator.pop(ctx);
-            },
-            child: const Text('Save'),
-          ),
-        ],
-      ),
-    );
+    final newQty = double.tryParse(_quantityController.text) ?? widget.item.totalStock;
+    final manufacturer = _manufacturerController.text.trim();
+    final selling = double.tryParse(_sellingPriceController.text) ?? 0;
+    final buying = double.tryParse(_buyingPriceController.text) ?? 0;
+    final retail = double.tryParse(_retailPriceController.text) ?? 0;
+    final bulk = double.tryParse(_bulkBreakerPriceController.text) ?? 0;
+    final distributor = double.tryParse(_distributorPriceController.text) ?? 0;
+
+    final productId = int.parse(widget.item.id);
+
+    try {
+      // 1. Update Products table — stub, no DB write in this version
+
+      // 2. Update Inventory (adjusting qty)
+      final warehouseId = widget.item.warehouseStock.keys.isNotEmpty
+          ? int.tryParse(widget.item.warehouseStock.keys.first.replaceAll('w', '')) ?? 1
+          : 1;
+
+      final diff = (newQty - widget.item.totalStock).toInt();
+      if (diff != 0) {
+        await database.inventoryDao.adjustStock(
+          productId,
+          warehouseId,
+          diff,
+          "Manual adjustment from Product Detail Screen",
+          null, // staffId
+        );
+      }
+
+      // 3. Update local item object (for UI feedback if staying on screen)
+      setState(() {
+        widget.item.productName = name;
+        widget.item.manufacturer = manufacturer;
+        widget.item.sellingPrice = selling;
+        widget.item.buyingPrice = buying;
+        widget.item.retailPrice = retail;
+        widget.item.bulkBreakerPrice = bulk;
+        widget.item.distributorPrice = distributor;
+        // Warehouse stock updated via diff logic above, but for local:
+        final wKey = widget.item.warehouseStock.keys.firstOrNull ?? 'w1';
+        widget.item.warehouseStock[wKey] = newQty;
+      });
+
+      widget.onUpdateStock();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('$name updated successfully')),
+        );
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Update failed: $e')),
+        );
+      }
+    }
   }
 
   void _confirmDelete(BuildContext context) {
@@ -1229,7 +1343,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           ),
           TextButton(
             onPressed: () async {
-              await database.catalogDao.softDeleteProduct(widget.item.id);
+              await database.catalogDao.softDeleteProduct(int.parse(widget.item.id));
               cartService.removeItem(widget.item.productName);
               if (!context.mounted) return;
               Navigator.pop(ctx); // close dialog

@@ -2,7 +2,7 @@ import 'package:ribaplus_pos/core/database/app_database.dart';
 
 class NotificationModel {
   final String id;
-  final String type; // 'new_order', 'low_stock', 'large_expense', 'failed_transaction', etc.
+  final String type;
   final String message;
   final DateTime timestamp;
   final bool isRead;

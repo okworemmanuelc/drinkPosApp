@@ -1,4 +1,3 @@
-import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -422,7 +421,7 @@ class _StaffScreenState extends State<StaffScreen> {
           ElevatedButton(
             onPressed: () async {
               Navigator.pop(context);
-              await database.delete(database.users).delete(user);
+              // Stub — no DB delete in this version
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: danger,
@@ -633,32 +632,8 @@ class _StaffFormSheetState extends State<_StaffFormSheet> {
     if (!_formKey.currentState!.validate()) return;
     if (_selectedWarehouseId == null) return;
 
-    final name = _nameCtrl.text;
-    final pin = _pinCtrl.text;
-    final role = _selectedRole.value;
-    final tier = _selectedRole.tier;
-    
-    if (widget.user == null) {
-      await database.into(database.users).insert(UsersCompanion.insert(
-        name: name,
-        email: Value('${name.toLowerCase().replaceAll(' ', '.')}@ribaplus.com'),
-        pin: pin,
-        role: role,
-        roleTier: Value(tier),
-        warehouseId: Value(_selectedWarehouseId!),
-        avatarColor: Value('#${_selectedRole.color.toARGB32().toRadixString(16).padLeft(8, '0').substring(2)}'),
-      ));
-    } else {
-      await (database.update(database.users)..where((t) => t.id.equals(widget.user!.id)))
-          .write(UsersCompanion(
-        name: Value(name),
-        pin: Value(pin),
-        role: Value(role),
-        roleTier: Value(tier),
-        warehouseId: Value(_selectedWarehouseId!),
-      ));
-    }
-    
+    // Stub — no DB write in this version
+
     if (mounted) Navigator.pop(context);
   }
 

@@ -5,9 +5,7 @@ import '../../core/theme/theme_notifier.dart';
 import '../../core/utils/responsive.dart';
 import '../../shared/services/navigation_service.dart';
 import '../../shared/services/auth_service.dart';
-import '../../features/auth/screens/onboarding_screen.dart';
 import '../../shared/widgets/user_tips_modal.dart';
-import '../../shared/widgets/role_guard.dart';
 import '../../core/database/app_database.dart';
 
 class AppDrawer extends StatelessWidget {
@@ -86,8 +84,13 @@ class AppDrawer extends StatelessWidget {
             builder: (context, snap) {
               final count = snap.data ?? 0;
               if (count == 0) return const SizedBox.shrink();
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 8),
+              return Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -99,13 +102,13 @@ class AppDrawer extends StatelessWidget {
                         color: Color(0xFF60A5FA),
                       ),
                     ),
-                    const SizedBox(width: 6),
+                    const SizedBox(width: 8),
                     Text(
-                      '$count item${count == 1 ? '' : 's'} syncing…',
+                      'Syncing $count file${count == 1 ? '' : 's'}…',
                       style: const TextStyle(
                         color: Color(0xFF93C5FD),
                         fontSize: 11,
-                        fontWeight: FontWeight.w500,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ],
@@ -219,16 +222,12 @@ class AppDrawer extends StatelessWidget {
         SizedBox(height: context.getRSize(12)),
         Divider(color: _border),
         SizedBox(height: context.getRSize(12)),
-        RoleGuard(
-          minTier: 4,
-          fallback: const SizedBox.shrink(),
-          child: _navItem(
-            context,
-            FontAwesomeIcons.clockRotateLeft,
-            'Activity Logs',
-            active: activeRoute == 'activity_logs',
-            onTap: () => _navigateTo(context, 'activity_logs'),
-          ),
+        _navItem(
+          context,
+          FontAwesomeIcons.clockRotateLeft,
+          'Activity Logs',
+          active: activeRoute == 'activity_logs',
+          onTap: () => _navigateTo(context, 'activity_logs'),
         ),
         _navItem(
           context,
@@ -258,9 +257,6 @@ class AppDrawer extends StatelessWidget {
         Divider(color: _border),
         SizedBox(height: context.getRSize(12)),
         _buildThemeToggle(context),
-        SizedBox(height: context.getRSize(12)),
-        Divider(color: _border),
-        _buildLogout(context),
         // Extra space for system navigation bar
         SizedBox(height: MediaQuery.of(context).padding.bottom + context.getRSize(20)),
       ],
@@ -535,82 +531,6 @@ class AppDrawer extends StatelessWidget {
     );
   }
 
-  Widget _buildLogout(BuildContext context) {
-    return InkWell(
-      onTap: () {
-        showDialog(
-          context: context,
-          builder: (context) => AlertDialog(
-            backgroundColor: _surface,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-            title: Text(
-              'Logout Confirmation',
-              style: TextStyle(color: _text, fontWeight: FontWeight.bold),
-            ),
-            content: Text(
-              'Are you sure you want to logout? Any unsaved changes might be lost.',
-              style: TextStyle(color: _subtext),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: Text('Cancel', style: TextStyle(color: _subtext)),
-              ),
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.pop(context); // Close Dialog
-                  Navigator.pop(context); // Close Drawer
-                  Navigator.of(context).pushAndRemoveUntil(
-                    MaterialPageRoute(builder: (context) => const OnboardingScreen()),
-                    (route) => false,
-                  );
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: danger,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-                child: const Text('Logout'),
-              ),
-            ],
-          ),
-        );
-      },
-      borderRadius: BorderRadius.circular(14),
-      child: Padding(
-        padding: EdgeInsets.all(context.getRSize(16)),
-        child: Container(
-          padding: EdgeInsets.symmetric(vertical: context.getRSize(14)),
-          decoration: BoxDecoration(
-            color: danger.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: danger.withValues(alpha: 0.2)),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                FontAwesomeIcons.rightFromBracket,
-                color: danger,
-                size: context.getRSize(16),
-              ),
-              SizedBox(width: context.getRSize(10)),
-              Text(
-                'Logout',
-                style: TextStyle(
-                  color: danger,
-                  fontWeight: FontWeight.bold,
-                  fontSize: context.getRFontSize(14),
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 

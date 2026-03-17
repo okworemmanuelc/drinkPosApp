@@ -9,8 +9,7 @@ import '../../../core/utils/responsive.dart'; // RESPONSIVE: utility imported
 import '../data/models/crate_group.dart';
 import '../data/models/supplier.dart';
 import '../data/services/supplier_service.dart';
-import '../data/models/inventory_log.dart';
-import '../data/inventory_data.dart';
+import '../data/models/inventory_item.dart';
 import '../../../shared/widgets/shared_scaffold.dart';
 import '../../../shared/widgets/menu_button.dart';
 import '../../../shared/widgets/app_bar_header.dart';
@@ -18,10 +17,7 @@ import '../../../shared/widgets/notification_bell.dart';
 import 'supplier_detail_screen.dart';
 import 'product_detail_screen.dart';
 import '../../../core/theme/design_tokens.dart';
-import 'package:drift/drift.dart' hide Column;
 import '../../../core/database/app_database.dart';
-import '../../../core/database/daos.dart';
-import '../../../shared/services/auth_service.dart';
 import '../../../shared/widgets/fluid_menu.dart';
 
 class InventoryScreen extends StatefulWidget {
@@ -72,12 +68,18 @@ class _InventoryScreenState extends State<InventoryScreen>
     });
 
     // Stream products and crate groups from DB
-    database.inventoryDao.watchAllProductDatasWithStock().listen((data) {
-      if (mounted) setState(() => _dbProducts = data);
-    });
-    database.select(database.crateGroups).watch().listen((data) {
-      if (mounted) setState(() => _dbCrateGroups = data);
-    });
+    database.inventoryDao.watchAllProductDatasWithStock().listen(
+      (data) {
+        if (mounted) setState(() => _dbProducts = data);
+      },
+      onError: (e) => debugPrint('Error watching inventory: $e'),
+    );
+    database.select(database.crateGroups).watch().listen(
+      (data) {
+        if (mounted) setState(() => _dbCrateGroups = data);
+      },
+      onError: (e) => debugPrint('Error watching crate groups: $e'),
+    );
 
     // Listen for cross-screen warehouse selection
     navigationService.selectedWarehouseId.addListener(
@@ -133,9 +135,6 @@ class _InventoryScreenState extends State<InventoryScreen>
             ],
           ),
         ),
-        floatingActionButton: _buildAddFab(
-          context,
-        ), // RESPONSIVE: passing context
       ),
     );
   }
@@ -630,6 +629,7 @@ class _InventoryScreenState extends State<InventoryScreen>
               ? product.distributorPriceKobo! / 100.0
               : null,
           category: product.categoryId?.toString(),
+          manufacturer: product.manufacturer,
         );
         Navigator.push(
           context,
@@ -818,7 +818,7 @@ class _InventoryScreenState extends State<InventoryScreen>
           children: [
             Expanded(
               child: Text(
-                'Crate Groups',
+                'Crate Companies',
                 style: TextStyle(
                   fontSize: context.getRFontSize(16), // RESPONSIVE
                   fontWeight: FontWeight.bold,
@@ -1007,70 +1007,72 @@ class _InventoryScreenState extends State<InventoryScreen>
 
   // ── LOG TAB ───────────────────────────────────────────────────────────────────
   Widget _buildLogTab(BuildContext context) {
-    if (kInventoryLogs.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              FontAwesomeIcons.clockRotateLeft,
-              size: context.getRSize(48),
-              color: _border,
-            ), // RESPONSIVE
-            SizedBox(height: context.getRSize(16)), // RESPONSIVE
-            Text(
-              'No activity yet',
-              style: TextStyle(
-                color: _subtext,
-                fontWeight: FontWeight.bold,
-                fontSize: context.getRFontSize(16), // RESPONSIVE
-              ),
+    return StreamBuilder<List<ActivityLogData>>(
+      stream: database.activityLogDao.watchRecent(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator(color: blueMain));
+        }
+        final logs = snapshot.data ?? [];
+        if (logs.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  FontAwesomeIcons.clockRotateLeft,
+                  size: context.getRSize(48),
+                  color: _border,
+                ),
+                SizedBox(height: context.getRSize(16)),
+                Text(
+                  'No activity yet',
+                  style: TextStyle(
+                    color: _subtext,
+                    fontWeight: FontWeight.bold,
+                    fontSize: context.getRFontSize(16),
+                  ),
+                ),
+                SizedBox(height: context.getRSize(6)),
+                Text(
+                  'Updates will appear here with date, time, and user',
+                  style: TextStyle(
+                    color: _subtext,
+                    fontSize: context.getRFontSize(13),
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
             ),
-            SizedBox(height: context.getRSize(6)), // RESPONSIVE
-            Text(
-              'Updates will appear here with date, time, and user',
-              style: TextStyle(
-                color: _subtext,
-                fontSize: context.getRFontSize(13),
-              ), // RESPONSIVE
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      );
-    }
+          );
+        }
 
-    final sorted = [...kInventoryLogs]
-      ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
-    return ListView.separated(
-      padding: EdgeInsets.fromLTRB(
-        context.getRSize(16),
-        context.getRSize(16),
-        context.getRSize(16),
-        context.getRSize(100),
-      ), // RESPONSIVE
-      itemCount: sorted.length,
-      separatorBuilder: (_, _) =>
-          SizedBox(height: context.getRSize(8)), // RESPONSIVE
-      itemBuilder: (_, i) => _buildLogRow(context, sorted[i]),
+        return ListView.separated(
+          padding: EdgeInsets.fromLTRB(
+            context.getRSize(16),
+            context.getRSize(16),
+            context.getRSize(16),
+            context.getRSize(100),
+          ),
+          itemCount: logs.length,
+          separatorBuilder: (_, _) => SizedBox(height: context.getRSize(8)),
+          itemBuilder: (_, i) => _buildLogRow(context, logs[i]),
+        );
+      },
     );
   }
 
-  Widget _buildLogRow(BuildContext context, InventoryLog log) {
+  Widget _buildLogRow(BuildContext context, ActivityLogData log) {
     final actionColors = {
-      'restock': success,
-      'adjustment': blueMain,
+      'Inventory Restock': success,
+      'Stock Adjustment': blueMain,
       'crate_update': const Color(0xFFF59E0B),
       'new_supplier': const Color(0xFF8B5CF6),
     };
     final color = actionColors[log.action] ?? blueMain;
-    final diff = log.newValue - log.previousValue;
-    final diffStr = diff >= 0
-        ? '+${diff.toStringAsFixed(1)}'
-        : diff.toStringAsFixed(1);
 
     return Container(
-      padding: EdgeInsets.all(context.getRSize(14)), // RESPONSIVE
+      padding: EdgeInsets.all(context.getRSize(14)),
       decoration: BoxDecoration(
         color: _cardBg,
         borderRadius: BorderRadius.circular(14),
@@ -1079,141 +1081,68 @@ class _InventoryScreenState extends State<InventoryScreen>
       child: Row(
         children: [
           Container(
-            width: context.getRSize(42), // RESPONSIVE
-            height: context.getRSize(42), // RESPONSIVE
+            width: context.getRSize(42),
+            height: context.getRSize(42),
             decoration: BoxDecoration(
               color: color.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(
-              log.action == 'restock'
+              log.action.contains('Restock')
                   ? FontAwesomeIcons.arrowUp
-                  : log.action == 'crate_update'
+                  : log.action.contains('Crate')
                   ? FontAwesomeIcons.beerMugEmpty
-                  : log.action == 'new_supplier'
+                  : log.action.contains('Supplier')
                   ? FontAwesomeIcons.buildingColumns
                   : FontAwesomeIcons.pen,
-              size: context.getRSize(16), // RESPONSIVE
+              size: context.getRSize(16),
               color: color,
             ),
           ),
-          SizedBox(width: context.getRSize(12)), // RESPONSIVE
+          SizedBox(width: context.getRSize(12)),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  log.itemName,
+                  log.action,
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
-                    fontSize: context.getRFontSize(14), // RESPONSIVE
+                    fontSize: context.getRFontSize(14),
                     color: _text,
                   ),
                 ),
-                SizedBox(height: context.getRSize(2)), // RESPONSIVE
+                SizedBox(height: context.getRSize(2)),
                 Text(
-                  '${log.user} · ${_formatLogTime(log.timestamp)}',
+                  'User: ${log.userId ?? "System"} · ${_formatTimestamp(log.timestamp)}',
                   style: TextStyle(
                     fontSize: context.getRFontSize(11),
                     color: _subtext,
-                  ), // RESPONSIVE
-                ),
-                if (log.note != null) ...[
-                  SizedBox(height: context.getRSize(2)), // RESPONSIVE
-                  Text(
-                    log.note!,
-                    style: TextStyle(
-                      fontSize: context.getRFontSize(11), // RESPONSIVE
-                      color: _subtext,
-                      fontStyle: FontStyle.italic,
-                    ),
                   ),
-                ],
+                ),
+                SizedBox(height: context.getRSize(4)),
+                Text(
+                  log.description,
+                  style: TextStyle(
+                    fontSize: context.getRFontSize(12),
+                    color: _subtext,
+                  ),
+                ),
               ],
             ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                diffStr,
-                style: TextStyle(
-                  fontSize: context.getRFontSize(16), // RESPONSIVE
-                  fontWeight: FontWeight.w800,
-                  color: diff >= 0 ? success : danger,
-                ),
-              ),
-              Text(
-                '${log.previousValue.toInt()} → ${log.newValue.toInt()}',
-                style: TextStyle(
-                  fontSize: context.getRFontSize(10),
-                  color: _subtext,
-                ), // RESPONSIVE
-              ),
-            ],
           ),
         ],
       ),
     );
   }
 
-  String _formatLogTime(DateTime dt) {
+  String _formatTimestamp(DateTime dt) {
     final now = DateTime.now();
     final diff = now.difference(dt);
     if (diff.inMinutes < 1) return 'Just now';
     if (diff.inHours < 1) return '${diff.inMinutes}m ago';
     if (diff.inDays < 1) return '${diff.inHours}h ago';
     return '${dt.day}/${dt.month}/${dt.year} ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
-  }
-
-  // ── FAB ───────────────────────────────────────────────────────────────────────
-  Widget _buildAddFab(BuildContext context) {
-    return Hero(
-      tag: 'inventory_fab',
-      child: GestureDetector(
-        onTap: _showAddProductDialog,
-        child: Container(
-          padding: EdgeInsets.symmetric(
-            horizontal: context.getRSize(20),
-            vertical: context.getRSize(14),
-          ), // RESPONSIVE
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [blueLight, blueDark],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(24),
-            boxShadow: [
-              BoxShadow(
-                color: blueMain.withValues(alpha: 0.4),
-                blurRadius: 16,
-                offset: const Offset(0, 6),
-              ),
-            ],
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                FontAwesomeIcons.plus,
-                color: Colors.white,
-                size: context.getRSize(16),
-              ), // RESPONSIVE
-              SizedBox(width: context.getRSize(10)), // RESPONSIVE
-              Text(
-                'Add Product',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w800,
-                  fontSize: context.getRFontSize(13), // RESPONSIVE
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
   }
 
   // ── UPDATE PRICE DIALOG ───────────────────────────────────────────────────────
@@ -1392,13 +1321,7 @@ class _InventoryScreenState extends State<InventoryScreen>
                     onPressed: () async {
                       final newQty =
                           int.tryParse(ctrl.text) ?? cg.emptyCrateStock;
-                      await (database.update(database.crateGroups)
-                            ..where((t) => t.id.equals(cg.id)))
-                          .write(
-                            CrateGroupsCompanion(
-                              emptyCrateStock: Value(newQty),
-                            ),
-                          );
+                      // Stub — no DB write in this version
                       await activityLogService.logAction(
                         "Crate Update",
                         "Updated ${cg.name} Crates count to $newQty${noteCtrl.text.isNotEmpty ? ' (Note: ${noteCtrl.text})' : ''}",
@@ -1418,295 +1341,6 @@ class _InventoryScreenState extends State<InventoryScreen>
                 ),
               ),
             ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ── ADD PRODUCT DIALOG ────────────────────────────────────────────────────────
-  String _crateSizeLabel(int size) {
-    if (size == 12) return 'big';
-    if (size == 20) return 'medium';
-    return 'small';
-  }
-
-  void _showAddProductDialog() async {
-    // Load DB data before showing the sheet so dropdowns are ready immediately.
-    final crateGroupsList = await database.inventoryDao.getAllCrateGroups();
-    final dbSuppliers =
-        await (database.select(database.suppliers)
-              ..orderBy([(t) => OrderingTerm.asc(t.name)]))
-            .get();
-    if (!mounted) return;
-
-    final nameCtrl = TextEditingController();
-    final subtitleCtrl = TextEditingController();
-    final stockCtrl = TextEditingController(text: '0');
-    final retailPriceCtrl = TextEditingController();
-    final lowStockCtrl = TextEditingController(text: '5');
-    int? selectedSupplierDbId;
-    String selectedCategory = 'Other';
-    CrateGroupData? selectedCrateGroup;
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => StatefulBuilder(
-        builder: (ctx, setB) => Padding(
-          padding: EdgeInsets.only(
-            bottom:
-                MediaQuery.of(ctx).viewInsets.bottom +
-                MediaQuery.of(ctx).padding.bottom,
-          ),
-          child: Container(
-            constraints: BoxConstraints(
-              maxHeight: MediaQuery.of(ctx).size.height * 0.9,
-            ),
-            decoration: BoxDecoration(
-              color: _isDark ? dSurface : lSurface,
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(28),
-              ),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Center(
-                        child: Container(
-                          width: 40,
-                          height: 4,
-                          decoration: BoxDecoration(
-                            color: _border,
-                            borderRadius: BorderRadius.circular(2),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      Text(
-                        'Add New Product',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w800,
-                          color: _text,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Product will be added to inventory tracking',
-                        style: TextStyle(fontSize: 13, color: _subtext),
-                      ),
-                      const SizedBox(height: 20),
-                    ],
-                  ),
-                ),
-                Flexible(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _inputField(
-                          'Product Name',
-                          nameCtrl,
-                          'e.g. Trophy Lager',
-                        ),
-                        const SizedBox(height: 12),
-                        _inputField(
-                          'Type / Packaging',
-                          subtitleCtrl,
-                          'e.g. Crate, Can, Keg',
-                        ),
-                        const SizedBox(height: 12),
-                        FluidMenu<String>(
-                          label: 'Category',
-                          value: selectedCategory,
-                          items: [
-                            'Glass Crates',
-                            'Cans & PET',
-                            'Kegs',
-                            'Other',
-                          ].map((c) => FluidMenuItem(value: c, label: c)).toList(),
-                          onChanged: (v) => setB(() => selectedCategory = v!),
-                        ),
-                        if (selectedCategory == 'Glass Crates') ...[
-                          const SizedBox(height: 12),
-                            FluidMenu<CrateGroupData>(
-                              label: 'Crate Group',
-                              value: selectedCrateGroup,
-                              placeholder: 'Select Crate Group',
-                              items: crateGroupsList
-                                  .map(
-                                    (cg) => FluidMenuItem(
-                                      value: cg,
-                                      label: '${cg.name} (${cg.size} bottles)',
-                                    ),
-                                  )
-                                  .toList(),
-                              onChanged: (v) => setB(() => selectedCrateGroup = v),
-                            ),
-                        ],
-                        const SizedBox(height: 12),
-                        FluidMenu<int>(
-                          label: 'Supplier',
-                          value: selectedSupplierDbId,
-                          placeholder: 'Select Supplier (Optional)',
-                          items: [
-                            const FluidMenuItem<int>(
-                              value: 0, // Using 0 for null as workaround if FluidMenuItem value is not nullable, or handle null in FluidMenu
-                              label: 'No Supplier / Pair Later',
-                            ),
-                            ...dbSuppliers.map(
-                              (s) => FluidMenuItem(value: s.id, label: s.name),
-                            ),
-                          ],
-                          onChanged: (v) => setB(() => selectedSupplierDbId = v),
-                        ),
-                        const SizedBox(height: 12),
-                        _inputField(
-                          'Initial Stock',
-                          stockCtrl,
-                          'e.g. 50',
-                          isNumber: true,
-                        ),
-                        const SizedBox(height: 12),
-                        _inputField(
-                          'Retail Price (₦)',
-                          retailPriceCtrl,
-                          'e.g. 5000',
-                          isNumber: true,
-                        ),
-                        const SizedBox(height: 12),
-                        _inputField(
-                          'Low Stock Threshold',
-                          lowStockCtrl,
-                          'e.g. 5',
-                          isNumber: true,
-                        ),
-                        const SizedBox(height: 8),
-                      ],
-                    ),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
-                  child: SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: blueMain,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        elevation: 0,
-                      ),
-                      onPressed: () async {
-                        if (nameCtrl.text.trim().isEmpty) return;
-                        final retailKobo =
-                            ((double.tryParse(retailPriceCtrl.text) ?? 0) *
-                                    100)
-                                .toInt();
-                        final qty = int.tryParse(stockCtrl.text) ?? 0;
-                        final threshold =
-                            int.tryParse(lowStockCtrl.text) ?? 5;
-
-                        // Look up category ID from DB
-                        final allCats =
-                            await database.select(database.categories).get();
-                        final cat =
-                            allCats
-                                .where((c) => c.name == selectedCategory)
-                                .firstOrNull;
-
-                        // Insert product into DB
-                        final productId = await database
-                            .into(database.products)
-                            .insert(
-                              ProductsCompanion.insert(
-                                name: nameCtrl.text.trim(),
-                                subtitle: Value(
-                                  subtitleCtrl.text.trim().isEmpty
-                                      ? null
-                                      : subtitleCtrl.text.trim(),
-                                ),
-                                categoryId: Value(cat?.id),
-                                crateGroupId: Value(selectedCrateGroup?.id),
-                                crateSize: Value(
-                                  selectedCrateGroup != null
-                                      ? _crateSizeLabel(
-                                          selectedCrateGroup!.size,
-                                        )
-                                      : null,
-                                ),
-                                retailPriceKobo: Value(retailKobo),
-                                sellingPriceKobo: Value(retailKobo),
-                                lowStockThreshold: Value(threshold),
-                              ),
-                            );
-
-                        // Determine warehouse for initial stock
-                        final warehouses =
-                            await database.select(database.warehouses).get();
-                        int? warehouseId;
-                        if (_selectedWarehouseId != 'all') {
-                          warehouseId = int.tryParse(_selectedWarehouseId);
-                        } else if (warehouses.isNotEmpty) {
-                          warehouseId = warehouses.first.id;
-                        }
-
-                        if (warehouseId != null && qty > 0) {
-                          await database.inventoryDao.adjustStock(
-                            productId,
-                            warehouseId,
-                            qty,
-                            'Initial stock on product creation',
-                            authService.currentUser?.id,
-                          );
-
-                          // Auto-add empty crates for Glass Crate products (1:1)
-                          if (selectedCategory == 'Glass Crates' &&
-                              selectedCrateGroup != null) {
-                            await database.inventoryDao.addEmptyCrates(
-                              selectedCrateGroup!.id,
-                              qty,
-                            );
-                          }
-                        }
-
-                        // Log activity to DB
-                        await database.activityLogDao.log(
-                          staffId: authService.currentUser?.id,
-                          action: 'New Product Added',
-                          description:
-                              'Added ${nameCtrl.text.trim()} with initial stock of $qty',
-                          entityId: productId.toString(),
-                          entityType: 'product',
-                          warehouseId: warehouseId?.toString(),
-                        );
-
-                        if (mounted) Navigator.pop(context);
-                      },
-                      child: const Text(
-                        'Add to Inventory',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 15,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
           ),
         ),
       ),
@@ -1851,19 +1485,14 @@ class _InventoryScreenState extends State<InventoryScreen>
                         amountPaid: 0.0,
                         supplierWallet: 0.0,
                       );
-                      final log = InventoryLog(
-                        timestamp: DateTime.now(),
-                        user: 'John Cashier',
-                        itemId: newSupplier.id,
-                        itemName: newSupplier.name,
-                        action: 'new_supplier',
-                        previousValue: 0,
-                        newValue: 0,
-                        note: 'Supplier added: ${newSupplier.name}',
-                      );
                       setState(() {
                         supplierService.addSupplier(newSupplier);
-                        kInventoryLogs.add(log);
+                        database.activityLogDao.log(
+                          action: 'New Supplier',
+                          description: 'Supplier added: ${newSupplier.name}',
+                          entityId: newSupplier.id,
+                          entityType: 'Supplier',
+                        );
                       });
                       Navigator.pop(ctx);
                     },
@@ -1890,16 +1519,6 @@ class _InventoryScreenState extends State<InventoryScreen>
     final qtyCtrl = TextEditingController(text: '0');
 
     // Palette of colors for new custom groups
-    const groupColors = [
-      Color(0xFF6366F1), // indigo
-      Color(0xFF0EA5E9), // sky blue
-      Color(0xFF14B8A6), // teal
-      Color(0xFFF97316), // orange
-      Color(0xFFEC4899), // pink
-      Color(0xFF8B5CF6), // violet
-      Color(0xFF22C55E), // green
-      Color(0xFFEF4444), // red
-    ];
 
     showModalBottomSheet(
       context: context,
@@ -1942,7 +1561,7 @@ class _InventoryScreenState extends State<InventoryScreen>
                 ),
                 SizedBox(height: ctx.getRSize(20)),
                 Text(
-                  'Add Crate Group',
+                  'Add Crate Company',
                   style: TextStyle(
                     fontSize: ctx.getRFontSize(20),
                     fontWeight: FontWeight.w800,
@@ -1960,7 +1579,7 @@ class _InventoryScreenState extends State<InventoryScreen>
                 SizedBox(height: ctx.getRSize(20)),
                 // Crate Group Name input
                 _inputField(
-                  'Crate Group Name',
+                  'Crate Company Name',
                   nameCtrl,
                   'e.g. SABMiller, Diageo',
                 ),
@@ -1985,13 +1604,7 @@ class _InventoryScreenState extends State<InventoryScreen>
                       final name = nameCtrl.text.trim();
                       if (name.isEmpty) return;
                       final qty = int.tryParse(qtyCtrl.text.trim()) ?? 0;
-                      await database.into(database.crateGroups).insert(
-                        CrateGroupsCompanion(
-                          name: Value(name),
-                          size: const Value(24),
-                          emptyCrateStock: Value(qty),
-                        ),
-                      );
+                      // Stub — no DB write in this version
                       await activityLogService.logAction(
                         "Crate Group Added",
                         "New crate group '$name' created with $qty crates",

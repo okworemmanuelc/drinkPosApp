@@ -84,7 +84,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _customersSub = database.customersDao.watchAllCustomers().listen((
       customers,
     ) {
-      if (mounted) setState(() => _customers = customers);
+      if (mounted) setState(() => _customers = customers.map((d) => Customer.fromDb(d)).toList());
     });
 
     _inventorySub = database.inventoryDao

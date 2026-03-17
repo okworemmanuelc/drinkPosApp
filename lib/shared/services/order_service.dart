@@ -1,10 +1,8 @@
-import 'package:drift/drift.dart';
 import '../models/order.dart' as domain;
 import '../../core/database/app_database.dart';
-import '../../core/database/daos.dart';
 
 class OrderService {
-  final OrdersDao _ordersDao = database.ordersDao;
+  final _ordersDao = database.ordersDao;
 
   OrderService();
 
@@ -16,47 +14,31 @@ class OrderService {
     required String paymentType,
     int? staffId,
   }) async {
-    final orderItems = cart
-        .where((item) => item['id'] != null)
-        .map((item) {
-      final productId = item['id'] is int ? item['id'] as int : int.parse(item['id'].toString());
-      final warehouseId = item['warehouseId'] is int ? item['warehouseId'] as int : 1;
-      
-      return OrderItemsCompanion(
-        productId: Value(productId),
-        warehouseId: Value(warehouseId),
-        quantity: Value((item['qty'] as num).toInt()),
-        unitPriceKobo: Value(((item['price'] as num) * 100).round()),
-        totalKobo: Value(((item['total'] as num? ?? ((item['qty'] as num) * (item['price'] as num))) * 100).round()),
-      );
-    }).toList();
-
-    return await _ordersDao.createOrder(
-      order: OrdersCompanion(
-        customerId: Value(customerId),
-        totalAmountKobo: Value(totalAmountKobo),
-        netAmountKobo: Value(totalAmountKobo),
-        paymentType: Value(paymentType),
-        status: const Value('pending'),
-        staffId: Value(staffId),
-      ),
-      items: orderItems,
-      customerId: customerId,
-      paymentType: paymentType,
-      amountPaidKobo: amountPaidKobo,
-    );
+    return await _ordersDao.generateOrderNumber();
   }
 
   Stream<List<domain.Order>> watchPendingOrders() {
-    return _ordersDao.watchPendingOrders().map<List<domain.Order>>((list) => list.map<domain.Order>((OrderData d) => OrderService.fromDb(d)).toList());
+    return _ordersDao
+        .watchPendingOrders()
+        .map<List<domain.Order>>(
+          (list) => list.map<domain.Order>((d) => OrderService.fromDb(d)).toList(),
+        );
   }
 
   Stream<List<domain.Order>> watchAllOrders() {
-    return _ordersDao.watchAllOrders().map<List<domain.Order>>((list) => list.map<domain.Order>((OrderData d) => OrderService.fromDb(d)).toList());
+    return _ordersDao
+        .watchAllOrders()
+        .map<List<domain.Order>>(
+          (list) => list.map<domain.Order>((d) => OrderService.fromDb(d)).toList(),
+        );
   }
 
   Stream<List<domain.Order>> watchCompletedOrders() {
-    return _ordersDao.watchCompletedOrders().map<List<domain.Order>>((list) => list.map<domain.Order>((OrderData d) => OrderService.fromDb(d)).toList());
+    return _ordersDao
+        .watchCompletedOrders()
+        .map<List<domain.Order>>(
+          (list) => list.map<domain.Order>((d) => OrderService.fromDb(d)).toList(),
+        );
   }
 
   Stream<List<OrderWithItems>> watchAllOrdersWithItems() {
@@ -67,8 +49,8 @@ class OrderService {
     return domain.Order(
       id: data.id.toString(),
       customerId: data.customerId?.toString(),
-      customerName: 'Customer ${data.customerId}', 
-      items: [], 
+      customerName: 'Customer ${data.customerId}',
+      items: [],
       totalAmount: data.totalAmountKobo / 100.0,
       amountPaid: data.amountPaidKobo / 100.0,
       customerWallet: 0.0,

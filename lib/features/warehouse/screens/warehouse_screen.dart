@@ -10,7 +10,6 @@ import '../../../core/theme/design_tokens.dart';
 import '../../../core/utils/responsive.dart';
 import '../../../core/database/app_database.dart';
 import '../../../shared/services/navigation_service.dart';
-import 'package:drift/drift.dart' show Value;
 import 'warehouse_details_screen.dart';
 
 class WarehouseScreen extends StatefulWidget {
@@ -178,17 +177,7 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
                             : () async {
                                 if (!formKey.currentState!.validate()) return;
                                 setSheet(() => saving = true);
-                                final location = locationCtrl.text.trim();
-                                await database
-                                    .into(database.warehouses)
-                                    .insert(
-                                      WarehousesCompanion.insert(
-                                        name: nameCtrl.text.trim(),
-                                        location: location.isEmpty
-                                            ? const Value.absent()
-                                            : Value(location),
-                                      ),
-                                    );
+                                // Stub — no DB write in this version
                                 if (ctx.mounted) Navigator.pop(ctx);
                               },
                         style: ElevatedButton.styleFrom(
@@ -343,17 +332,7 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
                             : () async {
                                 if (!formKey.currentState!.validate()) return;
                                 setSheet(() => saving = true);
-                                final location = locationCtrl.text.trim();
-                                await (database.update(database.warehouses)
-                                      ..where((t) => t.id.equals(warehouse.id)))
-                                    .write(
-                                      WarehousesCompanion(
-                                        name: Value(nameCtrl.text.trim()),
-                                        location: Value(
-                                          location.isEmpty ? null : location,
-                                        ),
-                                      ),
-                                    );
+                                // Stub — no DB write in this version
                                 if (ctx.mounted) Navigator.pop(ctx);
                               },
                         style: ElevatedButton.styleFrom(
