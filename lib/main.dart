@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/theme_notifier.dart';
 
+import 'core/database/app_database.dart';
 import 'shared/widgets/main_layout.dart';
 
 void main() async {
@@ -12,6 +13,9 @@ void main() async {
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(statusBarColor: Colors.transparent),
   );
+
+  // Warm up the DB isolate immediately — runs in background while Flutter renders
+  database.customSelect('SELECT 1').get().ignore();
 
   runApp(const RibaplusPosApp());
 }

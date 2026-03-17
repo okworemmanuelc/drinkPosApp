@@ -74,6 +74,9 @@ class Products extends Table {
   BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
   IntColumn get lowStockThreshold => integer().withDefault(const Constant(5))();
   TextColumn get manufacturer => text().nullable()();
+  RealColumn get avgDailySales => real().withDefault(const Constant(0.0))();
+  IntColumn get leadTimeDays => integer().withDefault(const Constant(0))();
+  IntColumn get safetyStockQty => integer().withDefault(const Constant(0))();
 }
 
 // 6. Inventory
@@ -426,7 +429,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 10;
+  int get schemaVersion => 11;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(

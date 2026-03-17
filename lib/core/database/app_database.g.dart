@@ -1702,6 +1702,42 @@ class $ProductsTable extends Products
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _avgDailySalesMeta = const VerificationMeta(
+    'avgDailySales',
+  );
+  @override
+  late final GeneratedColumn<double> avgDailySales = GeneratedColumn<double>(
+    'avg_daily_sales',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0.0),
+  );
+  static const VerificationMeta _leadTimeDaysMeta = const VerificationMeta(
+    'leadTimeDays',
+  );
+  @override
+  late final GeneratedColumn<int> leadTimeDays = GeneratedColumn<int>(
+    'lead_time_days',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _safetyStockQtyMeta = const VerificationMeta(
+    'safetyStockQty',
+  );
+  @override
+  late final GeneratedColumn<int> safetyStockQty = GeneratedColumn<int>(
+    'safety_stock_qty',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -1723,6 +1759,9 @@ class $ProductsTable extends Products
     isDeleted,
     lowStockThreshold,
     manufacturer,
+    avgDailySales,
+    leadTimeDays,
+    safetyStockQty,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -1879,6 +1918,33 @@ class $ProductsTable extends Products
         ),
       );
     }
+    if (data.containsKey('avg_daily_sales')) {
+      context.handle(
+        _avgDailySalesMeta,
+        avgDailySales.isAcceptableOrUnknown(
+          data['avg_daily_sales']!,
+          _avgDailySalesMeta,
+        ),
+      );
+    }
+    if (data.containsKey('lead_time_days')) {
+      context.handle(
+        _leadTimeDaysMeta,
+        leadTimeDays.isAcceptableOrUnknown(
+          data['lead_time_days']!,
+          _leadTimeDaysMeta,
+        ),
+      );
+    }
+    if (data.containsKey('safety_stock_qty')) {
+      context.handle(
+        _safetyStockQtyMeta,
+        safetyStockQty.isAcceptableOrUnknown(
+          data['safety_stock_qty']!,
+          _safetyStockQtyMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -1964,6 +2030,18 @@ class $ProductsTable extends Products
         DriftSqlType.string,
         data['${effectivePrefix}manufacturer'],
       ),
+      avgDailySales: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}avg_daily_sales'],
+      )!,
+      leadTimeDays: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}lead_time_days'],
+      )!,
+      safetyStockQty: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}safety_stock_qty'],
+      )!,
     );
   }
 
@@ -1993,6 +2071,9 @@ class ProductData extends DataClass implements Insertable<ProductData> {
   final bool isDeleted;
   final int lowStockThreshold;
   final String? manufacturer;
+  final double avgDailySales;
+  final int leadTimeDays;
+  final int safetyStockQty;
   const ProductData({
     required this.id,
     this.categoryId,
@@ -2013,6 +2094,9 @@ class ProductData extends DataClass implements Insertable<ProductData> {
     required this.isDeleted,
     required this.lowStockThreshold,
     this.manufacturer,
+    required this.avgDailySales,
+    required this.leadTimeDays,
+    required this.safetyStockQty,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -2056,6 +2140,9 @@ class ProductData extends DataClass implements Insertable<ProductData> {
     if (!nullToAbsent || manufacturer != null) {
       map['manufacturer'] = Variable<String>(manufacturer);
     }
+    map['avg_daily_sales'] = Variable<double>(avgDailySales);
+    map['lead_time_days'] = Variable<int>(leadTimeDays);
+    map['safety_stock_qty'] = Variable<int>(safetyStockQty);
     return map;
   }
 
@@ -2098,6 +2185,9 @@ class ProductData extends DataClass implements Insertable<ProductData> {
       manufacturer: manufacturer == null && nullToAbsent
           ? const Value.absent()
           : Value(manufacturer),
+      avgDailySales: Value(avgDailySales),
+      leadTimeDays: Value(leadTimeDays),
+      safetyStockQty: Value(safetyStockQty),
     );
   }
 
@@ -2130,6 +2220,9 @@ class ProductData extends DataClass implements Insertable<ProductData> {
       isDeleted: serializer.fromJson<bool>(json['isDeleted']),
       lowStockThreshold: serializer.fromJson<int>(json['lowStockThreshold']),
       manufacturer: serializer.fromJson<String?>(json['manufacturer']),
+      avgDailySales: serializer.fromJson<double>(json['avgDailySales']),
+      leadTimeDays: serializer.fromJson<int>(json['leadTimeDays']),
+      safetyStockQty: serializer.fromJson<int>(json['safetyStockQty']),
     );
   }
   @override
@@ -2155,6 +2248,9 @@ class ProductData extends DataClass implements Insertable<ProductData> {
       'isDeleted': serializer.toJson<bool>(isDeleted),
       'lowStockThreshold': serializer.toJson<int>(lowStockThreshold),
       'manufacturer': serializer.toJson<String?>(manufacturer),
+      'avgDailySales': serializer.toJson<double>(avgDailySales),
+      'leadTimeDays': serializer.toJson<int>(leadTimeDays),
+      'safetyStockQty': serializer.toJson<int>(safetyStockQty),
     };
   }
 
@@ -2178,6 +2274,9 @@ class ProductData extends DataClass implements Insertable<ProductData> {
     bool? isDeleted,
     int? lowStockThreshold,
     Value<String?> manufacturer = const Value.absent(),
+    double? avgDailySales,
+    int? leadTimeDays,
+    int? safetyStockQty,
   }) => ProductData(
     id: id ?? this.id,
     categoryId: categoryId.present ? categoryId.value : this.categoryId,
@@ -2204,6 +2303,9 @@ class ProductData extends DataClass implements Insertable<ProductData> {
     isDeleted: isDeleted ?? this.isDeleted,
     lowStockThreshold: lowStockThreshold ?? this.lowStockThreshold,
     manufacturer: manufacturer.present ? manufacturer.value : this.manufacturer,
+    avgDailySales: avgDailySales ?? this.avgDailySales,
+    leadTimeDays: leadTimeDays ?? this.leadTimeDays,
+    safetyStockQty: safetyStockQty ?? this.safetyStockQty,
   );
   ProductData copyWithCompanion(ProductsCompanion data) {
     return ProductData(
@@ -2248,6 +2350,15 @@ class ProductData extends DataClass implements Insertable<ProductData> {
       manufacturer: data.manufacturer.present
           ? data.manufacturer.value
           : this.manufacturer,
+      avgDailySales: data.avgDailySales.present
+          ? data.avgDailySales.value
+          : this.avgDailySales,
+      leadTimeDays: data.leadTimeDays.present
+          ? data.leadTimeDays.value
+          : this.leadTimeDays,
+      safetyStockQty: data.safetyStockQty.present
+          ? data.safetyStockQty.value
+          : this.safetyStockQty,
     );
   }
 
@@ -2272,13 +2383,16 @@ class ProductData extends DataClass implements Insertable<ProductData> {
           ..write('isAvailable: $isAvailable, ')
           ..write('isDeleted: $isDeleted, ')
           ..write('lowStockThreshold: $lowStockThreshold, ')
-          ..write('manufacturer: $manufacturer')
+          ..write('manufacturer: $manufacturer, ')
+          ..write('avgDailySales: $avgDailySales, ')
+          ..write('leadTimeDays: $leadTimeDays, ')
+          ..write('safetyStockQty: $safetyStockQty')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(
+  int get hashCode => Object.hashAll([
     id,
     categoryId,
     crateGroupId,
@@ -2298,7 +2412,10 @@ class ProductData extends DataClass implements Insertable<ProductData> {
     isDeleted,
     lowStockThreshold,
     manufacturer,
-  );
+    avgDailySales,
+    leadTimeDays,
+    safetyStockQty,
+  ]);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -2321,7 +2438,10 @@ class ProductData extends DataClass implements Insertable<ProductData> {
           other.isAvailable == this.isAvailable &&
           other.isDeleted == this.isDeleted &&
           other.lowStockThreshold == this.lowStockThreshold &&
-          other.manufacturer == this.manufacturer);
+          other.manufacturer == this.manufacturer &&
+          other.avgDailySales == this.avgDailySales &&
+          other.leadTimeDays == this.leadTimeDays &&
+          other.safetyStockQty == this.safetyStockQty);
 }
 
 class ProductsCompanion extends UpdateCompanion<ProductData> {
@@ -2344,6 +2464,9 @@ class ProductsCompanion extends UpdateCompanion<ProductData> {
   final Value<bool> isDeleted;
   final Value<int> lowStockThreshold;
   final Value<String?> manufacturer;
+  final Value<double> avgDailySales;
+  final Value<int> leadTimeDays;
+  final Value<int> safetyStockQty;
   const ProductsCompanion({
     this.id = const Value.absent(),
     this.categoryId = const Value.absent(),
@@ -2364,6 +2487,9 @@ class ProductsCompanion extends UpdateCompanion<ProductData> {
     this.isDeleted = const Value.absent(),
     this.lowStockThreshold = const Value.absent(),
     this.manufacturer = const Value.absent(),
+    this.avgDailySales = const Value.absent(),
+    this.leadTimeDays = const Value.absent(),
+    this.safetyStockQty = const Value.absent(),
   });
   ProductsCompanion.insert({
     this.id = const Value.absent(),
@@ -2385,6 +2511,9 @@ class ProductsCompanion extends UpdateCompanion<ProductData> {
     this.isDeleted = const Value.absent(),
     this.lowStockThreshold = const Value.absent(),
     this.manufacturer = const Value.absent(),
+    this.avgDailySales = const Value.absent(),
+    this.leadTimeDays = const Value.absent(),
+    this.safetyStockQty = const Value.absent(),
   }) : name = Value(name);
   static Insertable<ProductData> custom({
     Expression<int>? id,
@@ -2406,6 +2535,9 @@ class ProductsCompanion extends UpdateCompanion<ProductData> {
     Expression<bool>? isDeleted,
     Expression<int>? lowStockThreshold,
     Expression<String>? manufacturer,
+    Expression<double>? avgDailySales,
+    Expression<int>? leadTimeDays,
+    Expression<int>? safetyStockQty,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -2429,6 +2561,9 @@ class ProductsCompanion extends UpdateCompanion<ProductData> {
       if (isDeleted != null) 'is_deleted': isDeleted,
       if (lowStockThreshold != null) 'low_stock_threshold': lowStockThreshold,
       if (manufacturer != null) 'manufacturer': manufacturer,
+      if (avgDailySales != null) 'avg_daily_sales': avgDailySales,
+      if (leadTimeDays != null) 'lead_time_days': leadTimeDays,
+      if (safetyStockQty != null) 'safety_stock_qty': safetyStockQty,
     });
   }
 
@@ -2452,6 +2587,9 @@ class ProductsCompanion extends UpdateCompanion<ProductData> {
     Value<bool>? isDeleted,
     Value<int>? lowStockThreshold,
     Value<String?>? manufacturer,
+    Value<double>? avgDailySales,
+    Value<int>? leadTimeDays,
+    Value<int>? safetyStockQty,
   }) {
     return ProductsCompanion(
       id: id ?? this.id,
@@ -2473,6 +2611,9 @@ class ProductsCompanion extends UpdateCompanion<ProductData> {
       isDeleted: isDeleted ?? this.isDeleted,
       lowStockThreshold: lowStockThreshold ?? this.lowStockThreshold,
       manufacturer: manufacturer ?? this.manufacturer,
+      avgDailySales: avgDailySales ?? this.avgDailySales,
+      leadTimeDays: leadTimeDays ?? this.leadTimeDays,
+      safetyStockQty: safetyStockQty ?? this.safetyStockQty,
     );
   }
 
@@ -2538,6 +2679,15 @@ class ProductsCompanion extends UpdateCompanion<ProductData> {
     if (manufacturer.present) {
       map['manufacturer'] = Variable<String>(manufacturer.value);
     }
+    if (avgDailySales.present) {
+      map['avg_daily_sales'] = Variable<double>(avgDailySales.value);
+    }
+    if (leadTimeDays.present) {
+      map['lead_time_days'] = Variable<int>(leadTimeDays.value);
+    }
+    if (safetyStockQty.present) {
+      map['safety_stock_qty'] = Variable<int>(safetyStockQty.value);
+    }
     return map;
   }
 
@@ -2562,7 +2712,10 @@ class ProductsCompanion extends UpdateCompanion<ProductData> {
           ..write('isAvailable: $isAvailable, ')
           ..write('isDeleted: $isDeleted, ')
           ..write('lowStockThreshold: $lowStockThreshold, ')
-          ..write('manufacturer: $manufacturer')
+          ..write('manufacturer: $manufacturer, ')
+          ..write('avgDailySales: $avgDailySales, ')
+          ..write('leadTimeDays: $leadTimeDays, ')
+          ..write('safetyStockQty: $safetyStockQty')
           ..write(')'))
         .toString();
   }
@@ -15602,6 +15755,9 @@ typedef $$ProductsTableCreateCompanionBuilder =
       Value<bool> isDeleted,
       Value<int> lowStockThreshold,
       Value<String?> manufacturer,
+      Value<double> avgDailySales,
+      Value<int> leadTimeDays,
+      Value<int> safetyStockQty,
     });
 typedef $$ProductsTableUpdateCompanionBuilder =
     ProductsCompanion Function({
@@ -15624,6 +15780,9 @@ typedef $$ProductsTableUpdateCompanionBuilder =
       Value<bool> isDeleted,
       Value<int> lowStockThreshold,
       Value<String?> manufacturer,
+      Value<double> avgDailySales,
+      Value<int> leadTimeDays,
+      Value<int> safetyStockQty,
     });
 
 final class $$ProductsTableReferences
@@ -15922,6 +16081,21 @@ class $$ProductsTableFilterComposer
 
   ColumnFilters<String> get manufacturer => $composableBuilder(
     column: $table.manufacturer,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get avgDailySales => $composableBuilder(
+    column: $table.avgDailySales,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get leadTimeDays => $composableBuilder(
+    column: $table.leadTimeDays,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get safetyStockQty => $composableBuilder(
+    column: $table.safetyStockQty,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -16266,6 +16440,21 @@ class $$ProductsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<double> get avgDailySales => $composableBuilder(
+    column: $table.avgDailySales,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get leadTimeDays => $composableBuilder(
+    column: $table.leadTimeDays,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get safetyStockQty => $composableBuilder(
+    column: $table.safetyStockQty,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$CategoriesTableOrderingComposer get categoryId {
     final $$CategoriesTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -16388,6 +16577,21 @@ class $$ProductsTableAnnotationComposer
 
   GeneratedColumn<String> get manufacturer => $composableBuilder(
     column: $table.manufacturer,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get avgDailySales => $composableBuilder(
+    column: $table.avgDailySales,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get leadTimeDays => $composableBuilder(
+    column: $table.leadTimeDays,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get safetyStockQty => $composableBuilder(
+    column: $table.safetyStockQty,
     builder: (column) => column,
   );
 
@@ -16697,6 +16901,9 @@ class $$ProductsTableTableManager
                 Value<bool> isDeleted = const Value.absent(),
                 Value<int> lowStockThreshold = const Value.absent(),
                 Value<String?> manufacturer = const Value.absent(),
+                Value<double> avgDailySales = const Value.absent(),
+                Value<int> leadTimeDays = const Value.absent(),
+                Value<int> safetyStockQty = const Value.absent(),
               }) => ProductsCompanion(
                 id: id,
                 categoryId: categoryId,
@@ -16717,6 +16924,9 @@ class $$ProductsTableTableManager
                 isDeleted: isDeleted,
                 lowStockThreshold: lowStockThreshold,
                 manufacturer: manufacturer,
+                avgDailySales: avgDailySales,
+                leadTimeDays: leadTimeDays,
+                safetyStockQty: safetyStockQty,
               ),
           createCompanionCallback:
               ({
@@ -16739,6 +16949,9 @@ class $$ProductsTableTableManager
                 Value<bool> isDeleted = const Value.absent(),
                 Value<int> lowStockThreshold = const Value.absent(),
                 Value<String?> manufacturer = const Value.absent(),
+                Value<double> avgDailySales = const Value.absent(),
+                Value<int> leadTimeDays = const Value.absent(),
+                Value<int> safetyStockQty = const Value.absent(),
               }) => ProductsCompanion.insert(
                 id: id,
                 categoryId: categoryId,
@@ -16759,6 +16972,9 @@ class $$ProductsTableTableManager
                 isDeleted: isDeleted,
                 lowStockThreshold: lowStockThreshold,
                 manufacturer: manufacturer,
+                avgDailySales: avgDailySales,
+                leadTimeDays: leadTimeDays,
+                safetyStockQty: safetyStockQty,
               ),
           withReferenceMapper: (p0) => p0
               .map(

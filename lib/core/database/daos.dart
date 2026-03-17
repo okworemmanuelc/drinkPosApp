@@ -147,7 +147,7 @@ class NotificationsDao extends DatabaseAccessor<AppDatabase> with _$Notification
   Future<void> markAllRead() => update(notifications).write(const NotificationsCompanion(isRead: Value(true)));
 }
 
-@DriftAccessor(tables: [StockTransactions])
+@DriftAccessor(tables: [StockTransactions, Products])
 class StockLedgerDao extends DatabaseAccessor<AppDatabase> with _$StockLedgerDaoMixin {
   StockLedgerDao(super.db);
 
@@ -179,6 +179,52 @@ class StockLedgerDao extends DatabaseAccessor<AppDatabase> with _$StockLedgerDao
           ..orderBy([(t) => OrderingTerm.desc(t.createdAt)]))
         .watch();
   }
+
+  Future<List<ProductBelowROP>> getProductsBelowROP(int locationId) async {
+    final qty = stockTransactions.quantityDelta.sum();
+    
+
+    final query = (selectOnly(products)
+      ..addColumns([products.id, products.name, products.avgDailySales, products.leadTimeDays, products.safetyStockQty, qty])
+      ..join([
+        leftOuterJoin(stockTransactions, stockTransactions.productId.equalsExp(products.id)),
+      ]))
+      ..where(stockTransactions.locationId.equals(locationId) | stockTransactions.locationId.isNull())
+      ..groupBy([products.id]);
+
+    final results = await query.get();
+    return results.map((row) {
+      final productId = row.read(products.id)!;
+      final productName = row.read(products.name)!;
+      final avgDailySales = row.read(products.avgDailySales)!;
+      final leadTimeDays = row.read(products.leadTimeDays)!;
+      final safetyStockQty = row.read(products.safetyStockQty)!;
+      final currentStock = row.read(qty) ?? 0;
+      
+      final computedROP = (avgDailySales * leadTimeDays) + safetyStockQty;
+      
+      return ProductBelowROP(
+        productId: productId,
+        productName: productName,
+        currentStock: currentStock.toInt(),
+        rop: computedROP.toDouble(),
+      );
+    }).where((p) => p.currentStock <= p.rop).toList();
+  }
+}
+
+class ProductBelowROP {
+  final int productId;
+  final String productName;
+  final int currentStock;
+  final double rop;
+
+  ProductBelowROP({
+    required this.productId,
+    required this.productName,
+    required this.currentStock,
+    required this.rop,
+  });
 }
 
 @DriftAccessor(tables: [StockTransfers, StockTransactions])
