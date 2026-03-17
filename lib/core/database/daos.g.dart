@@ -94,6 +94,9 @@ mixin _$CustomersDaoMixin on DatabaseAccessor<AppDatabase> {
   $CrateGroupsTable get crateGroups => attachedDatabase.crateGroups;
   $CustomerCrateBalancesTable get customerCrateBalances =>
       attachedDatabase.customerCrateBalances;
+  $CustomerWalletsTable get customerWallets => attachedDatabase.customerWallets;
+  $WalletTransactionsTable get walletTransactions =>
+      attachedDatabase.walletTransactions;
   CustomersDaoManager get managers => CustomersDaoManager(this);
 }
 
@@ -120,6 +123,16 @@ class CustomersDaoManager {
       $$CustomerCrateBalancesTableTableManager(
         _db.attachedDatabase,
         _db.customerCrateBalances,
+      );
+  $$CustomerWalletsTableTableManager get customerWallets =>
+      $$CustomerWalletsTableTableManager(
+        _db.attachedDatabase,
+        _db.customerWallets,
+      );
+  $$WalletTransactionsTableTableManager get walletTransactions =>
+      $$WalletTransactionsTableTableManager(
+        _db.attachedDatabase,
+        _db.walletTransactions,
       );
 }
 

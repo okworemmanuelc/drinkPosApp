@@ -80,7 +80,7 @@ class OrderItemDataWithProductData {
   OrderItemDataWithProductData(this.item, this.product);
 }
 
-@DriftAccessor(tables: [Customers, CustomerWalletTransactions, CustomerCrateBalances])
+@DriftAccessor(tables: [Customers, CustomerWalletTransactions, CustomerCrateBalances, CustomerWallets, WalletTransactions])
 class CustomersDao extends DatabaseAccessor<AppDatabase> with _$CustomersDaoMixin {
   CustomersDao(super.db);
   Stream<List<CustomerData>> watchAllCustomers() => select(customers).watch();
@@ -91,6 +91,21 @@ class CustomersDao extends DatabaseAccessor<AppDatabase> with _$CustomersDaoMixi
   Future<void> updateCrateBalance(int customerId, int crateGroupId, int deltaQty) async {}
   Stream<List<CustomerWalletTransactionData>> watchWalletHistory(int customerId) => (select(customerWalletTransactions)..where((t) => t.customerId.equals(customerId))).watch();
   Stream<Map<String, int>> watchCrateBalance(int customerId) => Stream.value({});
+
+  Future<int> getWalletBalance(String walletId) async {
+    final credits = walletTransactions.amountKobo.sum(filter: walletTransactions.type.equals('credit'));
+    final debits = walletTransactions.amountKobo.sum(filter: walletTransactions.type.equals('debit'));
+
+    final query = selectOnly(walletTransactions)
+      ..addColumns([credits, debits])
+      ..where(walletTransactions.walletId.equals(walletId));
+
+    final row = await query.getSingle();
+    final creditSum = row.read(credits) ?? 0;
+    final debitSum = row.read(debits) ?? 0;
+
+    return creditSum - debitSum;
+  }
 }
 
 @DriftAccessor(tables: [Purchases, PurchaseItems, Suppliers, Products])

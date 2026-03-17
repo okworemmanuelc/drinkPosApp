@@ -377,6 +377,38 @@ class CustomerWalletTransactions extends Table {
   DateTimeColumn get timestamp => dateTime().withDefault(currentDateAndTime)();
 }
 
+// 31. Customer Wallets
+@DataClassName('CustomerWalletData')
+class CustomerWallets extends Table {
+  TextColumn get walletId => text()(); // UUID v4
+  IntColumn get customerId => integer().unique().references(Customers, #id)();
+  TextColumn get currency => text().withDefault(const Constant('NGN'))();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  BoolColumn get isActive => boolean().withDefault(const Constant(true))();
+  BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
+
+  @override
+  Set<Column> get primaryKey => {walletId};
+}
+
+// 32. Wallet Transactions
+@DataClassName('WalletTransactionData')
+class WalletTransactions extends Table {
+  TextColumn get txnId => text()(); // UUID v4
+  TextColumn get walletId => text().references(CustomerWallets, #walletId)();
+  TextColumn get type => text()(); // credit, debit
+  IntColumn get amountKobo => integer()(); // always positive
+  TextColumn get referenceType => text()(); // topup_cash, topup_transfer, order_payment, refund, reward, fee
+  TextColumn get referenceId => text().nullable()();
+  IntColumn get performedBy => integer().references(Users, #id)();
+  BoolColumn get customerVerified => boolean().withDefault(const Constant(false))();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get syncedAt => dateTime().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {txnId};
+}
+
 @DriftDatabase(
   tables: [
     CrateGroups,
@@ -409,6 +441,8 @@ class CustomerWalletTransactions extends Table {
     Sessions,
     CustomerWalletTransactions,
     StockTransactions,
+    CustomerWallets,
+    WalletTransactions,
   ],
   daos: [
     CatalogDao, 
@@ -429,7 +463,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 11;
+  int get schemaVersion => 12;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
