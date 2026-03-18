@@ -1271,7 +1271,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
     Color subtextCol,
     Color borderCol,
   ) {
-    final outstandingCrates = _customer!.emptyCratesBalance.entries
+    final outstandingCrates = (_customer?.emptyCratesBalance.entries ?? [])
         .where((e) => e.value > 0)
         .toList();
 
@@ -1601,7 +1601,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                                 ? null
                                 : noteCtrl.text.trim(),
                           );
-                          customerService.addPayment(_customer!.id, payment);
+                          customerService.addPayment(widget.customerId, payment);
                           Navigator.pop(modalCtx);
                         }
                       },
@@ -1878,10 +1878,10 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                               }
                             }
                             if (returns.isNotEmpty) {
-                              customerService.updateEmptyCratesBalance(
-                                _customer!.id,
-                                returns,
-                              );
+                                customerService.updateEmptyCratesBalance(
+                                  widget.customerId,
+                                  returns,
+                                );
                             }
                             Navigator.pop(modalCtx);
                           },
@@ -1919,7 +1919,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
         final cardCol = isDark ? dCard : lCard;
 
         final limitCtrl = TextEditingController(
-          text: _customer!.walletLimit.abs().toStringAsFixed(0),
+          text: (_customer?.walletLimit ?? 0).abs().toStringAsFixed(0),
         );
 
         return Padding(
@@ -2026,7 +2026,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                       final val = parseCurrency(limitCtrl.text);
                       // Limits are stored as negative (max debt)
                       customerService.updateWalletLimit(
-                        _customer!.id,
+                        widget.customerId,
                         -val.abs(),
                       );
                       Navigator.pop(modalCtx);

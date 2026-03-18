@@ -328,8 +328,8 @@ class CustomersDao extends DatabaseAccessor<AppDatabase> with _$CustomersDaoMixi
 
   Stream<int> watchWalletBalance(int customerId) {
     return (select(customers)..where((t) => t.id.equals(customerId)))
-        .watchSingle()
-        .map((c) => c.walletBalanceKobo);
+        .watchSingleOrNull()
+        .map((c) => c?.walletBalanceKobo ?? 0);
   }
 
   Future<void> updateCrateBalance(int customerId, int crateGroupId, int deltaQty) async {}
