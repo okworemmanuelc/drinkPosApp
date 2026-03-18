@@ -40,6 +40,16 @@ lib/
 -   **Crate Management**: Specialized logic for tracking empty crate stocks and deposits, grouped by `CrateGroups`.
 -   **Add Product Form**: `lib/features/inventory/widgets/add_product_sheet.dart` — collects name, retail price, unit, color, crate size (Big/Medium/Small), manufacturer (autocomplete from existing products), supplier (autocomplete from DB). Selling price and cost price are NOT on this form — added later in product detail screen.
 -   **Products schema**: `supplierId` (nullable FK → Suppliers) added in schema v14. `crateSize` stores 'big'|'medium'|'small'. No bulk/distributor price fields on add form.
+-   **Customer Wallet System**: Balance is **COMPUTED** as SUM of credits minus SUM of debits from `wallet_transactions`. Never store mutable balance as a single column to prevent drift and enable auditability.
+
+## 🎨 UI/UX Patterns
+
+-   **Sheet Modals**: Major forms (like "Add Customer") must use `DraggableScrollableSheet` with `initialChildSize: 0.9` and `maxChildSize: 0.9` to provide a premium feel and ample typing space.
+-   **Keyboard Awareness**: Buttons and critical inputs in sheets must be shifted above the keyboard using `MediaQuery.of(context).viewInsets.bottom` (often applied as padding to the bottom button's container) to ensure the "Save" button remains visible during typing.
+-   **Responsiveness**: Always use `context.getRSize()` and `context.getRFontSize()` from `lib/core/utils/responsive.dart` for dimensions to support various phone sizes.
+-   **Drift stream rule**: NEVER call `watch()` streams inside `build()` methods or `StreamBuilder` — they create new subscriptions on every rebuild, causing infinite rebuild loops. Instead, subscribe once in `initState`, store results in a state variable, and read that variable in `build()`.
+-   **One-shot vs reactive queries**: Use `get()` for one-time reads (e.g. loading form data). Use `watch()` only in `initState` with `.listen()`. Never use `watchSomething().first` — it opens a reactive stream that never closes and can deadlock DB writes. Use a dedicated `getAll...()` method with `select(...).get()` instead.
+-   **CatalogDao**: has `getAllSuppliers()` — one-shot `get()` query for loading supplier list in forms without keeping a stream open.
 
 ## 🚀 Development Guidelines
 
@@ -47,6 +57,7 @@ lib/
 2.  **Linting**: Follow `analysis_options.yaml`. Ensure all code passes `flutter analyze`.
 3.  **State Management**: Extensive use of `ValueNotifier` and `StatefulWidget` patterns for local state; `Drift` for persistent state.
 4.  **Database Updates**: When modifying `app_database.dart`, run `dart run build_runner build` to regenerate the G-files.
+5.  **Database Stability**: When watching single entities for profile screens, prefer `watchSingleOrNull()` over `watchSingle()` to prevent app crashes when data is still loading or temporarily unavailable.
 
 ## 📦 Assets
 -   **Images**: Stored in `assets/images/`, including branding (Ribaplus logo) and decorative backgrounds.
@@ -70,6 +81,9 @@ lib/
 ### 4. Small Focused Changes
 - Make one change at a time, verify it works, then move to the next
 - Never refactor unrelated code while fixing a bug
+
+### 5. Communication Style
+- Always use simple, beginner-friendly terms when explaining changes to the user (the USER is still learning and prefers simplified code explanations over jargon).
 
 ### 5. Auth is Removed — Do Not Re-introduce
 - `lib/features/auth/` is fully deleted. Do not import anything from it.
