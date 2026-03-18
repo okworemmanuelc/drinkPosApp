@@ -138,7 +138,7 @@ class _AddCustomerSheetState extends State<AddCustomerSheet> {
       behavior: HitTestBehavior.opaque,
       onTap: () => Navigator.pop(context),
       child: DraggableScrollableSheet(
-        initialChildSize: 0.5,
+        initialChildSize: 0.9,
         minChildSize: 0.5,
         maxChildSize: 0.9,
         snap: true,
@@ -235,9 +235,11 @@ class _AddCustomerSheetState extends State<AddCustomerSheet> {
                     Expanded(
                       child: ListView(
                         controller: scrollController,
-                        padding: EdgeInsets.symmetric(
-                          horizontal: context.getRSize(20),
-                          vertical: context.getRSize(10),
+                        padding: EdgeInsets.fromLTRB(
+                          context.getRSize(20),
+                          context.getRSize(10),
+                          context.getRSize(20),
+                          context.getRSize(20) + MediaQuery.of(context).viewInsets.bottom,
                         ),
                         children: [
                           _inputField(

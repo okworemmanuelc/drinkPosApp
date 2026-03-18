@@ -197,7 +197,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                 radius: context.getRSize(40),
                 backgroundColor: blueMain.withValues(alpha: 0.1),
                 child: Text(
-                  _customer!.name.substring(0, 1).toUpperCase(),
+                  (_customer?.name.isNotEmpty == true) ? _customer!.name.substring(0, 1).toUpperCase() : '?',
                   style: TextStyle(
                     color: blueMain,
                     fontSize: context.getRFontSize(32),
@@ -207,7 +207,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
               ),
               SizedBox(height: context.getRSize(16)),
               Text(
-                _customer!.name,
+                _customer?.name ?? 'Unknown Customer',
                 style: TextStyle(
                   fontSize: context.getRFontSize(22),
                   fontWeight: FontWeight.w800,
@@ -218,7 +218,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
               _infoRow(
                 context,
                 FontAwesomeIcons.locationDot,
-                _customer!.addressText,
+                _customer?.addressText ?? 'No address',
                 textCol,
                 subtextCol,
               ),
@@ -226,11 +226,11 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
               _infoRow(
                 context,
                 FontAwesomeIcons.mapLocationDot,
-                _customer!.googleMapsLocation,
+                _customer?.googleMapsLocation ?? 'No location',
                 textCol,
                 subtextCol,
               ),
-              if (_customer!.phone != null && _customer!.phone!.isNotEmpty) ...[
+              if (_customer?.phone != null && _customer!.phone!.isNotEmpty) ...[
                 SizedBox(height: context.getRSize(8)),
                 _infoRow(
                   context,
@@ -252,7 +252,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                   border: Border.all(color: blueMain.withValues(alpha: 0.2)),
                 ),
                 child: Text(
-                  _customer!.customerGroup.name.toUpperCase(),
+                  (_customer?.customerGroup.name ?? 'retailer').toUpperCase(),
                   style: TextStyle(
                     fontSize: context.getRFontSize(10),
                     fontWeight: FontWeight.w800,
@@ -268,7 +268,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
           bottom: context.getRSize(12),
           right: context.getRSize(16),
           child: Text(
-            'Joined on: ${DateFormat('MMM d, y').format(_customer!.createdAt)}',
+            'Joined on: ${_customer != null ? DateFormat('MMM d, y').format(_customer!.createdAt) : 'N/A'}',
             style: TextStyle(
               fontSize: context.getRFontSize(10),
               color: subtextCol.withValues(alpha: 0.7),
@@ -315,8 +315,8 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
     Color borderCol,
   ) {
     return StreamBuilder<int>(
-      stream: database.customersDao.watchWalletBalance(_customer!.id),
-      initialData: _customer!.walletBalanceKobo,
+      stream: database.customersDao.watchWalletBalance(widget.customerId),
+      initialData: _customer?.walletBalanceKobo ?? 0,
       builder: (context, snapshot) {
         final balanceKobo = snapshot.data ?? 0;
         final isNegative = balanceKobo < 0;
@@ -361,10 +361,10 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                       letterSpacing: -1,
                     ),
                   ),
-                  if (_customer!.walletLimit != 0) ...[
+                  if ((_customer?.walletLimit ?? 0) != 0) ...[
                     SizedBox(height: context.getRSize(4)),
                     Text(
-                      'Limit: ${formatCurrency(_customer!.walletLimit)}',
+                      'Limit: ${formatCurrency(_customer?.walletLimit ?? 0)}',
                       style: TextStyle(
                         fontSize: context.getRFontSize(11),
                         color: subtextCol,
@@ -413,7 +413,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
       builder: (context, snapshot) {
         final ordersList = snapshot.data ?? [];
         final customerOrders =
-            ordersList.where((o) => o.customerId == _customer!.id.toString()).toList()
+            ordersList.where((o) => o.customerId == widget.customerId.toString()).toList()
               ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
         final recentOrders = customerOrders.take(3).toList();
 
@@ -861,7 +861,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
     Color borderCol,
   ) {
     return StreamBuilder<List<WalletTransactionData>>(
-      stream: database.customersDao.watchWalletHistory(_customer!.id),
+      stream: database.customersDao.watchWalletHistory(widget.customerId),
       builder: (context, snapshot) {
         final txns = snapshot.data ?? [];
         final recentTxns = txns.take(3).toList();
@@ -1060,11 +1060,13 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
               return true;
             }).toList();
 
-            return Padding(
-              padding: EdgeInsets.only(
-                bottom: MediaQuery.of(modalCtx).padding.bottom,
-              ),
-              child: Container(
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom:
+                MediaQuery.of(modalCtx).viewInsets.bottom +
+                MediaQuery.of(modalCtx).padding.bottom,
+          ),
+          child: Container(
                 height: MediaQuery.of(modalCtx).size.height * 0.85,
                 decoration: BoxDecoration(
                   color: bgCol,
