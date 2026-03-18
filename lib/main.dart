@@ -17,6 +17,10 @@ void main() async {
   // Warm up the DB isolate immediately — runs in background while Flutter renders
   database.customSelect('SELECT 1').get().ignore();
 
+  // IMPORTANT: Clear all products (Temporary cleanup requested by user)
+  // Delete this line after running the app once.
+  await database.delete(database.products).go();
+
   runApp(const RibaplusPosApp());
 }
 

@@ -1,0 +1,102 @@
+import 'package:flutter/material.dart';
+import '../../../core/theme/colors.dart';
+import '../../../core/utils/responsive.dart';
+
+class CategoryFilterBar extends StatelessWidget {
+  final List<String> categories;
+  final String selectedCategory;
+  final Function(String) onCategorySelected;
+  final Color textCol;
+  final Color borderCol;
+
+  const CategoryFilterBar({
+    super.key,    required this.categories,
+    required this.selectedCategory,
+    required this.onCategorySelected,
+    required this.textCol,
+    required this.borderCol,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: context.getRSize(50),
+      margin: EdgeInsets.only(bottom: context.getRSize(16)),
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: EdgeInsets.symmetric(horizontal: context.getRSize(16)),
+        itemCount: categories.length,
+        separatorBuilder: (context, index) => SizedBox(width: context.getRSize(10)),
+        itemBuilder: (context, index) {
+          final category = categories[index];
+          final isSelected = category == selectedCategory;
+          return _CategoryChip(
+            label: category,
+            isSelected: isSelected,
+            onTap: () => onCategorySelected(category),
+            textCol: textCol,
+            borderCol: borderCol,
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _CategoryChip extends StatelessWidget {
+  final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
+  final Color textCol;
+  final Color borderCol;
+
+  const _CategoryChip({
+    required this.label,
+    required this.isSelected,
+    required this.onTap,
+    required this.textCol,
+    required this.borderCol,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(25),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: EdgeInsets.symmetric(
+          horizontal: context.getRSize(20),
+          vertical: context.getRSize(8),
+        ),
+        decoration: BoxDecoration(
+          color: isSelected ? blueMain : Colors.transparent,
+          borderRadius: BorderRadius.circular(25),
+          border: Border.all(
+            color: isSelected ? blueMain : borderCol,
+            width: 1.5,
+          ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: blueMain.withValues(alpha: 0.3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
+                  ),
+                ]
+              : null,
+        ),
+        child: Center(
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: context.getRFontSize(13),
+              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+              color: isSelected ? Colors.white : textCol,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}

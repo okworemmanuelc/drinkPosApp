@@ -240,8 +240,11 @@ class _CustomersScreenState extends State<CustomersScreen> {
       onTap: () {
         Navigator.push(
           context,
-          MaterialPageRoute(
-            builder: (_) => CustomerDetailScreen(customerId: customer.id),
+          PageRouteBuilder(
+            opaque: true,
+            pageBuilder: (_, __, ___) => CustomerDetailScreen(customer: customer),
+            transitionDuration: Duration.zero,
+            reverseTransitionDuration: Duration.zero,
           ),
         );
       },
@@ -268,7 +271,7 @@ class _CustomersScreenState extends State<CustomersScreen> {
                 radius: context.getRSize(24),
                 backgroundColor: blueMain.withValues(alpha: 0.1),
                 child: Text(
-                  customer.name.substring(0, 1).toUpperCase(),
+                  customer.name.isNotEmpty ? customer.name.substring(0, 1).toUpperCase() : '?',
                   style: TextStyle(
                     color: blueMain,
                     fontWeight: FontWeight.bold,

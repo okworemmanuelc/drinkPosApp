@@ -32,7 +32,7 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> with _$CatalogDaoMixin {
     return (select(products)..where((t) => t.isDeleted.not())).watch();
   }
   Future<ProductData?> findById(int id) => (select(products)..where((t) => t.id.equals(id))).getSingleOrNull();
-  Future<ProductData?> findByName(String name) => (select(products)..where((t) => t.name.equals(name) & t.isDeleted.not())).getSingleOrNull();
+  Future<ProductData?> findByName(String name) => (select(products)..where((t) => t.name.lower().equals(name.toLowerCase()) & t.isDeleted.not())).getSingleOrNull();
   Future<void> softDeleteProduct(int productId) => (update(products)..where((t) => t.id.equals(productId))).write(const ProductsCompanion(isDeleted: Value(true)));
 
   Future<void> updateProductDetails(
@@ -359,7 +359,7 @@ class CustomersDao extends DatabaseAccessor<AppDatabase> with _$CustomersDaoMixi
 
   Stream<List<WalletTransactionData>> watchWalletHistory(int customerId) {
     final query = select(walletTransactions).join([
-      innerJoin(customerWallets, customerWallets.walletId.equalsExp(walletTransactions.walletId)),
+      leftOuterJoin(customerWallets, customerWallets.walletId.equalsExp(walletTransactions.walletId)),
     ])
       ..where(customerWallets.customerId.equals(customerId))
       ..orderBy([OrderingTerm.desc(walletTransactions.createdAt)]);

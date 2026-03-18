@@ -1,33 +1,34 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/database/app_database.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/theme_notifier.dart';
 import '../../../core/utils/number_format.dart';
 import '../../../core/utils/responsive.dart';
 import '../../inventory/data/models/crate_group.dart';
 import '../data/models/customer.dart';
-import '../data/models/payment.dart';
-import '../data/services/customer_service.dart';
 import '../../../shared/models/order.dart';
-import '../../../shared/services/order_service.dart';
 import '../../../shared/widgets/receipt_widget.dart';
 import '../../../core/utils/currency_input_formatter.dart';
+import '../data/models/payment.dart';
+import '../data/services/customer_service.dart';
 import '../../../shared/widgets/fluid_menu.dart';
-import '../../../core/database/app_database.dart';
 
 class CustomerDetailScreen extends StatefulWidget {
-  final int customerId;
+  final Customer? customer;
 
-  const CustomerDetailScreen({super.key, required this.customerId});
+  const CustomerDetailScreen({super.key, this.customer});
 
   @override
   State<CustomerDetailScreen> createState() => _CustomerDetailScreenState();
 }
 
 class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
-  Customer? _customer;
+  late Customer _customer;
 
   String _getEmptyText(String filter, String type) {
     switch (filter) {
@@ -45,43 +46,64 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
     }
   }
 
-  late Stream<int> _walletBalanceStream;
-  late Stream<List<WalletTransactionData>> _walletHistoryStream;
-  late Stream<List<Order>> _ordersStream;
+  int _walletBalanceKobo = 0;
+  List<WalletTransactionData> _walletHistory = [];
+  final List<Order> _customerOrders = [];
+
+  StreamSubscription<int>? _balanceSub;
+  StreamSubscription<List<WalletTransactionData>>? _historySub;
+
+  // Defers heavy widget tree until after first frame so the screen opens instantly.
+  bool _contentReady = false;
 
   @override
   void initState() {
     super.initState();
-    _customer = customerService.getById(widget.customerId);
-    customerService.addListener(_onCustomerUpdated);
+    _customer = widget.customer ?? Customer(
+      id: 0,
+      name: 'Unknown',
+      addressText: '',
+      googleMapsLocation: '',
+      phone: '',
+      walletBalanceKobo: 0,
+      walletLimitKobo: 0,
+      createdAt: DateTime.now(),
+      customerGroup: CustomerGroup.retailer,
+      emptyCratesBalance: {},
+    );
+    _walletBalanceKobo = _customer.walletBalanceKobo;
 
-    _walletBalanceStream = database.customersDao.watchWalletBalance(widget.customerId);
-    _walletHistoryStream = database.customersDao.watchWalletHistory(widget.customerId);
-    _ordersStream = orderService.watchAllOrders().map(
-          (orders) => orders.where((o) => o.customerId == widget.customerId.toString()).toList(),
-        );
+    // Wait for first frame to commit, then start streams + show full UI.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+
+      if (_customer.id > 0) {
+        _balanceSub = database.customersDao
+            .watchWalletBalance(_customer.id)
+            .listen((balance) {
+          if (mounted) setState(() => _walletBalanceKobo = balance);
+        });
+
+        _historySub = database.customersDao
+            .watchWalletHistory(_customer.id)
+            .listen((history) {
+          if (mounted) setState(() => _walletHistory = history);
+        });
+      }
+
+      setState(() => _contentReady = true);
+    });
   }
 
   @override
   void dispose() {
-    customerService.removeListener(_onCustomerUpdated);
+    _balanceSub?.cancel();
+    _historySub?.cancel();
     super.dispose();
-  }
-
-  void _onCustomerUpdated() {
-    if (mounted) {
-      setState(() {
-        _customer = customerService.getById(widget.customerId);
-      });
-    }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_customer == null) {
-      return const Scaffold(body: Center(child: Text("Customer not found.")));
-    }
-
     return ValueListenableBuilder<ThemeMode>(
       valueListenable: themeNotifier,
       builder: (_, mode, _) {
@@ -92,6 +114,20 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
         final subtextCol = isDark ? dSubtext : lSubtext;
         final borderCol = isDark ? dBorder : lBorder;
         final cardCol = isDark ? dCard : lCard;
+
+        // First frame: show a lightweight skeleton so the screen opens instantly.
+        if (!_contentReady) {
+          return Scaffold(
+            backgroundColor: bgCol,
+            appBar: _buildAppBar(context, surfaceCol, textCol, borderCol),
+            body: const Center(
+              child: CircularProgressIndicator(
+                color: blueMain,
+                strokeWidth: 2,
+              ),
+            ),
+          );
+        }
 
         return Scaffold(
           backgroundColor: bgCol,
@@ -104,46 +140,15 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                _buildHeader(
-                  context,
-                  surfaceCol,
-                  textCol,
-                  subtextCol,
-                  borderCol,
-                ),
+                _buildHeader(context, surfaceCol, textCol, subtextCol, borderCol),
                 SizedBox(height: context.getRSize(16)),
-                _buildBalanceSection(
-                  context,
-                  surfaceCol,
-                  textCol,
-                  subtextCol,
-                  borderCol,
-                ),
+                _buildBalanceSection(context, surfaceCol, textCol, subtextCol, borderCol),
                 SizedBox(height: context.getRSize(16)),
-                _buildOrdersSection(
-                  context,
-                  cardCol,
-                  textCol,
-                  subtextCol,
-                  borderCol,
-                ),
+                _buildOrdersSection(context, cardCol, textCol, subtextCol, borderCol),
                 SizedBox(height: context.getRSize(16)),
-                _buildPaymentsSection(
-                  context,
-                  cardCol,
-                  textCol,
-                  subtextCol,
-                  borderCol,
-                ),
+                _buildPaymentsSection(context, cardCol, textCol, subtextCol, borderCol),
                 SizedBox(height: context.getRSize(16)),
-                _buildCratesSection(
-                  context,
-                  surfaceCol,
-                  cardCol,
-                  textCol,
-                  subtextCol,
-                  borderCol,
-                ),
+                _buildCratesSection(context, surfaceCol, cardCol, textCol, subtextCol, borderCol),
               ],
             ),
           ),
@@ -207,7 +212,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                 radius: context.getRSize(40),
                 backgroundColor: blueMain.withValues(alpha: 0.1),
                 child: Text(
-                  (_customer?.name.isNotEmpty == true) ? _customer!.name.substring(0, 1).toUpperCase() : '?',
+                  _customer.name.isNotEmpty ? _customer.name.substring(0, 1).toUpperCase() : '?',
                   style: TextStyle(
                     color: blueMain,
                     fontSize: context.getRFontSize(32),
@@ -217,7 +222,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
               ),
               SizedBox(height: context.getRSize(16)),
               Text(
-                _customer?.name ?? 'Unknown Customer',
+                _customer.name,
                 style: TextStyle(
                   fontSize: context.getRFontSize(22),
                   fontWeight: FontWeight.w800,
@@ -228,7 +233,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
               _infoRow(
                 context,
                 FontAwesomeIcons.locationDot,
-                _customer?.addressText ?? 'No address',
+                _customer.addressText,
                 textCol,
                 subtextCol,
               ),
@@ -236,16 +241,16 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
               _infoRow(
                 context,
                 FontAwesomeIcons.mapLocationDot,
-                _customer?.googleMapsLocation ?? 'No location',
+                _customer.googleMapsLocation,
                 textCol,
                 subtextCol,
               ),
-              if (_customer?.phone != null && _customer!.phone!.isNotEmpty) ...[
+              if (_customer.phone != null && _customer.phone!.isNotEmpty) ...[
                 SizedBox(height: context.getRSize(8)),
                 _infoRow(
                   context,
                   FontAwesomeIcons.phone,
-                  _customer!.phone!,
+                  _customer.phone!,
                   textCol,
                   subtextCol,
                 ),
@@ -262,7 +267,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                   border: Border.all(color: blueMain.withValues(alpha: 0.2)),
                 ),
                 child: Text(
-                  (_customer?.customerGroup.name ?? 'retailer').toUpperCase(),
+                  _customer.customerGroup.name.toUpperCase(),
                   style: TextStyle(
                     fontSize: context.getRFontSize(10),
                     fontWeight: FontWeight.w800,
@@ -278,7 +283,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
           bottom: context.getRSize(12),
           right: context.getRSize(16),
           child: Text(
-            'Joined on: ${_customer != null ? DateFormat('MMM d, y').format(_customer!.createdAt) : 'N/A'}',
+            'Joined on: ${DateFormat('MMM d, y').format(_customer.createdAt)}',
             style: TextStyle(
               fontSize: context.getRFontSize(10),
               color: subtextCol.withValues(alpha: 0.7),
@@ -324,90 +329,84 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
     Color subtextCol,
     Color borderCol,
   ) {
-    return StreamBuilder<int>(
-      stream: _walletBalanceStream,
-      initialData: _customer?.walletBalanceKobo ?? 0,
-      builder: (context, snapshot) {
-        final balanceKobo = snapshot.data ?? 0;
-        final isNegative = balanceKobo < 0;
-        final balanceColor = isNegative ? danger : success;
-        final walletStr = formatCurrency(balanceKobo / 100.0);
+    final balanceKobo = _walletBalanceKobo;
+    final isNegative = balanceKobo < 0;
+    final balanceColor = isNegative ? danger : success;
+    final walletStr = formatCurrency(balanceKobo / 100.0);
 
-        return Stack(
-          children: [
-            Container(
-              width: double.infinity,
-              margin: EdgeInsets.symmetric(horizontal: context.getRSize(16)),
-              padding: EdgeInsets.all(context.getRSize(20)),
-              decoration: BoxDecoration(
-                color: surfaceCol,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: borderCol),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.02),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
+    return Stack(
+      children: [
+        Container(
+          width: double.infinity,
+          margin: EdgeInsets.symmetric(horizontal: context.getRSize(16)),
+          padding: EdgeInsets.all(context.getRSize(20)),
+          decoration: BoxDecoration(
+            color: surfaceCol,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: borderCol),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.02),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
               ),
-              child: Column(
-                children: [
-                  Text(
-                    'Wallet Balance',
-                    style: TextStyle(
-                      fontSize: context.getRFontSize(14),
-                      fontWeight: FontWeight.w600,
-                      color: textCol,
-                    ),
-                  ),
-                  SizedBox(height: context.getRSize(8)),
-                  Text(
-                    walletStr,
-                    style: TextStyle(
-                      fontSize: context.getRFontSize(32),
-                      fontWeight: FontWeight.w800,
-                      color: balanceColor,
-                      letterSpacing: -1,
-                    ),
-                  ),
-                  if ((_customer?.walletLimit ?? 0) != 0) ...[
-                    SizedBox(height: context.getRSize(4)),
-                    Text(
-                      'Limit: ${formatCurrency(_customer?.walletLimit ?? 0)}',
-                      style: TextStyle(
-                        fontSize: context.getRFontSize(11),
-                        color: subtextCol,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ],
+            ],
+          ),
+          child: Column(
+            children: [
+              Text(
+                'Wallet Balance',
+                style: TextStyle(
+                  fontSize: context.getRFontSize(14),
+                  fontWeight: FontWeight.w600,
+                  color: textCol,
+                ),
               ),
-            ),
-            Positioned(
-              top: context.getRSize(8),
-              right: context.getRSize(24),
-              child: IconButton(
-                icon: Container(
-                  padding: EdgeInsets.all(context.getRSize(6)),
-                  decoration: BoxDecoration(
-                    color: blueMain.withValues(alpha: 0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    FontAwesomeIcons.sliders,
-                    size: context.getRSize(12),
-                    color: blueMain,
+              SizedBox(height: context.getRSize(8)),
+              Text(
+                walletStr,
+                style: TextStyle(
+                  fontSize: context.getRFontSize(32),
+                  fontWeight: FontWeight.w800,
+                  color: balanceColor,
+                  letterSpacing: -1,
+                ),
+              ),
+              if (_customer.walletLimit != 0) ...[
+                SizedBox(height: context.getRSize(4)),
+                Text(
+                  'Limit: ${formatCurrency(_customer.walletLimit)}',
+                  style: TextStyle(
+                    fontSize: context.getRFontSize(11),
+                    color: subtextCol,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
-                onPressed: () => _showSetWalletLimitDialog(context),
-                tooltip: 'Set Wallet Limit',
+              ],
+            ],
+          ),
+        ),
+        Positioned(
+          top: context.getRSize(8),
+          right: context.getRSize(24),
+          child: IconButton(
+            icon: Container(
+              padding: EdgeInsets.all(context.getRSize(6)),
+              decoration: BoxDecoration(
+                color: blueMain.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                FontAwesomeIcons.sliders,
+                size: context.getRSize(12),
+                color: blueMain,
               ),
             ),
-          ],
-        );
-      },
+            onPressed: () => _showSetWalletLimitDialog(context),
+            tooltip: 'Set Wallet Limit',
+          ),
+        ),
+      ],
     );
   }
 
@@ -418,147 +417,142 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
     Color subtextCol,
     Color borderCol,
   ) {
-    return StreamBuilder<List<Order>>(
-      stream: _ordersStream,
-      builder: (context, snapshot) {
-        final customerOrders = snapshot.data ?? [];
-        final recentOrders = customerOrders.take(3).toList();
+    final customerOrders = _customerOrders;
+    final recentOrders = customerOrders.take(3).toList();
 
-        return Padding(
-          padding: EdgeInsets.symmetric(horizontal: context.getRSize(16)),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _sectionTitle(context, 'Orders / Receipts', textCol),
-              SizedBox(height: context.getRSize(12)),
-              if (customerOrders.isEmpty)
-                Container(
-                  width: double.infinity,
-                  padding: EdgeInsets.all(context.getRSize(24)),
-                  decoration: BoxDecoration(
-                    color: cardCol,
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: context.getRSize(16)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _sectionTitle(context, 'Orders / Receipts', textCol),
+          SizedBox(height: context.getRSize(12)),
+          if (customerOrders.isEmpty)
+            Container(
+              width: double.infinity,
+              padding: EdgeInsets.all(context.getRSize(24)),
+              decoration: BoxDecoration(
+                color: cardCol,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: borderCol),
+              ),
+              child: Column(
+                children: [
+                  Icon(
+                    FontAwesomeIcons.receipt,
+                    size: context.getRSize(32),
+                    color: subtextCol.withValues(alpha: 0.5),
+                  ),
+                  SizedBox(height: context.getRSize(12)),
+                  Text(
+                    'No orders found for this customer.',
+                    style: TextStyle(
+                      fontSize: context.getRFontSize(14),
+                      color: subtextCol,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            )
+          else ...[
+            Container(
+              decoration: BoxDecoration(
+                color: cardCol,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: borderCol),
+              ),
+              child: ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                padding: EdgeInsets.zero,
+                itemCount: recentOrders.length,
+                separatorBuilder: (context, index) =>
+                    Divider(height: 1, color: borderCol),
+                itemBuilder: (context, index) {
+                  final order = recentOrders[index];
+                  return InkWell(
+                    onTap: () => _showReceiptModal(context, order),
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: borderCol),
-                  ),
-                  child: Column(
-                    children: [
-                      Icon(
-                        FontAwesomeIcons.receipt,
-                        size: context.getRSize(32),
-                        color: subtextCol.withValues(alpha: 0.5),
-                      ),
-                      SizedBox(height: context.getRSize(12)),
-                      Text(
-                        'No orders found for this customer.',
-                        style: TextStyle(
-                          fontSize: context.getRFontSize(14),
-                          color: subtextCol,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ],
-                  ),
-                )
-              else ...[
-                Container(
-                  decoration: BoxDecoration(
-                    color: cardCol,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: borderCol),
-                  ),
-                  child: ListView.separated(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    padding: EdgeInsets.zero,
-                    itemCount: recentOrders.length,
-                    separatorBuilder: (context, index) =>
-                        Divider(height: 1, color: borderCol),
-                    itemBuilder: (context, index) {
-                      final order = recentOrders[index];
-                      return InkWell(
-                        onTap: () => _showReceiptModal(context, order),
-                        borderRadius: BorderRadius.circular(16),
-                        child: Padding(
-                          padding: EdgeInsets.all(context.getRSize(16)),
-                          child: Row(
-                            children: [
-                              Container(
-                                padding: EdgeInsets.all(context.getRSize(10)),
-                                decoration: BoxDecoration(
-                                  color: blueMain.withValues(alpha: 0.1),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Icon(
-                                  FontAwesomeIcons.fileInvoice,
-                                  size: context.getRSize(14),
-                                  color: blueMain,
-                                ),
-                              ),
-                              SizedBox(width: context.getRSize(12)),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Order #${order.id.length > 5 ? order.id.substring(order.id.length - 5) : order.id}',
-                                      style: TextStyle(
-                                        fontSize: context.getRFontSize(15),
-                                        fontWeight: FontWeight.w700,
-                                        color: textCol,
-                                      ),
-                                    ),
-                                    SizedBox(height: context.getRSize(4)),
-                                    Text(
-                                      '${formatCurrency(order.totalAmount)} • ${order.paymentMethod}',
-                                      style: TextStyle(
-                                        fontSize: context.getRFontSize(12),
-                                        color: subtextCol,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              Text(
-                                DateFormat('MMM d, y').format(order.createdAt),
-                                style: TextStyle(
-                                  fontSize: context.getRFontSize(11),
-                                  color: subtextCol,
-                                ),
-                              ),
-                            ],
+                    child: Padding(
+                      padding: EdgeInsets.all(context.getRSize(16)),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: EdgeInsets.all(context.getRSize(10)),
+                            decoration: BoxDecoration(
+                              color: blueMain.withValues(alpha: 0.1),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              FontAwesomeIcons.fileInvoice,
+                              size: context.getRSize(14),
+                              color: blueMain,
+                            ),
                           ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-                if (customerOrders.length > 3)
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton(
-                      onPressed: () => _showAllOrdersModal(
-                        context,
-                        customerOrders,
-                        cardCol,
-                        textCol,
-                        subtextCol,
-                        borderCol,
-                      ),
-                      child: Text(
-                        'View More',
-                        style: TextStyle(
-                          color: blueMain,
-                          fontWeight: FontWeight.bold,
-                          fontSize: context.getRFontSize(13),
-                        ),
+                          SizedBox(width: context.getRSize(12)),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Order #${order.id.length > 5 ? order.id.substring(order.id.length - 5) : order.id}',
+                                  style: TextStyle(
+                                    fontSize: context.getRFontSize(15),
+                                    fontWeight: FontWeight.w700,
+                                    color: textCol,
+                                  ),
+                                ),
+                                SizedBox(height: context.getRSize(4)),
+                                Text(
+                                  '${formatCurrency(order.totalAmount)} • ${order.paymentMethod}',
+                                  style: TextStyle(
+                                    fontSize: context.getRFontSize(12),
+                                    color: subtextCol,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Text(
+                            DateFormat('MMM d, y').format(order.createdAt),
+                            style: TextStyle(
+                              fontSize: context.getRFontSize(11),
+                              color: subtextCol,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
+                  );
+                },
+              ),
+            ),
+            if (customerOrders.length > 3)
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: () => _showAllOrdersModal(
+                    context,
+                    customerOrders,
+                    cardCol,
+                    textCol,
+                    subtextCol,
+                    borderCol,
                   ),
-              ],
-            ],
-          ),
-        );
-      },
+                  child: Text(
+                    'View More',
+                    style: TextStyle(
+                      color: blueMain,
+                      fontWeight: FontWeight.bold,
+                      fontSize: context.getRFontSize(13),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ],
+      ),
     );
   }
 
@@ -846,8 +840,8 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                       total: order.totalAmount,
                       paymentMethod: order.paymentMethod,
                       customerName: order.customerName,
-                      customerAddress: _customer?.addressText,
-                      customerPhone: _customer?.phone,
+                      customerAddress: _customer.addressText,
+                      customerPhone: _customer.phone,
                       cashReceived: order.amountPaid,
                     ),
                   ),
@@ -867,172 +861,167 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
     Color subtextCol,
     Color borderCol,
   ) {
-    return StreamBuilder<List<WalletTransactionData>>(
-      stream: _walletHistoryStream,
-      builder: (context, snapshot) {
-        final txns = snapshot.data ?? [];
-        final recentTxns = txns.take(3).toList();
+    final txns = _walletHistory;
+    final recentTxns = txns.take(3).toList();
 
-        return Padding(
-          padding: EdgeInsets.symmetric(horizontal: context.getRSize(16)),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: context.getRSize(16)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  _sectionTitle(context, 'Wallet Transactions', textCol),
-                  TextButton.icon(
-                    onPressed: () => _showAddPaymentDialog(context),
-                    icon: Icon(
-                      FontAwesomeIcons.plus,
-                      size: context.getRSize(14),
-                      color: blueMain,
-                    ),
-                    label: Text(
-                      'Fund Wallet',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: context.getRFontSize(13),
-                        color: blueMain,
-                      ),
-                    ),
-                    style: TextButton.styleFrom(
-                      backgroundColor: blueMain.withValues(alpha: 0.1),
-                      padding: EdgeInsets.symmetric(
-                        horizontal: context.getRSize(12),
-                        vertical: context.getRSize(6),
-                      ),
-                      minimumSize: Size.zero,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              SizedBox(height: context.getRSize(12)),
-              if (txns.isEmpty)
-                Container(
-                  width: double.infinity,
-                  padding: EdgeInsets.all(context.getRSize(20)),
-                  decoration: BoxDecoration(
-                    color: cardCol,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: borderCol),
-                  ),
-                  child: Text(
-                    'No wallet transactions yet.',
-                    style: TextStyle(
-                      fontSize: context.getRFontSize(14),
-                      color: subtextCol,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                )
-              else ...[
-                Container(
-                  decoration: BoxDecoration(
-                    color: cardCol,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: borderCol),
-                  ),
-                  child: ListView.separated(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    padding: EdgeInsets.zero,
-                    itemCount: recentTxns.length,
-                    separatorBuilder: (context, index) =>
-                        Divider(height: 1, color: borderCol),
-                    itemBuilder: (context, index) {
-                      final txn = recentTxns[index];
-                      final isCredit = txn.type == 'credit';
-                      final typeIcon = isCredit
-                          ? FontAwesomeIcons.moneyBillWave
-                          : FontAwesomeIcons.cartShopping;
-                      final typeColor = isCredit ? success : danger;
-
-                      return Padding(
-                        padding: EdgeInsets.all(context.getRSize(16)),
-                        child: Row(
-                          children: [
-                            Container(
-                              padding: EdgeInsets.all(context.getRSize(10)),
-                              decoration: BoxDecoration(
-                                color: typeColor.withValues(alpha: 0.1),
-                                shape: BoxShape.circle,
-                              ),
-                              child: Icon(
-                                typeIcon,
-                                size: context.getRSize(14),
-                                color: typeColor,
-                              ),
-                            ),
-                            SizedBox(width: context.getRSize(12)),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    '${isCredit ? "+" : "-"}${formatCurrency(txn.amountKobo / 100.0)}',
-                                    style: TextStyle(
-                                      fontSize: context.getRFontSize(15),
-                                      fontWeight: FontWeight.w700,
-                                      color: typeColor,
-                                    ),
-                                  ),
-                                  SizedBox(height: context.getRSize(2)),
-                                  Text(
-                                    txn.referenceType.replaceAll('_', ' ').toUpperCase(),
-                                    style: TextStyle(
-                                      fontSize: context.getRFontSize(10),
-                                      fontWeight: FontWeight.w800,
-                                      color: subtextCol,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Text(
-                              DateFormat('MMM d, H:mm').format(txn.createdAt),
-                              style: TextStyle(
-                                fontSize: context.getRFontSize(11),
-                                color: subtextCol,
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
+              _sectionTitle(context, 'Wallet Transactions', textCol),
+              TextButton.icon(
+                onPressed: () => _showAddPaymentDialog(context),
+                icon: Icon(
+                  FontAwesomeIcons.plus,
+                  size: context.getRSize(14),
+                  color: blueMain,
+                ),
+                label: Text(
+                  'Fund Wallet',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: context.getRFontSize(13),
+                    color: blueMain,
                   ),
                 ),
-                if (txns.length > 3)
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton(
-                      onPressed: () => _showAllTransactionsModal(
-                        context,
-                        txns,
-                        cardCol,
-                        textCol,
-                        subtextCol,
-                        borderCol,
-                      ),
-                      child: Text(
-                        'View Full Ledger',
-                        style: TextStyle(
-                          color: blueMain,
-                          fontWeight: FontWeight.bold,
-                          fontSize: context.getRFontSize(13),
-                        ),
-                      ),
-                    ),
+                style: TextButton.styleFrom(
+                  backgroundColor: blueMain.withValues(alpha: 0.1),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: context.getRSize(12),
+                    vertical: context.getRSize(6),
                   ),
-              ],
+                  minimumSize: Size.zero,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              ),
             ],
           ),
-        );
-      },
+          SizedBox(height: context.getRSize(12)),
+          if (txns.isEmpty)
+            Container(
+              width: double.infinity,
+              padding: EdgeInsets.all(context.getRSize(20)),
+              decoration: BoxDecoration(
+                color: cardCol,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: borderCol),
+              ),
+              child: Text(
+                'No wallet transactions yet.',
+                style: TextStyle(
+                  fontSize: context.getRFontSize(14),
+                  color: subtextCol,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            )
+          else ...[
+            Container(
+              decoration: BoxDecoration(
+                color: cardCol,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: borderCol),
+              ),
+              child: ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                padding: EdgeInsets.zero,
+                itemCount: recentTxns.length,
+                separatorBuilder: (context, index) =>
+                    Divider(height: 1, color: borderCol),
+                itemBuilder: (context, index) {
+                  final txn = recentTxns[index];
+                  final isCredit = txn.type == 'credit';
+                  final typeIcon = isCredit
+                      ? FontAwesomeIcons.moneyBillWave
+                      : FontAwesomeIcons.cartShopping;
+                  final typeColor = isCredit ? success : danger;
+
+                  return Padding(
+                    padding: EdgeInsets.all(context.getRSize(16)),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: EdgeInsets.all(context.getRSize(10)),
+                          decoration: BoxDecoration(
+                            color: typeColor.withValues(alpha: 0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            typeIcon,
+                            size: context.getRSize(14),
+                            color: typeColor,
+                          ),
+                        ),
+                        SizedBox(width: context.getRSize(12)),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '${isCredit ? "+" : "-"}${formatCurrency(txn.amountKobo / 100.0)}',
+                                style: TextStyle(
+                                  fontSize: context.getRFontSize(15),
+                                  fontWeight: FontWeight.w700,
+                                  color: typeColor,
+                                ),
+                              ),
+                              SizedBox(height: context.getRSize(2)),
+                              Text(
+                                txn.referenceType.replaceAll('_', ' ').toUpperCase(),
+                                style: TextStyle(
+                                  fontSize: context.getRFontSize(10),
+                                  fontWeight: FontWeight.w800,
+                                  color: subtextCol,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Text(
+                          DateFormat('MMM d, H:mm').format(txn.createdAt),
+                          style: TextStyle(
+                            fontSize: context.getRFontSize(11),
+                            color: subtextCol,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+            if (txns.length > 3)
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: () => _showAllTransactionsModal(
+                    context,
+                    txns,
+                    cardCol,
+                    textCol,
+                    subtextCol,
+                    borderCol,
+                  ),
+                  child: Text(
+                    'View Full Ledger',
+                    style: TextStyle(
+                      color: blueMain,
+                      fontWeight: FontWeight.bold,
+                      fontSize: context.getRFontSize(13),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ],
+      ),
     );
   }
 
@@ -1277,7 +1266,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
     Color subtextCol,
     Color borderCol,
   ) {
-    final outstandingCrates = (_customer?.emptyCratesBalance.entries ?? [])
+    final outstandingCrates = _customer.emptyCratesBalance.entries
         .where((e) => e.value > 0)
         .toList();
 
@@ -1595,20 +1584,25 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         elevation: 0,
                       ),
-                      onPressed: () {
+                      onPressed: () async {
                         if (formKey.currentState!.validate()) {
                           final amount = parseCurrency(amountCtrl.text);
-                          final payment = Payment(
-                            id: DateTime.now().millisecondsSinceEpoch
-                                .toString(),
-                            amount: amount,
-                            timestamp: DateTime.now(),
-                            note: noteCtrl.text.trim().isEmpty
-                                ? null
-                                : noteCtrl.text.trim(),
+
+                          // Persist via service
+                          await customerService.addPayment(
+                            _customer.id, 
+                            Payment(
+                              id: DateTime.now().millisecondsSinceEpoch.toString(),
+                              amount: amount,
+                              timestamp: DateTime.now(),
+                              note: noteCtrl.text.trim(),
+                            ),
                           );
-                          customerService.addPayment(widget.customerId, payment);
-                          Navigator.pop(modalCtx);
+
+                          if (!modalCtx.mounted) return;
+
+                          // DB streams will auto-update balance + history
+                          if (modalCtx.mounted) Navigator.pop(modalCtx);
                         }
                       },
                       child: const Text(
@@ -1874,7 +1868,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                             padding: const EdgeInsets.symmetric(vertical: 16),
                             elevation: 0,
                           ),
-                          onPressed: () {
+                          onPressed: () async {
                             final returns = <String, int>{};
                             for (var r in rows) {
                               final g = r['group'] as String;
@@ -1884,10 +1878,24 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                               }
                             }
                             if (returns.isNotEmpty) {
-                                customerService.updateEmptyCratesBalance(
-                                  widget.customerId,
-                                  returns,
-                                );
+                              // Persist via service
+                              await customerService.updateEmptyCratesBalance(_customer.id, returns);
+                              
+                              if (!modalCtx.mounted) return;
+
+                              setState(() {
+                                final updated = Map<String, int>.from(_customer.emptyCratesBalance);
+                                for (final entry in returns.entries) {
+                                  final current = updated[entry.key] ?? 0;
+                                  final newVal = current - entry.value;
+                                  if (newVal <= 0) {
+                                    updated.remove(entry.key);
+                                  } else {
+                                    updated[entry.key] = newVal;
+                                  }
+                                }
+                                _customer = _customer.copyWith(emptyCratesBalance: updated);
+                              });
                             }
                             Navigator.pop(modalCtx);
                           },
@@ -1925,7 +1933,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
         final cardCol = isDark ? dCard : lCard;
 
         final limitCtrl = TextEditingController(
-          text: (_customer?.walletLimit ?? 0).abs().toStringAsFixed(0),
+          text: _customer.walletLimit.abs().toStringAsFixed(0),
         );
 
         return Padding(
@@ -2028,13 +2036,18 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: () {
+                    onPressed: () async {
                       final val = parseCurrency(limitCtrl.text);
-                      // Limits are stored as negative (max debt)
-                      customerService.updateWalletLimit(
-                        widget.customerId,
-                        -val.abs(),
-                      );
+                      final limitKobo = -(val.abs() * 100).round();
+                      
+                      // Persist via service
+                      await customerService.updateWalletLimit(_customer.id, val.abs());
+
+                      if (!modalCtx.mounted) return;
+
+                      setState(() {
+                        _customer = _customer.copyWith(walletLimitKobo: limitKobo);
+                      });
                       Navigator.pop(modalCtx);
                     },
                     style: ElevatedButton.styleFrom(

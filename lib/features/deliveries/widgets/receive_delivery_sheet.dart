@@ -123,7 +123,8 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
     bool isValid = true;
     for (var l in _lines) {
       if (l.productCtrl.text.isEmpty ||
-          (double.tryParse(l.qtyCtrl.text) ?? 0) <= 0) {
+          (double.tryParse(l.qtyCtrl.text) ?? 0) <= 0 ||
+          l.selectedSupplier == null) {
         isValid = false;
         break;
       }
@@ -131,7 +132,7 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
     if (!isValid) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please fill product name and quantity > 0'),
+          content: Text('Please fill product name, quantity > 0, and select a supplier'),
           backgroundColor: danger,
         ),
       );

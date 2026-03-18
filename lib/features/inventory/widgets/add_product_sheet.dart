@@ -27,9 +27,11 @@ class _AddProductSheetState extends State<AddProductSheet> {
   String? _crateSize; // null = not a glass product
   WarehouseData? _selectedWarehouse;
   SupplierData? _selectedSupplier;
+  CategoryData? _selectedCategory;
 
   List<WarehouseData> _warehouses = [];
   List<SupplierData> _allSuppliers = [];
+  List<CategoryData> _allCategories = [];
   List<SupplierData> _supplierSuggestions = [];
   List<String> _allManufacturers = [];
   List<String> _manufacturerSuggestions = [];
@@ -55,12 +57,15 @@ class _AddProductSheetState extends State<AddProductSheet> {
     final whs = await database.select(database.warehouses).get();
     final suppliers = await database.catalogDao.getAllSuppliers();
     final manufacturers = await database.catalogDao.getDistinctManufacturers();
+    final cats = await database.select(database.categories).get();
     if (mounted) {
       setState(() {
         _warehouses = whs;
         _allSuppliers = suppliers;
         _allManufacturers = manufacturers;
+        _allCategories = cats;
         if (whs.isNotEmpty) _selectedWarehouse = whs.first;
+        if (cats.isNotEmpty) _selectedCategory = cats.first;
       });
     }
   }
@@ -124,7 +129,17 @@ class _AddProductSheetState extends State<AddProductSheet> {
 
   Future<void> _save() async {
     final name = _nameCtrl.text.trim();
-    if (name.isEmpty || _retailPriceCtrl.text.trim().isEmpty) return;
+    if (name.isEmpty || _retailPriceCtrl.text.trim().isEmpty || _selectedCategory == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Product Name, Price, and Category are required.'),
+            backgroundColor: Colors.red.shade700,
+          ),
+        );
+      }
+      return;
+    }
 
     // Check for duplicate product name
     final existing = await database.catalogDao.findByName(name);
@@ -161,6 +176,7 @@ class _AddProductSheetState extends State<AddProductSheet> {
           lowStockThreshold: drift.Value(lowStock),
           manufacturer: drift.Value(manufacturer.isEmpty ? null : manufacturer),
           supplierId: drift.Value(_selectedSupplier?.id),
+          categoryId: drift.Value(_selectedCategory?.id),
         ),
       );
 
@@ -285,6 +301,25 @@ class _AddProductSheetState extends State<AddProductSheet> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _field('Product Name *', _nameCtrl, 'e.g. Heineken 60cl', card, textColor, subtext),
+                    const SizedBox(height: 14),
+                    _sectionLabel('CATEGORY *', subtext),
+                    const SizedBox(height: 8),
+                    if (_allCategories.isEmpty)
+                      Text('No categories found', style: TextStyle(color: subtext, fontSize: 13))
+                    else
+                      _dropdownWidget<CategoryData?>(
+                        value: _selectedCategory,
+                        items: _allCategories
+                            .map((c) => DropdownMenuItem<CategoryData?>(
+                                  value: c,
+                                  child: Text(c.name),
+                                ))
+                            .toList(),
+                        onChanged: (v) => setState(() => _selectedCategory = v),
+                        card: card,
+                        textColor: textColor,
+                        border: border,
+                      ),
                     const SizedBox(height: 14),
                     _field('Description / Subtitle', _subtitleCtrl, 'e.g. Premium Lager', card, textColor, subtext),
                     const SizedBox(height: 14),

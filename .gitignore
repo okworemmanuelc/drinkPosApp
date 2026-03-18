@@ -44,8 +44,14 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
+# Claude Code
+.claude/
+
 # Environment & secrets
 .env
 .env.local
 .env.production
 Thumbs.db
+
+# Local properties (machine-specific)
+android/local.properties

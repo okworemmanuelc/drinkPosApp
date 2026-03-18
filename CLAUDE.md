@@ -47,6 +47,8 @@ lib/
 -   **Debounced search**: The POS search field uses a 300ms `Timer` (`_searchDebounce`) — cancel the old timer on each keystroke and only call `setState` after the user stops typing. Import `dart:async` for `Timer`.
 -   **InventoryDao.watchProductsByCategory(int? categoryId)**: Category-filtered product stream. Pass `null` for all categories. Use this instead of `watchAllProductDatasWithStock()` on the POS screen.
 -   **orderService global**: Use the top-level `orderService` instance from `shared/services/order_service.dart`. Do NOT call `database.orderService` — that property does not exist on AppDatabase.
+-   **CustomerDetailScreen**: Accepts `Customer? customer` via constructor. Uses `addPostFrameCallback` to defer heavy widget tree and DB stream subscriptions until after the first frame commits (shows a spinner on first frame). Subscribes to `customersDao.watchWalletBalance(id)` and `customersDao.watchWalletHistory(id)` in the post-frame callback. All subscriptions cancelled in `dispose()`. Orders section shows empty state (no per-customer order query yet).
+-   **No mock data**: All mock/fake data has been removed from `CustomerDetailScreen`. Data must come from the DB only. Do NOT re-introduce mock lists/objects.
 
 ## 🎨 UI/UX Patterns
 
@@ -56,6 +58,16 @@ lib/
 -   **Drift stream rule**: NEVER call `watch()` streams inside `build()` methods or `StreamBuilder` — they create new subscriptions on every rebuild, causing infinite rebuild loops. Instead, subscribe once in `initState`, store results in a state variable, and read that variable in `build()`.
 -   **One-shot vs reactive queries**: Use `get()` for one-time reads (e.g. loading form data). Use `watch()` only in `initState` with `.listen()`. Never use `watchSomething().first` — it opens a reactive stream that never closes and can deadlock DB writes. Use a dedicated `getAll...()` method with `select(...).get()` instead.
 -   **CatalogDao**: has `getAllSuppliers()` — one-shot `get()` query for loading supplier list in forms without keeping a stream open.
+-   **Heavy screen pattern**: For screens with large widget trees (500+ widgets), use `addPostFrameCallback` in `initState` to defer both the full widget tree and stream subscriptions until after the first frame. Set `_contentReady = false` initially; show a bare `CircularProgressIndicator` until the callback fires and sets `_contentReady = true`. This prevents ANR on slow devices.
+-   **Navigator.push pattern**: Always use `PageRouteBuilder` with `opaque: true` and `transitionDuration: Duration.zero` instead of `MaterialPageRoute`. The slide transition in `MaterialPageRoute` renders old and new routes simultaneously, which overwhelms the main thread when the underlying `MainLayout` is heavy. Example:
+    ```dart
+    Navigator.push(context, PageRouteBuilder(
+      opaque: true,
+      transitionDuration: Duration.zero,
+      reverseTransitionDuration: Duration.zero,
+      pageBuilder: (_, __, ___) => const SomeDetailScreen(),
+    ));
+    ```
 
 ## 🚀 Development Guidelines
 
@@ -64,6 +76,8 @@ lib/
 3.  **State Management**: Extensive use of `ValueNotifier` and `StatefulWidget` patterns for local state; `Drift` for persistent state.
 4.  **Database Updates**: When modifying `app_database.dart`, run `dart run build_runner build` to regenerate the G-files.
 5.  **Database Stability**: When watching single entities for profile screens, prefer `watchSingleOrNull()` over `watchSingle()` to prevent app crashes when data is still loading or temporarily unavailable.
+6.  **MainLayout — no IndexedStack**: `main_layout.dart` uses a `_buildScreen(index)` switch instead of `IndexedStack`. Only the ACTIVE screen is in the widget tree at any time. Do NOT reintroduce `IndexedStack` — keeping all 12 screens alive simultaneously saturates the Dart event loop with stream callbacks and causes ANR when any new route is pushed. Trade-off: screens do not remember scroll position across tab switches (acceptable since data reloads from DB).
+7.  **MainLayout — pending orders stream**: The pending-orders badge count is driven by a single `StreamSubscription<List<Order>>` stored in `_pendingOrdersSub` (initiated in `initState`, cancelled in `dispose`). Do NOT move it back into `build()` as a `StreamBuilder` — this creates a new Drift watcher on every bottom-nav rebuild.
 
 ## 📦 Assets
 -   **Images**: Stored in `assets/images/`, including branding (Ribaplus logo) and decorative backgrounds.
