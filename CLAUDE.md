@@ -35,9 +35,11 @@ lib/
 ## 🔐 Key Patterns
 
 -   **Sync Strategy**: Uses `SupabaseSyncService` combined with a `SyncQueue` table in Drift to handle offline operations and reliable background synchronization.
--   **Role-Based Access**: Multi-tier user roles (Staff=1, Manager=4, CEO=5) managed via `UserData` and enforced in local screens.
+-   **Role-Based Access**: Multi-tier user roles (Staff=1, Manager=4, CEO=5) managed via `UserData` and enforced in local screens. Role restrictions on forms are deferred until auth is restored.
 -   **Financials**: All currency amounts (Retail price, Selling price, Wallet balance) are stored and manipulated as **Kobo (integers)** to avoid floating-point errors.
 -   **Crate Management**: Specialized logic for tracking empty crate stocks and deposits, grouped by `CrateGroups`.
+-   **Add Product Form**: `lib/features/inventory/widgets/add_product_sheet.dart` — collects name, retail price, unit, color, crate size (Big/Medium/Small), manufacturer (autocomplete from existing products), supplier (autocomplete from DB). Selling price and cost price are NOT on this form — added later in product detail screen.
+-   **Products schema**: `supplierId` (nullable FK → Suppliers) added in schema v14. `crateSize` stores 'big'|'medium'|'small'. No bulk/distributor price fields on add form.
 
 ## 🚀 Development Guidelines
 

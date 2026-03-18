@@ -239,7 +239,7 @@ class _AddCustomerSheetState extends State<AddCustomerSheet> {
                           context.getRSize(20),
                           context.getRSize(10),
                           context.getRSize(20),
-                          context.getRSize(20) + MediaQuery.of(context).viewInsets.bottom,
+                          context.getRSize(20),
                         ),
                         children: [
                           _inputField(
@@ -271,14 +271,15 @@ class _AddCustomerSheetState extends State<AddCustomerSheet> {
 
                     // Button
                     Padding(
-                      padding: EdgeInsets.fromLTRB(
-                        context.getRSize(20),
-                        context.getRSize(16),
-                        context.getRSize(20),
-                        context.getRSize(
-                          MediaQuery.of(context).padding.bottom + 16,
+                        padding: EdgeInsets.fromLTRB(
+                          context.getRSize(20),
+                          context.getRSize(16),
+                          context.getRSize(20),
+                          context.getRSize(
+                            MediaQuery.of(context).padding.bottom + 
+                            MediaQuery.of(context).viewInsets.bottom + 16,
+                          ),
                         ),
-                      ),
                       child: Container(
                         width: double.infinity,
                         decoration: BoxDecoration(
