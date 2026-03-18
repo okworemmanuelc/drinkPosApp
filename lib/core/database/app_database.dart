@@ -53,6 +53,11 @@ class Categories extends Table {
 }
 
 // 5. Products
+// Indexes speed up filtering by category and searching by name.
+// Think of an index like a book's index — it lets the database jump
+// directly to the right rows instead of reading every single row.
+@TableIndex(name: 'idx_products_category_id', columns: {#categoryId})
+@TableIndex(name: 'idx_products_name', columns: {#name})
 @DataClassName('ProductData')
 class Products extends Table {
   IntColumn get id => integer().autoIncrement()();
@@ -467,7 +472,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 14;
+  int get schemaVersion => 15;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(

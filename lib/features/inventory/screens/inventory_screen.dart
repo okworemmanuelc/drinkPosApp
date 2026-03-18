@@ -178,27 +178,24 @@ class _InventoryScreenState extends State<InventoryScreen>
 
   // ── SUMMARY CARDS ─────────────────────────────────────────────────────────────
   Widget _buildSummaryCards(BuildContext context) {
-    return StreamBuilder<List<ProductDataWithStock>>(
-      stream: database.inventoryDao.watchAllProductDatasWithStock(),
-      builder: (context, snapshot) {
-        final products = snapshot.data ?? [];
+    final products = _dbProducts;
 
-        final totalItems = products.length;
-        final lowStock = products
-            .where(
-              (p) =>
-                  p.totalStock > 0 &&
-                  p.totalStock <= p.product.lowStockThreshold,
-            )
-            .length;
-        final outOfStock = products.where((p) => p.totalStock == 0).length;
+    final totalItems = products.length;
+    final lowStock = products
+        .where(
+          (p) =>
+              p.totalStock > 0 &&
+              p.totalStock <= p.product.lowStockThreshold,
+        )
+        .length;
+    final outOfStock = products.where((p) => p.totalStock == 0).length;
 
-        final totalCrates = _activeCrateGroups.fold<int>(
-          0,
-          (s, c) => s + c.emptyCrateStock,
-        ).toDouble();
+    final totalCrates = _activeCrateGroups.fold<int>(
+      0,
+      (s, c) => s + c.emptyCrateStock,
+    ).toDouble();
 
-        final cards = [
+    final cards = [
           _summaryCard(
             context,
             'Total SKUs',
@@ -274,8 +271,6 @@ class _InventoryScreenState extends State<InventoryScreen>
             ),
           ),
         );
-      },
-    );
   }
 
   Widget _summaryCard(
@@ -374,55 +369,44 @@ class _InventoryScreenState extends State<InventoryScreen>
 
   // ── PRODUCTS TAB ──────────────────────────────────────────────────────────────
   Widget _buildProductsTab(BuildContext context) {
-    return StreamBuilder<List<ProductDataWithStock>>(
-      stream: database.inventoryDao.watchAllProductDatasWithStock(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(
-            child: CircularProgressIndicator(color: blueMain),
-          );
-        }
+    var list = _dbProducts;
 
-        var list = snapshot.data ?? [];
+    // Apply filters
+    if (_stockFilter == 'low') {
+      list = list
+          .where(
+            (p) =>
+                p.totalStock > 0 &&
+                p.totalStock <= p.product.lowStockThreshold,
+          )
+          .toList();
+    } else if (_stockFilter == 'out') {
+      list = list.where((p) => p.totalStock == 0).toList();
+    }
 
-        // Apply filters
-        if (_stockFilter == 'low') {
-          list = list
-              .where(
-                (p) =>
-                    p.totalStock > 0 &&
-                    p.totalStock <= p.product.lowStockThreshold,
-              )
-              .toList();
-        } else if (_stockFilter == 'out') {
-          list = list.where((p) => p.totalStock == 0).toList();
-        }
-
-        return Column(
-          children: [
-            _buildSupplierFilter(context),
-            Expanded(
-              child: list.isEmpty
-                  ? Center(
-                      child: Text(
-                        'No products matching filters',
-                        style: TextStyle(color: _subtext),
-                      ),
-                    )
-                  : ListView.builder(
-                      padding: EdgeInsets.fromLTRB(
-                        context.getRSize(16),
-                        context.getRSize(12),
-                        context.getRSize(16),
-                        context.getRSize(120),
-                      ),
-                      itemCount: list.length,
-                      itemBuilder: (_, i) => _buildProductRow(context, list[i]),
-                    ),
-            ),
-          ],
-        );
-      },
+    return Column(
+      children: [
+        _buildSupplierFilter(context),
+        Expanded(
+          child: list.isEmpty
+              ? Center(
+                  child: Text(
+                    'No products matching filters',
+                    style: TextStyle(color: _subtext),
+                  ),
+                )
+              : ListView.builder(
+                  padding: EdgeInsets.fromLTRB(
+                    context.getRSize(16),
+                    context.getRSize(12),
+                    context.getRSize(16),
+                    context.getRSize(120),
+                  ),
+                  itemCount: list.length,
+                  itemBuilder: (_, i) => _buildProductRow(context, list[i]),
+                ),
+        ),
+      ],
     );
   }
 

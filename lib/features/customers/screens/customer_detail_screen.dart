@@ -45,11 +45,21 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
     }
   }
 
+  late Stream<int> _walletBalanceStream;
+  late Stream<List<WalletTransactionData>> _walletHistoryStream;
+  late Stream<List<Order>> _ordersStream;
+
   @override
   void initState() {
     super.initState();
     _customer = customerService.getById(widget.customerId);
     customerService.addListener(_onCustomerUpdated);
+
+    _walletBalanceStream = database.customersDao.watchWalletBalance(widget.customerId);
+    _walletHistoryStream = database.customersDao.watchWalletHistory(widget.customerId);
+    _ordersStream = orderService.watchAllOrders().map(
+          (orders) => orders.where((o) => o.customerId == widget.customerId.toString()).toList(),
+        );
   }
 
   @override
@@ -315,7 +325,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
     Color borderCol,
   ) {
     return StreamBuilder<int>(
-      stream: database.customersDao.watchWalletBalance(widget.customerId),
+      stream: _walletBalanceStream,
       initialData: _customer?.walletBalanceKobo ?? 0,
       builder: (context, snapshot) {
         final balanceKobo = snapshot.data ?? 0;
@@ -409,12 +419,9 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
     Color borderCol,
   ) {
     return StreamBuilder<List<Order>>(
-      stream: orderService.watchAllOrders(),
+      stream: _ordersStream,
       builder: (context, snapshot) {
-        final ordersList = snapshot.data ?? [];
-        final customerOrders =
-            ordersList.where((o) => o.customerId == widget.customerId.toString()).toList()
-              ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        final customerOrders = snapshot.data ?? [];
         final recentOrders = customerOrders.take(3).toList();
 
         return Padding(
@@ -861,7 +868,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
     Color borderCol,
   ) {
     return StreamBuilder<List<WalletTransactionData>>(
-      stream: database.customersDao.watchWalletHistory(widget.customerId),
+      stream: _walletHistoryStream,
       builder: (context, snapshot) {
         final txns = snapshot.data ?? [];
         final recentTxns = txns.take(3).toList();
@@ -1060,13 +1067,12 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
               return true;
             }).toList();
 
-        return Padding(
-          padding: EdgeInsets.only(
-            bottom:
-                MediaQuery.of(modalCtx).viewInsets.bottom +
-                MediaQuery.of(modalCtx).padding.bottom,
-          ),
-          child: Container(
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(modalCtx).viewInsets.bottom +
+                    MediaQuery.of(modalCtx).padding.bottom,
+              ),
+              child: Container(
                 height: MediaQuery.of(modalCtx).size.height * 0.85,
                 decoration: BoxDecoration(
                   color: bgCol,

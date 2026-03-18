@@ -53,7 +53,7 @@ class _AddProductSheetState extends State<AddProductSheet> {
 
   Future<void> _loadData() async {
     final whs = await database.select(database.warehouses).get();
-    final suppliers = await database.catalogDao.watchAllSupplierDatas().first;
+    final suppliers = await database.catalogDao.getAllSuppliers();
     final manufacturers = await database.catalogDao.getDistinctManufacturers();
     if (mounted) {
       setState(() {
@@ -125,6 +125,21 @@ class _AddProductSheetState extends State<AddProductSheet> {
   Future<void> _save() async {
     final name = _nameCtrl.text.trim();
     if (name.isEmpty || _retailPriceCtrl.text.trim().isEmpty) return;
+
+    // Check for duplicate product name
+    final existing = await database.catalogDao.findByName(name);
+    if (existing != null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('A product named "$name" already exists.'),
+            backgroundColor: Colors.red.shade700,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
+      return;
+    }
 
     final retailKobo = ((double.tryParse(_retailPriceCtrl.text) ?? 0) * 100).round();
     final lowStock = int.tryParse(_lowStockCtrl.text) ?? 5;
@@ -460,28 +475,42 @@ class _AddProductSheetState extends State<AddProductSheet> {
                       ),
                     const SizedBox(height: 16),
 
-                    // ── INITIAL STOCK ──────────────────────────────────────
-                    if (_warehouses.isNotEmpty) ...[
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                _sectionLabel('INITIAL STOCK', subtext),
-                                const SizedBox(height: 8),
-                                _field('', _initialStockCtrl, '0', card, textColor, subtext, isNumber: true),
-                              ],
-                            ),
+                    // ── QUANTITY + WAREHOUSE ────────────────────────────────
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _sectionLabel('QUANTITY', subtext),
+                              const SizedBox(height: 8),
+                              _field('', _initialStockCtrl, '0', card, textColor, subtext, isNumber: true),
+                            ],
                           ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                _sectionLabel('WAREHOUSE', subtext),
-                                const SizedBox(height: 8),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _sectionLabel('WAREHOUSE', subtext),
+                              const SizedBox(height: 8),
+                              if (_warehouses.isEmpty)
+                                Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                                  decoration: BoxDecoration(
+                                    color: card,
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(color: border),
+                                  ),
+                                  child: Text(
+                                    'No warehouses',
+                                    style: TextStyle(fontSize: 14, color: subtext),
+                                  ),
+                                )
+                              else
                                 _dropdownWidget<WarehouseData?>(
                                   value: _selectedWarehouse,
                                   items: _warehouses
@@ -495,13 +524,12 @@ class _AddProductSheetState extends State<AddProductSheet> {
                                   textColor: textColor,
                                   border: border,
                                 ),
-                              ],
-                            ),
+                            ],
                           ),
-                        ],
-                      ),
-                      const SizedBox(height: 24),
-                    ],
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
                   ],
                 ),
               ),

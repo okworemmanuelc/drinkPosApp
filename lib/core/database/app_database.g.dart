@@ -14718,6 +14718,14 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   );
   late final $WalletTransactionsTable walletTransactions =
       $WalletTransactionsTable(this);
+  late final Index idxProductsCategoryId = Index(
+    'idx_products_category_id',
+    'CREATE INDEX idx_products_category_id ON products (category_id)',
+  );
+  late final Index idxProductsName = Index(
+    'idx_products_name',
+    'CREATE INDEX idx_products_name ON products (name)',
+  );
   late final CatalogDao catalogDao = CatalogDao(this as AppDatabase);
   late final InventoryDao inventoryDao = InventoryDao(this as AppDatabase);
   late final OrdersDao ordersDao = OrdersDao(this as AppDatabase);
@@ -14775,6 +14783,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     stockTransactions,
     customerWallets,
     walletTransactions,
+    idxProductsCategoryId,
+    idxProductsName,
   ];
 }
 

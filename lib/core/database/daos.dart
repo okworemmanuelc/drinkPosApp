@@ -9,6 +9,7 @@ part 'daos.g.dart';
 class CatalogDao extends DatabaseAccessor<AppDatabase> with _$CatalogDaoMixin {
   CatalogDao(super.db);
   Stream<List<SupplierData>> watchAllSupplierDatas() => select(suppliers).watch();
+  Future<List<SupplierData>> getAllSuppliers() => select(suppliers).get();
   Future<int> insertSupplier(SuppliersCompanion companion) => into(suppliers).insert(companion);
   Future<int> insertProduct(ProductsCompanion companion) => into(products).insert(companion);
 
@@ -31,7 +32,30 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> with _$CatalogDaoMixin {
     return (select(products)..where((t) => t.isDeleted.not())).watch();
   }
   Future<ProductData?> findById(int id) => (select(products)..where((t) => t.id.equals(id))).getSingleOrNull();
+  Future<ProductData?> findByName(String name) => (select(products)..where((t) => t.name.equals(name) & t.isDeleted.not())).getSingleOrNull();
   Future<void> softDeleteProduct(int productId) => (update(products)..where((t) => t.id.equals(productId))).write(const ProductsCompanion(isDeleted: Value(true)));
+
+  Future<void> updateProductDetails(
+    int productId, {
+    required String name,
+    String? manufacturer,
+    required int sellingPriceKobo,
+    required int buyingPriceKobo,
+    required int retailPriceKobo,
+    int? bulkBreakerPriceKobo,
+    int? distributorPriceKobo,
+  }) =>
+      (update(products)..where((t) => t.id.equals(productId))).write(
+        ProductsCompanion(
+          name: Value(name),
+          manufacturer: Value(manufacturer),
+          sellingPriceKobo: Value(sellingPriceKobo),
+          buyingPriceKobo: Value(buyingPriceKobo),
+          retailPriceKobo: Value(retailPriceKobo),
+          bulkBreakerPriceKobo: Value(bulkBreakerPriceKobo),
+          distributorPriceKobo: Value(distributorPriceKobo),
+        ),
+      );
 
   int getPriceForCustomerGroup(ProductData product, String group) {
     switch (group) {
@@ -48,6 +72,32 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> with _$CatalogDaoMixin {
 @DriftAccessor(tables: [Products, Inventory, Warehouses, CrateGroups])
 class InventoryDao extends DatabaseAccessor<AppDatabase> with _$InventoryDaoMixin {
   InventoryDao(super.db);
+
+  // Returns a live stream of products filtered by category.
+  // If categoryId is null, returns all categories (same as watchAllProductDatasWithStock).
+  // The filtering happens inside the SQL query — only the matching rows
+  // are sent to the app, which is much faster than loading everything
+  // and filtering in Dart code.
+  Stream<List<ProductDataWithStock>> watchProductsByCategory(int? categoryId) {
+    final qty = inventory.quantity.sum();
+    final query = select(products).join([
+      leftOuterJoin(inventory, inventory.productId.equalsExp(products.id)),
+    ])
+      ..where(products.isDeleted.not())
+      ..groupBy([products.id])
+      ..addColumns([qty]);
+
+    if (categoryId != null) {
+      query.where(products.categoryId.equals(categoryId));
+    }
+
+    return query.watch().map((rows) => rows
+        .map((row) => ProductDataWithStock(
+              product: row.readTable(products),
+              totalStock: row.read(qty) ?? 0,
+            ))
+        .toList());
+  }
 
   Stream<List<ProductDataWithStock>> watchAllProductDatasWithStock() {
     final qty = inventory.quantity.sum();
@@ -343,7 +393,8 @@ class CustomersDao extends DatabaseAccessor<AppDatabase> with _$CustomersDaoMixi
       ..addColumns([credits, debits])
       ..where(walletTransactions.walletId.equals(walletId));
 
-    final row = await query.getSingle();
+    final row = await query.getSingleOrNull();
+    if (row == null) return 0;
     final creditSum = row.read(credits) ?? 0;
     final debitSum = row.read(debits) ?? 0;
 
@@ -408,15 +459,15 @@ class NotificationsDao extends DatabaseAccessor<AppDatabase> with _$Notification
 @DriftAccessor(tables: [StockTransactions, Products])
 class StockLedgerDao extends DatabaseAccessor<AppDatabase> with _$StockLedgerDaoMixin {
   StockLedgerDao(super.db);
-
-  Future<int> getCurrentStock(int productId, int locationId) {
+  
+  Future<int> getCurrentStock(int productId, int locationId) async {
     final delta = stockTransactions.quantityDelta.sum();
-    return (selectOnly(stockTransactions)
+    return await (selectOnly(stockTransactions)
           ..where(stockTransactions.productId.equals(productId))
           ..where(stockTransactions.locationId.equals(locationId))
           ..addColumns([delta]))
         .map((row) => row.read(delta) ?? 0)
-        .getSingle();
+        .getSingleOrNull() ?? 0;
   }
 
   Stream<int> watchCurrentStock(int productId, int locationId) {
@@ -426,7 +477,8 @@ class StockLedgerDao extends DatabaseAccessor<AppDatabase> with _$StockLedgerDao
           ..where(stockTransactions.locationId.equals(locationId))
           ..addColumns([delta]))
         .map((row) => row.read(delta) ?? 0)
-        .watchSingle();
+        .watchSingleOrNull()
+        .map((val) => val ?? 0);
   }
 
   Future<void> insertTransaction(StockTransactionsCompanion companion) => into(stockTransactions).insert(companion);
@@ -500,8 +552,8 @@ class StockTransferDao extends DatabaseAccessor<AppDatabase> with _$StockTransfe
 
   Future<void> receiveTransfer(int transferId, int receivedBy) async {
     await transaction(() async {
-      final transfer = await (select(stockTransfers)..where((t) => t.transferId.equals(transferId))).getSingle();
-      if (transfer.status != 'pending' && transfer.status != 'in_transit') throw Exception('Transfer cannot be received');
+      final transfer = await (select(stockTransfers)..where((t) => t.transferId.equals(transferId))).getSingleOrNull();
+      if (transfer == null || (transfer.status != 'pending' && transfer.status != 'in_transit')) throw Exception('Transfer cannot be received');
       await (update(stockTransfers)..where((t) => t.transferId.equals(transferId))).write(StockTransfersCompanion(status: const Value('received'), receivedBy: Value(receivedBy), receivedAt: Value(DateTime.now())));
       await into(attachedDatabase.stockTransactions).insert(StockTransactionsCompanion.insert(transactionId: _generateUuid(), productId: transfer.productId, locationId: transfer.toLocationId, quantityDelta: transfer.quantity, movementType: 'transfer_in', referenceId: Value(transferId.toString()), performedBy: receivedBy, createdAt: Value(DateTime.now())));
     });
@@ -509,7 +561,8 @@ class StockTransferDao extends DatabaseAccessor<AppDatabase> with _$StockTransfe
 
   Future<void> cancelTransfer(int transferId) async {
     await transaction(() async {
-      final transfer = await (select(stockTransfers)..where((t) => t.transferId.equals(transferId))).getSingle();
+      final transfer = await (select(stockTransfers)..where((t) => t.transferId.equals(transferId))).getSingleOrNull();
+      if (transfer == null) throw Exception('Transfer not found');
       if (transfer.status == 'received') throw Exception('Cannot cancel received transfer');
       await (update(stockTransfers)..where((t) => t.transferId.equals(transferId))).write(const StockTransfersCompanion(status: Value('cancelled')));
       final tx = await (select(attachedDatabase.stockTransactions)..where((t) => t.referenceId.equals(transferId.toString()) & t.movementType.equals('transfer_out'))).getSingleOrNull();

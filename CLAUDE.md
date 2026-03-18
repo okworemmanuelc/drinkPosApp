@@ -39,8 +39,14 @@ lib/
 -   **Financials**: All currency amounts (Retail price, Selling price, Wallet balance) are stored and manipulated as **Kobo (integers)** to avoid floating-point errors.
 -   **Crate Management**: Specialized logic for tracking empty crate stocks and deposits, grouped by `CrateGroups`.
 -   **Add Product Form**: `lib/features/inventory/widgets/add_product_sheet.dart` — collects name, retail price, unit, color, crate size (Big/Medium/Small), manufacturer (autocomplete from existing products), supplier (autocomplete from DB). Selling price and cost price are NOT on this form — added later in product detail screen.
--   **Products schema**: `supplierId` (nullable FK → Suppliers) added in schema v14. `crateSize` stores 'big'|'medium'|'small'. No bulk/distributor price fields on add form.
+-   **Products schema**: `supplierId` (nullable FK → Suppliers) added in schema v14. `crateSize` stores 'big'|'medium'|'small'. No bulk/distributor price fields on add form. Schema is now **v15** (indexes added on `Products.categoryId` and `Products.name`).
 -   **Customer Wallet System**: Balance is **COMPUTED** as SUM of credits minus SUM of debits from `wallet_transactions`. Never store mutable balance as a single column to prevent drift and enable auditability.
+-   **Stock totals**: Same principle as wallet balances — `totalStock` is always computed via `SUM(inventory.quantity)` in a SQL join, never cached as a column on Products. Do NOT add a `cachedStock` column.
+-   **Duplicate product names**: `CatalogDao.findByName(String name)` checks for an existing non-deleted product before insert. Always call this before `insertProduct()` in any form that adds products.
+-   **POS product loading**: Products are loaded once in `initState` via `_subscribeToProducts(categoryId)` and stored in `_allProducts`. The `_buildGrid()` method reads `_allProducts` directly — no `StreamBuilder` in `build()`. When the user taps a category chip, `_subscribeToProducts` is called again with the new categoryId to re-subscribe the stream.
+-   **Debounced search**: The POS search field uses a 300ms `Timer` (`_searchDebounce`) — cancel the old timer on each keystroke and only call `setState` after the user stops typing. Import `dart:async` for `Timer`.
+-   **InventoryDao.watchProductsByCategory(int? categoryId)**: Category-filtered product stream. Pass `null` for all categories. Use this instead of `watchAllProductDatasWithStock()` on the POS screen.
+-   **orderService global**: Use the top-level `orderService` instance from `shared/services/order_service.dart`. Do NOT call `database.orderService` — that property does not exist on AppDatabase.
 
 ## 🎨 UI/UX Patterns
 

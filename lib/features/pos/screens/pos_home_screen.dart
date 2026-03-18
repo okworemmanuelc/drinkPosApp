@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
@@ -33,11 +35,30 @@ class _PosHomeScreenState extends State<PosHomeScreen>
   List<CategoryData> _dbCategories = [];
   int? _selectedCategoryId;
 
+  // All products from the database (loaded once in initState, not inside build)
+  List<ProductDataWithStock> _allProducts = [];
+  StreamSubscription<List<ProductDataWithStock>>? _productsSub;
+
+  // Timer used for debounced search (waits 300ms after typing stops)
+  Timer? _searchDebounce;
+
   @override
   void initState() {
     super.initState();
     _loadCategories();
+    _subscribeToProducts(categoryId: null); // load all products at start
     cartService.activeCustomer.addListener(_onCustomerSelected);
+  }
+
+  // Subscribes to the product stream for a given category.
+  // Cancels the old subscription first so we don't pile up listeners.
+  void _subscribeToProducts({int? categoryId}) {
+    _productsSub?.cancel();
+    _productsSub = database.inventoryDao
+        .watchProductsByCategory(categoryId)
+        .listen((data) {
+      if (mounted) setState(() => _allProducts = data);
+    });
   }
 
   Future<void> _loadCategories() async {
@@ -58,6 +79,8 @@ class _PosHomeScreenState extends State<PosHomeScreen>
 
   @override
   void dispose() {
+    _productsSub?.cancel();
+    _searchDebounce?.cancel();
     cartService.activeCustomer.removeListener(_onCustomerSelected);
     _searchController.dispose();
     super.dispose();
@@ -295,7 +318,12 @@ class _PosHomeScreenState extends State<PosHomeScreen>
                 return Padding(
                   padding: EdgeInsets.only(right: context.spacingS),
                   child: GestureDetector(
-                    onTap: () => setState(() => _selectedCategoryId = cat?.id),
+                    onTap: () {
+                      setState(() => _selectedCategoryId = cat?.id);
+                      // Re-subscribe the stream filtered to the chosen category.
+                      // null means "all categories".
+                      _subscribeToProducts(categoryId: cat?.id);
+                    },
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 150),
                       padding: EdgeInsets.symmetric(
@@ -334,76 +362,67 @@ class _PosHomeScreenState extends State<PosHomeScreen>
 
   // ── PRODUCT GRID ─────────────────────────────────────────────────────────────
   Widget _buildGrid() {
-    return StreamBuilder<List<ProductDataWithStock>>(
-      stream: database.inventoryDao.watchAllProductDatasWithStock(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator(color: blueMain));
-        }
+    // Filter the already-loaded list in memory.
+    // The DB query already handles category, so here we only apply
+    // the text search and stock/availability checks.
+    var items = _allProducts
+        .where((item) =>
+            item.totalStock > 0 &&
+            item.product.isAvailable &&
+            !item.product.isDeleted)
+        .toList();
 
-        var items = (snapshot.data ?? [])
-            .where((item) =>
-                item.totalStock > 0 &&
-                item.product.isAvailable &&
-                !item.product.isDeleted &&
-                (_selectedCategoryId == null ||
-                    item.product.categoryId == _selectedCategoryId))
-            .toList();
+    if (_searchQuery.isNotEmpty) {
+      final q = _searchQuery.toLowerCase();
+      items = items
+          .where((item) =>
+              item.product.name.toLowerCase().contains(q) ||
+              (item.product.subtitle?.toLowerCase().contains(q) ?? false))
+          .toList();
+    }
 
-        // Manual search filter
-        if (_searchQuery.isNotEmpty) {
-          final q = _searchQuery.toLowerCase();
-          items = items
-              .where((item) =>
-                  item.product.name.toLowerCase().contains(q) ||
-                  (item.product.subtitle?.toLowerCase().contains(q) ?? false))
-              .toList();
-        }
-
-        if (items.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(FontAwesomeIcons.magnifyingGlass, size: context.getRSize(48), color: _border),
-                SizedBox(height: context.spacingM),
-                Text(
-                  'No products found',
-                  style: TextStyle(
-                    color: _subtext,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
-                ),
-              ],
+    if (items.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(FontAwesomeIcons.magnifyingGlass, size: context.getRSize(48), color: _border),
+            SizedBox(height: context.spacingM),
+            Text(
+              'No products found',
+              style: TextStyle(
+                color: _subtext,
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+              ),
             ),
-          );
-        }
+          ],
+        ),
+      );
+    }
 
-        final screenWidth = MediaQuery.of(context).size.width;
-        final crossAxisCount = screenWidth < 360 ? 2 : (screenWidth > 500 ? 4 : 3);
-        final aspect = screenWidth < 360 ? 0.75 : (screenWidth > 500 ? 0.68 : 0.68);
+    final screenWidth = MediaQuery.of(context).size.width;
+    final crossAxisCount = screenWidth < 360 ? 2 : (screenWidth > 500 ? 4 : 3);
+    final aspect = screenWidth < 360 ? 0.75 : (screenWidth > 500 ? 0.68 : 0.68);
 
-        return GridView.builder(
-          padding: EdgeInsets.fromLTRB(
-            context.spacingM,
-            context.spacingM,
-            context.spacingM,
-            context.getRSize(100),
-          ),
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: crossAxisCount,
-            childAspectRatio: aspect,
-            crossAxisSpacing: context.spacingM,
-            mainAxisSpacing: context.spacingM,
-          ),
-          itemCount: items.length,
-          itemBuilder: (_, i) => ValueListenableBuilder<List<Map<String, dynamic>>>(
-            valueListenable: cartService,
-            builder: (context, cart, _) => _buildProductCard(items[i].product, cart),
-          ),
-        );
-      },
+    return GridView.builder(
+      padding: EdgeInsets.fromLTRB(
+        context.spacingM,
+        context.spacingM,
+        context.spacingM,
+        context.getRSize(100),
+      ),
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: crossAxisCount,
+        childAspectRatio: aspect,
+        crossAxisSpacing: context.spacingM,
+        mainAxisSpacing: context.spacingM,
+      ),
+      itemCount: items.length,
+      itemBuilder: (_, i) => ValueListenableBuilder<List<Map<String, dynamic>>>(
+        valueListenable: cartService,
+        builder: (context, cart, _) => _buildProductCard(items[i].product, cart),
+      ),
     );
   }
 
@@ -595,7 +614,15 @@ class _PosHomeScreenState extends State<PosHomeScreen>
       child: TextField(
         controller: _searchController,
         autofocus: true,
-        onChanged: (v) => setState(() => _searchQuery = v),
+        onChanged: (v) {
+          // Cancel the previous timer every time the user types a new letter.
+          // Only update the list 300ms after the user STOPS typing.
+          // This prevents a rebuild on every single keystroke.
+          _searchDebounce?.cancel();
+          _searchDebounce = Timer(const Duration(milliseconds: 300), () {
+            if (mounted) setState(() => _searchQuery = v);
+          });
+        },
         style: TextStyle(
           fontSize: context.getRFontSize(14),
           color: _text,

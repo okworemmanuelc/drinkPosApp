@@ -1277,7 +1277,17 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     final productId = int.parse(widget.item.id);
 
     try {
-      // 1. Update Products table — stub, no DB write in this version
+      // 1. Update Products table — name, manufacturer, all prices
+      await database.catalogDao.updateProductDetails(
+        productId,
+        name: name,
+        manufacturer: manufacturer.isEmpty ? null : manufacturer,
+        sellingPriceKobo: (selling * 100).round(),
+        buyingPriceKobo: (buying * 100).round(),
+        retailPriceKobo: (retail * 100).round(),
+        bulkBreakerPriceKobo: bulk > 0 ? (bulk * 100).round() : null,
+        distributorPriceKobo: distributor > 0 ? (distributor * 100).round() : null,
+      );
 
       // 2. Update Inventory (adjusting qty)
       final warehouseId = widget.item.warehouseStock.keys.isNotEmpty
@@ -1295,7 +1305,15 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         );
       }
 
-      // 3. Update local item object (for UI feedback if staying on screen)
+      // 3. Log the edit to activity history
+      await database.activityLogDao.log(
+        action: 'update_product',
+        description: 'Updated product details for $name',
+        entityId: widget.item.id,
+        entityType: 'product',
+      );
+
+      // 4. Update local item object (for UI feedback if staying on screen)
       setState(() {
         widget.item.productName = name;
         widget.item.manufacturer = manufacturer;
