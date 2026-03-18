@@ -168,6 +168,17 @@ class _AddProductSheetState extends State<AddProductSheet> {
 
       if (mounted) Navigator.pop(context);
       widget.onProductAdded?.call();
+    } catch (e) {
+      debugPrint('AddProductSheet._save error: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Could not save product: $e'),
+            backgroundColor: Colors.red.shade700,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
