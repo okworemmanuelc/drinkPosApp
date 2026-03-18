@@ -15,9 +15,10 @@ import '../../../shared/services/order_service.dart';
 import '../../../shared/widgets/receipt_widget.dart';
 import '../../../core/utils/currency_input_formatter.dart';
 import '../../../shared/widgets/fluid_menu.dart';
+import '../../../core/database/app_database.dart';
 
 class CustomerDetailScreen extends StatefulWidget {
-  final String customerId;
+  final int customerId;
 
   const CustomerDetailScreen({super.key, required this.customerId});
 
@@ -239,6 +240,27 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                   subtextCol,
                 ),
               ],
+              SizedBox(height: context.getRSize(16)),
+              Container(
+                padding: EdgeInsets.symmetric(
+                  horizontal: context.getRSize(12),
+                  vertical: context.getRSize(4),
+                ),
+                decoration: BoxDecoration(
+                  color: blueMain.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: blueMain.withValues(alpha: 0.2)),
+                ),
+                child: Text(
+                  _customer!.customerGroup.name.toUpperCase(),
+                  style: TextStyle(
+                    fontSize: context.getRFontSize(10),
+                    fontWeight: FontWeight.w800,
+                    color: blueMain,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ),
             ],
           ),
         ),
@@ -292,83 +314,90 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
     Color subtextCol,
     Color borderCol,
   ) {
-    final isNegative = _customer!.customerWallet < 0;
-    final balanceColor = isNegative ? danger : success;
-    final walletStr = formatCurrency(_customer!.customerWallet);
+    return StreamBuilder<int>(
+      stream: database.customersDao.watchWalletBalance(_customer!.id),
+      initialData: _customer!.walletBalanceKobo,
+      builder: (context, snapshot) {
+        final balanceKobo = snapshot.data ?? 0;
+        final isNegative = balanceKobo < 0;
+        final balanceColor = isNegative ? danger : success;
+        final walletStr = formatCurrency(balanceKobo / 100.0);
 
-    return Stack(
-      children: [
-        Container(
-          width: double.infinity,
-          margin: EdgeInsets.symmetric(horizontal: context.getRSize(16)),
-          padding: EdgeInsets.all(context.getRSize(20)),
-          decoration: BoxDecoration(
-            color: surfaceCol,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: borderCol),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.02),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Column(
-            children: [
-              Text(
-                'Wallet Balance',
-                style: TextStyle(
-                  fontSize: context.getRFontSize(14),
-                  fontWeight: FontWeight.w600,
-                  color: textCol,
-                ),
-              ),
-              SizedBox(height: context.getRSize(8)),
-              Text(
-                walletStr,
-                style: TextStyle(
-                  fontSize: context.getRFontSize(32),
-                  fontWeight: FontWeight.w800,
-                  color: balanceColor,
-                  letterSpacing: -1,
-                ),
-              ),
-              if (_customer!.walletLimit != 0) ...[
-                SizedBox(height: context.getRSize(4)),
-                Text(
-                  'Limit: ${formatCurrency(_customer!.walletLimit)}',
-                  style: TextStyle(
-                    fontSize: context.getRFontSize(11),
-                    color: subtextCol,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
-        Positioned(
-          top: context.getRSize(8),
-          right: context.getRSize(24),
-          child: IconButton(
-            icon: Container(
-              padding: EdgeInsets.all(context.getRSize(6)),
+        return Stack(
+          children: [
+            Container(
+              width: double.infinity,
+              margin: EdgeInsets.symmetric(horizontal: context.getRSize(16)),
+              padding: EdgeInsets.all(context.getRSize(20)),
               decoration: BoxDecoration(
-                color: blueMain.withValues(alpha: 0.1),
-                shape: BoxShape.circle,
+                color: surfaceCol,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: borderCol),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.02),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
               ),
-              child: Icon(
-                FontAwesomeIcons.sliders,
-                size: context.getRSize(12),
-                color: blueMain,
+              child: Column(
+                children: [
+                  Text(
+                    'Wallet Balance',
+                    style: TextStyle(
+                      fontSize: context.getRFontSize(14),
+                      fontWeight: FontWeight.w600,
+                      color: textCol,
+                    ),
+                  ),
+                  SizedBox(height: context.getRSize(8)),
+                  Text(
+                    walletStr,
+                    style: TextStyle(
+                      fontSize: context.getRFontSize(32),
+                      fontWeight: FontWeight.w800,
+                      color: balanceColor,
+                      letterSpacing: -1,
+                    ),
+                  ),
+                  if (_customer!.walletLimit != 0) ...[
+                    SizedBox(height: context.getRSize(4)),
+                    Text(
+                      'Limit: ${formatCurrency(_customer!.walletLimit)}',
+                      style: TextStyle(
+                        fontSize: context.getRFontSize(11),
+                        color: subtextCol,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ],
               ),
             ),
-            onPressed: () => _showSetWalletLimitDialog(context),
-            tooltip: 'Set Wallet Limit',
-          ),
-        ),
-      ],
+            Positioned(
+              top: context.getRSize(8),
+              right: context.getRSize(24),
+              child: IconButton(
+                icon: Container(
+                  padding: EdgeInsets.all(context.getRSize(6)),
+                  decoration: BoxDecoration(
+                    color: blueMain.withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    FontAwesomeIcons.sliders,
+                    size: context.getRSize(12),
+                    color: blueMain,
+                  ),
+                ),
+                onPressed: () => _showSetWalletLimitDialog(context),
+                tooltip: 'Set Wallet Limit',
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -384,7 +413,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
       builder: (context, snapshot) {
         final ordersList = snapshot.data ?? [];
         final customerOrders =
-            ordersList.where((o) => o.customerId == _customer!.id).toList()
+            ordersList.where((o) => o.customerId == _customer!.id.toString()).toList()
               ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
         final recentOrders = customerOrders.take(3).toList();
 
@@ -831,170 +860,178 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
     Color subtextCol,
     Color borderCol,
   ) {
-    final recentPayments = _customer!.payments.reversed.take(3).toList();
+    return StreamBuilder<List<WalletTransactionData>>(
+      stream: database.customersDao.watchWalletHistory(_customer!.id),
+      builder: (context, snapshot) {
+        final txns = snapshot.data ?? [];
+        final recentTxns = txns.take(3).toList();
 
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: context.getRSize(16)),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        return Padding(
+          padding: EdgeInsets.symmetric(horizontal: context.getRSize(16)),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _sectionTitle(context, 'Payments Made', textCol),
-              TextButton.icon(
-                onPressed: () => _showAddPaymentDialog(context),
-                icon: Icon(
-                  FontAwesomeIcons.plus,
-                  size: context.getRSize(14),
-                  color: blueMain,
-                ),
-                label: Text(
-                  'Fund Wallet',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: context.getRFontSize(13),
-                    color: blueMain,
-                  ),
-                ),
-                style: TextButton.styleFrom(
-                  backgroundColor: blueMain.withValues(alpha: 0.1),
-                  padding: EdgeInsets.symmetric(
-                    horizontal: context.getRSize(12),
-                    vertical: context.getRSize(6),
-                  ),
-                  minimumSize: Size.zero,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: context.getRSize(12)),
-          if (_customer!.payments.isEmpty)
-            Container(
-              width: double.infinity,
-              padding: EdgeInsets.all(context.getRSize(20)),
-              decoration: BoxDecoration(
-                color: cardCol,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: borderCol),
-              ),
-              child: Text(
-                'No payments recorded yet.',
-                style: TextStyle(
-                  fontSize: context.getRFontSize(14),
-                  color: subtextCol,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            )
-          else ...[
-            Container(
-              decoration: BoxDecoration(
-                color: cardCol,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: borderCol),
-              ),
-              child: ListView.separated(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                padding: EdgeInsets.zero,
-                itemCount: recentPayments.length,
-                separatorBuilder: (context, index) =>
-                    Divider(height: 1, color: borderCol),
-                itemBuilder: (context, index) {
-                  final payment = recentPayments[index];
-                  return Padding(
-                    padding: EdgeInsets.all(context.getRSize(16)),
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: EdgeInsets.all(context.getRSize(10)),
-                          decoration: BoxDecoration(
-                            color: success.withValues(alpha: 0.1),
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(
-                            FontAwesomeIcons.moneyBillWave,
-                            size: context.getRSize(14),
-                            color: success,
-                          ),
-                        ),
-                        SizedBox(width: context.getRSize(12)),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                formatCurrency(payment.amount),
-                                style: TextStyle(
-                                  fontSize: context.getRFontSize(15),
-                                  fontWeight: FontWeight.w700,
-                                  color: textCol,
-                                ),
-                              ),
-                              if (payment.note != null &&
-                                  payment.note!.isNotEmpty) ...[
-                                SizedBox(height: context.getRSize(2)),
-                                Text(
-                                  payment.note!,
-                                  style: TextStyle(
-                                    fontSize: context.getRFontSize(12),
-                                    color: subtextCol,
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
-                        Text(
-                          DateFormat(
-                            'MMM d, y • H:mm',
-                          ).format(payment.timestamp),
-                          style: TextStyle(
-                            fontSize: context.getRFontSize(11),
-                            color: subtextCol,
-                          ),
-                        ),
-                      ],
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  _sectionTitle(context, 'Wallet Transactions', textCol),
+                  TextButton.icon(
+                    onPressed: () => _showAddPaymentDialog(context),
+                    icon: Icon(
+                      FontAwesomeIcons.plus,
+                      size: context.getRSize(14),
+                      color: blueMain,
                     ),
-                  );
-                },
+                    label: Text(
+                      'Fund Wallet',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: context.getRFontSize(13),
+                        color: blueMain,
+                      ),
+                    ),
+                    style: TextButton.styleFrom(
+                      backgroundColor: blueMain.withValues(alpha: 0.1),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: context.getRSize(12),
+                        vertical: context.getRSize(6),
+                      ),
+                      minimumSize: Size.zero,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ),
-            if (_customer!.payments.length > 3)
-              Align(
-                alignment: Alignment.centerRight,
-                child: TextButton(
-                  onPressed: () => _showAllPaymentsModal(
-                    context,
-                    _customer!.payments,
-                    cardCol,
-                    textCol,
-                    subtextCol,
-                    borderCol,
+              SizedBox(height: context.getRSize(12)),
+              if (txns.isEmpty)
+                Container(
+                  width: double.infinity,
+                  padding: EdgeInsets.all(context.getRSize(20)),
+                  decoration: BoxDecoration(
+                    color: cardCol,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: borderCol),
                   ),
                   child: Text(
-                    'View More',
+                    'No wallet transactions yet.',
                     style: TextStyle(
-                      color: blueMain,
-                      fontWeight: FontWeight.bold,
-                      fontSize: context.getRFontSize(13),
+                      fontSize: context.getRFontSize(14),
+                      color: subtextCol,
                     ),
+                    textAlign: TextAlign.center,
+                  ),
+                )
+              else ...[
+                Container(
+                  decoration: BoxDecoration(
+                    color: cardCol,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: borderCol),
+                  ),
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    padding: EdgeInsets.zero,
+                    itemCount: recentTxns.length,
+                    separatorBuilder: (context, index) =>
+                        Divider(height: 1, color: borderCol),
+                    itemBuilder: (context, index) {
+                      final txn = recentTxns[index];
+                      final isCredit = txn.type == 'credit';
+                      final typeIcon = isCredit
+                          ? FontAwesomeIcons.moneyBillWave
+                          : FontAwesomeIcons.cartShopping;
+                      final typeColor = isCredit ? success : danger;
+
+                      return Padding(
+                        padding: EdgeInsets.all(context.getRSize(16)),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: EdgeInsets.all(context.getRSize(10)),
+                              decoration: BoxDecoration(
+                                color: typeColor.withValues(alpha: 0.1),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                typeIcon,
+                                size: context.getRSize(14),
+                                color: typeColor,
+                              ),
+                            ),
+                            SizedBox(width: context.getRSize(12)),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    '${isCredit ? "+" : "-"}${formatCurrency(txn.amountKobo / 100.0)}',
+                                    style: TextStyle(
+                                      fontSize: context.getRFontSize(15),
+                                      fontWeight: FontWeight.w700,
+                                      color: typeColor,
+                                    ),
+                                  ),
+                                  SizedBox(height: context.getRSize(2)),
+                                  Text(
+                                    txn.referenceType.replaceAll('_', ' ').toUpperCase(),
+                                    style: TextStyle(
+                                      fontSize: context.getRFontSize(10),
+                                      fontWeight: FontWeight.w800,
+                                      color: subtextCol,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Text(
+                              DateFormat('MMM d, H:mm').format(txn.createdAt),
+                              style: TextStyle(
+                                fontSize: context.getRFontSize(11),
+                                color: subtextCol,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
                   ),
                 ),
-              ),
-          ],
-        ],
-      ),
+                if (txns.length > 3)
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: () => _showAllTransactionsModal(
+                        context,
+                        txns,
+                        cardCol,
+                        textCol,
+                        subtextCol,
+                        borderCol,
+                      ),
+                      child: Text(
+                        'View Full Ledger',
+                        style: TextStyle(
+                          color: blueMain,
+                          fontWeight: FontWeight.bold,
+                          fontSize: context.getRFontSize(13),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ],
+          ),
+        );
+      },
     );
   }
 
-  void _showAllPaymentsModal(
+  void _showAllTransactionsModal(
     BuildContext context,
-    List<Payment> payments,
+    List<WalletTransactionData> txns,
     Color bgCol,
     Color textCol,
     Color subtextCol,
@@ -1011,11 +1048,11 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
         return StatefulBuilder(
           builder: (dialogCtx, setDialogState) {
             final now = DateTime.now();
-            final allPayments = payments.reversed.where((p) {
+            final allTxns = txns.where((p) {
               if (selectedFilter == 'All Time') return true;
-              final diff = now.difference(p.timestamp);
+              final diff = now.difference(p.createdAt);
               if (selectedFilter == 'Day') {
-                return diff.inDays == 0 && now.day == p.timestamp.day;
+                return diff.inDays == 0 && now.day == p.createdAt.day;
               }
               if (selectedFilter == 'Week') return diff.inDays <= 7;
               if (selectedFilter == 'Month') return diff.inDays <= 30;
@@ -1064,7 +1101,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                       child: Align(
                         alignment: Alignment.centerLeft,
                         child: Text(
-                          'All Payments',
+                          'Wallet Ledger',
                           style: TextStyle(
                             fontSize: modalCtx.getRFontSize(18),
                             fontWeight: FontWeight.w800,
@@ -1119,10 +1156,10 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                     ),
                     SizedBox(height: modalCtx.getRSize(16)),
                     Expanded(
-                      child: allPayments.isEmpty
+                      child: allTxns.isEmpty
                           ? Center(
                               child: Text(
-                                _getEmptyText(selectedFilter, 'payments'),
+                                _getEmptyText(selectedFilter, 'transactions'),
                                 style: TextStyle(
                                   fontSize: modalCtx.getRFontSize(16),
                                   color: subtextCol,
@@ -1137,11 +1174,17 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                                 modalCtx.getRSize(20),
                               ),
                               shrinkWrap: true,
-                              itemCount: allPayments.length,
+                              itemCount: allTxns.length,
                               separatorBuilder: (context, index) =>
                                   Divider(height: 1, color: borderCol),
                               itemBuilder: (context, index) {
-                                final payment = allPayments[index];
+                                final txn = allTxns[index];
+                                final isCredit = txn.type == 'credit';
+                                final typeIcon = isCredit
+                                    ? FontAwesomeIcons.moneyBillWave
+                                    : FontAwesomeIcons.cartShopping;
+                                final typeColor = isCredit ? success : danger;
+
                                 return Padding(
                                   padding: EdgeInsets.symmetric(
                                     vertical: context.getRSize(12),
@@ -1153,13 +1196,13 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                                           context.getRSize(10),
                                         ),
                                         decoration: BoxDecoration(
-                                          color: success.withValues(alpha: 0.1),
+                                          color: typeColor.withValues(alpha: 0.1),
                                           shape: BoxShape.circle,
                                         ),
                                         child: Icon(
-                                          FontAwesomeIcons.moneyBillWave,
+                                          typeIcon,
                                           size: context.getRSize(14),
-                                          color: success,
+                                          color: typeColor,
                                         ),
                                       ),
                                       SizedBox(width: context.getRSize(12)),
@@ -1169,36 +1212,34 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                                               CrossAxisAlignment.start,
                                           children: [
                                             Text(
-                                              formatCurrency(payment.amount),
+                                              '${isCredit ? "+" : "-"}${formatCurrency(txn.amountKobo / 100.0)}',
                                               style: TextStyle(
                                                 fontSize: context.getRFontSize(
                                                   15,
                                                 ),
                                                 fontWeight: FontWeight.w700,
-                                                color: textCol,
+                                                color: typeColor,
                                               ),
                                             ),
-                                            if (payment.note != null &&
-                                                payment.note!.isNotEmpty) ...[
-                                              SizedBox(
-                                                height: context.getRSize(2),
+                                            SizedBox(
+                                              height: context.getRSize(2),
+                                            ),
+                                            Text(
+                                              txn.referenceType.replaceAll('_', ' ').toUpperCase(),
+                                              style: TextStyle(
+                                                fontSize: context
+                                                    .getRFontSize(10),
+                                                fontWeight: FontWeight.w800,
+                                                color: subtextCol,
                                               ),
-                                              Text(
-                                                payment.note!,
-                                                style: TextStyle(
-                                                  fontSize: context
-                                                      .getRFontSize(12),
-                                                  color: subtextCol,
-                                                ),
-                                              ),
-                                            ],
+                                            ),
                                           ],
                                         ),
                                       ),
                                       Text(
                                         DateFormat(
-                                          'MMM d, y • H:mm',
-                                        ).format(payment.timestamp),
+                                          'MMM d, H:mm',
+                                        ).format(txn.createdAt),
                                         style: TextStyle(
                                           fontSize: context.getRFontSize(11),
                                           color: subtextCol,

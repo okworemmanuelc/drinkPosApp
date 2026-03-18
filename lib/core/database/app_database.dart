@@ -96,6 +96,9 @@ class Customers extends Table {
   TextColumn get phone => text().nullable()();
   TextColumn get email => text().nullable()();
   TextColumn get address => text().nullable()();
+  TextColumn get googleMapsLocation => text().nullable()();
+  TextColumn get customerGroup => text().withDefault(const Constant('retailer'))();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
   IntColumn get walletBalanceKobo => integer().withDefault(const Constant(0))();
   IntColumn get walletLimitKobo => integer().withDefault(const Constant(0))();
 }
@@ -463,7 +466,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 12;
+  int get schemaVersion => 13;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(

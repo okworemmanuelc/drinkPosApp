@@ -231,11 +231,10 @@ class _CustomersScreenState extends State<CustomersScreen> {
     Color subtextCol,
     Color borderCol,
   ) {
-    final isNegative = customer.customerWallet < 0;
+    final balanceKobo = customer.walletBalanceKobo;
+    final isNegative = balanceKobo < 0;
     final balanceColor = isNegative ? danger : success;
-    final formattedBalance = isNegative
-        ? formatCurrency(customer.customerWallet)
-        : formatCurrency(customer.customerWallet);
+    final formattedBalance = formatCurrency(balanceKobo / 100.0);
 
     return InkWell(
       onTap: () {
@@ -301,6 +300,27 @@ class _CustomersScreenState extends State<CustomersScreen> {
                       ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
+                    ),
+                    SizedBox(height: context.getRSize(6)),
+                    Container(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: context.getRSize(8),
+                        vertical: context.getRSize(2),
+                      ),
+                      decoration: BoxDecoration(
+                        color: blueMain.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: blueMain.withValues(alpha: 0.2)),
+                      ),
+                      child: Text(
+                        customer.customerGroup.name.toUpperCase(),
+                        style: TextStyle(
+                          fontSize: context.getRFontSize(9),
+                          fontWeight: FontWeight.w800,
+                          color: blueMain,
+                          letterSpacing: 0.2,
+                        ),
+                      ),
                     ),
                   ],
                 ),

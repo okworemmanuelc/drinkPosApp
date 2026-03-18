@@ -3087,6 +3087,41 @@ class $CustomersTable extends Customers
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _googleMapsLocationMeta =
+      const VerificationMeta('googleMapsLocation');
+  @override
+  late final GeneratedColumn<String> googleMapsLocation =
+      GeneratedColumn<String>(
+        'google_maps_location',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _customerGroupMeta = const VerificationMeta(
+    'customerGroup',
+  );
+  @override
+  late final GeneratedColumn<String> customerGroup = GeneratedColumn<String>(
+    'customer_group',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('retailer'),
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
   static const VerificationMeta _walletBalanceKoboMeta = const VerificationMeta(
     'walletBalanceKobo',
   );
@@ -3118,6 +3153,9 @@ class $CustomersTable extends Customers
     phone,
     email,
     address,
+    googleMapsLocation,
+    customerGroup,
+    createdAt,
     walletBalanceKobo,
     walletLimitKobo,
   ];
@@ -3160,6 +3198,30 @@ class $CustomersTable extends Customers
       context.handle(
         _addressMeta,
         address.isAcceptableOrUnknown(data['address']!, _addressMeta),
+      );
+    }
+    if (data.containsKey('google_maps_location')) {
+      context.handle(
+        _googleMapsLocationMeta,
+        googleMapsLocation.isAcceptableOrUnknown(
+          data['google_maps_location']!,
+          _googleMapsLocationMeta,
+        ),
+      );
+    }
+    if (data.containsKey('customer_group')) {
+      context.handle(
+        _customerGroupMeta,
+        customerGroup.isAcceptableOrUnknown(
+          data['customer_group']!,
+          _customerGroupMeta,
+        ),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
       );
     }
     if (data.containsKey('wallet_balance_kobo')) {
@@ -3209,6 +3271,18 @@ class $CustomersTable extends Customers
         DriftSqlType.string,
         data['${effectivePrefix}address'],
       ),
+      googleMapsLocation: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}google_maps_location'],
+      ),
+      customerGroup: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}customer_group'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
       walletBalanceKobo: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}wallet_balance_kobo'],
@@ -3232,6 +3306,9 @@ class CustomerData extends DataClass implements Insertable<CustomerData> {
   final String? phone;
   final String? email;
   final String? address;
+  final String? googleMapsLocation;
+  final String customerGroup;
+  final DateTime createdAt;
   final int walletBalanceKobo;
   final int walletLimitKobo;
   const CustomerData({
@@ -3240,6 +3317,9 @@ class CustomerData extends DataClass implements Insertable<CustomerData> {
     this.phone,
     this.email,
     this.address,
+    this.googleMapsLocation,
+    required this.customerGroup,
+    required this.createdAt,
     required this.walletBalanceKobo,
     required this.walletLimitKobo,
   });
@@ -3257,6 +3337,11 @@ class CustomerData extends DataClass implements Insertable<CustomerData> {
     if (!nullToAbsent || address != null) {
       map['address'] = Variable<String>(address);
     }
+    if (!nullToAbsent || googleMapsLocation != null) {
+      map['google_maps_location'] = Variable<String>(googleMapsLocation);
+    }
+    map['customer_group'] = Variable<String>(customerGroup);
+    map['created_at'] = Variable<DateTime>(createdAt);
     map['wallet_balance_kobo'] = Variable<int>(walletBalanceKobo);
     map['wallet_limit_kobo'] = Variable<int>(walletLimitKobo);
     return map;
@@ -3275,6 +3360,11 @@ class CustomerData extends DataClass implements Insertable<CustomerData> {
       address: address == null && nullToAbsent
           ? const Value.absent()
           : Value(address),
+      googleMapsLocation: googleMapsLocation == null && nullToAbsent
+          ? const Value.absent()
+          : Value(googleMapsLocation),
+      customerGroup: Value(customerGroup),
+      createdAt: Value(createdAt),
       walletBalanceKobo: Value(walletBalanceKobo),
       walletLimitKobo: Value(walletLimitKobo),
     );
@@ -3291,6 +3381,11 @@ class CustomerData extends DataClass implements Insertable<CustomerData> {
       phone: serializer.fromJson<String?>(json['phone']),
       email: serializer.fromJson<String?>(json['email']),
       address: serializer.fromJson<String?>(json['address']),
+      googleMapsLocation: serializer.fromJson<String?>(
+        json['googleMapsLocation'],
+      ),
+      customerGroup: serializer.fromJson<String>(json['customerGroup']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       walletBalanceKobo: serializer.fromJson<int>(json['walletBalanceKobo']),
       walletLimitKobo: serializer.fromJson<int>(json['walletLimitKobo']),
     );
@@ -3304,6 +3399,9 @@ class CustomerData extends DataClass implements Insertable<CustomerData> {
       'phone': serializer.toJson<String?>(phone),
       'email': serializer.toJson<String?>(email),
       'address': serializer.toJson<String?>(address),
+      'googleMapsLocation': serializer.toJson<String?>(googleMapsLocation),
+      'customerGroup': serializer.toJson<String>(customerGroup),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
       'walletBalanceKobo': serializer.toJson<int>(walletBalanceKobo),
       'walletLimitKobo': serializer.toJson<int>(walletLimitKobo),
     };
@@ -3315,6 +3413,9 @@ class CustomerData extends DataClass implements Insertable<CustomerData> {
     Value<String?> phone = const Value.absent(),
     Value<String?> email = const Value.absent(),
     Value<String?> address = const Value.absent(),
+    Value<String?> googleMapsLocation = const Value.absent(),
+    String? customerGroup,
+    DateTime? createdAt,
     int? walletBalanceKobo,
     int? walletLimitKobo,
   }) => CustomerData(
@@ -3323,6 +3424,11 @@ class CustomerData extends DataClass implements Insertable<CustomerData> {
     phone: phone.present ? phone.value : this.phone,
     email: email.present ? email.value : this.email,
     address: address.present ? address.value : this.address,
+    googleMapsLocation: googleMapsLocation.present
+        ? googleMapsLocation.value
+        : this.googleMapsLocation,
+    customerGroup: customerGroup ?? this.customerGroup,
+    createdAt: createdAt ?? this.createdAt,
     walletBalanceKobo: walletBalanceKobo ?? this.walletBalanceKobo,
     walletLimitKobo: walletLimitKobo ?? this.walletLimitKobo,
   );
@@ -3333,6 +3439,13 @@ class CustomerData extends DataClass implements Insertable<CustomerData> {
       phone: data.phone.present ? data.phone.value : this.phone,
       email: data.email.present ? data.email.value : this.email,
       address: data.address.present ? data.address.value : this.address,
+      googleMapsLocation: data.googleMapsLocation.present
+          ? data.googleMapsLocation.value
+          : this.googleMapsLocation,
+      customerGroup: data.customerGroup.present
+          ? data.customerGroup.value
+          : this.customerGroup,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       walletBalanceKobo: data.walletBalanceKobo.present
           ? data.walletBalanceKobo.value
           : this.walletBalanceKobo,
@@ -3350,6 +3463,9 @@ class CustomerData extends DataClass implements Insertable<CustomerData> {
           ..write('phone: $phone, ')
           ..write('email: $email, ')
           ..write('address: $address, ')
+          ..write('googleMapsLocation: $googleMapsLocation, ')
+          ..write('customerGroup: $customerGroup, ')
+          ..write('createdAt: $createdAt, ')
           ..write('walletBalanceKobo: $walletBalanceKobo, ')
           ..write('walletLimitKobo: $walletLimitKobo')
           ..write(')'))
@@ -3363,6 +3479,9 @@ class CustomerData extends DataClass implements Insertable<CustomerData> {
     phone,
     email,
     address,
+    googleMapsLocation,
+    customerGroup,
+    createdAt,
     walletBalanceKobo,
     walletLimitKobo,
   );
@@ -3375,6 +3494,9 @@ class CustomerData extends DataClass implements Insertable<CustomerData> {
           other.phone == this.phone &&
           other.email == this.email &&
           other.address == this.address &&
+          other.googleMapsLocation == this.googleMapsLocation &&
+          other.customerGroup == this.customerGroup &&
+          other.createdAt == this.createdAt &&
           other.walletBalanceKobo == this.walletBalanceKobo &&
           other.walletLimitKobo == this.walletLimitKobo);
 }
@@ -3385,6 +3507,9 @@ class CustomersCompanion extends UpdateCompanion<CustomerData> {
   final Value<String?> phone;
   final Value<String?> email;
   final Value<String?> address;
+  final Value<String?> googleMapsLocation;
+  final Value<String> customerGroup;
+  final Value<DateTime> createdAt;
   final Value<int> walletBalanceKobo;
   final Value<int> walletLimitKobo;
   const CustomersCompanion({
@@ -3393,6 +3518,9 @@ class CustomersCompanion extends UpdateCompanion<CustomerData> {
     this.phone = const Value.absent(),
     this.email = const Value.absent(),
     this.address = const Value.absent(),
+    this.googleMapsLocation = const Value.absent(),
+    this.customerGroup = const Value.absent(),
+    this.createdAt = const Value.absent(),
     this.walletBalanceKobo = const Value.absent(),
     this.walletLimitKobo = const Value.absent(),
   });
@@ -3402,6 +3530,9 @@ class CustomersCompanion extends UpdateCompanion<CustomerData> {
     this.phone = const Value.absent(),
     this.email = const Value.absent(),
     this.address = const Value.absent(),
+    this.googleMapsLocation = const Value.absent(),
+    this.customerGroup = const Value.absent(),
+    this.createdAt = const Value.absent(),
     this.walletBalanceKobo = const Value.absent(),
     this.walletLimitKobo = const Value.absent(),
   }) : name = Value(name);
@@ -3411,6 +3542,9 @@ class CustomersCompanion extends UpdateCompanion<CustomerData> {
     Expression<String>? phone,
     Expression<String>? email,
     Expression<String>? address,
+    Expression<String>? googleMapsLocation,
+    Expression<String>? customerGroup,
+    Expression<DateTime>? createdAt,
     Expression<int>? walletBalanceKobo,
     Expression<int>? walletLimitKobo,
   }) {
@@ -3420,6 +3554,10 @@ class CustomersCompanion extends UpdateCompanion<CustomerData> {
       if (phone != null) 'phone': phone,
       if (email != null) 'email': email,
       if (address != null) 'address': address,
+      if (googleMapsLocation != null)
+        'google_maps_location': googleMapsLocation,
+      if (customerGroup != null) 'customer_group': customerGroup,
+      if (createdAt != null) 'created_at': createdAt,
       if (walletBalanceKobo != null) 'wallet_balance_kobo': walletBalanceKobo,
       if (walletLimitKobo != null) 'wallet_limit_kobo': walletLimitKobo,
     });
@@ -3431,6 +3569,9 @@ class CustomersCompanion extends UpdateCompanion<CustomerData> {
     Value<String?>? phone,
     Value<String?>? email,
     Value<String?>? address,
+    Value<String?>? googleMapsLocation,
+    Value<String>? customerGroup,
+    Value<DateTime>? createdAt,
     Value<int>? walletBalanceKobo,
     Value<int>? walletLimitKobo,
   }) {
@@ -3440,6 +3581,9 @@ class CustomersCompanion extends UpdateCompanion<CustomerData> {
       phone: phone ?? this.phone,
       email: email ?? this.email,
       address: address ?? this.address,
+      googleMapsLocation: googleMapsLocation ?? this.googleMapsLocation,
+      customerGroup: customerGroup ?? this.customerGroup,
+      createdAt: createdAt ?? this.createdAt,
       walletBalanceKobo: walletBalanceKobo ?? this.walletBalanceKobo,
       walletLimitKobo: walletLimitKobo ?? this.walletLimitKobo,
     );
@@ -3463,6 +3607,15 @@ class CustomersCompanion extends UpdateCompanion<CustomerData> {
     if (address.present) {
       map['address'] = Variable<String>(address.value);
     }
+    if (googleMapsLocation.present) {
+      map['google_maps_location'] = Variable<String>(googleMapsLocation.value);
+    }
+    if (customerGroup.present) {
+      map['customer_group'] = Variable<String>(customerGroup.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
     if (walletBalanceKobo.present) {
       map['wallet_balance_kobo'] = Variable<int>(walletBalanceKobo.value);
     }
@@ -3480,6 +3633,9 @@ class CustomersCompanion extends UpdateCompanion<CustomerData> {
           ..write('phone: $phone, ')
           ..write('email: $email, ')
           ..write('address: $address, ')
+          ..write('googleMapsLocation: $googleMapsLocation, ')
+          ..write('customerGroup: $customerGroup, ')
+          ..write('createdAt: $createdAt, ')
           ..write('walletBalanceKobo: $walletBalanceKobo, ')
           ..write('walletLimitKobo: $walletLimitKobo')
           ..write(')'))
@@ -18821,6 +18977,9 @@ typedef $$CustomersTableCreateCompanionBuilder =
       Value<String?> phone,
       Value<String?> email,
       Value<String?> address,
+      Value<String?> googleMapsLocation,
+      Value<String> customerGroup,
+      Value<DateTime> createdAt,
       Value<int> walletBalanceKobo,
       Value<int> walletLimitKobo,
     });
@@ -18831,6 +18990,9 @@ typedef $$CustomersTableUpdateCompanionBuilder =
       Value<String?> phone,
       Value<String?> email,
       Value<String?> address,
+      Value<String?> googleMapsLocation,
+      Value<String> customerGroup,
+      Value<DateTime> createdAt,
       Value<int> walletBalanceKobo,
       Value<int> walletLimitKobo,
     });
@@ -18969,6 +19131,21 @@ class $$CustomersTableFilterComposer
 
   ColumnFilters<String> get address => $composableBuilder(
     column: $table.address,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get googleMapsLocation => $composableBuilder(
+    column: $table.googleMapsLocation,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get customerGroup => $composableBuilder(
+    column: $table.customerGroup,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -19120,6 +19297,21 @@ class $$CustomersTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get googleMapsLocation => $composableBuilder(
+    column: $table.googleMapsLocation,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get customerGroup => $composableBuilder(
+    column: $table.customerGroup,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get walletBalanceKobo => $composableBuilder(
     column: $table.walletBalanceKobo,
     builder: (column) => ColumnOrderings(column),
@@ -19154,6 +19346,19 @@ class $$CustomersTableAnnotationComposer
 
   GeneratedColumn<String> get address =>
       $composableBuilder(column: $table.address, builder: (column) => column);
+
+  GeneratedColumn<String> get googleMapsLocation => $composableBuilder(
+    column: $table.googleMapsLocation,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get customerGroup => $composableBuilder(
+    column: $table.customerGroup,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
 
   GeneratedColumn<int> get walletBalanceKobo => $composableBuilder(
     column: $table.walletBalanceKobo,
@@ -19309,6 +19514,9 @@ class $$CustomersTableTableManager
                 Value<String?> phone = const Value.absent(),
                 Value<String?> email = const Value.absent(),
                 Value<String?> address = const Value.absent(),
+                Value<String?> googleMapsLocation = const Value.absent(),
+                Value<String> customerGroup = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
                 Value<int> walletBalanceKobo = const Value.absent(),
                 Value<int> walletLimitKobo = const Value.absent(),
               }) => CustomersCompanion(
@@ -19317,6 +19525,9 @@ class $$CustomersTableTableManager
                 phone: phone,
                 email: email,
                 address: address,
+                googleMapsLocation: googleMapsLocation,
+                customerGroup: customerGroup,
+                createdAt: createdAt,
                 walletBalanceKobo: walletBalanceKobo,
                 walletLimitKobo: walletLimitKobo,
               ),
@@ -19327,6 +19538,9 @@ class $$CustomersTableTableManager
                 Value<String?> phone = const Value.absent(),
                 Value<String?> email = const Value.absent(),
                 Value<String?> address = const Value.absent(),
+                Value<String?> googleMapsLocation = const Value.absent(),
+                Value<String> customerGroup = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
                 Value<int> walletBalanceKobo = const Value.absent(),
                 Value<int> walletLimitKobo = const Value.absent(),
               }) => CustomersCompanion.insert(
@@ -19335,6 +19549,9 @@ class $$CustomersTableTableManager
                 phone: phone,
                 email: email,
                 address: address,
+                googleMapsLocation: googleMapsLocation,
+                customerGroup: customerGroup,
+                createdAt: createdAt,
                 walletBalanceKobo: walletBalanceKobo,
                 walletLimitKobo: walletLimitKobo,
               ),

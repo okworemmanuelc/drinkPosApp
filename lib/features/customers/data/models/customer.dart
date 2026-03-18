@@ -4,7 +4,7 @@ import 'payment.dart';
 enum CustomerGroup { distributor, bulkBreaker, retailer }
 
 class Customer {
-  final String id;
+  final int id;
   final String name;
   final String addressText;
   final String googleMapsLocation;
@@ -36,7 +36,7 @@ class Customer {
   double get walletLimit => walletLimitKobo / 100.0;
 
   Customer copyWith({
-    String? id,
+    int? id,
     String? name,
     String? addressText,
     String? googleMapsLocation,
@@ -66,16 +66,21 @@ class Customer {
   }
 
   static Customer fromDb(CustomerData data) {
+    CustomerGroup group = CustomerGroup.retailer;
+    try {
+      group = CustomerGroup.values.firstWhere((e) => e.name == data.customerGroup);
+    } catch (_) {}
+
     return Customer(
-      id: data.id.toString(),
+      id: data.id,
       name: data.name,
       addressText: data.address ?? 'N/A',
-      googleMapsLocation: data.address ?? 'N/A',
+      googleMapsLocation: data.googleMapsLocation ?? 'N/A',
       phone: data.phone,
       walletBalanceKobo: data.walletBalanceKobo,
       walletLimitKobo: data.walletLimitKobo,
-      createdAt: DateTime.now(), // TODO: Add createdAt to DB table
-      customerGroup: CustomerGroup.retailer, // TODO: Add customerGroup to DB table
+      createdAt: data.createdAt,
+      customerGroup: group,
       isWalkIn: data.id == -1,
       emptyCratesBalance: const {}, // TODO: Fetch from CrateBalances table
       payments: const [], // TODO: Fetch from Payments table
@@ -83,7 +88,7 @@ class Customer {
   }
 
   static Customer walkIn() => Customer(
-    id: 'walk-in',
+    id: -1,
     name: 'Walk-in Customer',
     addressText: 'N/A',
     googleMapsLocation: 'N/A',

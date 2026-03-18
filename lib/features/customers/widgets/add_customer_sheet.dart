@@ -310,8 +310,7 @@ class _AddCustomerSheetState extends State<AddCustomerSheet> {
                           onPressed: () {
                             if (_formKey.currentState!.validate()) {
                               final newCustomer = Customer(
-                                id: DateTime.now().millisecondsSinceEpoch
-                                    .toString(),
+                                id: 0, // Database will generate this
                                 name: _nameCtrl.text.trim(),
                                 addressText: _addressCtrl.text.trim(),
                                 googleMapsLocation: _locationCtrl.text.trim(),

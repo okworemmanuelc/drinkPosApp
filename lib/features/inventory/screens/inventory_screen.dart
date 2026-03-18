@@ -19,6 +19,7 @@ import 'product_detail_screen.dart';
 import '../../../core/theme/design_tokens.dart';
 import '../../../core/database/app_database.dart';
 import '../../../shared/widgets/fluid_menu.dart';
+import '../widgets/add_product_sheet.dart';
 
 class InventoryScreen extends StatefulWidget {
   const InventoryScreen({super.key});
@@ -29,6 +30,7 @@ class InventoryScreen extends StatefulWidget {
 class _InventoryScreenState extends State<InventoryScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  int _currentTab = 0;
   String _selectedSupplierId = 'all';
   String _selectedWarehouseId = 'all';
   String _stockFilter = 'all'; // 'all' | 'low' | 'out' | 'empty_crates'
@@ -61,6 +63,11 @@ class _InventoryScreenState extends State<InventoryScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
+    _tabController.addListener(() {
+      if (mounted && _tabController.index != _currentTab) {
+        setState(() => _currentTab = _tabController.index);
+      }
+    });
 
     // Load warehouses from DB
     database.select(database.warehouses).get().then((list) {
@@ -115,6 +122,18 @@ class _InventoryScreenState extends State<InventoryScreen>
         activeRoute: 'inventory',
         backgroundColor: _bg,
         appBar: _buildAppBar(context),
+        floatingActionButton: _currentTab == 0
+            ? FloatingActionButton.extended(
+                onPressed: _showAddProductSheet,
+                backgroundColor: blueMain,
+                foregroundColor: Colors.white,
+                icon: const Icon(FontAwesomeIcons.plus, size: 14),
+                label: const Text(
+                  'Add Product',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+              )
+            : null,
         body: SafeArea(
           top: false,
           child: Column(
@@ -1390,6 +1409,17 @@ class _InventoryScreenState extends State<InventoryScreen>
   }
 
   // ── ADD SUPPLIER DIALOG ───────────────────────────────────────────────────────
+  void _showAddProductSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => AddProductSheet(
+        onProductAdded: () => setState(() {}),
+      ),
+    );
+  }
+
   void _showAddSupplierDialog() {
     final nameCtrl = TextEditingController();
     final contactCtrl = TextEditingController();

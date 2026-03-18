@@ -465,7 +465,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
       // ── Call atomic transaction ──────────────────────────────────────
       await orderService.addOrder(
-        customerId: widget.customer?.id != null ? int.tryParse(widget.customer!.id) : null,
+        customerId: widget.customer?.id,
         cart: widget.cart,
         totalAmountKobo: totalKobo,
         amountPaidKobo: amountPaidKobo,

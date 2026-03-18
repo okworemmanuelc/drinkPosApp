@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'package:drift/drift.dart';
+import 'package:intl/intl.dart';
 import 'app_database.dart';
 
 part 'daos.g.dart';
@@ -9,6 +10,7 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> with _$CatalogDaoMixin {
   CatalogDao(super.db);
   Stream<List<SupplierData>> watchAllSupplierDatas() => select(suppliers).watch();
   Future<int> insertSupplier(SuppliersCompanion companion) => into(suppliers).insert(companion);
+  Future<int> insertProduct(ProductsCompanion companion) => into(products).insert(companion);
   Stream<List<ProductData>> watchAvailableProductDatas({int? categoryId}) {
     if (categoryId != null) {
       return (select(products)..where((t) => t.isDeleted.not() & t.categoryId.equals(categoryId))).watch();
@@ -33,16 +35,118 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> with _$CatalogDaoMixin {
 @DriftAccessor(tables: [Products, Inventory, Warehouses, CrateGroups])
 class InventoryDao extends DatabaseAccessor<AppDatabase> with _$InventoryDaoMixin {
   InventoryDao(super.db);
-  Stream<List<ProductDataWithStock>> watchAllProductDatasWithStock() => Stream.value([]); // Placeholder
-  Future<void> deductStock(int productId, int warehouseId, int qty) async {}
-  Future<void> adjustStock(int productId, int warehouseId, int delta, String note, int? staffId) async {}
-  Stream<List<ProductDataWithStock>> watchLowStockProductDatas() => Stream.value([]);
-  Stream<List<ProductDataWithStock>> watchProductDatasWithStockByWarehouse(int warehouseId) => Stream.value([]);
+
+  Stream<List<ProductDataWithStock>> watchAllProductDatasWithStock() {
+    final qty = inventory.quantity.sum();
+    final query = select(products).join([
+      leftOuterJoin(inventory, inventory.productId.equalsExp(products.id)),
+    ])
+      ..where(products.isDeleted.not())
+      ..groupBy([products.id])
+      ..addColumns([qty]);
+    return query.watch().map((rows) => rows
+        .map((row) => ProductDataWithStock(
+              product: row.readTable(products),
+              totalStock: row.read(qty) ?? 0,
+            ))
+        .toList());
+  }
+
+  Stream<List<ProductDataWithStock>> watchLowStockProductDatas() {
+    final qty = inventory.quantity.sum();
+    final query = select(products).join([
+      leftOuterJoin(inventory, inventory.productId.equalsExp(products.id)),
+    ])
+      ..where(products.isDeleted.not())
+      ..groupBy([products.id])
+      ..addColumns([qty]);
+    return query.watch().map((rows) => rows
+        .map((row) => ProductDataWithStock(
+              product: row.readTable(products),
+              totalStock: row.read(qty) ?? 0,
+            ))
+        .where((p) => p.totalStock > 0 && p.totalStock <= p.product.lowStockThreshold)
+        .toList());
+  }
+
+  Stream<List<ProductDataWithStock>> watchProductDatasWithStockByWarehouse(int warehouseId) {
+    final qty = inventory.quantity.sum();
+    final query = select(products).join([
+      leftOuterJoin(
+        inventory,
+        inventory.productId.equalsExp(products.id) & inventory.warehouseId.equals(warehouseId),
+      ),
+    ])
+      ..where(products.isDeleted.not())
+      ..groupBy([products.id])
+      ..addColumns([qty]);
+    return query.watch().map((rows) => rows
+        .map((row) => ProductDataWithStock(
+              product: row.readTable(products),
+              totalStock: row.read(qty) ?? 0,
+            ))
+        .toList());
+  }
+
+  Future<void> deductStock(int productId, int warehouseId, int qty) async {
+    await transaction(() async {
+      final row = await (select(inventory)
+            ..where((t) => t.productId.equals(productId) & t.warehouseId.equals(warehouseId)))
+          .getSingleOrNull();
+      if (row != null) {
+        final newQty = (row.quantity - qty).clamp(0, 999999);
+        await (update(inventory)..where((t) => t.id.equals(row.id)))
+            .write(InventoryCompanion(quantity: Value(newQty)));
+      }
+    });
+  }
+
+  Future<void> adjustStock(int productId, int warehouseId, int delta, String note, int? staffId) async {
+    await transaction(() async {
+      final existing = await (select(inventory)
+            ..where((t) => t.productId.equals(productId) & t.warehouseId.equals(warehouseId)))
+          .getSingleOrNull();
+      if (existing != null) {
+        final newQty = (existing.quantity + delta).clamp(0, 999999);
+        await (update(inventory)..where((t) => t.id.equals(existing.id)))
+            .write(InventoryCompanion(quantity: Value(newQty)));
+      } else if (delta > 0) {
+        await into(inventory).insert(InventoryCompanion.insert(
+          productId: productId,
+          warehouseId: warehouseId,
+          quantity: Value(delta),
+        ));
+      }
+    });
+  }
+
   Stream<List<CrateGroupData>> watchAllCrateGroups() => select(crateGroups).watch();
   Future<List<CrateGroupData>> getAllCrateGroups() => select(crateGroups).get();
-  Future<void> assignCrateGroup(int productId, int? crateGroupId, String? crateSize) async {}
-  Future<void> addEmptyCrates(int crateGroupId, int quantity) async {}
-  Future<void> deductEmptyCrates(int crateGroupId, int quantity) async {}
+
+  Future<void> assignCrateGroup(int productId, int? crateGroupId, String? crateSize) async {
+    await (update(products)..where((t) => t.id.equals(productId)))
+        .write(ProductsCompanion(
+          crateGroupId: Value(crateGroupId),
+          crateSize: Value(crateSize),
+        ));
+  }
+
+  Future<void> addEmptyCrates(int crateGroupId, int quantity) async {
+    final row = await (select(crateGroups)..where((t) => t.id.equals(crateGroupId))).getSingleOrNull();
+    if (row != null) {
+      await (update(crateGroups)..where((t) => t.id.equals(crateGroupId)))
+          .write(CrateGroupsCompanion(emptyCrateStock: Value(row.emptyCrateStock + quantity)));
+    }
+  }
+
+  Future<void> deductEmptyCrates(int crateGroupId, int quantity) async {
+    final row = await (select(crateGroups)..where((t) => t.id.equals(crateGroupId))).getSingleOrNull();
+    if (row != null) {
+      final newStock = (row.emptyCrateStock - quantity).clamp(0, 999999);
+      await (update(crateGroups)..where((t) => t.id.equals(crateGroupId)))
+          .write(CrateGroupsCompanion(emptyCrateStock: Value(newStock)));
+    }
+  }
 }
 
 class ProductDataWithStock {
@@ -63,8 +167,54 @@ class OrdersDao extends DatabaseAccessor<AppDatabase> with _$OrdersDaoMixin {
   Future<void> markCompleted(int orderId, int staffId) async {}
   Future<void> markCancelled(int orderId, String reason, int staffId) async {}
   Future<void> assignRider(int orderId, String riderName) async {}
-  Future<String> generateOrderNumber() async => 'ORD-${DateTime.now().millisecondsSinceEpoch}';
-  Future<String> createOrder({required OrdersCompanion order, required List<OrderItemsCompanion> items, int? customerId, required String paymentType, required int amountPaidKobo}) async => '';
+  Future<String> createOrder({
+    required OrdersCompanion order,
+    required List<OrderItemsCompanion> items,
+    int? customerId,
+    required int amountPaidKobo,
+    required int totalAmountKobo,
+    required int staffId,
+  }) async {
+    return transaction(() async {
+      // 1. Generate Order Number
+      final orderNo = await generateOrderNumber();
+      final orderWithNo = order.copyWith(orderNumber: Value(orderNo));
+
+      // 2. Insert Order
+      final orderId = await into(orders).insert(orderWithNo);
+
+      // 3. Insert Items
+      for (final item in items) {
+        await into(orderItems).insert(item.copyWith(orderId: Value(orderId)));
+      }
+
+      // 4. Update Wallet if there's a balance remaining (Debit/Credit Sale)
+      if (customerId != null) {
+        final remainingBalance = totalAmountKobo - amountPaidKobo;
+        if (remainingBalance > 0) {
+          // This is a debit to the customer (they owe more)
+          await (db.customersDao).updateWalletBalance(
+            customerId: customerId,
+            deltaKobo: remainingBalance,
+            type: 'debit',
+            referenceType: 'order_payment',
+            referenceId: orderNo,
+            staffId: staffId,
+            note: 'Balance from order $orderNo',
+          );
+        }
+      }
+
+      return orderNo;
+    });
+  }
+
+  Future<String> generateOrderNumber() async {
+    final count = await (select(orders)).get();
+    final nextId = count.length + 1;
+    final dateStr = DateFormat('yyMMdd').format(DateTime.now());
+    return 'ORD-$dateStr-${nextId.toString().padLeft(4, '0')}';
+  }
 }
 
 class OrderWithItems {
@@ -83,13 +233,93 @@ class OrderItemDataWithProductData {
 @DriftAccessor(tables: [Customers, CustomerWalletTransactions, CustomerCrateBalances, CustomerWallets, WalletTransactions])
 class CustomersDao extends DatabaseAccessor<AppDatabase> with _$CustomersDaoMixin {
   CustomersDao(super.db);
-  Stream<List<CustomerData>> watchAllCustomers() => select(customers).watch();
+  Stream<List<CustomerData>> watchAllCustomers() => (select(customers)..orderBy([(t) => OrderingTerm.desc(t.id)])).watch();
   Future<CustomerData?> findById(int id) => (select(customers)..where((t) => t.id.equals(id))).getSingleOrNull();
   Future<CustomerData?> findByPhone(String phone) => (select(customers)..where((t) => t.phone.equals(phone))).getSingleOrNull();
-  Future<void> addCustomer(CustomersCompanion customer) => into(customers).insert(customer);
-  Future<void> updateWalletBalance({required int customerId, required int deltaKobo, required String type, required int staffId, int? orderId, String? note}) async {}
+  
+  Future<void> addCustomer(CustomersCompanion customer) async {
+    return transaction(() async {
+      final customerId = await into(customers).insert(customer);
+      
+      // Every customer must have a wallet
+      final walletId = _generateUuid();
+      await into(customerWallets).insert(CustomerWalletsCompanion.insert(
+        walletId: walletId,
+        customerId: customerId,
+      ));
+    });
+  }
+
+  String _generateUuid() {
+    final random = DateTime.now().microsecondsSinceEpoch;
+    return 'wlt-$random'; // Simple unique wallet ID
+  }
+
+  Future<void> updateWalletBalance({
+    required int customerId,
+    required int deltaKobo,
+    required String type, // credit or debit
+    required String referenceType,
+    String? referenceId,
+    required int staffId,
+    String? note,
+  }) async {
+    return transaction(() async {
+      final wallet = await (select(customerWallets)
+            ..where((t) => t.customerId.equals(customerId)))
+          .getSingleOrNull();
+
+      if (wallet == null) throw Exception('Customer wallet not found');
+
+      // 1. Update the cached balance in Customers table for quick access
+      final customer = await findById(customerId);
+      if (customer != null) {
+        final newBalance = customer.walletBalanceKobo + (type == 'credit' ? deltaKobo : -deltaKobo);
+        await (update(customers)..where((t) => t.id.equals(customerId)))
+            .write(CustomersCompanion(walletBalanceKobo: Value(newBalance)));
+      }
+
+      // 2. Insert into WalletTransactions for audit trail
+      final txnId = 'txn-${DateTime.now().microsecondsSinceEpoch}';
+      await into(walletTransactions).insert(WalletTransactionsCompanion.insert(
+        txnId: txnId,
+        walletId: wallet.walletId,
+        type: type,
+        amountKobo: deltaKobo.abs(),
+        referenceType: referenceType,
+        referenceId: Value(referenceId),
+        performedBy: staffId,
+        createdAt: Value(DateTime.now()),
+      ));
+    });
+  }
+
+  Stream<List<WalletTransactionData>> watchWalletHistory(int customerId) {
+    final query = select(walletTransactions).join([
+      innerJoin(customerWallets, customerWallets.walletId.equalsExp(walletTransactions.walletId)),
+    ])
+      ..where(customerWallets.customerId.equals(customerId))
+      ..orderBy([OrderingTerm.desc(walletTransactions.createdAt)]);
+
+    return query.watch().map((rows) => rows.map((r) => r.readTable(walletTransactions)).toList());
+  }
+
+  Future<CustomerWalletData?> getWalletInfo(int customerId) {
+    return (select(customerWallets)..where((t) => t.customerId.equals(customerId))).getSingleOrNull();
+  }
+
+  Future<void> updateWalletLimit(int customerId, int limitKobo) {
+    return (update(customers)..where((t) => t.id.equals(customerId)))
+        .write(CustomersCompanion(walletLimitKobo: Value(limitKobo)));
+  }
+
+  Stream<int> watchWalletBalance(int customerId) {
+    return (select(customers)..where((t) => t.id.equals(customerId)))
+        .watchSingle()
+        .map((c) => c.walletBalanceKobo);
+  }
+
   Future<void> updateCrateBalance(int customerId, int crateGroupId, int deltaQty) async {}
-  Stream<List<CustomerWalletTransactionData>> watchWalletHistory(int customerId) => (select(customerWalletTransactions)..where((t) => t.customerId.equals(customerId))).watch();
   Stream<Map<String, int>> watchCrateBalance(int customerId) => Stream.value({});
 
   Future<int> getWalletBalance(String walletId) async {

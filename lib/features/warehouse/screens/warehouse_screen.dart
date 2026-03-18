@@ -1,3 +1,4 @@
+import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../../shared/widgets/shared_scaffold.dart';
@@ -177,7 +178,14 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
                             : () async {
                                 if (!formKey.currentState!.validate()) return;
                                 setSheet(() => saving = true);
-                                // Stub — no DB write in this version
+                                await database.into(database.warehouses).insert(
+                                      WarehousesCompanion.insert(
+                                        name: nameCtrl.text.trim(),
+                                        location: locationCtrl.text.trim().isEmpty
+                                            ? const Value.absent()
+                                            : Value(locationCtrl.text.trim()),
+                                      ),
+                                    );
                                 if (ctx.mounted) Navigator.pop(ctx);
                               },
                         style: ElevatedButton.styleFrom(
@@ -332,7 +340,16 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
                             : () async {
                                 if (!formKey.currentState!.validate()) return;
                                 setSheet(() => saving = true);
-                                // Stub — no DB write in this version
+                                await (database.update(database.warehouses)
+                                      ..where((t) => t.id.equals(warehouse.id)))
+                                    .write(
+                                      WarehousesCompanion(
+                                        name: Value(nameCtrl.text.trim()),
+                                        location: locationCtrl.text.trim().isEmpty
+                                            ? const Value(null)
+                                            : Value(locationCtrl.text.trim()),
+                                      ),
+                                    );
                                 if (ctx.mounted) Navigator.pop(ctx);
                               },
                         style: ElevatedButton.styleFrom(
