@@ -11,6 +11,19 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> with _$CatalogDaoMixin {
   Stream<List<SupplierData>> watchAllSupplierDatas() => select(suppliers).watch();
   Future<int> insertSupplier(SuppliersCompanion companion) => into(suppliers).insert(companion);
   Future<int> insertProduct(ProductsCompanion companion) => into(products).insert(companion);
+
+  Future<List<String>> getDistinctManufacturers() async {
+    final query = selectOnly(products, distinct: true)
+      ..addColumns([products.manufacturer])
+      ..where(products.manufacturer.isNotNull() & products.isDeleted.not());
+    final rows = await query.get();
+    return rows
+        .map((r) => r.read(products.manufacturer))
+        .whereType<String>()
+        .where((s) => s.trim().isNotEmpty)
+        .toList();
+  }
+
   Stream<List<ProductData>> watchAvailableProductDatas({int? categoryId}) {
     if (categoryId != null) {
       return (select(products)..where((t) => t.isDeleted.not() & t.categoryId.equals(categoryId))).watch();

@@ -70,6 +70,7 @@ class Products extends Table {
   TextColumn get unit => text().withDefault(const Constant('Bottle'))();
   IntColumn get iconCodePoint => integer().nullable()();
   TextColumn get colorHex => text().nullable()();
+  IntColumn get supplierId => integer().nullable().references(Suppliers, #id)();
   BoolColumn get isAvailable => boolean().withDefault(const Constant(true))();
   BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
   IntColumn get lowStockThreshold => integer().withDefault(const Constant(5))();
@@ -466,7 +467,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 13;
+  int get schemaVersion => 14;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
