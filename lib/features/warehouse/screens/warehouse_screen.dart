@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -27,31 +28,8 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
   Color get _text => _isDark ? dText : lText;
   Color get _subtext => _isDark ? dSubtext : lSubtext;
   Color get _border => _isDark ? dBorder : lBorder;
-  Color get _card => _isDark ? dCard : lCard;
-
   Stream<List<WarehouseData>> get _warehousesStream =>
       database.select(database.warehouses).watch();
-
-  Future<int> _getStaffCount(int warehouseId) async {
-    final rows = await (database.select(database.users)
-          ..where((t) => t.warehouseId.equals(warehouseId)))
-        .get();
-    return rows.length;
-  }
-
-  Future<int> _getTotalStock(int warehouseId) async {
-    final rows = await (database.select(
-      database.inventory,
-    )..where((t) => t.warehouseId.equals(warehouseId))).get();
-    return rows.fold<int>(0, (sum, row) => sum + row.quantity);
-  }
-
-  Future<int> _getProductCount(int warehouseId) async {
-    final rows = await (database.select(
-      database.inventory,
-    )..where((t) => t.warehouseId.equals(warehouseId))).get();
-    return rows.where((r) => r.quantity > 0).length;
-  }
 
   // ── Add Warehouse ──────────────────────────────────────────────────────────
   void _showAddSheet(BuildContext context) {
@@ -393,7 +371,10 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
     BuildContext context,
     WarehouseData warehouse,
   ) async {
-    final stock = await _getTotalStock(warehouse.id);
+    final rows = await (database.select(database.inventory)
+          ..where((t) => t.warehouseId.equals(warehouse.id)))
+        .get();
+    final stock = rows.fold<int>(0, (sum, r) => sum + r.quantity);
     if (!context.mounted) return;
 
     showDialog(
@@ -615,275 +596,11 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
 
   // ── Warehouse card ─────────────────────────────────────────────────────────
   Widget _buildWarehouseCard(BuildContext context, WarehouseData warehouse) {
-    return FutureBuilder<List<int>>(
-      future: Future.wait([
-        _getTotalStock(warehouse.id),
-        _getProductCount(warehouse.id),
-        _getStaffCount(warehouse.id),
-      ]),
-      builder: (context, snapshot) {
-        final totalStock = snapshot.data?[0] ?? 0;
-        final productCount = snapshot.data?[1] ?? 0;
-        final staffCount = snapshot.data?[2] ?? 0;
-
-        return Container(
-          margin: EdgeInsets.only(bottom: rSize(context, 14)),
-          decoration: BoxDecoration(
-            color: _surface,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: _border),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.03),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Column(
-            children: [
-              // Main row
-              InkWell(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => WarehouseDetailsScreen(warehouse: warehouse),
-                    ),
-                  );
-                },
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(16),
-                ),
-                child: Padding(
-                  padding: EdgeInsets.all(rSize(context, 16)),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: EdgeInsets.all(rSize(context, 12)),
-                        decoration: BoxDecoration(
-                          color: blueMain.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Icon(
-                          FontAwesomeIcons.warehouse,
-                          color: blueMain,
-                          size: rSize(context, 20),
-                        ),
-                      ),
-                      SizedBox(width: rSize(context, 14)),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              warehouse.name,
-                              style: TextStyle(
-                                fontSize: rFontSize(context, 16),
-                                fontWeight: FontWeight.bold,
-                                color: _text,
-                              ),
-                            ),
-                            if (warehouse.location != null &&
-                                warehouse.location!.isNotEmpty) ...[
-                              SizedBox(height: rSize(context, 3)),
-                              Row(
-                                children: [
-                                  Icon(
-                                    Icons.location_on_outlined,
-                                    size: rSize(context, 12),
-                                    color: _subtext,
-                                  ),
-                                  SizedBox(width: rSize(context, 4)),
-                                  Expanded(
-                                    child: Text(
-                                      warehouse.location!,
-                                      style: TextStyle(
-                                        fontSize: rFontSize(context, 12),
-                                        color: _subtext,
-                                      ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                      Icon(
-                        FontAwesomeIcons.chevronRight,
-                        size: rSize(context, 13),
-                        color: _border,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
-              // Stats row
-              Container(
-                decoration: BoxDecoration(
-                  color: _card,
-                  border: Border(top: BorderSide(color: _border)),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: _statCell(
-                        context,
-                        icon: FontAwesomeIcons.boxesStacked,
-                        label: 'Total Units',
-                        value: totalStock.toString(),
-                        color: blueMain,
-                      ),
-                    ),
-                    Container(width: 1, height: 36, color: _border),
-                    Expanded(
-                      child: _statCell(
-                        context,
-                        icon: FontAwesomeIcons.tag,
-                        label: 'Products',
-                        value: productCount.toString(),
-                        color: AppColors.success,
-                      ),
-                    ),
-                    Container(width: 1, height: 36, color: _border),
-                    Expanded(
-                      child: _statCell(
-                        context,
-                        icon: FontAwesomeIcons.userGroup,
-                        label: 'Staff',
-                        value: staffCount.toString(),
-                        color: const Color(0xFFA855F7),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              // Actions row
-              Container(
-                decoration: BoxDecoration(
-                  color: _card,
-                  border: Border(top: BorderSide(color: _border)),
-                  borderRadius: const BorderRadius.vertical(
-                    bottom: Radius.circular(16),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: _actionButton(
-                        context,
-                        icon: FontAwesomeIcons.usersGear,
-                        color: const Color(0xFFA855F7),
-                        label: 'Staff',
-                        onTap: () => navigationService.setIndex(8),
-                      ),
-                    ),
-                    Container(width: 1, height: 36, color: _border),
-                    Expanded(
-                      child: _actionButton(
-                        context,
-                        icon: FontAwesomeIcons.penToSquare,
-                        color: blueMain,
-                        label: 'Edit',
-                        onTap: () => _showEditSheet(context, warehouse),
-                      ),
-                    ),
-                    Container(width: 1, height: 36, color: _border),
-                    Expanded(
-                      child: _actionButton(
-                        context,
-                        icon: FontAwesomeIcons.trash,
-                        color: AppColors.danger,
-                        label: 'Delete',
-                        onTap: () => _confirmDelete(context, warehouse),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _statCell(
-    BuildContext context, {
-    required IconData icon,
-    required String label,
-    required String value,
-    required Color color,
-  }) {
-    return Padding(
-      padding: EdgeInsets.symmetric(
-        vertical: rSize(context, 10),
-        horizontal: rSize(context, 12),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, size: rSize(context, 12), color: color),
-          SizedBox(width: rSize(context, 6)),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                value,
-                style: TextStyle(
-                  fontSize: rFontSize(context, 13),
-                  fontWeight: FontWeight.bold,
-                  color: _text,
-                ),
-              ),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: rFontSize(context, 10),
-                  color: _subtext,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _actionButton(
-    BuildContext context, {
-    required IconData icon,
-    required Color color,
-    required String label,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
-      child: Padding(
-        padding: EdgeInsets.symmetric(vertical: rSize(context, 10)),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: rSize(context, 13), color: color),
-            SizedBox(height: rSize(context, 3)),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: rFontSize(context, 10),
-                color: color,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-      ),
+    return _WarehouseCard(
+      warehouse: warehouse,
+      onEdit: () => _showEditSheet(context, warehouse),
+      onDelete: () => _confirmDelete(context, warehouse),
+      onStaff: () => navigationService.setIndex(8),
     );
   }
 
@@ -930,6 +647,311 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
           vertical: 16,
+        ),
+      ),
+    );
+  }
+}
+
+// ── Reactive warehouse card ────────────────────────────────────────────────────
+class _WarehouseCard extends StatefulWidget {
+  final WarehouseData warehouse;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+  final VoidCallback onStaff;
+
+  const _WarehouseCard({
+    required this.warehouse,
+    required this.onEdit,
+    required this.onDelete,
+    required this.onStaff,
+  });
+
+  @override
+  State<_WarehouseCard> createState() => _WarehouseCardState();
+}
+
+class _WarehouseCardState extends State<_WarehouseCard> {
+  List<ProductDataWithStock> _inventory = [];
+  List<UserData> _staff = [];
+
+  StreamSubscription<List<ProductDataWithStock>>? _invSub;
+  StreamSubscription<List<UserData>>? _staffSub;
+
+  bool get _isDark => themeNotifier.value == ThemeMode.dark;
+  Color get _surface => _isDark ? dSurface : lSurface;
+  Color get _text => _isDark ? dText : lText;
+  Color get _subtext => _isDark ? dSubtext : lSubtext;
+  Color get _border => _isDark ? dBorder : lBorder;
+  Color get _card => _isDark ? dCard : lCard;
+
+  @override
+  void initState() {
+    super.initState();
+    final id = widget.warehouse.id;
+    _invSub = database.inventoryDao
+        .watchProductDatasWithStockByWarehouse(id)
+        .listen((list) {
+      if (mounted) setState(() => _inventory = list);
+    });
+    _staffSub = database.warehousesDao
+        .watchStaffByWarehouse(id)
+        .listen((list) {
+      if (mounted) setState(() => _staff = list);
+    });
+  }
+
+  @override
+  void dispose() {
+    _invSub?.cancel();
+    _staffSub?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final totalStock = _inventory.fold<int>(0, (s, p) => s + p.totalStock);
+    final productCount = _inventory.where((p) => p.totalStock > 0).length;
+    final staffCount = _staff.length;
+
+    return Container(
+      margin: EdgeInsets.only(bottom: rSize(context, 14)),
+      decoration: BoxDecoration(
+        color: _surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _border),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          // Main row
+          InkWell(
+            onTap: () {
+              Navigator.push(
+                context,
+                PageRouteBuilder(
+                  opaque: true,
+                  transitionDuration: Duration.zero,
+                  reverseTransitionDuration: Duration.zero,
+                  pageBuilder: (_, __, ___) =>
+                      WarehouseDetailsScreen(warehouse: widget.warehouse),
+                ),
+              );
+            },
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+            child: Padding(
+              padding: EdgeInsets.all(rSize(context, 16)),
+              child: Row(
+                children: [
+                  Container(
+                    padding: EdgeInsets.all(rSize(context, 12)),
+                    decoration: BoxDecoration(
+                      color: blueMain.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(FontAwesomeIcons.warehouse,
+                        color: blueMain, size: rSize(context, 20)),
+                  ),
+                  SizedBox(width: rSize(context, 14)),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          widget.warehouse.name,
+                          style: TextStyle(
+                            fontSize: rFontSize(context, 16),
+                            fontWeight: FontWeight.bold,
+                            color: _text,
+                          ),
+                        ),
+                        if (widget.warehouse.location != null &&
+                            widget.warehouse.location!.isNotEmpty) ...[
+                          SizedBox(height: rSize(context, 3)),
+                          Row(
+                            children: [
+                              Icon(Icons.location_on_outlined,
+                                  size: rSize(context, 12), color: _subtext),
+                              SizedBox(width: rSize(context, 4)),
+                              Expanded(
+                                child: Text(
+                                  widget.warehouse.location!,
+                                  style: TextStyle(
+                                    fontSize: rFontSize(context, 12),
+                                    color: _subtext,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  Icon(FontAwesomeIcons.chevronRight,
+                      size: rSize(context, 13), color: _border),
+                ],
+              ),
+            ),
+          ),
+
+          // Stats row
+          Container(
+            decoration: BoxDecoration(
+              color: _card,
+              border: Border(top: BorderSide(color: _border)),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: _statCell(
+                    icon: FontAwesomeIcons.boxesStacked,
+                    label: 'Total Units',
+                    value: totalStock.toString(),
+                    color: blueMain,
+                  ),
+                ),
+                Container(width: 1, height: 36, color: _border),
+                Expanded(
+                  child: _statCell(
+                    icon: FontAwesomeIcons.tag,
+                    label: 'Products',
+                    value: productCount.toString(),
+                    color: AppColors.success,
+                  ),
+                ),
+                Container(width: 1, height: 36, color: _border),
+                Expanded(
+                  child: _statCell(
+                    icon: FontAwesomeIcons.userGroup,
+                    label: 'Staff',
+                    value: staffCount.toString(),
+                    color: const Color(0xFFA855F7),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Actions row
+          Container(
+            decoration: BoxDecoration(
+              color: _card,
+              border: Border(top: BorderSide(color: _border)),
+              borderRadius:
+                  const BorderRadius.vertical(bottom: Radius.circular(16)),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: _actionButton(
+                    icon: FontAwesomeIcons.usersGear,
+                    color: const Color(0xFFA855F7),
+                    label: 'Staff',
+                    onTap: widget.onStaff,
+                  ),
+                ),
+                Container(width: 1, height: 36, color: _border),
+                Expanded(
+                  child: _actionButton(
+                    icon: FontAwesomeIcons.penToSquare,
+                    color: blueMain,
+                    label: 'Edit',
+                    onTap: widget.onEdit,
+                  ),
+                ),
+                Container(width: 1, height: 36, color: _border),
+                Expanded(
+                  child: _actionButton(
+                    icon: FontAwesomeIcons.trash,
+                    color: AppColors.danger,
+                    label: 'Delete',
+                    onTap: widget.onDelete,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _statCell({
+    required IconData icon,
+    required String label,
+    required String value,
+    required Color color,
+  }) {
+    return Padding(
+      padding: EdgeInsets.symmetric(
+        vertical: rSize(context, 10),
+        horizontal: rSize(context, 12),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, size: rSize(context, 12), color: color),
+          SizedBox(width: rSize(context, 6)),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                value,
+                style: TextStyle(
+                  fontSize: rFontSize(context, 13),
+                  fontWeight: FontWeight.bold,
+                  color: _text,
+                ),
+              ),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: rFontSize(context, 10),
+                  color: _subtext,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _actionButton({
+    required IconData icon,
+    required Color color,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
+      child: Padding(
+        padding: EdgeInsets.symmetric(vertical: rSize(context, 10)),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: rSize(context, 13), color: color),
+            SizedBox(height: rSize(context, 3)),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: rFontSize(context, 10),
+                color: color,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
         ),
       ),
     );

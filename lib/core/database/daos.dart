@@ -39,7 +39,6 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> with _$CatalogDaoMixin {
     int productId, {
     required String name,
     String? manufacturer,
-    required int sellingPriceKobo,
     required int buyingPriceKobo,
     required int retailPriceKobo,
     int? bulkBreakerPriceKobo,
@@ -49,7 +48,8 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> with _$CatalogDaoMixin {
         ProductsCompanion(
           name: Value(name),
           manufacturer: Value(manufacturer),
-          sellingPriceKobo: Value(sellingPriceKobo),
+          // retail price is the selling price — no separate selling price field
+          sellingPriceKobo: Value(retailPriceKobo),
           buyingPriceKobo: Value(buyingPriceKobo),
           retailPriceKobo: Value(retailPriceKobo),
           bulkBreakerPriceKobo: Value(bulkBreakerPriceKobo),
@@ -57,11 +57,14 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> with _$CatalogDaoMixin {
         ),
       );
 
+  Future<void> updateMonthlyTarget(int productId, int targetUnits) =>
+      (update(products)..where((t) => t.id.equals(productId))).write(
+        ProductsCompanion(monthlyTargetUnits: Value(targetUnits)),
+      );
+
   int getPriceForCustomerGroup(ProductData product, String group) {
     switch (group) {
-      case 'bulk_breaker':
-        return product.bulkBreakerPriceKobo ?? product.retailPriceKobo;
-      case 'distributor':
+      case 'wholesaler':
         return product.distributorPriceKobo ?? product.retailPriceKobo;
       default:
         return product.retailPriceKobo;
@@ -210,12 +213,77 @@ class InventoryDao extends DatabaseAccessor<AppDatabase> with _$InventoryDaoMixi
           .write(CrateGroupsCompanion(emptyCrateStock: Value(newStock)));
     }
   }
+
+  /// Streams total bottle inventory per manufacturer for products with crateSize='big'.
+  Stream<Map<String, int>> watchBigBottlesByManufacturer() {
+    final qty = inventory.quantity.sum();
+    final mfrCol = products.manufacturer;
+    return (selectOnly(products)
+      ..join([leftOuterJoin(inventory, inventory.productId.equalsExp(products.id))])
+      ..where(products.crateSize.equals('big') &
+              products.manufacturer.isNotNull() &
+              products.isDeleted.not())
+      ..addColumns([mfrCol, qty])
+      ..groupBy([mfrCol])
+    ).watch().map((rows) {
+      final result = <String, int>{};
+      for (final row in rows) {
+        final m = row.read(mfrCol);
+        if (m != null) result[m] = row.read(qty) ?? 0;
+      }
+      return result;
+    });
+  }
+
+  /// Streams total physical empty crates per manufacturer, derived from crate groups
+  /// linked to the manufacturer's big-crate products. Deduplicates shared crate groups.
+  Stream<Map<String, int>> watchEmptyCratesByManufacturer() {
+    return (select(products)
+      ..where((t) =>
+          t.crateSize.equals('big') &
+          t.manufacturer.isNotNull() &
+          t.isDeleted.not())
+    ).join([
+      leftOuterJoin(crateGroups, crateGroups.id.equalsExp(products.crateGroupId)),
+    ]).watch().map((rows) {
+      final mfrToCgIds = <String, Set<int>>{};
+      final cgStock = <int, int>{};
+      for (final row in rows) {
+        final p = row.readTable(products);
+        final cg = row.readTableOrNull(crateGroups);
+        if (p.manufacturer == null) continue;
+        mfrToCgIds.putIfAbsent(p.manufacturer!, () => <int>{});
+        if (cg != null) {
+          mfrToCgIds[p.manufacturer!]!.add(cg.id);
+          cgStock[cg.id] = cg.emptyCrateStock;
+        }
+      }
+      return mfrToCgIds.map(
+        (mfr, cgIds) => MapEntry(mfr, cgIds.fold(0, (s, id) => s + (cgStock[id] ?? 0))),
+      );
+    });
+  }
 }
 
 class ProductDataWithStock {
   final ProductData product;
   final int totalStock;
   ProductDataWithStock({required this.product, required this.totalStock});
+}
+
+class ManufacturerCrateStats {
+  final String manufacturer;
+  final int totalBottles;   // sum of inventory for big-crate products
+  final int emptyCrates;    // sum of physical empty crates from linked crate groups
+
+  ManufacturerCrateStats({
+    required this.manufacturer,
+    required this.totalBottles,
+    required this.emptyCrates,
+  });
+
+  int get fullCratesEquiv => totalBottles ~/ 12;
+  int get totalCrateAssets => fullCratesEquiv + emptyCrates;
 }
 
 @DriftAccessor(tables: [Orders, OrderItems, Products, Customers])
@@ -278,6 +346,80 @@ class OrdersDao extends DatabaseAccessor<AppDatabase> with _$OrdersDaoMixin {
     final dateStr = DateFormat('yyMMdd').format(DateTime.now());
     return 'ORD-$dateStr-${nextId.toString().padLeft(4, '0')}';
   }
+
+  /// Returns units sold and revenue for this product today, this week, this month.
+  Future<ProductSalesSummary> getSalesSummaryForProduct(int productId) async {
+    final query = select(orderItems).join([
+      innerJoin(orders, orders.id.equalsExp(orderItems.orderId)),
+    ])
+      ..where(orderItems.productId.equals(productId) & orders.status.equals('completed'));
+
+    final rows = await query.get();
+
+    final now = DateTime.now();
+    final todayStart = DateTime(now.year, now.month, now.day);
+    final weekStart = todayStart.subtract(const Duration(days: 6));
+    final monthStart = DateTime(now.year, now.month, 1);
+
+    int todayUnits = 0, todayRevKobo = 0;
+    int weekUnits = 0, weekRevKobo = 0;
+    int monthUnits = 0, monthRevKobo = 0;
+
+    for (final row in rows) {
+      final item = row.readTable(orderItems);
+      final order = row.readTable(orders);
+      final date = order.createdAt;
+
+      if (!date.isBefore(monthStart)) {
+        monthUnits += item.quantity;
+        monthRevKobo += item.totalKobo;
+      }
+      if (!date.isBefore(weekStart)) {
+        weekUnits += item.quantity;
+        weekRevKobo += item.totalKobo;
+      }
+      if (!date.isBefore(todayStart)) {
+        todayUnits += item.quantity;
+        todayRevKobo += item.totalKobo;
+      }
+    }
+
+    return ProductSalesSummary(
+      todayUnits: todayUnits,
+      todayRevenueKobo: todayRevKobo,
+      weekUnits: weekUnits,
+      weekRevenueKobo: weekRevKobo,
+      monthUnits: monthUnits,
+      monthRevenueKobo: monthRevKobo,
+    );
+  }
+}
+
+class ProductSalesSummary {
+  final int todayUnits;
+  final int todayRevenueKobo;
+  final int weekUnits;
+  final int weekRevenueKobo;
+  final int monthUnits;
+  final int monthRevenueKobo;
+
+  const ProductSalesSummary({
+    required this.todayUnits,
+    required this.todayRevenueKobo,
+    required this.weekUnits,
+    required this.weekRevenueKobo,
+    required this.monthUnits,
+    required this.monthRevenueKobo,
+  });
+
+  factory ProductSalesSummary.empty() => const ProductSalesSummary(
+        todayUnits: 0,
+        todayRevenueKobo: 0,
+        weekUnits: 0,
+        weekRevenueKobo: 0,
+        monthUnits: 0,
+        monthRevenueKobo: 0,
+      );
 }
 
 class OrderWithItems {
@@ -408,6 +550,41 @@ class DeliveriesDao extends DatabaseAccessor<AppDatabase> with _$DeliveriesDaoMi
   Stream<List<DeliveryData>> watchAll() => select(purchases).watch();
   Future<void> receiveDelivery(PurchasesCompanion delivery, List<PurchaseItemsCompanion> items) async {}
   Future<void> confirmDelivery(String deliveryIdStr, String confirmedBy) async {}
+
+  /// Returns the most recent delivery (purchase) for a product, or null if none.
+  Future<LastDeliveryInfo?> getLastDeliveryForProduct(int productId) async {
+    final query = select(purchaseItems).join([
+      innerJoin(purchases, purchases.id.equalsExp(purchaseItems.purchaseId)),
+    ])
+      ..where(purchaseItems.productId.equals(productId))
+      ..orderBy([OrderingTerm.desc(purchases.timestamp)])
+      ..limit(1);
+
+    final row = await query.getSingleOrNull();
+    if (row == null) return null;
+    final item = row.readTable(purchaseItems);
+    final delivery = row.readTable(purchases);
+    return LastDeliveryInfo(
+      date: delivery.timestamp,
+      quantity: item.quantity,
+      unitPriceKobo: item.unitPriceKobo,
+      totalKobo: item.totalKobo,
+    );
+  }
+}
+
+class LastDeliveryInfo {
+  final DateTime date;
+  final int quantity;
+  final int unitPriceKobo;
+  final int totalKobo;
+
+  const LastDeliveryInfo({
+    required this.date,
+    required this.quantity,
+    required this.unitPriceKobo,
+    required this.totalKobo,
+  });
 }
 
 @DriftAccessor(tables: [Expenses, ExpenseCategories])
@@ -440,6 +617,7 @@ class ActivityLogDao extends DatabaseAccessor<AppDatabase> with _$ActivityLogDao
 @DriftAccessor(tables: [Users, Warehouses])
 class WarehousesDao extends DatabaseAccessor<AppDatabase> with _$WarehousesDaoMixin {
   WarehousesDao(super.db);
+  Stream<WarehouseData?> watchWarehouse(int id) => (select(warehouses)..where((t) => t.id.equals(id))).watchSingleOrNull();
   Stream<List<UserData>> watchAllStaff() => select(users).watch();
   Stream<List<UserData>> watchStaffByWarehouse(int warehouseId) => (select(users)..where((t) => t.warehouseId.equals(warehouseId))).watch();
   Future<void> assignStaffToWarehouse(int userId, int? warehouseId) => (update(users)..where((t) => t.id.equals(userId))).write(UsersCompanion(warehouseId: Value(warehouseId)));

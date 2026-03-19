@@ -2157,6 +2157,17 @@ class $ProductsTable extends Products
     requiredDuringInsert: false,
     defaultValue: const Constant(0),
   );
+  static const VerificationMeta _monthlyTargetUnitsMeta =
+      const VerificationMeta('monthlyTargetUnits');
+  @override
+  late final GeneratedColumn<int> monthlyTargetUnits = GeneratedColumn<int>(
+    'monthly_target_units',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -2182,6 +2193,7 @@ class $ProductsTable extends Products
     avgDailySales,
     leadTimeDays,
     safetyStockQty,
+    monthlyTargetUnits,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -2371,6 +2383,15 @@ class $ProductsTable extends Products
         ),
       );
     }
+    if (data.containsKey('monthly_target_units')) {
+      context.handle(
+        _monthlyTargetUnitsMeta,
+        monthlyTargetUnits.isAcceptableOrUnknown(
+          data['monthly_target_units']!,
+          _monthlyTargetUnitsMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -2472,6 +2493,10 @@ class $ProductsTable extends Products
         DriftSqlType.int,
         data['${effectivePrefix}safety_stock_qty'],
       )!,
+      monthlyTargetUnits: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}monthly_target_units'],
+      )!,
     );
   }
 
@@ -2505,6 +2530,7 @@ class ProductData extends DataClass implements Insertable<ProductData> {
   final double avgDailySales;
   final int leadTimeDays;
   final int safetyStockQty;
+  final int monthlyTargetUnits;
   const ProductData({
     required this.id,
     this.categoryId,
@@ -2529,6 +2555,7 @@ class ProductData extends DataClass implements Insertable<ProductData> {
     required this.avgDailySales,
     required this.leadTimeDays,
     required this.safetyStockQty,
+    required this.monthlyTargetUnits,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -2578,6 +2605,7 @@ class ProductData extends DataClass implements Insertable<ProductData> {
     map['avg_daily_sales'] = Variable<double>(avgDailySales);
     map['lead_time_days'] = Variable<int>(leadTimeDays);
     map['safety_stock_qty'] = Variable<int>(safetyStockQty);
+    map['monthly_target_units'] = Variable<int>(monthlyTargetUnits);
     return map;
   }
 
@@ -2626,6 +2654,7 @@ class ProductData extends DataClass implements Insertable<ProductData> {
       avgDailySales: Value(avgDailySales),
       leadTimeDays: Value(leadTimeDays),
       safetyStockQty: Value(safetyStockQty),
+      monthlyTargetUnits: Value(monthlyTargetUnits),
     );
   }
 
@@ -2662,6 +2691,7 @@ class ProductData extends DataClass implements Insertable<ProductData> {
       avgDailySales: serializer.fromJson<double>(json['avgDailySales']),
       leadTimeDays: serializer.fromJson<int>(json['leadTimeDays']),
       safetyStockQty: serializer.fromJson<int>(json['safetyStockQty']),
+      monthlyTargetUnits: serializer.fromJson<int>(json['monthlyTargetUnits']),
     );
   }
   @override
@@ -2691,6 +2721,7 @@ class ProductData extends DataClass implements Insertable<ProductData> {
       'avgDailySales': serializer.toJson<double>(avgDailySales),
       'leadTimeDays': serializer.toJson<int>(leadTimeDays),
       'safetyStockQty': serializer.toJson<int>(safetyStockQty),
+      'monthlyTargetUnits': serializer.toJson<int>(monthlyTargetUnits),
     };
   }
 
@@ -2718,6 +2749,7 @@ class ProductData extends DataClass implements Insertable<ProductData> {
     double? avgDailySales,
     int? leadTimeDays,
     int? safetyStockQty,
+    int? monthlyTargetUnits,
   }) => ProductData(
     id: id ?? this.id,
     categoryId: categoryId.present ? categoryId.value : this.categoryId,
@@ -2748,6 +2780,7 @@ class ProductData extends DataClass implements Insertable<ProductData> {
     avgDailySales: avgDailySales ?? this.avgDailySales,
     leadTimeDays: leadTimeDays ?? this.leadTimeDays,
     safetyStockQty: safetyStockQty ?? this.safetyStockQty,
+    monthlyTargetUnits: monthlyTargetUnits ?? this.monthlyTargetUnits,
   );
   ProductData copyWithCompanion(ProductsCompanion data) {
     return ProductData(
@@ -2804,6 +2837,9 @@ class ProductData extends DataClass implements Insertable<ProductData> {
       safetyStockQty: data.safetyStockQty.present
           ? data.safetyStockQty.value
           : this.safetyStockQty,
+      monthlyTargetUnits: data.monthlyTargetUnits.present
+          ? data.monthlyTargetUnits.value
+          : this.monthlyTargetUnits,
     );
   }
 
@@ -2832,7 +2868,8 @@ class ProductData extends DataClass implements Insertable<ProductData> {
           ..write('manufacturer: $manufacturer, ')
           ..write('avgDailySales: $avgDailySales, ')
           ..write('leadTimeDays: $leadTimeDays, ')
-          ..write('safetyStockQty: $safetyStockQty')
+          ..write('safetyStockQty: $safetyStockQty, ')
+          ..write('monthlyTargetUnits: $monthlyTargetUnits')
           ..write(')'))
         .toString();
   }
@@ -2862,6 +2899,7 @@ class ProductData extends DataClass implements Insertable<ProductData> {
     avgDailySales,
     leadTimeDays,
     safetyStockQty,
+    monthlyTargetUnits,
   ]);
   @override
   bool operator ==(Object other) =>
@@ -2889,7 +2927,8 @@ class ProductData extends DataClass implements Insertable<ProductData> {
           other.manufacturer == this.manufacturer &&
           other.avgDailySales == this.avgDailySales &&
           other.leadTimeDays == this.leadTimeDays &&
-          other.safetyStockQty == this.safetyStockQty);
+          other.safetyStockQty == this.safetyStockQty &&
+          other.monthlyTargetUnits == this.monthlyTargetUnits);
 }
 
 class ProductsCompanion extends UpdateCompanion<ProductData> {
@@ -2916,6 +2955,7 @@ class ProductsCompanion extends UpdateCompanion<ProductData> {
   final Value<double> avgDailySales;
   final Value<int> leadTimeDays;
   final Value<int> safetyStockQty;
+  final Value<int> monthlyTargetUnits;
   const ProductsCompanion({
     this.id = const Value.absent(),
     this.categoryId = const Value.absent(),
@@ -2940,6 +2980,7 @@ class ProductsCompanion extends UpdateCompanion<ProductData> {
     this.avgDailySales = const Value.absent(),
     this.leadTimeDays = const Value.absent(),
     this.safetyStockQty = const Value.absent(),
+    this.monthlyTargetUnits = const Value.absent(),
   });
   ProductsCompanion.insert({
     this.id = const Value.absent(),
@@ -2965,6 +3006,7 @@ class ProductsCompanion extends UpdateCompanion<ProductData> {
     this.avgDailySales = const Value.absent(),
     this.leadTimeDays = const Value.absent(),
     this.safetyStockQty = const Value.absent(),
+    this.monthlyTargetUnits = const Value.absent(),
   }) : name = Value(name);
   static Insertable<ProductData> custom({
     Expression<int>? id,
@@ -2990,6 +3032,7 @@ class ProductsCompanion extends UpdateCompanion<ProductData> {
     Expression<double>? avgDailySales,
     Expression<int>? leadTimeDays,
     Expression<int>? safetyStockQty,
+    Expression<int>? monthlyTargetUnits,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -3017,6 +3060,8 @@ class ProductsCompanion extends UpdateCompanion<ProductData> {
       if (avgDailySales != null) 'avg_daily_sales': avgDailySales,
       if (leadTimeDays != null) 'lead_time_days': leadTimeDays,
       if (safetyStockQty != null) 'safety_stock_qty': safetyStockQty,
+      if (monthlyTargetUnits != null)
+        'monthly_target_units': monthlyTargetUnits,
     });
   }
 
@@ -3044,6 +3089,7 @@ class ProductsCompanion extends UpdateCompanion<ProductData> {
     Value<double>? avgDailySales,
     Value<int>? leadTimeDays,
     Value<int>? safetyStockQty,
+    Value<int>? monthlyTargetUnits,
   }) {
     return ProductsCompanion(
       id: id ?? this.id,
@@ -3069,6 +3115,7 @@ class ProductsCompanion extends UpdateCompanion<ProductData> {
       avgDailySales: avgDailySales ?? this.avgDailySales,
       leadTimeDays: leadTimeDays ?? this.leadTimeDays,
       safetyStockQty: safetyStockQty ?? this.safetyStockQty,
+      monthlyTargetUnits: monthlyTargetUnits ?? this.monthlyTargetUnits,
     );
   }
 
@@ -3146,6 +3193,9 @@ class ProductsCompanion extends UpdateCompanion<ProductData> {
     if (safetyStockQty.present) {
       map['safety_stock_qty'] = Variable<int>(safetyStockQty.value);
     }
+    if (monthlyTargetUnits.present) {
+      map['monthly_target_units'] = Variable<int>(monthlyTargetUnits.value);
+    }
     return map;
   }
 
@@ -3174,7 +3224,8 @@ class ProductsCompanion extends UpdateCompanion<ProductData> {
           ..write('manufacturer: $manufacturer, ')
           ..write('avgDailySales: $avgDailySales, ')
           ..write('leadTimeDays: $leadTimeDays, ')
-          ..write('safetyStockQty: $safetyStockQty')
+          ..write('safetyStockQty: $safetyStockQty, ')
+          ..write('monthlyTargetUnits: $monthlyTargetUnits')
           ..write(')'))
         .toString();
   }
@@ -17565,6 +17616,7 @@ typedef $$ProductsTableCreateCompanionBuilder =
       Value<double> avgDailySales,
       Value<int> leadTimeDays,
       Value<int> safetyStockQty,
+      Value<int> monthlyTargetUnits,
     });
 typedef $$ProductsTableUpdateCompanionBuilder =
     ProductsCompanion Function({
@@ -17591,6 +17643,7 @@ typedef $$ProductsTableUpdateCompanionBuilder =
       Value<double> avgDailySales,
       Value<int> leadTimeDays,
       Value<int> safetyStockQty,
+      Value<int> monthlyTargetUnits,
     });
 
 final class $$ProductsTableReferences
@@ -17923,6 +17976,11 @@ class $$ProductsTableFilterComposer
 
   ColumnFilters<int> get safetyStockQty => $composableBuilder(
     column: $table.safetyStockQty,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get monthlyTargetUnits => $composableBuilder(
+    column: $table.monthlyTargetUnits,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -18305,6 +18363,11 @@ class $$ProductsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get monthlyTargetUnits => $composableBuilder(
+    column: $table.monthlyTargetUnits,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$CategoriesTableOrderingComposer get categoryId {
     final $$CategoriesTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -18465,6 +18528,11 @@ class $$ProductsTableAnnotationComposer
 
   GeneratedColumn<int> get safetyStockQty => $composableBuilder(
     column: $table.safetyStockQty,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get monthlyTargetUnits => $composableBuilder(
+    column: $table.monthlyTargetUnits,
     builder: (column) => column,
   );
 
@@ -18802,6 +18870,7 @@ class $$ProductsTableTableManager
                 Value<double> avgDailySales = const Value.absent(),
                 Value<int> leadTimeDays = const Value.absent(),
                 Value<int> safetyStockQty = const Value.absent(),
+                Value<int> monthlyTargetUnits = const Value.absent(),
               }) => ProductsCompanion(
                 id: id,
                 categoryId: categoryId,
@@ -18826,6 +18895,7 @@ class $$ProductsTableTableManager
                 avgDailySales: avgDailySales,
                 leadTimeDays: leadTimeDays,
                 safetyStockQty: safetyStockQty,
+                monthlyTargetUnits: monthlyTargetUnits,
               ),
           createCompanionCallback:
               ({
@@ -18852,6 +18922,7 @@ class $$ProductsTableTableManager
                 Value<double> avgDailySales = const Value.absent(),
                 Value<int> leadTimeDays = const Value.absent(),
                 Value<int> safetyStockQty = const Value.absent(),
+                Value<int> monthlyTargetUnits = const Value.absent(),
               }) => ProductsCompanion.insert(
                 id: id,
                 categoryId: categoryId,
@@ -18876,6 +18947,7 @@ class $$ProductsTableTableManager
                 avgDailySales: avgDailySales,
                 leadTimeDays: leadTimeDays,
                 safetyStockQty: safetyStockQty,
+                monthlyTargetUnits: monthlyTargetUnits,
               ),
           withReferenceMapper: (p0) => p0
               .map(

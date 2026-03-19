@@ -7,9 +7,6 @@ import '../../../core/utils/number_format.dart';
 import '../../../core/utils/responsive.dart';
 import '../../../core/utils/stock_calculator.dart';
 import '../data/models/inventory_item.dart';
-import '../data/models/supplier.dart';
-import '../data/services/supplier_service.dart';
-import '../data/models/crate_group.dart';
 import '../../../core/database/app_database.dart';
 import '../../../shared/services/cart_service.dart';
 
@@ -36,16 +33,20 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   late TextEditingController _subtitleController;
   late TextEditingController _quantityController;
   late TextEditingController _manufacturerController;
-  late TextEditingController _sellingPriceController;
   late TextEditingController _buyingPriceController;
   late TextEditingController _retailPriceController;
   late TextEditingController _bulkBreakerPriceController;
   late TextEditingController _distributorPriceController;
   late TextEditingController _monthlyTargetController;
-  int _monthlyTarget = 200;
+  late TextEditingController _emptyCratesController;
 
-  int? _emptyCrateStock;
-  late Future<List<ActivityLogData>> _deliveryLogsFuture;
+  int _monthlyTarget = 0;
+  int? _emptyCrateStock; // original value loaded from DB
+  int? _crateGroupId;    // DB id of the linked crate group
+
+  ProductSalesSummary? _salesSummary;
+  LastDeliveryInfo? _lastDelivery;
+  bool _deliveryLoaded = false;
 
   @override
   void initState() {
@@ -58,18 +59,43 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       ),
     );
     _manufacturerController = TextEditingController(text: widget.item.manufacturer ?? '');
-    _sellingPriceController = TextEditingController(text: (widget.item.sellingPrice ?? 0).toString());
     _buyingPriceController = TextEditingController(text: (widget.item.buyingPrice ?? 0).toString());
     _retailPriceController = TextEditingController(text: (widget.item.retailPrice ?? 0).toString());
     _bulkBreakerPriceController = TextEditingController(text: (widget.item.bulkBreakerPrice ?? 0).toString());
     _distributorPriceController = TextEditingController(text: (widget.item.distributorPrice ?? 0).toString());
-    _monthlyTargetController = TextEditingController(
-      text: _monthlyTarget.toString(),
-    );
-    _deliveryLogsFuture =
-        database.activityLogDao.getForEntity(widget.item.id);
+    _monthlyTargetController = TextEditingController(text: '0');
+    _emptyCratesController = TextEditingController(text: '0');
+
+    _loadProductData();
     if (widget.item.crateGroupName != null) {
       _loadEmptyCrateStock();
+    }
+  }
+
+  Future<void> _loadProductData() async {
+    final productId = int.tryParse(widget.item.id);
+    if (productId == null) return;
+
+    // Load monthly target from DB
+    final product = await database.catalogDao.findById(productId);
+    if (product != null && mounted) {
+      setState(() {
+        _monthlyTarget = product.monthlyTargetUnits;
+        _monthlyTargetController.text = _monthlyTarget.toString();
+      });
+    }
+
+    // Load sales summary from completed orders
+    final summary = await database.ordersDao.getSalesSummaryForProduct(productId);
+    if (mounted) setState(() => _salesSummary = summary);
+
+    // Load last delivery from purchases
+    final delivery = await database.deliveriesDao.getLastDeliveryForProduct(productId);
+    if (mounted) {
+      setState(() {
+        _lastDelivery = delivery;
+        _deliveryLoaded = true;
+      });
     }
   }
 
@@ -77,7 +103,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     final groups = await database.inventoryDao.getAllCrateGroups();
     final match = groups.where((g) => g.name == widget.item.crateGroupName);
     if (match.isNotEmpty && mounted) {
-      setState(() => _emptyCrateStock = match.first.emptyCrateStock);
+      setState(() {
+        _emptyCrateStock = match.first.emptyCrateStock;
+        _crateGroupId = match.first.id;
+        _emptyCratesController.text = _emptyCrateStock.toString();
+      });
     }
   }
 
@@ -87,12 +117,12 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     _subtitleController.dispose();
     _quantityController.dispose();
     _manufacturerController.dispose();
-    _sellingPriceController.dispose();
     _buyingPriceController.dispose();
     _retailPriceController.dispose();
     _bulkBreakerPriceController.dispose();
     _distributorPriceController.dispose();
     _monthlyTargetController.dispose();
+    _emptyCratesController.dispose();
     super.dispose();
   }
 
@@ -192,8 +222,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                SizedBox(height: context.getRSize(24)), // offset for app bar
-                // Product icon
+                SizedBox(height: context.getRSize(24)),
                 Container(
                   width: context.getRSize(80),
                   height: context.getRSize(80),
@@ -238,7 +267,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   ),
                 ),
                 SizedBox(height: context.getRSize(14)),
-                // Product name
                 _nameController.text.isEmpty
                     ? Text(
                         widget.item.productName,
@@ -269,7 +297,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         ),
                       ),
                 SizedBox(height: context.getRSize(6)),
-                // Status badge row
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -310,23 +337,15 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   // ═══════════════════════════════════════════════════════════════════════════
 
   Widget _buildBody(BuildContext context) {
-    // Look up related data
-    final allSuppliers = supplierService.getAll();
-    Supplier? supplier;
-    if (widget.item.supplierId != null) {
-      for (final s in allSuppliers) {
-        if (s.id == widget.item.supplierId) {
-          supplier = s;
-          break;
-        }
-      }
-    }
-
-    // Crate stock and delivery logs will be handled via FutureBuilder/StreamBuilder below
     final double totalStockValue = stockValue(
-      (widget.item.sellingPrice ?? 0).toDouble(),
+      (widget.item.retailPrice ?? 0).toDouble(),
       widget.item.totalStock,
     );
+
+    // Display crate size nicely (big → Big, medium → Medium, small → Small)
+    final crateSizeLabel = widget.item.crateSize != null
+        ? '${widget.item.crateSize![0].toUpperCase()}${widget.item.crateSize!.substring(1)}'
+        : 'N/A';
 
     return Padding(
       padding: EdgeInsets.symmetric(
@@ -336,8 +355,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── Stock & Supplier ─────────────────────────────────────────
-          _sectionTitle(context, 'Stock & Supplier'),
+          // ── Stock & Info ─────────────────────────────────────────
+          _sectionTitle(context, 'Stock & Info'),
           SizedBox(height: context.getRSize(12)),
           _infoCard(context, [
             _infoRow(
@@ -401,52 +420,61 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     fontWeight: FontWeight.bold,
                     color: _text,
                   ),
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     isDense: true,
                     contentPadding: EdgeInsets.zero,
                     border: InputBorder.none,
-                    hintText: 'Crate Company',
-                    hintStyle: TextStyle(fontSize: 10),
+                    hintText: 'e.g. Nigerian Breweries',
+                    hintStyle: TextStyle(fontSize: context.getRFontSize(10)),
                   ),
                   onChanged: (v) => setState(() {}),
                 ),
               ),
             ),
             _divider(context),
+            // Empty Crates — editable
             _infoRow(
               context,
               FontAwesomeIcons.beerMugEmpty,
-              'Empty Crates ${supplier != null ? "(${supplier.crateGroup.label})" : ""}',
-              _emptyCrateStock != null ? '$_emptyCrateStock crates' : 'N/A',
-              supplier?.crateGroup.color ?? _subtext,
+              'Empty Crates',
+              '',
+              const Color(0xFFF59E0B),
+              trailing: Container(
+                width: context.getRSize(90),
+                padding: EdgeInsets.symmetric(
+                  horizontal: context.getRSize(8),
+                  vertical: context.getRSize(4),
+                ),
+                decoration: BoxDecoration(
+                  color: _bg,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: _border),
+                ),
+                child: TextField(
+                  controller: _emptyCratesController,
+                  keyboardType: TextInputType.number,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: context.getRFontSize(14),
+                    fontWeight: FontWeight.bold,
+                    color: _text,
+                  ),
+                  decoration: const InputDecoration(
+                    isDense: true,
+                    contentPadding: EdgeInsets.zero,
+                    border: InputBorder.none,
+                  ),
+                ),
+              ),
             ),
             _divider(context),
+            // Crate Size — read-only, shows the value saved at product creation
             _infoRow(
               context,
               FontAwesomeIcons.layerGroup,
-              'Crate Company',
-              widget.item.crateGroupName ?? 'Not Assigned',
+              'Crate Size',
+              crateSizeLabel,
               const Color(0xFF8B5CF6),
-              onTap: () => _showCrateGroupSelectionSheet(context),
-              trailing: Icon(
-                FontAwesomeIcons.chevronRight,
-                size: context.getRSize(12),
-                color: _subtext,
-              ),
-            ),
-            _divider(context),
-            _infoRow(
-              context,
-              FontAwesomeIcons.buildingColumns,
-              'Supplier',
-              supplier?.name ?? 'Not Assigned',
-              const Color(0xFF6366F1),
-              onTap: () => _showSupplierSelectionSheet(context),
-              trailing: Icon(
-                FontAwesomeIcons.chevronRight,
-                size: context.getRSize(12),
-                color: _subtext,
-              ),
             ),
           ]),
 
@@ -456,15 +484,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           _sectionTitle(context, 'Pricing'),
           SizedBox(height: context.getRSize(12)),
           _infoCard(context, [
-            _infoRow(
-              context,
-              FontAwesomeIcons.tags,
-              'Selling Price',
-              '',
-              success,
-              trailing: _inlinePriceInput(_sellingPriceController),
-            ),
-            _divider(context),
             _infoRow(
               context,
               FontAwesomeIcons.dollarSign,
@@ -529,14 +548,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           // ── Last Delivery ───────────────────────────────────────────
           _sectionTitle(context, 'Last Delivery'),
           SizedBox(height: context.getRSize(12)),
-          FutureBuilder<List<ActivityLogData>>(
-            future: _deliveryLogsFuture,
-            builder: (ctx, snap) => _buildDeliveryCard(
-              ctx,
-              snap.data ?? [],
-              (widget.item.buyingPrice ?? 0).toInt(),
-            ),
-          ),
+          _buildDeliveryCard(context),
 
           SizedBox(height: context.getRSize(40)),
         ],
@@ -545,7 +557,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // BOTTOM BAR — Update Stock button
+  // BOTTOM BAR — Update Product button
   // ═══════════════════════════════════════════════════════════════════════════
 
   Widget _buildBottomBar(BuildContext context) {
@@ -692,24 +704,39 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     );
   }
 
-  // ── Sales Summary Grid ────────────────────────────────────────────────────
+  // ── Sales Summary Grid — reads from DB ───────────────────────────────────
   Widget _buildSalesGrid(BuildContext context) {
-    // Mock data — replace with real sales tracking later
+    final s = _salesSummary;
     return _infoCard(context, [
-      _statRow(context, 'Today', '4 units', formatCurrency(20000)),
+      _statRow(
+        context,
+        'Today',
+        s != null ? '${s.todayUnits} units' : '—',
+        s != null ? formatCurrency(s.todayRevenueKobo / 100) : '—',
+      ),
       _divider(context),
-      _statRow(context, 'This Week', '18 units', formatCurrency(90000)),
+      _statRow(
+        context,
+        'This Week',
+        s != null ? '${s.weekUnits} units' : '—',
+        s != null ? formatCurrency(s.weekRevenueKobo / 100) : '—',
+      ),
       _divider(context),
-      _statRow(context, 'This Month', '62 units', formatCurrency(310000)),
+      _statRow(
+        context,
+        'This Month',
+        s != null ? '${s.monthUnits} units' : '—',
+        s != null ? formatCurrency(s.monthRevenueKobo / 100) : '—',
+      ),
     ]);
   }
 
-  // ── Sales Target Grid ─────────────────────────────────────────────────────
+  // ── Sales Target Grid — reads monthly target from DB ─────────────────────
   Widget _buildTargetGrid(BuildContext context) {
-    // Mock current sales (Quantity Sold)
-    const int currentMonthly = 62;
-    const int currentWeekly = 18;
-    const int currentDaily = 4;
+    final s = _salesSummary;
+    final int currentMonthly = s?.monthUnits ?? 0;
+    final int currentWeekly = s?.weekUnits ?? 0;
+    final int currentDaily = s?.todayUnits ?? 0;
 
     return _infoCard(context, [
       _targetRow(context, 'Daily', currentDaily, _monthlyTarget ~/ 30),
@@ -753,7 +780,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           Expanded(
             flex: 2,
             child: Text(
-              qty, // Quantity Sold (Read-Only)
+              qty,
               style: TextStyle(
                 fontSize: context.getRFontSize(13),
                 fontWeight: FontWeight.bold,
@@ -880,60 +907,44 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     );
   }
 
-  // ── Last Delivery Card ────────────────────────────────────────────────────
-  Widget _buildDeliveryCard(
-    BuildContext context,
-    List<ActivityLogData> deliveryLogs,
-    int buyingPrice,
-  ) {
-    if (deliveryLogs.isEmpty) {
-      // Mock delivery data when no logs exist
-      final mockDate = DateTime.now().subtract(const Duration(days: 3));
-      const mockQty = 10;
+  // ── Last Delivery Card — reads from Purchases table ───────────────────────
+  Widget _buildDeliveryCard(BuildContext context) {
+    if (!_deliveryLoaded) {
       return _infoCard(context, [
-        _infoRow(
-          context,
-          FontAwesomeIcons.calendarDay,
-          'Date',
-          _fmtDate(mockDate),
-          blueMain,
-        ),
-        _divider(context),
-        _infoRow(
-          context,
-          FontAwesomeIcons.truckFast,
-          'Quantity Received',
-          '$mockQty units',
-          const Color(0xFF6366F1),
-        ),
-        _divider(context),
-        _infoRow(
-          context,
-          FontAwesomeIcons.dollarSign,
-          'Price Per Unit',
-          formatCurrency(buyingPrice),
-          const Color(0xFFF59E0B),
-        ),
-        _divider(context),
-        _infoRow(
-          context,
-          FontAwesomeIcons.receipt,
-          'Total Delivery Cost',
-          formatCurrency(buyingPrice * mockQty),
-          success,
+        Padding(
+          padding: EdgeInsets.all(context.getRSize(24)),
+          child: Center(
+            child: SizedBox(
+              width: context.getRSize(20),
+              height: context.getRSize(20),
+              child: const CircularProgressIndicator(strokeWidth: 2, color: blueMain),
+            ),
+          ),
         ),
       ]);
     }
 
-    final last = deliveryLogs.first;
-    // ActivityLogData doesn't have newValue/previousValue. Fallback to 0 or parse description.
-    const qty = 0; 
+    if (_lastDelivery == null) {
+      return _infoCard(context, [
+        Padding(
+          padding: EdgeInsets.all(context.getRSize(24)),
+          child: Center(
+            child: Text(
+              'No deliveries recorded yet',
+              style: TextStyle(color: _subtext, fontSize: context.getRFontSize(13)),
+            ),
+          ),
+        ),
+      ]);
+    }
+
+    final d = _lastDelivery!;
     return _infoCard(context, [
       _infoRow(
         context,
         FontAwesomeIcons.calendarDay,
         'Date',
-        _fmtDate(last.timestamp),
+        _fmtDate(d.date),
         blueMain,
       ),
       _divider(context),
@@ -941,7 +952,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         context,
         FontAwesomeIcons.truckFast,
         'Quantity Received',
-        '$qty units',
+        '${d.quantity} units',
         const Color(0xFF6366F1),
       ),
       _divider(context),
@@ -949,7 +960,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         context,
         FontAwesomeIcons.dollarSign,
         'Price Per Unit',
-        formatCurrency(widget.item.buyingPrice ?? 0),
+        formatCurrency(d.unitPriceKobo / 100),
         const Color(0xFFF59E0B),
       ),
       _divider(context),
@@ -957,7 +968,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         context,
         FontAwesomeIcons.receipt,
         'Total Delivery Cost',
-        formatCurrency((widget.item.buyingPrice ?? 0) * qty),
+        formatCurrency(d.totalKobo / 100),
         success,
       ),
     ]);
@@ -965,264 +976,17 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
   String _fmtDate(DateTime dt) {
     const months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
     ];
     return '${dt.day} ${months[dt.month - 1]} ${dt.year}';
   }
 
-  void _showCrateGroupSelectionSheet(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (ctx) => Container(
-        decoration: BoxDecoration(
-          color: _isDark ? dSurface : lSurface,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: 12),
-            Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: _border,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-              child: Row(
-                children: [
-                  Text(
-                    'Assign Crate Company',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w800,
-                      color: _text,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            FutureBuilder<List<CrateGroupData>>(
-              future: database.inventoryDao.getAllCrateGroups(),
-              builder: (ctx, snap) {
-                if (!snap.hasData) {
-                  return const Padding(
-                    padding: EdgeInsets.all(32),
-                    child: CircularProgressIndicator(),
-                  );
-                }
-                final groups = snap.data!;
-                return Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    ListTile(
-                      leading: const Icon(Icons.close, color: Colors.grey),
-                      title: Text(
-                        'Remove Crate Company',
-                        style: TextStyle(color: _subtext),
-                      ),
-                      onTap: () {
-                        setState(() => widget.item.crateGroupName = null);
-                        Navigator.pop(ctx);
-                        _updateDbCrateGroup(null, null);
-                      },
-                    ),
-                    const Divider(height: 1),
-                    ...groups.map(
-                      (cg) => ListTile(
-                        leading: const Icon(
-                          Icons.layers,
-                          color: Color(0xFF8B5CF6),
-                        ),
-                        title: Text(
-                          cg.name,
-                          style: TextStyle(
-                            color: _text,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        subtitle: Text(
-                          '${cg.size} bottles · ${cg.emptyCrateStock} empty crates available',
-                          style: TextStyle(color: _subtext, fontSize: 12),
-                        ),
-                        trailing: widget.item.crateGroupName == cg.name
-                            ? const Icon(Icons.check_circle, color: Color(0xFF8B5CF6))
-                            : null,
-                        onTap: () {
-                          setState(() => widget.item.crateGroupName = cg.name);
-                          Navigator.pop(ctx);
-                          _updateDbCrateGroup(cg.id, _crateSizeLabel(cg.size));
-                        },
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                  ],
-                );
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  String _crateSizeLabel(int size) {
-    if (size == 12) return 'big';
-    if (size == 20) return 'medium';
-    return 'small';
-  }
-
-  /// Finds the DB product by name and updates crateGroupId + crateSize.
-  Future<void> _updateDbCrateGroup(int? crateGroupId, String? crateSize) async {
-    final dbProducts = await database.select(database.products).get();
-    final match = dbProducts
-        .where((p) => p.name == widget.item.productName)
-        .firstOrNull;
-    if (match != null) {
-      await database.inventoryDao.assignCrateGroup(
-        match.id,
-        crateGroupId,
-        crateSize,
-      );
-    }
-  }
-
-  void _showSupplierSelectionSheet(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (ctx) => GestureDetector(
-        onTap: () => Navigator.pop(ctx),
-        behavior: HitTestBehavior.opaque,
-        child: DraggableScrollableSheet(
-          initialChildSize: 0.6,
-          maxChildSize: 0.9,
-          minChildSize: 0.4,
-          builder: (_, scrollController) => GestureDetector(
-            onTap: () {}, // absorb taps inside
-            child: Container(
-              decoration: BoxDecoration(
-                color: _surface,
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(28),
-                ),
-              ),
-              child: Column(
-                children: [
-                  Container(
-                    margin: const EdgeInsets.only(top: 12, bottom: 8),
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: _border,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Text(
-                      'Assign Supplier',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: _text,
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    child: ListView.builder(
-                      controller: scrollController,
-                      itemCount: supplierService.getAll().length + 1,
-                      itemBuilder: (context, index) {
-                        if (index == 0) {
-                          return ListTile(
-                            leading: CircleAvatar(
-                              backgroundColor: Colors.grey.withValues(alpha: 0.1),
-                              child: Icon(
-                                Icons.close,
-                                color: _subtext,
-                                size: 18,
-                              ),
-                            ),
-                            title: Text(
-                              'No Supplier',
-                              style: TextStyle(color: _text),
-                            ),
-                            onTap: () {
-                              setState(() {
-                                widget.item.supplierId = null;
-                              });
-                              Navigator.pop(ctx);
-                            },
-                          );
-                        }
-                        final s = supplierService.getAll()[index - 1];
-                        final isSelected = widget.item.supplierId == s.id;
-                        return ListTile(
-                          leading: CircleAvatar(
-                            backgroundColor: s.crateGroup.color.withValues(alpha: 0.1),
-                            child: Icon(
-                              FontAwesomeIcons.building,
-                              color: s.crateGroup.color,
-                              size: 16,
-                            ),
-                          ),
-                          title: Text(
-                            s.name,
-                            style: TextStyle(
-                              color: _text,
-                              fontWeight: isSelected
-                                  ? FontWeight.bold
-                                  : FontWeight.normal,
-                            ),
-                          ),
-                          trailing: isSelected
-                              ? const Icon(Icons.check_circle, color: success)
-                              : null,
-                          onTap: () {
-                            setState(() {
-                              widget.item.supplierId = s.id;
-                            });
-                            Navigator.pop(ctx);
-                          },
-                        );
-                      },
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
   void _pickImage() {
-    // In a real app, this would use image_picker
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Image picking not implemented (Mock)')),
+      const SnackBar(content: Text('Image picking not implemented')),
     );
   }
-
-
 
   Widget _inlinePriceInput(TextEditingController controller) {
     return Container(
@@ -1268,7 +1032,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
     final newQty = double.tryParse(_quantityController.text) ?? widget.item.totalStock;
     final manufacturer = _manufacturerController.text.trim();
-    final selling = double.tryParse(_sellingPriceController.text) ?? 0;
     final buying = double.tryParse(_buyingPriceController.text) ?? 0;
     final retail = double.tryParse(_retailPriceController.text) ?? 0;
     final bulk = double.tryParse(_bulkBreakerPriceController.text) ?? 0;
@@ -1277,35 +1040,50 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     final productId = int.parse(widget.item.id);
 
     try {
-      // 1. Update Products table — name, manufacturer, all prices
+      // 1. Update Products table — name, manufacturer, prices
+      //    Retail price is used as the selling price (no separate field)
       await database.catalogDao.updateProductDetails(
         productId,
         name: name,
         manufacturer: manufacturer.isEmpty ? null : manufacturer,
-        sellingPriceKobo: (selling * 100).round(),
         buyingPriceKobo: (buying * 100).round(),
         retailPriceKobo: (retail * 100).round(),
         bulkBreakerPriceKobo: bulk > 0 ? (bulk * 100).round() : null,
         distributorPriceKobo: distributor > 0 ? (distributor * 100).round() : null,
       );
 
-      // 2. Update Inventory (adjusting qty)
+      // 2. Save monthly target
+      await database.catalogDao.updateMonthlyTarget(productId, _monthlyTarget);
+
+      // 3. Adjust empty crates if the value was changed
+      if (_crateGroupId != null) {
+        final newCrates = int.tryParse(_emptyCratesController.text) ?? 0;
+        final originalCrates = _emptyCrateStock ?? 0;
+        final crateDelta = newCrates - originalCrates;
+        if (crateDelta > 0) {
+          await database.inventoryDao.addEmptyCrates(_crateGroupId!, crateDelta);
+        } else if (crateDelta < 0) {
+          await database.inventoryDao.deductEmptyCrates(_crateGroupId!, -crateDelta);
+        }
+        setState(() => _emptyCrateStock = newCrates);
+      }
+
+      // 4. Adjust stock quantity if changed
       final warehouseId = widget.item.warehouseStock.keys.isNotEmpty
           ? int.tryParse(widget.item.warehouseStock.keys.first.replaceAll('w', '')) ?? 1
           : 1;
-
       final diff = (newQty - widget.item.totalStock).toInt();
       if (diff != 0) {
         await database.inventoryDao.adjustStock(
           productId,
           warehouseId,
           diff,
-          "Manual adjustment from Product Detail Screen",
-          null, // staffId
+          'Manual adjustment from Product Detail Screen',
+          null,
         );
       }
 
-      // 3. Log the edit to activity history
+      // 5. Log the edit
       await database.activityLogDao.log(
         action: 'update_product',
         description: 'Updated product details for $name',
@@ -1313,16 +1091,14 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         entityType: 'product',
       );
 
-      // 4. Update local item object (for UI feedback if staying on screen)
+      // 6. Update local item object for UI feedback
       setState(() {
         widget.item.productName = name;
         widget.item.manufacturer = manufacturer;
-        widget.item.sellingPrice = selling;
         widget.item.buyingPrice = buying;
         widget.item.retailPrice = retail;
         widget.item.bulkBreakerPrice = bulk;
         widget.item.distributorPrice = distributor;
-        // Warehouse stock updated via diff logic above, but for local:
         final wKey = widget.item.warehouseStock.keys.firstOrNull ?? 'w1';
         widget.item.warehouseStock[wKey] = newQty;
       });
@@ -1364,8 +1140,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               await database.catalogDao.softDeleteProduct(int.parse(widget.item.id));
               cartService.removeItem(widget.item.productName);
               if (!context.mounted) return;
-              Navigator.pop(ctx); // close dialog
-              Navigator.pop(context); // close detail screen
+              Navigator.pop(ctx);
+              Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(content: Text('${widget.item.productName} deleted')),
               );
@@ -1377,5 +1153,3 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     );
   }
 }
-
-

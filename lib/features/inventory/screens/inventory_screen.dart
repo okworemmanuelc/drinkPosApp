@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../../shared/services/navigation_service.dart';
@@ -37,6 +38,11 @@ class _InventoryScreenState extends State<InventoryScreen>
   List<WarehouseData> _warehouses = [];
   List<ProductDataWithStock> _dbProducts = [];
   List<CrateGroupData> _dbCrateGroups = [];
+  Map<String, int> _bigBottlesByMfr = {};
+  Map<String, int> _emptyCratesByMfr = {};
+
+  StreamSubscription<Map<String, int>>? _bottlesSub;
+  StreamSubscription<Map<String, int>>? _emptyCratesSub;
 
   static const _cgColors = [
     Color(0xFFF59E0B),
@@ -88,6 +94,18 @@ class _InventoryScreenState extends State<InventoryScreen>
       onError: (e) => debugPrint('Error watching crate groups: $e'),
     );
 
+    // Manufacturer crate pool streams
+    _bottlesSub = database.inventoryDao.watchBigBottlesByManufacturer().listen(
+      (data) {
+        if (mounted) setState(() => _bigBottlesByMfr = data);
+      },
+    );
+    _emptyCratesSub = database.inventoryDao.watchEmptyCratesByManufacturer().listen(
+      (data) {
+        if (mounted) setState(() => _emptyCratesByMfr = data);
+      },
+    );
+
     // Listen for cross-screen warehouse selection
     navigationService.selectedWarehouseId.addListener(
       _handleWarehouseNavigation,
@@ -110,6 +128,8 @@ class _InventoryScreenState extends State<InventoryScreen>
     navigationService.selectedWarehouseId.removeListener(
       _handleWarehouseNavigation,
     );
+    _bottlesSub?.cancel();
+    _emptyCratesSub?.cancel();
     _tabController.dispose();
     super.dispose();
   }
@@ -542,6 +562,16 @@ class _InventoryScreenState extends State<InventoryScreen>
     return _dbCrateGroups.where((cg) => usedIds.contains(cg.id)).toList();
   }
 
+  List<ManufacturerCrateStats> get _manufacturerCrateStats {
+    final allMfrs = {..._bigBottlesByMfr.keys, ..._emptyCratesByMfr.keys};
+    return allMfrs.map((mfr) => ManufacturerCrateStats(
+      manufacturer: mfr,
+      totalBottles: _bigBottlesByMfr[mfr] ?? 0,
+      emptyCrates: _emptyCratesByMfr[mfr] ?? 0,
+    )).toList()
+      ..sort((a, b) => a.manufacturer.compareTo(b.manufacturer));
+  }
+
   Widget _buildSupplierFilter(BuildContext context) {
     return Container(
       padding: EdgeInsets.fromLTRB(
@@ -633,6 +663,7 @@ class _InventoryScreenState extends State<InventoryScreen>
               : null,
           category: product.categoryId?.toString(),
           manufacturer: product.manufacturer,
+          crateSize: product.crateSize,
         );
         Navigator.push(
           context,
@@ -865,7 +896,171 @@ class _InventoryScreenState extends State<InventoryScreen>
         ),
         SizedBox(height: context.getRSize(12)), // RESPONSIVE
         ..._activeCrateGroups.map((cg) => _buildCrateGroupCard(context, cg)),
+        if (_manufacturerCrateStats.isNotEmpty) ...[
+          SizedBox(height: context.getRSize(24)),
+          _buildManufacturerCratePool(context),
+        ],
       ],
+    );
+  }
+
+  Widget _buildManufacturerCratePool(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Container(
+              padding: EdgeInsets.all(context.getRSize(8)),
+              decoration: BoxDecoration(
+                color: const Color(0xFFA855F7).withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(
+                FontAwesomeIcons.industry,
+                size: context.getRSize(14),
+                color: const Color(0xFFA855F7),
+              ),
+            ),
+            SizedBox(width: context.getRSize(10)),
+            Text(
+              'Manufacturer Crate Pool',
+              style: TextStyle(
+                fontSize: context.getRFontSize(16),
+                fontWeight: FontWeight.bold,
+                color: _text,
+              ),
+            ),
+          ],
+        ),
+        SizedBox(height: context.getRSize(6)),
+        Text(
+          'Tracks total crate assets per manufacturer: full crates in stock (bottles ÷ 12) plus physical empty crates.',
+          style: TextStyle(
+            fontSize: context.getRFontSize(12),
+            color: _subtext,
+            height: 1.4,
+          ),
+        ),
+        SizedBox(height: context.getRSize(12)),
+        // Header row
+        Container(
+          padding: EdgeInsets.symmetric(
+            horizontal: context.getRSize(16),
+            vertical: context.getRSize(10),
+          ),
+          decoration: BoxDecoration(
+            color: _isDark ? dCard : lCard,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
+            border: Border.all(color: _border),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                flex: 3,
+                child: Text(
+                  'Manufacturer',
+                  style: TextStyle(
+                    fontSize: context.getRFontSize(11),
+                    fontWeight: FontWeight.w700,
+                    color: _subtext,
+                  ),
+                ),
+              ),
+              _headerCell(context, 'Full\nCrates'),
+              _headerCell(context, 'Empty\nCrates'),
+              _headerCell(context, 'Total\nAssets'),
+            ],
+          ),
+        ),
+        // Data rows
+        ...List.generate(_manufacturerCrateStats.length, (i) {
+          final stat = _manufacturerCrateStats[i];
+          final isLast = i == _manufacturerCrateStats.length - 1;
+          return Container(
+            padding: EdgeInsets.symmetric(
+              horizontal: context.getRSize(16),
+              vertical: context.getRSize(12),
+            ),
+            decoration: BoxDecoration(
+              color: _cardBg,
+              borderRadius: isLast
+                  ? const BorderRadius.vertical(bottom: Radius.circular(14))
+                  : BorderRadius.zero,
+              border: Border(
+                left: BorderSide(color: _border),
+                right: BorderSide(color: _border),
+                bottom: BorderSide(color: _border),
+              ),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  flex: 3,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        stat.manufacturer,
+                        style: TextStyle(
+                          fontSize: context.getRFontSize(13),
+                          fontWeight: FontWeight.w600,
+                          color: _text,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Text(
+                        '${stat.totalBottles} bottles',
+                        style: TextStyle(
+                          fontSize: context.getRFontSize(10),
+                          color: _subtext,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                _dataCell(context, stat.fullCratesEquiv.toString(), blueMain),
+                _dataCell(context, stat.emptyCrates.toString(),
+                    stat.emptyCrates == 0 ? danger : const Color(0xFFA855F7)),
+                _dataCell(context, stat.totalCrateAssets.toString(),
+                    AppColors.success, bold: true),
+              ],
+            ),
+          );
+        }),
+      ],
+    );
+  }
+
+  Widget _headerCell(BuildContext context, String label) {
+    return Expanded(
+      flex: 2,
+      child: Text(
+        label,
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          fontSize: context.getRFontSize(10),
+          fontWeight: FontWeight.w700,
+          color: _subtext,
+        ),
+      ),
+    );
+  }
+
+  Widget _dataCell(BuildContext context, String value, Color color,
+      {bool bold = false}) {
+    return Expanded(
+      flex: 2,
+      child: Text(
+        value,
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          fontSize: context.getRFontSize(14),
+          fontWeight: bold ? FontWeight.w800 : FontWeight.w600,
+          color: color,
+        ),
+      ),
     );
   }
 

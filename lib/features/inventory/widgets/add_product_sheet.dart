@@ -40,9 +40,18 @@ class _AddProductSheetState extends State<AddProductSheet> {
 
   static const _units = ['Bottle', 'Crate', 'Pack', 'Carton', 'Keg', 'Can'];
   static const _colors = [
-    '#3B82F6', '#EF4444', '#10B981', '#F59E0B',
-    '#8B5CF6', '#EC4899', '#06B6D4', '#F97316',
-    '#14B8A6', '#6366F1', '#334155', '#64748B',
+    '#3B82F6',
+    '#EF4444',
+    '#10B981',
+    '#F59E0B',
+    '#8B5CF6',
+    '#EC4899',
+    '#06B6D4',
+    '#F97316',
+    '#14B8A6',
+    '#6366F1',
+    '#334155',
+    '#64748B',
   ];
 
   bool get _isDark => themeNotifier.value == ThemeMode.dark;
@@ -88,9 +97,9 @@ class _AddProductSheetState extends State<AddProductSheet> {
       _manufacturerSuggestions = q.isEmpty
           ? []
           : _allManufacturers
-              .where((m) => m.toLowerCase().contains(q))
-              .take(5)
-              .toList();
+                .where((m) => m.toLowerCase().contains(q))
+                .take(5)
+                .toList();
     });
   }
 
@@ -105,9 +114,9 @@ class _AddProductSheetState extends State<AddProductSheet> {
       _supplierSuggestions = q.isEmpty
           ? []
           : _allSuppliers
-              .where((s) => s.name.toLowerCase().contains(q))
-              .take(5)
-              .toList();
+                .where((s) => s.name.toLowerCase().contains(q))
+                .take(5)
+                .toList();
     });
   }
 
@@ -129,11 +138,15 @@ class _AddProductSheetState extends State<AddProductSheet> {
 
   Future<void> _save() async {
     final name = _nameCtrl.text.trim();
-    if (name.isEmpty || _retailPriceCtrl.text.trim().isEmpty || _selectedCategory == null) {
+    if (name.isEmpty ||
+        _retailPriceCtrl.text.trim().isEmpty ||
+        _selectedCategory == null) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('Product Name, Price, and Category are required.'),
+            content: const Text(
+              'Product Name, Price, and Category are required.',
+            ),
             backgroundColor: Colors.red.shade700,
           ),
         );
@@ -156,7 +169,8 @@ class _AddProductSheetState extends State<AddProductSheet> {
       return;
     }
 
-    final retailKobo = ((double.tryParse(_retailPriceCtrl.text) ?? 0) * 100).round();
+    final retailKobo = ((double.tryParse(_retailPriceCtrl.text) ?? 0) * 100)
+        .round();
     final lowStock = int.tryParse(_lowStockCtrl.text) ?? 5;
     final initialStock = int.tryParse(_initialStockCtrl.text) ?? 0;
     final manufacturer = _manufacturerCtrl.text.trim();
@@ -167,7 +181,9 @@ class _AddProductSheetState extends State<AddProductSheet> {
         ProductsCompanion.insert(
           name: name,
           subtitle: drift.Value(
-            _subtitleCtrl.text.trim().isEmpty ? null : _subtitleCtrl.text.trim(),
+            _subtitleCtrl.text.trim().isEmpty
+                ? null
+                : _subtitleCtrl.text.trim(),
           ),
           retailPriceKobo: drift.Value(retailKobo),
           unit: drift.Value(_unit),
@@ -300,20 +316,32 @@ class _AddProductSheetState extends State<AddProductSheet> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _field('Product Name *', _nameCtrl, 'e.g. Heineken 60cl', card, textColor, subtext),
+                    _field(
+                      'Product Name *',
+                      _nameCtrl,
+                      'e.g. Heineken 60cl',
+                      card,
+                      textColor,
+                      subtext,
+                    ),
                     const SizedBox(height: 14),
                     _sectionLabel('CATEGORY *', subtext),
                     const SizedBox(height: 8),
                     if (_allCategories.isEmpty)
-                      Text('No categories found', style: TextStyle(color: subtext, fontSize: 13))
+                      Text(
+                        'No categories found',
+                        style: TextStyle(color: subtext, fontSize: 13),
+                      )
                     else
                       _dropdownWidget<CategoryData?>(
                         value: _selectedCategory,
                         items: _allCategories
-                            .map((c) => DropdownMenuItem<CategoryData?>(
-                                  value: c,
-                                  child: Text(c.name),
-                                ))
+                            .map(
+                              (c) => DropdownMenuItem<CategoryData?>(
+                                value: c,
+                                child: Text(c.name),
+                              ),
+                            )
                             .toList(),
                         onChanged: (v) => setState(() => _selectedCategory = v),
                         card: card,
@@ -321,16 +349,39 @@ class _AddProductSheetState extends State<AddProductSheet> {
                         border: border,
                       ),
                     const SizedBox(height: 14),
-                    _field('Description / Subtitle', _subtitleCtrl, 'e.g. Premium Lager', card, textColor, subtext),
+                    _field(
+                      'Description / Subtitle',
+                      _subtitleCtrl,
+                      'e.g. Premium Lager',
+                      card,
+                      textColor,
+                      subtext,
+                    ),
                     const SizedBox(height: 14),
                     Row(
                       children: [
                         Expanded(
-                          child: _field('Retail Price (₦) *', _retailPriceCtrl, '0.00', card, textColor, subtext, isNumber: true),
+                          child: _field(
+                            'Retail Price (₦) *',
+                            _retailPriceCtrl,
+                            '0.00',
+                            card,
+                            textColor,
+                            subtext,
+                            isNumber: true,
+                          ),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
-                          child: _field('Low Stock Alert', _lowStockCtrl, '5', card, textColor, subtext, isNumber: true),
+                          child: _field(
+                            'Low Stock Alert',
+                            _lowStockCtrl,
+                            '5',
+                            card,
+                            textColor,
+                            subtext,
+                            isNumber: true,
+                          ),
                         ),
                       ],
                     ),
@@ -363,7 +414,9 @@ class _AddProductSheetState extends State<AddProductSheet> {
                       spacing: 10,
                       runSpacing: 10,
                       children: _colors.map((hex) {
-                        final color = Color(int.parse(hex.replaceFirst('#', '0xFF')));
+                        final color = Color(
+                          int.parse(hex.replaceFirst('#', '0xFF')),
+                        );
                         final sel = hex == _colorHex;
                         return GestureDetector(
                           onTap: () => setState(() => _colorHex = hex),
@@ -373,13 +426,24 @@ class _AddProductSheetState extends State<AddProductSheet> {
                             decoration: BoxDecoration(
                               color: color,
                               shape: BoxShape.circle,
-                              border: sel ? Border.all(color: Colors.white, width: 3) : null,
+                              border: sel
+                                  ? Border.all(color: Colors.white, width: 3)
+                                  : null,
                               boxShadow: sel
-                                  ? [BoxShadow(color: color.withValues(alpha: 0.5), blurRadius: 8)]
+                                  ? [
+                                      BoxShadow(
+                                        color: color.withValues(alpha: 0.5),
+                                        blurRadius: 8,
+                                      ),
+                                    ]
                                   : null,
                             ),
                             child: sel
-                                ? const Icon(Icons.check, color: Colors.white, size: 16)
+                                ? const Icon(
+                                    Icons.check,
+                                    color: Colors.white,
+                                    size: 16,
+                                  )
                                 : null,
                           ),
                         );
@@ -452,7 +516,11 @@ class _AddProductSheetState extends State<AddProductSheet> {
                                 _manufacturerCtrl.clear();
                                 setState(() => _manufacturerSuggestions = []);
                               },
-                              child: Icon(Icons.close, size: 16, color: subtext),
+                              child: Icon(
+                                Icons.close,
+                                size: 16,
+                                color: subtext,
+                              ),
                             )
                           : null,
                     ),
@@ -488,7 +556,11 @@ class _AddProductSheetState extends State<AddProductSheet> {
                       trailing: _selectedSupplier != null
                           ? GestureDetector(
                               onTap: _clearSupplier,
-                              child: Icon(Icons.close, size: 16, color: subtext),
+                              child: Icon(
+                                Icons.close,
+                                size: 16,
+                                color: subtext,
+                              ),
                             )
                           : null,
                     ),
@@ -520,7 +592,15 @@ class _AddProductSheetState extends State<AddProductSheet> {
                             children: [
                               _sectionLabel('QUANTITY', subtext),
                               const SizedBox(height: 8),
-                              _field('', _initialStockCtrl, '0', card, textColor, subtext, isNumber: true),
+                              _field(
+                                '',
+                                _initialStockCtrl,
+                                '0',
+                                card,
+                                textColor,
+                                subtext,
+                                isNumber: true,
+                              ),
                             ],
                           ),
                         ),
@@ -534,7 +614,10 @@ class _AddProductSheetState extends State<AddProductSheet> {
                               if (_warehouses.isEmpty)
                                 Container(
                                   width: double.infinity,
-                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 14,
+                                  ),
                                   decoration: BoxDecoration(
                                     color: card,
                                     borderRadius: BorderRadius.circular(12),
@@ -542,19 +625,28 @@ class _AddProductSheetState extends State<AddProductSheet> {
                                   ),
                                   child: Text(
                                     'No warehouses',
-                                    style: TextStyle(fontSize: 14, color: subtext),
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: subtext,
+                                    ),
                                   ),
                                 )
                               else
                                 _dropdownWidget<WarehouseData?>(
                                   value: _selectedWarehouse,
                                   items: _warehouses
-                                      .map((w) => DropdownMenuItem<WarehouseData?>(
-                                            value: w,
-                                            child: Text(w.name, overflow: TextOverflow.ellipsis),
-                                          ))
+                                      .map(
+                                        (w) => DropdownMenuItem<WarehouseData?>(
+                                          value: w,
+                                          child: Text(
+                                            w.name,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                      )
                                       .toList(),
-                                  onChanged: (v) => setState(() => _selectedWarehouse = v),
+                                  onChanged: (v) =>
+                                      setState(() => _selectedWarehouse = v),
                                   card: card,
                                   textColor: textColor,
                                   border: border,
@@ -596,7 +688,10 @@ class _AddProductSheetState extends State<AddProductSheet> {
                         )
                       : const Text(
                           'Add Product',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                 ),
               ),
@@ -610,14 +705,14 @@ class _AddProductSheetState extends State<AddProductSheet> {
   // ── HELPERS ────────────────────────────────────────────────────────────────
 
   Widget _sectionLabel(String text, Color subtext) => Text(
-        text,
-        style: TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w700,
-          color: subtext,
-          letterSpacing: 0.8,
-        ),
-      );
+    text,
+    style: TextStyle(
+      fontSize: 11,
+      fontWeight: FontWeight.w700,
+      color: subtext,
+      letterSpacing: 0.8,
+    ),
+  );
 
   Widget _chip({
     required String label,
@@ -663,7 +758,11 @@ class _AddProductSheetState extends State<AddProductSheet> {
         if (label.isNotEmpty) ...[
           Text(
             label,
-            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: subtext),
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: subtext,
+            ),
           ),
           const SizedBox(height: 8),
         ],
@@ -672,7 +771,11 @@ class _AddProductSheetState extends State<AddProductSheet> {
           keyboardType: isNumber
               ? const TextInputType.numberWithOptions(decimal: true)
               : TextInputType.text,
-          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: textColor),
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: textColor,
+          ),
           decoration: InputDecoration(
             hintText: hint,
             hintStyle: TextStyle(color: subtext),
@@ -686,7 +789,10 @@ class _AddProductSheetState extends State<AddProductSheet> {
               borderRadius: BorderRadius.circular(12),
               borderSide: const BorderSide(color: blueMain, width: 2),
             ),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 14,
+            ),
           ),
         ),
       ],
@@ -705,7 +811,11 @@ class _AddProductSheetState extends State<AddProductSheet> {
   }) {
     return TextField(
       controller: controller,
-      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: textColor),
+      style: TextStyle(
+        fontSize: 14,
+        fontWeight: FontWeight.w600,
+        color: textColor,
+      ),
       onChanged: onChanged,
       decoration: InputDecoration(
         hintText: hint,
@@ -714,7 +824,10 @@ class _AddProductSheetState extends State<AddProductSheet> {
         fillColor: card,
         prefixIcon: Icon(Icons.search, size: 18, color: subtext),
         suffixIcon: trailing != null
-            ? Padding(padding: const EdgeInsets.only(right: 12), child: trailing)
+            ? Padding(
+                padding: const EdgeInsets.only(right: 12),
+                child: trailing,
+              )
             : null,
         suffixIconConstraints: const BoxConstraints(),
         border: OutlineInputBorder(
@@ -725,7 +838,10 @@ class _AddProductSheetState extends State<AddProductSheet> {
           borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: blueMain, width: 2),
         ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 14,
+        ),
       ),
     );
   }
@@ -797,7 +913,11 @@ class _AddProductSheetState extends State<AddProductSheet> {
           items: items,
           onChanged: onChanged,
           isExpanded: true,
-          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: textColor),
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: textColor,
+          ),
           dropdownColor: card,
           icon: const Icon(Icons.keyboard_arrow_down_rounded, color: blueMain),
         ),

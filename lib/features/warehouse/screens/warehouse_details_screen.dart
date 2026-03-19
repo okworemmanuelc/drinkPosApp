@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../../core/theme/colors.dart';
@@ -19,6 +20,14 @@ class WarehouseDetailsScreen extends StatefulWidget {
 }
 
 class _WarehouseDetailsScreenState extends State<WarehouseDetailsScreen> {
+  WarehouseData? _liveWarehouse;
+  List<ProductDataWithStock> _inventory = [];
+  List<UserData> _staff = [];
+
+  StreamSubscription<WarehouseData?>? _warehouseSub;
+  StreamSubscription<List<ProductDataWithStock>>? _inventorySub;
+  StreamSubscription<List<UserData>>? _staffSub;
+
   bool get _isDark => Theme.of(context).brightness == Brightness.dark;
   Color get _bg => _isDark ? dBg : lBg;
   Color get _surface => _isDark ? dSurface : lSurface;
@@ -26,8 +35,55 @@ class _WarehouseDetailsScreenState extends State<WarehouseDetailsScreen> {
   Color get _subtext => _isDark ? dSubtext : lSubtext;
   Color get _border => _isDark ? dBorder : lBorder;
 
+  WarehouseData get _warehouse => _liveWarehouse ?? widget.warehouse;
+
+  @override
+  void initState() {
+    super.initState();
+    final id = widget.warehouse.id;
+
+    _warehouseSub = database.warehousesDao.watchWarehouse(id).listen((w) {
+      if (mounted && w != null) setState(() => _liveWarehouse = w);
+    });
+    _inventorySub = database.inventoryDao
+        .watchProductDatasWithStockByWarehouse(id)
+        .listen((list) {
+      if (mounted) setState(() => _inventory = list);
+    });
+    _staffSub = database.warehousesDao.watchStaffByWarehouse(id).listen((list) {
+      if (mounted) setState(() => _staff = list);
+    });
+  }
+
+  @override
+  void dispose() {
+    _warehouseSub?.cancel();
+    _inventorySub?.cancel();
+    _staffSub?.cancel();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
+    final totalStock = _inventory.fold<int>(0, (sum, p) => sum + p.totalStock);
+    final totalValue = _inventory.fold<double>(
+      0.0,
+      (sum, p) => sum + (p.totalStock * (p.product.sellingPriceKobo / 100.0)),
+    );
+    final activeProducts = _inventory.where((p) => p.totalStock > 0).length;
+    final lowStock = _inventory
+        .where((p) =>
+            p.totalStock > 0 &&
+            p.totalStock <= p.product.lowStockThreshold)
+        .length;
+    final managers = _staff.where((u) => u.roleTier >= 4).length;
+    final riders = _staff
+        .where((u) =>
+            u.role.toLowerCase().contains('rider') ||
+            u.role.toLowerCase().contains('driver'))
+        .length;
+    final regularStaff = _staff.length - managers;
+
     return SharedScaffold(
       activeRoute: 'warehouse',
       backgroundColor: _bg,
@@ -40,8 +96,8 @@ class _WarehouseDetailsScreenState extends State<WarehouseDetailsScreen> {
         ),
         title: AppBarHeader(
           icon: FontAwesomeIcons.warehouse,
-          title: widget.warehouse.name,
-          subtitle: widget.warehouse.location ?? 'Main Storage',
+          title: _warehouse.name,
+          subtitle: _warehouse.location ?? 'Main Storage',
         ),
       ),
       body: LayoutBuilder(
@@ -50,15 +106,15 @@ class _WarehouseDetailsScreenState extends State<WarehouseDetailsScreen> {
           return ListView(
             padding: EdgeInsets.all(rSize(context, 16)),
             children: [
-              // Summary Header Case
-              _buildMetricOverview(isWide),
+              _buildMetricOverview(totalStock, totalValue),
               SizedBox(height: rSize(context, 20)),
-
-              // Detailed Stats Grid
-              _buildStatsGrid(isWide),
+              _buildStatsGrid(
+                  isWide, managers, regularStaff, riders, activeProducts, lowStock),
               SizedBox(height: rSize(context, 24)),
-
-              // Quick Actions
+              _buildInventoryList(),
+              SizedBox(height: rSize(context, 16)),
+              _buildStaffList(),
+              SizedBox(height: rSize(context, 16)),
               _buildQuickActions(isWide),
               SizedBox(height: rSize(context, 100)),
             ],
@@ -68,127 +124,108 @@ class _WarehouseDetailsScreenState extends State<WarehouseDetailsScreen> {
     );
   }
 
-  Widget _buildMetricOverview(bool isWide) {
-    return StreamBuilder<List<ProductDataWithStock>>(
-      stream: database.inventoryDao.watchProductDatasWithStockByWarehouse(widget.warehouse.id),
-      builder: (context, snapshot) {
-        final products = snapshot.data ?? [];
-        final totalStock = products.fold<int>(0, (sum, p) => sum + p.totalStock);
-        final totalValue = products.fold<double>(0.0, (sum, p) => sum + (p.totalStock * (p.product.sellingPriceKobo / 100.0)));
-
-        return Container(
-          padding: EdgeInsets.all(rSize(context, 20)),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [blueMain, blueDark],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: [
-              BoxShadow(
-                color: blueMain.withValues(alpha: 0.3),
-                blurRadius: 15,
-                offset: const Offset(0, 8),
-              ),
-            ],
+  Widget _buildMetricOverview(int totalStock, double totalValue) {
+    return Container(
+      padding: EdgeInsets.all(rSize(context, 20)),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [blueMain, blueDark],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: blueMain.withValues(alpha: 0.3),
+            blurRadius: 15,
+            offset: const Offset(0, 8),
           ),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Warehouse Value',
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.8),
-                        fontSize: rFontSize(context, 14),
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    SizedBox(height: rSize(context, 4)),
-                    Text(
-                      formatCurrency(totalValue),
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: rFontSize(context, 28),
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Container(
-                padding: EdgeInsets.symmetric(horizontal: rSize(context, 16), vertical: rSize(context, 8)),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Column(
-                  children: [
-                    Text(
-                      totalStock.toString(),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18,
-                      ),
-                    ),
-                    Text(
-                      'Total Units',
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.8),
-                        fontSize: 10,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildStatsGrid(bool isWide) {
-    return StreamBuilder<List<UserData>>(
-      stream: database.warehousesDao.watchStaffByWarehouse(widget.warehouse.id),
-      builder: (context, staffSnapshot) {
-        final allStaff = staffSnapshot.data ?? [];
-        final managers = allStaff.where((u) => u.roleTier >= 4).length;
-        final riders = allStaff.where((u) => u.role.toLowerCase().contains('rider') || u.role.toLowerCase().contains('driver')).length;
-        final regularStaff = allStaff.length - managers;
-
-        return StreamBuilder<List<ProductDataWithStock>>(
-          stream: database.inventoryDao.watchProductDatasWithStockByWarehouse(widget.warehouse.id),
-          builder: (context, invSnapshot) {
-            final activeProducts = (invSnapshot.data ?? []).where((p) => p.totalStock > 0).length;
-            final lowStock = (invSnapshot.data ?? []).where((p) => p.totalStock > 0 && p.totalStock <= p.product.lowStockThreshold).length;
-
-            return GridView.count(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              crossAxisCount: isWide ? 4 : 2,
-              mainAxisSpacing: rSize(context, 12),
-              crossAxisSpacing: rSize(context, 12),
-              childAspectRatio: 1.1,
+        ],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildStatCard('Managers', managers.toString(), FontAwesomeIcons.userTie, const Color(0xFFA855F7)),
-                _buildStatCard('Staff', regularStaff.toString(), FontAwesomeIcons.userGroup, blueMain),
-                _buildStatCard('Riders', riders.toString(), FontAwesomeIcons.motorcycle, AppColors.warning),
-                _buildStatCard('Products', activeProducts.toString(), FontAwesomeIcons.boxesStacked, AppColors.success),
-                _buildStatCard('Low Stock', lowStock.toString(), FontAwesomeIcons.triangleExclamation, AppColors.danger),
+                Text(
+                  'Warehouse Value',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.8),
+                    fontSize: rFontSize(context, 14),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                SizedBox(height: rSize(context, 4)),
+                Text(
+                  formatCurrency(totalValue),
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: rFontSize(context, 28),
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
               ],
-            );
-          },
-        );
-      },
+            ),
+          ),
+          Container(
+            padding: EdgeInsets.symmetric(
+                horizontal: rSize(context, 16), vertical: rSize(context, 8)),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              children: [
+                Text(
+                  totalStock.toString(),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18,
+                  ),
+                ),
+                Text(
+                  'Total Units',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.8),
+                    fontSize: 10,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _buildStatCard(String label, String value, IconData icon, Color color) {
+  Widget _buildStatsGrid(bool isWide, int managers, int regularStaff,
+      int riders, int activeProducts, int lowStock) {
+    return GridView.count(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      crossAxisCount: isWide ? 4 : 2,
+      mainAxisSpacing: rSize(context, 12),
+      crossAxisSpacing: rSize(context, 12),
+      childAspectRatio: 1.1,
+      children: [
+        _buildStatCard('Managers', managers.toString(),
+            FontAwesomeIcons.userTie, const Color(0xFFA855F7)),
+        _buildStatCard('Staff', regularStaff.toString(),
+            FontAwesomeIcons.userGroup, blueMain),
+        _buildStatCard('Riders', riders.toString(),
+            FontAwesomeIcons.motorcycle, AppColors.warning),
+        _buildStatCard('Products', activeProducts.toString(),
+            FontAwesomeIcons.boxesStacked, AppColors.success),
+        _buildStatCard('Low Stock', lowStock.toString(),
+            FontAwesomeIcons.triangleExclamation, AppColors.danger),
+      ],
+    );
+  }
+
+  Widget _buildStatCard(
+      String label, String value, IconData icon, Color color) {
     return Container(
       padding: EdgeInsets.all(rSize(context, 16)),
       decoration: BoxDecoration(
@@ -234,6 +271,253 @@ class _WarehouseDetailsScreenState extends State<WarehouseDetailsScreen> {
     );
   }
 
+  // ── Inventory List ──────────────────────────────────────────────────────────
+  Widget _buildInventoryList() {
+    final stocked = _inventory.where((p) => p.totalStock > 0).toList()
+      ..sort((a, b) => b.totalStock.compareTo(a.totalStock));
+
+    return Container(
+      decoration: BoxDecoration(
+        color: _surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _border),
+      ),
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          initiallyExpanded: true,
+          tilePadding:
+              EdgeInsets.symmetric(horizontal: rSize(context, 16), vertical: 0),
+          leading: Container(
+            padding: EdgeInsets.all(rSize(context, 8)),
+            decoration: BoxDecoration(
+              color: AppColors.success.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(FontAwesomeIcons.boxesStacked,
+                color: AppColors.success, size: rSize(context, 14)),
+          ),
+          title: Text(
+            'Inventory',
+            style: TextStyle(
+              fontSize: rFontSize(context, 15),
+              fontWeight: FontWeight.bold,
+              color: _text,
+            ),
+          ),
+          subtitle: Text(
+            '${stocked.length} product${stocked.length == 1 ? '' : 's'} in stock',
+            style: TextStyle(fontSize: rFontSize(context, 12), color: _subtext),
+          ),
+          children: stocked.isEmpty
+              ? [
+                  Padding(
+                    padding: EdgeInsets.all(rSize(context, 20)),
+                    child: Text(
+                      'No stock in this warehouse yet.',
+                      style: TextStyle(color: _subtext, fontSize: rFontSize(context, 13)),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ]
+              : stocked.map((item) {
+                  final isLow = item.totalStock <= item.product.lowStockThreshold;
+                  return Container(
+                    decoration: BoxDecoration(
+                      border: Border(top: BorderSide(color: _border)),
+                    ),
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: rSize(context, 16),
+                        vertical: rSize(context, 12),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  item.product.name,
+                                  style: TextStyle(
+                                    fontSize: rFontSize(context, 14),
+                                    fontWeight: FontWeight.w600,
+                                    color: _text,
+                                  ),
+                                ),
+                                if (item.product.unit.isNotEmpty) ...[
+                                  SizedBox(height: rSize(context, 2)),
+                                  Text(
+                                    item.product.unit,
+                                    style: TextStyle(
+                                      fontSize: rFontSize(context, 11),
+                                      color: _subtext,
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                          Container(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: rSize(context, 10),
+                              vertical: rSize(context, 4),
+                            ),
+                            decoration: BoxDecoration(
+                              color: isLow
+                                  ? AppColors.danger.withValues(alpha: 0.1)
+                                  : AppColors.success.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              '${item.totalStock} units',
+                              style: TextStyle(
+                                fontSize: rFontSize(context, 12),
+                                fontWeight: FontWeight.bold,
+                                color: isLow ? AppColors.danger : AppColors.success,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }).toList(),
+        ),
+      ),
+    );
+  }
+
+  // ── Staff List ──────────────────────────────────────────────────────────────
+  Widget _buildStaffList() {
+    return Container(
+      decoration: BoxDecoration(
+        color: _surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _border),
+      ),
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          initiallyExpanded: true,
+          tilePadding:
+              EdgeInsets.symmetric(horizontal: rSize(context, 16), vertical: 0),
+          leading: Container(
+            padding: EdgeInsets.all(rSize(context, 8)),
+            decoration: BoxDecoration(
+              color: const Color(0xFFA855F7).withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(FontAwesomeIcons.userGroup,
+                color: const Color(0xFFA855F7), size: rSize(context, 14)),
+          ),
+          title: Text(
+            'Assigned Staff',
+            style: TextStyle(
+              fontSize: rFontSize(context, 15),
+              fontWeight: FontWeight.bold,
+              color: _text,
+            ),
+          ),
+          subtitle: Text(
+            '${_staff.length} personnel',
+            style: TextStyle(fontSize: rFontSize(context, 12), color: _subtext),
+          ),
+          children: _staff.isEmpty
+              ? [
+                  Padding(
+                    padding: EdgeInsets.all(rSize(context, 20)),
+                    child: Text(
+                      'No staff assigned to this warehouse.',
+                      style: TextStyle(color: _subtext, fontSize: rFontSize(context, 13)),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ]
+              : _staff.map((member) {
+                  final isManager = member.roleTier >= 4;
+                  final roleColor = isManager
+                      ? const Color(0xFFA855F7)
+                      : blueMain;
+                  return Container(
+                    decoration: BoxDecoration(
+                      border: Border(top: BorderSide(color: _border)),
+                    ),
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: rSize(context, 16),
+                        vertical: rSize(context, 12),
+                      ),
+                      child: Row(
+                        children: [
+                          CircleAvatar(
+                            radius: rSize(context, 18),
+                            backgroundColor:
+                                roleColor.withValues(alpha: 0.15),
+                            child: Text(
+                              member.name.isNotEmpty
+                                  ? member.name[0].toUpperCase()
+                                  : '?',
+                              style: TextStyle(
+                                fontSize: rFontSize(context, 14),
+                                fontWeight: FontWeight.bold,
+                                color: roleColor,
+                              ),
+                            ),
+                          ),
+                          SizedBox(width: rSize(context, 12)),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  member.name,
+                                  style: TextStyle(
+                                    fontSize: rFontSize(context, 14),
+                                    fontWeight: FontWeight.w600,
+                                    color: _text,
+                                  ),
+                                ),
+                                SizedBox(height: rSize(context, 2)),
+                                Text(
+                                  member.role,
+                                  style: TextStyle(
+                                    fontSize: rFontSize(context, 11),
+                                    color: _subtext,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Container(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: rSize(context, 8),
+                              vertical: rSize(context, 3),
+                            ),
+                            decoration: BoxDecoration(
+                              color: roleColor.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              isManager ? 'Manager' : 'Staff',
+                              style: TextStyle(
+                                fontSize: rFontSize(context, 10),
+                                fontWeight: FontWeight.bold,
+                                color: roleColor,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }).toList(),
+        ),
+      ),
+    );
+  }
+
+  // ── Quick Actions ───────────────────────────────────────────────────────────
   Widget _buildQuickActions(bool isWide) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -256,8 +540,9 @@ class _WarehouseDetailsScreenState extends State<WarehouseDetailsScreen> {
                 FontAwesomeIcons.boxesStacked,
                 blueMain,
                 () {
-                  navigationService.selectedWarehouseId.value = widget.warehouse.id.toString();
-                  navigationService.setIndex(2); // Inventory
+                  navigationService.selectedWarehouseId.value =
+                      widget.warehouse.id.toString();
+                  navigationService.setIndex(2);
                 },
               ),
             ),
@@ -269,7 +554,7 @@ class _WarehouseDetailsScreenState extends State<WarehouseDetailsScreen> {
                 FontAwesomeIcons.usersGear,
                 const Color(0xFFA855F7),
                 () {
-                  navigationService.setIndex(8); // Staff
+                  navigationService.setIndex(8);
                 },
               ),
             ),
@@ -279,7 +564,8 @@ class _WarehouseDetailsScreenState extends State<WarehouseDetailsScreen> {
     );
   }
 
-  Widget _actionTile(String title, String subtitle, IconData icon, Color color, VoidCallback onTap) {
+  Widget _actionTile(String title, String subtitle, IconData icon, Color color,
+      VoidCallback onTap) {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(16),
@@ -326,4 +612,3 @@ class _WarehouseDetailsScreenState extends State<WarehouseDetailsScreen> {
     );
   }
 }
-

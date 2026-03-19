@@ -25,3 +25,4 @@ plugins {
 }
 
 include(":app")
+rootProject.name = "drink_pos_app"

@@ -141,10 +141,10 @@ class _PosHomeScreenState extends State<PosHomeScreen> {
             flex: 4,
             child: FluidMenu<CustomerGroup>(
               value: _controller.selectedGroup,
-              items: CustomerGroup.values.map((g) {
-                String label = g == CustomerGroup.retailer ? 'Retail' : (g == CustomerGroup.bulkBreaker ? 'Bulk' : 'Distr.');
-                return FluidMenuItem(value: g, label: label);
-              }).toList(),
+              items: const [
+                FluidMenuItem(value: CustomerGroup.retailer, label: 'Retailer'),
+                FluidMenuItem(value: CustomerGroup.wholesaler, label: 'Wholesaler'),
+              ],
               onChanged: (val) {
                 if (val != null) _controller.selectGroup(val);
               },

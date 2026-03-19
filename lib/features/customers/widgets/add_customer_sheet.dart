@@ -108,21 +108,10 @@ class _AddCustomerSheetState extends State<AddCustomerSheet> {
         FluidMenu<CustomerGroup>(
           label: 'Customer Group',
           value: _selectedGroup,
-          items: CustomerGroup.values.map((group) {
-            String label = '';
-            switch (group) {
-              case CustomerGroup.distributor:
-                label = 'Distributor';
-                break;
-              case CustomerGroup.bulkBreaker:
-                label = 'Bulk Breaker';
-                break;
-              case CustomerGroup.retailer:
-                label = 'Retailer';
-                break;
-            }
-            return FluidMenuItem(value: group, label: label);
-          }).toList(),
+          items: const [
+            FluidMenuItem(value: CustomerGroup.retailer, label: 'Retailer'),
+            FluidMenuItem(value: CustomerGroup.wholesaler, label: 'Wholesaler'),
+          ],
           onChanged: (val) {
             if (val != null) setState(() => _selectedGroup = val);
           },
