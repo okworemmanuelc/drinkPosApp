@@ -87,11 +87,19 @@ class _InventoryScreenState extends State<InventoryScreen>
       if (mounted) {
         setState(() {
           _warehouses = list;
-          final mainStore = list
-              .where((w) => w.name.toLowerCase().contains('main store'))
-              .firstOrNull;
-          if (mainStore != null) {
-            _selectedWarehouseId = mainStore.id.toString();
+          final locked = navigationService.warehouseLocked.value;
+          final lockedId = navigationService.lockedWarehouseId.value;
+          if (locked && lockedId != null) {
+            // Non-CEO: pin to their assigned warehouse
+            _selectedWarehouseId = lockedId.toString();
+          } else {
+            // CEO or no lock: default to Main Store
+            final mainStore = list
+                .where((w) => w.name.toLowerCase().contains('main store'))
+                .firstOrNull;
+            if (mainStore != null) {
+              _selectedWarehouseId = mainStore.id.toString();
+            }
           }
         });
         _subscribeToProducts();
@@ -154,6 +162,8 @@ class _InventoryScreenState extends State<InventoryScreen>
   }
 
   void _handleWarehouseNavigation() {
+    // Locked users cannot have their warehouse overridden by cross-screen navigation
+    if (navigationService.warehouseLocked.value) return;
     final id = navigationService.selectedWarehouseId.value;
     if (id != null) {
       setState(() => _selectedWarehouseId = id);
@@ -647,23 +657,25 @@ class _InventoryScreenState extends State<InventoryScreen>
       child: Row(
         children: [
           Expanded(
-            child: AppDropdown<String>(
-              value: _selectedWarehouseId,
-              labelText: 'Warehouse',
-              items: [
-                DropdownMenuItem(value: 'all', child: Text('All Warehouses', style: TextStyle(color: _text))),
-                ..._warehouses.map((w) => DropdownMenuItem(
-                  value: w.id.toString(),
-                  child: Text(w.name, style: TextStyle(color: _text)),
-                )),
-              ],
-              onChanged: (val) {
-                if (val != null) {
-                  setState(() => _selectedWarehouseId = val);
-                  _subscribeToProducts();
-                }
-              },
-            ),
+            child: navigationService.warehouseLocked.value
+                ? _buildLockedWarehouseChip()
+                : AppDropdown<String>(
+                    value: _selectedWarehouseId,
+                    labelText: 'Warehouse',
+                    items: [
+                      DropdownMenuItem(value: 'all', child: Text('All Warehouses', style: TextStyle(color: _text))),
+                      ..._warehouses.map((w) => DropdownMenuItem(
+                        value: w.id.toString(),
+                        child: Text(w.name, style: TextStyle(color: _text)),
+                      )),
+                    ],
+                    onChanged: (val) {
+                      if (val != null) {
+                        setState(() => _selectedWarehouseId = val);
+                        _subscribeToProducts();
+                      }
+                    },
+                  ),
           ),
           SizedBox(width: context.getRSize(12)),
           Expanded(
@@ -680,6 +692,43 @@ class _InventoryScreenState extends State<InventoryScreen>
               onChanged: (val) => setState(() => _selectedManufacturer = val ?? 'all'),
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  /// Shown instead of the warehouse dropdown when the user is locked to one warehouse.
+  Widget _buildLockedWarehouseChip() {
+    final lockedId = navigationService.lockedWarehouseId.value;
+    final warehouse = _warehouses.where((w) => w.id == lockedId).firstOrNull;
+    final label = warehouse?.name ?? 'My Warehouse';
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: context.getRSize(12),
+        vertical: context.getRSize(10),
+      ),
+      decoration: BoxDecoration(
+        color: _cardBg,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: _border),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(FontAwesomeIcons.warehouse, size: context.getRSize(12), color: _subtext),
+          SizedBox(width: context.getRSize(8)),
+          Expanded(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: context.getRFontSize(13),
+                fontWeight: FontWeight.w600,
+                color: _text,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          Icon(FontAwesomeIcons.lock, size: context.getRSize(10), color: _subtext),
         ],
       ),
     );

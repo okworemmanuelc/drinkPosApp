@@ -114,11 +114,7 @@ lib/
 ### 5. Communication Style
 - Always use simple, beginner-friendly terms when explaining changes to the user (the USER is still learning and prefers simplified code explanations over jargon).
 
-### 6. Auth is Removed — Do Not Re-introduce
-- `lib/features/auth/` is fully deleted. Do not import anything from it.
-- `AuthService` (`lib/shared/services/auth_service.dart`) is a stub — only import `flutter/widgets.dart` and `app_database.dart`. Do not add back `supabase_flutter`, `google_sign_in`, `shared_preferences`, `crypto`, or `drift` imports unless auth is being re-implemented intentionally.
-
-### 7. Android Project Naming
+### 6. Android Project Naming
 - Explicitly set `rootProject.name = "drink_pos_app"` in `android/settings.gradle.kts` to prevent the IDE or AI tools from creating duplicate root "android" elements.
 - Always use the explicit project name when configuring multi-project build settings to avoid naming collisions in the workspace.
 - Ensure `org.gradle.java.home` in `android/gradle.properties` points to a valid JDK path (prefer Android Studio's JBR) if the external environment is misconfigured.
