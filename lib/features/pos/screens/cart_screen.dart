@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'package:drift/drift.dart' as drift;
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
@@ -38,10 +40,16 @@ class CartScreen extends StatefulWidget {
   State<CartScreen> createState() => _CartScreenState();
 }
 
-class _CartScreenState extends State<CartScreen> {
+class _CartScreenState extends State<CartScreen>
+    with SingleTickerProviderStateMixin {
   late double _crateDeposit;
   Customer? _activeCustomer;
   List<CrateGroupData> _crateGroups = [];
+
+  // ── Clear animation ──
+  late AnimationController _clearCtrl;
+  bool _isClearing = false;
+  List<Map<String, dynamic>> _animatingItems = [];
 
   static const _cgColors = [
     Color(0xFFF59E0B),
@@ -61,9 +69,174 @@ class _CartScreenState extends State<CartScreen> {
     super.initState();
     _crateDeposit = 0;
     _activeCustomer = widget.activeCustomer;
+    _clearCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 480),
+    );
     database.select(database.crateGroups).watch().listen((data) {
       if (mounted) setState(() => _crateGroups = data);
     });
+  }
+
+  @override
+  void dispose() {
+    _clearCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _clearWithAnimation() async {
+    if (widget.cart.isEmpty) return;
+    setState(() {
+      _isClearing = true;
+      _animatingItems = List<Map<String, dynamic>>.from(widget.cart);
+    });
+    _clearCtrl.reset();
+    await _clearCtrl.forward();
+    cartService.clear();
+    if (mounted) setState(() => _isClearing = false);
+  }
+
+  Future<void> _saveCurrentCart() async {
+    if (widget.cart.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Cannot save an empty cart')),
+      );
+      return;
+    }
+
+    final nameController = TextEditingController();
+    final name = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Save Cart'),
+        content: TextField(
+          controller: nameController,
+          autofocus: true,
+          decoration: const InputDecoration(
+            labelText: 'Cart Name',
+            hintText: 'e.g. Morning Order',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, nameController.text),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+
+    if (name != null && name.isNotEmpty) {
+      final cartJson = jsonEncode(widget.cart);
+      await database.ordersDao.saveCart(SavedCartsCompanion.insert(
+        name: name,
+        customerId: drift.Value(_activeCustomer?.id),
+        cartData: cartJson,
+        createdAt: drift.Value(DateTime.now()),
+      ));
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Cart saved successfully')),
+        );
+      }
+    }
+  }
+
+  void _viewSavedCarts() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (modalCtx) {
+        return Container(
+          height: MediaQuery.of(context).size.height * 0.7,
+          decoration: BoxDecoration(
+            color: _surface,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+          ),
+          child: Column(
+            children: [
+              Padding(
+                padding: EdgeInsets.all(modalCtx.getRSize(20)),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Saved Carts',
+                      style: TextStyle(
+                        fontSize: modalCtx.getRFontSize(18),
+                        fontWeight: FontWeight.w800,
+                        color: _text,
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.pop(modalCtx),
+                      icon: Icon(Icons.close, color: _subtext),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: StreamBuilder<List<SavedCartData>>(
+                  stream: database.ordersDao.watchSavedCarts(),
+                  builder: (context, snapshot) {
+                    if (!snapshot.hasData) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+                    final carts = snapshot.data!;
+                    if (carts.isEmpty) {
+                      return Center(
+                        child: Text(
+                          'No saved carts found',
+                          style: TextStyle(color: _subtext),
+                        ),
+                      );
+                    }
+                    return ListView.builder(
+                      itemCount: carts.length,
+                      itemBuilder: (context, index) {
+                        final cart = carts[index];
+                        return ListTile(
+                          title: Text(cart.name, style: TextStyle(color: _text)),
+                          subtitle: Text(
+                            'Saved on ${cart.createdAt.toString().split('.')[0]}',
+                            style: TextStyle(color: _subtext),
+                          ),
+                          trailing: IconButton(
+                            icon: const Icon(Icons.delete_outline, color: Colors.red),
+                            onPressed: () async {
+                              await database.ordersDao.deleteSavedCart(cart.id);
+                            },
+                          ),
+                          onTap: () async {
+                            final items = (jsonDecode(cart.cartData) as List)
+                                .cast<Map<String, dynamic>>();
+                            Customer? customer;
+                            if (cart.customerId != null) {
+                              customer = customerService.getById(cart.customerId!);
+                            }
+                            cartService.loadCart(items, customer);
+                            Navigator.pop(modalCtx);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Cart loaded')),
+                            );
+                          },
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   bool get _isDark => themeNotifier.value == ThemeMode.dark;
@@ -827,9 +1000,7 @@ class _CartScreenState extends State<CartScreen> {
             const NotificationBell(),
             if (cartItems.isNotEmpty)
               GestureDetector(
-                onTap: () {
-                  cartService.clear();
-                },
+                onTap: _clearWithAnimation,
                 child: Container(
                   margin: EdgeInsets.symmetric(
                     horizontal: context.getRSize(16),
@@ -1008,20 +1179,27 @@ class _CartScreenState extends State<CartScreen> {
                                 horizontal: context.getRSize(20),
                                 vertical: context.getRSize(8),
                               ),
-                              itemCount: cartItems.length,
+                              itemCount: _isClearing
+                                  ? _animatingItems.length
+                                  : cartItems.length,
                               separatorBuilder: (_, idx) =>
                                   SizedBox(height: context.getRSize(12)),
                               itemBuilder: (_, i) {
-                                final item = cartItems[i];
+                                final item = _isClearing
+                                    ? _animatingItems[i]
+                                    : cartItems[i];
                                 final rawColor = item['color'];
                                 final Color c = rawColor is Color
                                     ? rawColor
                                     : rawColor is String
                                         ? Color(int.parse(rawColor.replaceFirst('#', '0xFF')))
                                         : Colors.blue;
-                                return InkWell(
+                                // Build card once, reused in both paths
+                                final card = InkWell(
                                   borderRadius: BorderRadius.circular(14),
-                                  onTap: () => _editItem(context, item),
+                                  onTap: _isClearing
+                                      ? null
+                                      : () => _editItem(context, item),
                                   child: Container(
                                     padding: EdgeInsets.all(
                                       context.getRSize(12),
@@ -1102,6 +1280,38 @@ class _CartScreenState extends State<CartScreen> {
                                     ),
                                   ),
                                 );
+
+                                if (!_isClearing) return card;
+
+                                // Staggered slide-right + fade during clear
+                                return AnimatedBuilder(
+                                  animation: _clearCtrl,
+                                  builder: (_, child) {
+                                    const staggerStep = 0.12;
+                                    final delay = i * staggerStep;
+                                    final t =
+                                        ((_clearCtrl.value - delay) /
+                                                (1.0 - delay))
+                                            .clamp(0.0, 1.0);
+                                    final curve =
+                                        Curves.easeIn.transform(t);
+                                    return Transform.translate(
+                                      offset: Offset(
+                                        curve *
+                                            MediaQuery.of(context)
+                                                .size
+                                                .width,
+                                        0,
+                                      ),
+                                      child: Opacity(
+                                        opacity:
+                                            (1.0 - curve).clamp(0.0, 1.0),
+                                        child: child,
+                                      ),
+                                    );
+                                  },
+                                  child: card,
+                                );
                               },
                             ),
                             // ── Totals section ──
@@ -1119,6 +1329,31 @@ class _CartScreenState extends State<CartScreen> {
                               child: Column(
                                 children: [
                                   _totalRow('Subtotal', sub, small: true),
+                                  if (hasGlass && computedDeposit > 0) ...[
+                                    SizedBox(height: context.getRSize(6)),
+                                    Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text(
+                                          'Required Crates Deposit',
+                                          style: TextStyle(
+                                            fontSize: context.getRFontSize(13),
+                                            fontWeight: FontWeight.w700,
+                                            color: blueMain,
+                                          ),
+                                        ),
+                                        Text(
+                                          formatCurrency(computedDeposit),
+                                          style: TextStyle(
+                                            fontSize: context.getRFontSize(13),
+                                            fontWeight: FontWeight.w700,
+                                            color: blueMain,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
                                   SizedBox(height: context.getRSize(8)),
                                   if (hasGlass) ...[
                                     // ── Empty Crates section ──
@@ -1384,7 +1619,68 @@ class _CartScreenState extends State<CartScreen> {
                                   Container(height: 1, color: _border),
                                   SizedBox(height: context.getRSize(16)),
                                   _totalRow('Total', tot, large: true),
-                                  SizedBox(height: context.getRSize(24)),
+                                  SizedBox(height: context.getRSize(16)),
+                                  // ── Save/Recall Cart ──
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: OutlinedButton.icon(
+                                          style: OutlinedButton.styleFrom(
+                                            padding: EdgeInsets.symmetric(
+                                              vertical: context.getRSize(12),
+                                            ),
+                                            side: const BorderSide(color: blueMain),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.circular(12),
+                                            ),
+                                          ),
+                                          onPressed: _saveCurrentCart,
+                                          icon: Icon(
+                                            FontAwesomeIcons.floppyDisk,
+                                            size: context.getRSize(14),
+                                            color: blueMain,
+                                          ),
+                                          label: Text(
+                                            'Save Cart',
+                                            style: TextStyle(
+                                              color: blueMain,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: context.getRFontSize(13),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      SizedBox(width: context.getRSize(12)),
+                                      Expanded(
+                                        child: OutlinedButton.icon(
+                                          style: OutlinedButton.styleFrom(
+                                            padding: EdgeInsets.symmetric(
+                                              vertical: context.getRSize(12),
+                                            ),
+                                            side: const BorderSide(color: blueMain),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.circular(12),
+                                            ),
+                                          ),
+                                          onPressed: _viewSavedCarts,
+                                          icon: Icon(
+                                            FontAwesomeIcons.clockRotateLeft,
+                                            size: context.getRSize(14),
+                                            color: blueMain,
+                                          ),
+                                          label: Text(
+                                            'Recall',
+                                            style: TextStyle(
+                                              color: blueMain,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: context.getRFontSize(13),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  SizedBox(height: context.getRSize(16)),
                                   // ── Proceed to Checkout ──
                                   GestureDetector(
                                     onTap: () {

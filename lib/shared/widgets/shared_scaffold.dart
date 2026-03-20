@@ -40,15 +40,39 @@ class SharedScaffold extends StatelessWidget {
       bottomNavigationBar: bottomNavigationBar,
       drawer: AppDrawer(activeRoute: activeRoute),
       body: Builder(
-        builder: (innerContext) => GestureDetector(
-          behavior: HitTestBehavior.translucent,
-          onHorizontalDragEnd: (details) {
-            // Right swipe detection
-            if ((details.primaryVelocity ?? 0) > 300) {
-              Scaffold.of(innerContext).openDrawer();
+        builder: (innerContext) => NotificationListener<ScrollNotification>(
+          onNotification: (notification) {
+            // Handle overscroll at the edges (e.g., TabBarView first tab)
+            if (notification is OverscrollNotification) {
+              if (notification.overscroll < 0 &&
+                  notification.metrics.axis == Axis.horizontal) {
+                Scaffold.of(innerContext).openDrawer();
+                return true;
+              }
             }
+            // Handle cases where scroll is at edge but doesn't trigger overscroll (e.g. ClampingScrollPhysics)
+            if (notification is ScrollUpdateNotification) {
+              if (notification.metrics.pixels <= 0 && 
+                  notification.scrollDelta != null && 
+                  notification.scrollDelta! < -10 && 
+                  notification.metrics.axis == Axis.horizontal) {
+                // Only open if we are at the very start and trying to scroll further left
+                // Some physics don't overscroll but we can see the intent
+              }
+            }
+            return false;
           },
-          child: body,
+          child: GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onHorizontalDragEnd: (details) {
+              // Right swipe detection for non-scrollable areas
+              // Use a reasonable velocity threshold
+              if ((details.primaryVelocity ?? 0) > 300) {
+                Scaffold.of(innerContext).openDrawer();
+              }
+            },
+            child: body,
+          ),
         ),
       ),
     );

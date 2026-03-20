@@ -430,6 +430,16 @@ class WalletTransactions extends Table {
   Set<Column> get primaryKey => {txnId};
 }
 
+// 33. Saved Carts
+@DataClassName('SavedCartData')
+class SavedCarts extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get name => text()();
+  IntColumn get customerId => integer().nullable().references(Customers, #id)();
+  TextColumn get cartData => text()(); // JSON-encoded cart items
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+}
+
 @DriftDatabase(
   tables: [
     CrateGroups,
@@ -465,6 +475,7 @@ class WalletTransactions extends Table {
     StockTransactions,
     CustomerWallets,
     WalletTransactions,
+    SavedCarts,
   ],
   daos: [
     CatalogDao, 
@@ -485,7 +496,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 19;
+  int get schemaVersion => 20;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -502,9 +513,14 @@ class AppDatabase extends _$AppDatabase {
           debugPrint('[AppDatabase] onUpgrade: Upgrading from version $from to $to...');
           try {
             await customStatement('PRAGMA foreign_keys = OFF');
-            // Create any new tables that do not yet exist — preserves all existing data.
+            
+            if (from < 20) {
+              await m.createTable(savedCarts);
+            }
+
+            // Fallback: Create any other new tables that do not yet exist
             for (final table in allTables) {
-              await m.createTable(table);
+              await m.createTable(table).catchError((_) => Future.value());
             }
             await customStatement('PRAGMA foreign_keys = ON');
           } catch (e) {

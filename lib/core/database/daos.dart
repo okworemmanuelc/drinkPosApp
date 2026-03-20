@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'package:drift/drift.dart';
 import 'package:intl/intl.dart';
+import 'package:rxdart/rxdart.dart';
 import 'app_database.dart';
 
 part 'daos.g.dart';
@@ -68,7 +69,7 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> with _$CatalogDaoMixin {
   }
 }
 
-@DriftAccessor(tables: [Products, Inventory, Warehouses, CrateGroups, Manufacturers])
+@DriftAccessor(tables: [Products, Inventory, Warehouses, CrateGroups, Manufacturers, Categories])
 class InventoryDao extends DatabaseAccessor<AppDatabase> with _$InventoryDaoMixin {
   InventoryDao(super.db);
 
@@ -270,17 +271,20 @@ class InventoryDao extends DatabaseAccessor<AppDatabase> with _$InventoryDaoMixi
     }
   }
 
-  /// Streams total bottle inventory per manufacturer for products with crateSize='big'.
-  /// Groups by manufacturer name (mirrored text column) for display.
-  Stream<Map<String, int>> watchBigBottlesByManufacturer() {
+  /// Streams total glass bottle inventory per manufacturer for products in 'Glass' categories.
+  /// Groups by manufacturer name for display in the 'Full Crates' column.
+  Stream<Map<String, int>> watchFullCratesByManufacturer() {
     final qty = inventory.quantity.sum();
     final mfrName = manufacturers.name;
+    final catName = categories.name;
+
     return (selectOnly(products)
       ..join([
         leftOuterJoin(inventory, inventory.productId.equalsExp(products.id)),
         leftOuterJoin(manufacturers, manufacturers.id.equalsExp(products.manufacturerId)),
+        leftOuterJoin(categories, categories.id.equalsExp(products.categoryId)),
       ])
-      ..where(products.crateSize.equals('big') &
+      ..where(catName.like('%glass%') & 
               products.manufacturerId.isNotNull() &
               products.isDeleted.not())
       ..addColumns([mfrName, qty])
@@ -306,6 +310,31 @@ class InventoryDao extends DatabaseAccessor<AppDatabase> with _$InventoryDaoMixi
     final qty = manufacturers.emptyCrateStock.sum();
     final query = selectOnly(manufacturers)..addColumns([qty]);
     return query.watchSingleOrNull().map((row) => row?.read(qty) ?? 0);
+  }
+
+  /// Streams the combined total of full crates (glass products in inventory) 
+  /// and empty crates (physical stock in manufacturers table).
+  Stream<int> watchTotalCrateAssets() {
+    // 1. Watch total empty crates
+    final emptyCratesStream = watchTotalManufacturerEmptyCrates();
+
+    // 2. Watch total full crates (glass products)
+    final qty = inventory.quantity.sum();
+    final fullCratesStream = (selectOnly(products)
+      ..join([
+        leftOuterJoin(inventory, inventory.productId.equalsExp(products.id)),
+        leftOuterJoin(categories, categories.id.equalsExp(products.categoryId)),
+      ])
+      ..where(categories.name.like('%glass%') & products.isDeleted.not())
+      ..addColumns([qty])
+    ).watchSingleOrNull().map((row) => row?.read(qty) ?? 0);
+
+    // Combine streams
+    return Rx.combineLatest2<int, int, int>(
+      emptyCratesStream,
+      fullCratesStream,
+      (a, b) => a + b,
+    );
   }
 }
 
@@ -333,7 +362,7 @@ class ManufacturerCrateStats {
   int get totalCrateAssets => totalBottles + emptyCrates;
 }
 
-@DriftAccessor(tables: [Orders, OrderItems, Products, Customers])
+@DriftAccessor(tables: [Orders, OrderItems, Products, Customers, SavedCarts, Categories])
 class OrdersDao extends DatabaseAccessor<AppDatabase> with _$OrdersDaoMixin {
   OrdersDao(super.db);
   Stream<List<OrderData>> watchPendingOrders() => (select(orders)..where((t) => t.status.equals('pending'))).watch();
@@ -380,9 +409,15 @@ class OrdersDao extends DatabaseAccessor<AppDatabase> with _$OrdersDaoMixin {
         await db.inventoryDao.deductStock(item.productId, item.warehouseId, item.quantity);
 
         // Glass products: returning bottles creates empty crates for the manufacturer
-        final product = await (select(products)..where((t) => t.id.equals(item.productId))).getSingleOrNull();
-        if (product?.manufacturerId != null) {
-          await db.inventoryDao.addEmptyCrates(product!.manufacturerId!, item.quantity);
+        final productWithCat = await (select(products).join([
+          leftOuterJoin(categories, categories.id.equalsExp(products.categoryId)),
+        ])..where(products.id.equals(item.productId))).getSingleOrNull();
+
+        final p = productWithCat?.readTable(products);
+        final c = productWithCat?.readTableOrNull(categories);
+
+        if (p?.manufacturerId != null && (c?.name.toLowerCase().contains('glass') == true)) {
+          await db.inventoryDao.addEmptyCrates(p!.manufacturerId!, item.quantity);
         }
       }
     });
@@ -498,6 +533,18 @@ class OrdersDao extends DatabaseAccessor<AppDatabase> with _$OrdersDaoMixin {
       monthRevenueKobo: monthRevKobo,
     );
   }
+
+  // ── Saved Carts ─────────────────────────────────────────────────────────
+
+  Stream<List<SavedCartData>> watchSavedCarts() =>
+      (select(savedCarts)..orderBy([(t) => OrderingTerm.desc(t.createdAt)])).watch();
+
+  Future<int> saveCart(SavedCartsCompanion companion) => into(savedCarts).insert(companion);
+
+  Future<void> deleteSavedCart(int id) => (delete(savedCarts)..where((t) => t.id.equals(id))).go();
+
+  Future<SavedCartData?> getSavedCart(int id) =>
+      (select(savedCarts)..where((t) => t.id.equals(id))).getSingleOrNull();
 }
 
 class ProductSalesSummary {

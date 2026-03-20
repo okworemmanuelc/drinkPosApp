@@ -57,6 +57,7 @@ dependencies:
   local_auth: ^2.2.0
   shared_preferences: ^2.2.3
   crypto: ^3.0.3
+  rxdart: 0.28.0
 
 dev_dependencies:
   flutter_test:

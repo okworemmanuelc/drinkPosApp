@@ -13,13 +13,13 @@ import '../../../shared/services/cart_service.dart';
 import '../../../shared/services/order_service.dart';
 import '../../../shared/widgets/receipt_widget.dart';
 import '../../../core/utils/responsive.dart';
+import '../../../core/utils/logger.dart';
 import '../services/receipt_builder.dart';
 import '../../customers/data/models/customer.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/theme_notifier.dart';
 import '../../../core/utils/number_format.dart';
 import '../../../core/utils/currency_input_formatter.dart';
-import '../../../core/utils/stock_calculator.dart';
 import '../../../shared/services/navigation_service.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -62,6 +62,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
   bool _isProcessing = false;
 
   // Computed on confirm — passed to receipt
+
   double _amountPaid = 0;
   String _currentOrderId = '';
 
@@ -74,6 +75,20 @@ class _CheckoutPageState extends State<CheckoutPage> {
   Color get _text => _isDark ? dText : lText;
   Color get _subtext => _isDark ? dSubtext : lSubtext;
   Color get _border => _isDark ? dBorder : lBorder;
+
+  @override
+  void initState() {
+    super.initState();
+    AppLogger.info(
+      'CheckoutPage: Initializing with ${widget.cart.length} items. Total: ${widget.total}',
+    );
+    for (int i = 0; i < widget.cart.length; i++) {
+      final item = widget.cart[i];
+      AppLogger.debug(
+        'CheckoutPage: Item [$i]: ${item['name']}, Price: ${item['price']}, Qty: ${item['qty']}',
+      );
+    }
+  }
 
   @override
   void dispose() {
@@ -99,8 +114,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
   double get _cashReceivedValue => parseCurrency(_cashReceivedCtrl.text);
 
   double get _dynamicNewCustomerWallet {
-    final oldCustomerWallet =
-        _isWalkIn ? 0.0 : (widget.customer?.customerWallet ?? 0.0);
+    final oldCustomerWallet = _isWalkIn
+        ? 0.0
+        : (widget.customer?.customerWallet ?? 0.0);
     double effectiveCash;
     switch (_paymentType) {
       case PaymentType.fullCash:
@@ -230,9 +246,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                       if (!_isWalkIn && widget.customer != null) ...[
                         SizedBox(height: context.getRSize(2)),
                         Text(
-                          'Wallet Balance: ${formatCurrency(widget.customer!.customerWallet)} ${widget.customer!.customerWallet < 0
-                              ? "(debt)"
-                              : "(credit)"}',
+                          'Wallet Balance: ${formatCurrency(widget.customer!.customerWallet)} ${widget.customer!.customerWallet < 0 ? "(debt)" : "(credit)"}',
                           style: TextStyle(
                             fontSize: context.getRFontSize(12),
                             color: widget.customer!.customerWallet < 0
@@ -479,7 +493,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
           _amountPaid = amountPaidKobo / 100.0;
           _paymentConfirmed = true;
           // Note: In a real app, you'd get the actual ID from the service return or a listener
-          _currentOrderId = "New Order"; 
+          _currentOrderId = "New Order";
         });
 
         // Clear cart for next sale
@@ -867,22 +881,48 @@ class _CheckoutPageState extends State<CheckoutPage> {
   }
 
   Widget _orderItemTile(Map<String, dynamic> item) {
-    final lineTotal = stockValue(
-      (item['price'] as num?)?.toDouble() ?? 0.0,
-      (item['qty'] as num?)?.toDouble() ?? 0.0,
-    ).toInt();
+    // Robustly parse values to prevent crashes on malformed data
+    final rawPrice = item['price'];
+    final double price = rawPrice is num
+        ? rawPrice.toDouble()
+        : double.tryParse(rawPrice.toString()) ?? 0.0;
+
+    final rawQty = item['qty'];
+    final double qty = rawQty is num
+        ? rawQty.toDouble()
+        : double.tryParse(rawQty.toString()) ?? 0.0;
+
+    final int lineTotal = (price * qty).toInt();
+
     final rawColor = item['color'];
-    final itemColor = rawColor is Color
-        ? rawColor
-        : rawColor is String
-            ? Color(int.parse(rawColor.replaceFirst('#', '0xFF')))
-            : blueMain;
+    Color itemColor = blueMain;
+    if (rawColor is Color) {
+      itemColor = rawColor;
+    } else if (rawColor is String && rawColor.isNotEmpty) {
+      try {
+        final hex = rawColor.startsWith('#')
+            ? rawColor.replaceFirst('#', '0xFF')
+            : rawColor.length == 6 || rawColor.length == 8
+            ? '0xFF$rawColor'
+            : rawColor;
+        itemColor = Color(
+          int.parse(hex.startsWith('0x') ? hex : '0xFF$hex', radix: 16),
+        );
+      } catch (_) {
+        itemColor = blueMain;
+      }
+    }
+
     final rawIcon = item['icon'];
     final itemIcon = rawIcon is IconData
         ? rawIcon
         : rawIcon is int
-            ? IconData(rawIcon, fontFamily: 'FontAwesomeSolid', fontPackage: 'font_awesome_flutter')
-            : FontAwesomeIcons.box;
+        ? IconData(
+            rawIcon,
+            fontFamily: 'FontAwesomeSolid',
+            fontPackage: 'font_awesome_flutter',
+          )
+        : FontAwesomeIcons.box;
 
     return Padding(
       padding: EdgeInsets.symmetric(
@@ -898,11 +938,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
               color: itemColor.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(
-              itemIcon,
-              color: itemColor,
-              size: context.getRSize(18),
-            ),
+            child: Icon(itemIcon, color: itemColor, size: context.getRSize(18)),
           ),
           SizedBox(width: context.getRSize(12)),
           Expanded(
@@ -920,7 +956,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                   overflow: TextOverflow.ellipsis,
                 ),
                 Text(
-                  '${((item['qty'] as num?)?.toDouble() ?? 0.0).toStringAsFixed(1)} × ${formatCurrency(((item['price'] as num?)?.toDouble() ?? 0.0))}',
+                  '${qty.toStringAsFixed(1)} × ${formatCurrency(price)}',
                   style: TextStyle(
                     fontSize: context.getRFontSize(12),
                     color: _subtext,
@@ -1126,4 +1162,3 @@ class _CheckoutPageState extends State<CheckoutPage> {
     );
   }
 }
-

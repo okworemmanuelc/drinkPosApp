@@ -47,43 +47,6 @@ class _MainLayoutState extends State<MainLayout> {
     super.dispose();
   }
 
-  /// Returns the widget for the given navigation index.
-  /// Only the ACTIVE screen is in the widget tree at any time — no IndexedStack
-  /// keeping all 12 screens alive simultaneously.
-  Widget _buildScreen(int index, List<Map<String, dynamic>> cart) {
-    switch (index) {
-      case 0:
-        return const DashboardScreen();
-      case 1:
-        return const PosHomeScreen();
-      case 2:
-        return const InventoryScreen();
-      case 3:
-        return const OrdersScreen();
-      case 4:
-        return const CustomersScreen();
-      case 5:
-        return const PaymentsScreen();
-      case 6:
-        return const ExpensesScreen();
-      case 7:
-        return const WarehouseScreen();
-      case 8:
-        return const StaffScreen();
-      case 9:
-        return CartScreen(
-          cart: cart,
-          crateDeposit: 0.0,
-          onCustomerChanged: _voidOnCustomerChanged,
-        );
-      case 10:
-        return const DeliveriesScreen();
-      case 11:
-        return const ActivityLogScreen();
-      default:
-        return const PosHomeScreen();
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -99,36 +62,29 @@ class _MainLayoutState extends State<MainLayout> {
           child: ValueListenableBuilder<List<Map<String, dynamic>>>(
             valueListenable: cartService,
             builder: (context, cart, _) => Scaffold(
-              // Optimize performance by keeping primary screens in an IndexedStack.
-              // This preserves state (scroll position, form data) and makes switching instant.
-              body: () {
-                final primaryIndices = [0, 1, 2, 3, 9];
-                final stackIndex = primaryIndices.indexOf(currentIndex);
-
-                if (stackIndex != -1) {
-                  return IndexedStack(
-                    index: stackIndex,
-                    children: [
-                      const DashboardScreen(),
-                      const PosHomeScreen(),
-                      const InventoryScreen(),
-                      const OrdersScreen(),
-                      CartScreen(
-                        cart: cart,
-                        crateDeposit: 0.0,
-                        onCustomerChanged: _voidOnCustomerChanged,
-                      ),
-                    ],
-                  );
-                }
-
-                // For secondary screens (Customers, Payments, etc.), build dynamically to save memory.
-                return KeyedSubtree(
-                  key: ValueKey<int>(currentIndex),
-                  child: _buildScreen(currentIndex, cart),
-                );
-              }(),
-              bottomNavigationBar: BottomNavigationBar(
+              // Use IndexedStack for ALL screens to ensure form persistence and instant switching.
+              body: IndexedStack(
+                index: currentIndex,
+                  children: [
+                    const DashboardScreen(), // 0
+                    const PosHomeScreen(),   // 1
+                    const InventoryScreen(),  // 2
+                    const OrdersScreen(),     // 3
+                    const CustomersScreen(),  // 4
+                    const PaymentsScreen(),   // 5
+                    const ExpensesScreen(),   // 6
+                    const WarehouseScreen(),  // 7
+                    const StaffScreen(),      // 8
+                    CartScreen(               // 9
+                      cart: cart,
+                      crateDeposit: 0.0,
+                      onCustomerChanged: _voidOnCustomerChanged,
+                    ),
+                    const DeliveriesScreen(),  // 10
+                    const ActivityLogScreen(), // 11
+                  ],
+                ),
+                bottomNavigationBar: BottomNavigationBar(
                 currentIndex: currentIndex == 0
                     ? 0
                     : (currentIndex == 1

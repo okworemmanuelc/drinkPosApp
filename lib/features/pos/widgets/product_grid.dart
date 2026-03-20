@@ -1,3 +1,6 @@
+import 'dart:math';
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../../core/database/app_database.dart';
@@ -83,7 +86,7 @@ class ProductGrid extends StatelessWidget {
   }
 }
 
-class _ProductCard extends StatelessWidget {
+class _ProductCard extends StatefulWidget {
   final ProductDataWithStock item;
   final VoidCallback onTap;
   final Color cardCol;
@@ -103,14 +106,124 @@ class _ProductCard extends StatelessWidget {
   });
 
   @override
+  State<_ProductCard> createState() => _ProductCardState();
+}
+
+class _ProductCardState extends State<_ProductCard>
+    with TickerProviderStateMixin {
+  AnimationController? _flingCtrl;
+  OverlayEntry? _overlayEntry;
+
+  @override
+  void dispose() {
+    _flingCtrl?.dispose();
+    _overlayEntry?.remove();
+    _overlayEntry = null;
+    super.dispose();
+  }
+
+  void _handleTap() {
+    // Fire product logic immediately
+    widget.onTap();
+    // Then launch fling particle
+    final renderBox = context.findRenderObject() as RenderBox?;
+    if (renderBox == null) return;
+    final source = renderBox.localToGlobal(
+      Offset(renderBox.size.width / 2, renderBox.size.height / 3),
+    );
+    _launchFling(source);
+  }
+
+  void _launchFling(Offset source) {
+    // Clean up any previous animation
+    _flingCtrl?.stop();
+    _overlayEntry?.remove();
+    _overlayEntry = null;
+    _flingCtrl?.dispose();
+
+    final screenSize = MediaQuery.of(context).size;
+    // Cart icon is the 5th (last) item in the 5-item bottom nav bar.
+    // Its centre x ≈ screenWidth × (4.5/5) and y ≈ near the bottom.
+    final target = Offset(screenSize.width * 0.9, screenSize.height - 28.0);
+
+    _flingCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 620),
+    );
+
+    _overlayEntry = OverlayEntry(
+      builder: (_) => AnimatedBuilder(
+        animation: _flingCtrl!,
+        builder: (_, __) {
+          final raw = _flingCtrl!.value;
+          final t = Curves.easeIn.transform(raw);
+
+          // X: linear from source to target
+          final x = lerpDouble(source.dx, target.dx, t)!;
+          // Y: parabolic arc (goes up first, then drops to target)
+          final yBase = lerpDouble(source.dy, target.dy, t)!;
+          final arc = -110.0 * sin(pi * raw); // upward arc
+          final y = yBase + arc;
+
+          final scale = lerpDouble(1.0, 0.35, t)!;
+          final opacity = raw > 0.82 ? ((1.0 - raw) / 0.18).clamp(0.0, 1.0) : 1.0;
+
+          return Positioned(
+            left: x - 15,
+            top: y - 15,
+            child: IgnorePointer(
+              child: Opacity(
+                opacity: opacity,
+                child: Transform.scale(
+                  scale: scale,
+                  child: Container(
+                    width: 30,
+                    height: 30,
+                    decoration: BoxDecoration(
+                      color: blueMain,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: blueMain.withValues(alpha: 0.55),
+                          blurRadius: 10,
+                          spreadRadius: 1,
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.shopping_cart_rounded,
+                      color: Colors.white,
+                      size: 15,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+
+    Overlay.of(context).insert(_overlayEntry!);
+    _flingCtrl!.forward().then((_) {
+      if (mounted) {
+        _overlayEntry?.remove();
+        _overlayEntry = null;
+      }
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final product = item.product;
+    final product = widget.item.product;
     final int priceKobo = database.catalogDao.getPriceForCustomerGroup(
       product,
-      controller.selectedGroup == CustomerGroup.retailer ? 'retail' : 'wholesaler',
+      widget.controller.selectedGroup == CustomerGroup.retailer
+          ? 'retail'
+          : 'wholesaler',
     );
     final price = priceKobo / 100.0;
-    final bool isLowStock = item.totalStock <= 5;
+    final bool isLowStock = widget.item.totalStock <= 5;
 
     return ValueListenableBuilder<List<Map<String, dynamic>>>(
       valueListenable: cartService,
@@ -127,16 +240,16 @@ class _ProductCard extends StatelessWidget {
           clipBehavior: Clip.none,
           children: [
             InkWell(
-              onTap: onTap,
+              onTap: _handleTap,
               borderRadius: BorderRadius.circular(16),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
                 curve: Curves.easeOut,
                 decoration: BoxDecoration(
-                  color: cardCol,
+                  color: widget.cardCol,
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: inCart ? blueMain : borderCol,
+                    color: inCart ? blueMain : widget.borderCol,
                     width: inCart ? 2.0 : 1.0,
                   ),
                   boxShadow: [
@@ -179,7 +292,7 @@ class _ProductCard extends StatelessWidget {
                             style: TextStyle(
                               fontSize: context.getRFontSize(12),
                               fontWeight: FontWeight.w700,
-                              color: textCol,
+                              color: widget.textCol,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -198,10 +311,10 @@ class _ProductCard extends StatelessWidget {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Text(
-                                'Stock: ${item.totalStock}',
+                                'Stock: ${widget.item.totalStock}',
                                 style: TextStyle(
                                   fontSize: context.getRFontSize(10),
-                                  color: isLowStock ? danger : subtextCol,
+                                  color: isLowStock ? danger : widget.subtextCol,
                                   fontWeight: isLowStock
                                       ? FontWeight.bold
                                       : FontWeight.w500,
@@ -222,24 +335,24 @@ class _ProductCard extends StatelessWidget {
                 ),
               ),
             ),
-            // Cart quantity badge
+            // Cart quantity badge — larger than before
             Positioned(
-              top: -6,
-              right: -6,
+              top: -8,
+              right: -8,
               child: AnimatedScale(
                 scale: inCart ? 1.0 : 0.0,
                 duration: const Duration(milliseconds: 250),
                 curve: Curves.elasticOut,
                 child: Container(
-                  width: context.getRSize(22),
-                  height: context.getRSize(22),
+                  width: context.getRSize(30),
+                  height: context.getRSize(30),
                   decoration: BoxDecoration(
                     color: blueMain,
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
-                        color: blueMain.withValues(alpha: 0.4),
-                        blurRadius: 6,
+                        color: blueMain.withValues(alpha: 0.45),
+                        blurRadius: 8,
                         offset: const Offset(0, 2),
                       ),
                     ],
@@ -249,7 +362,7 @@ class _ProductCard extends StatelessWidget {
                       badgeText,
                       style: TextStyle(
                         color: Colors.white,
-                        fontSize: context.getRFontSize(9),
+                        fontSize: context.getRFontSize(11),
                         fontWeight: FontWeight.bold,
                       ),
                     ),

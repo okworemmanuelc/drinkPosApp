@@ -39,9 +39,9 @@ class _InventoryScreenState extends State<InventoryScreen>
   List<WarehouseData> _warehouses = [];
   List<ProductDataWithStock> _dbProducts = [];
   List<ManufacturerData> _dbManufacturers = [];
-  Map<String, int> _bigBottlesByMfr = {};
+  Map<String, int> _fullCratesByMfr = {};
   Map<String, int> _emptyCratesByMfr = {};
-  int _totalEmptyCratesSum = 0;
+  int _totalCrateAssetsSum = 0;
   List<CrateGroupData> _dbCrateGroups = [];
   final Map<int, Color> _cgColors = {
     1: const Color(0xFFF59E0B),
@@ -109,10 +109,10 @@ class _InventoryScreenState extends State<InventoryScreen>
     // Products stream — warehouse-aware, re-subscribed when warehouse filter changes
     _subscribeToProducts();
 
-    // Manufacturer crate pool streams
-    _bottlesSub = database.inventoryDao.watchBigBottlesByManufacturer().listen(
+    // Manufacturer crate pool streams - Full Crates (Glass products in inventory)
+    _bottlesSub = database.inventoryDao.watchFullCratesByManufacturer().listen(
       (data) {
-        if (mounted) setState(() => _bigBottlesByMfr = data);
+        if (mounted) setState(() => _fullCratesByMfr = data);
       },
     );
     _emptyCratesSub = database.inventoryDao.watchEmptyCratesByManufacturer().listen(
@@ -184,10 +184,10 @@ class _InventoryScreenState extends State<InventoryScreen>
     );
 
     _emptyCratesSumSub = database.inventoryDao
-        .watchTotalManufacturerEmptyCrates()
+        .watchTotalCrateAssets()
         .listen(
           (count) {
-            if (mounted) setState(() => _totalEmptyCratesSum = count);
+            if (mounted) setState(() => _totalCrateAssetsSum = count);
           },
         );
   }
@@ -276,7 +276,7 @@ class _InventoryScreenState extends State<InventoryScreen>
         .length;
     final outOfStock = products.where((p) => p.totalStock == 0).length;
 
-    final totalCrates = _totalEmptyCratesSum.toDouble();
+    final totalCrates = _totalCrateAssetsSum.toDouble();
 
     final cards = [
           _summaryCard(
@@ -317,7 +317,7 @@ class _InventoryScreenState extends State<InventoryScreen>
           ),
           _summaryCard(
             context,
-            'Empty Crates',
+            'Total Crates',
             '${totalCrates.toInt()}',
             FontAwesomeIcons.beerMugEmpty,
             success,
@@ -623,11 +623,11 @@ class _InventoryScreenState extends State<InventoryScreen>
 
 
   List<ManufacturerCrateStats> get _manufacturerCrateStats {
-    final allMfrs = {..._bigBottlesByMfr.keys, ..._emptyCratesByMfr.keys};
+    final allMfrs = {..._fullCratesByMfr.keys, ..._emptyCratesByMfr.keys};
     return allMfrs.map((mfr) {
       return ManufacturerCrateStats(
         manufacturer: mfr,
-        totalBottles: _bigBottlesByMfr[mfr] ?? 0,
+        totalBottles: _fullCratesByMfr[mfr] ?? 0,
         emptyCrates: _emptyCratesByMfr[mfr] ?? 0,
         totalValueKobo: 0,
       );

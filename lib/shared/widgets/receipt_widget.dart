@@ -193,9 +193,13 @@ class ReceiptWidget extends StatelessWidget {
           SizedBox(height: context.getRSize(12)),
 
           ...cart.map((item) {
-            final qty = (item['qty'] as num).toDouble();
-            final price = (item['price'] as num).toInt();
-            final lineTotal = stockValue(price.toDouble(), qty).toInt();
+            final rawQty = item['qty'];
+            final double qty = rawQty is num ? rawQty.toDouble() : double.tryParse(rawQty.toString()) ?? 0.0;
+            
+            final rawPrice = item['price'];
+            final double price = rawPrice is num ? rawPrice.toDouble() : double.tryParse(rawPrice.toString()) ?? 0.0;
+            
+            final lineTotal = stockValue(price, qty).round();
             return Padding(
               padding: EdgeInsets.symmetric(vertical: context.getRSize(4)),
               child: Row(

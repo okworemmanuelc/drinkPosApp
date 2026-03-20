@@ -61,6 +61,12 @@ class CartService extends ValueNotifier<List<Map<String, dynamic>>> {
 
   void clear() {
     value = [];
+    activeCustomer.value = null;
+  }
+
+  void loadCart(List<Map<String, dynamic>> items, Customer? customer) {
+    activeCustomer.value = customer;
+    value = items;
   }
 
   double get totalItems =>

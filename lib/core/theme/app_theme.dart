@@ -18,6 +18,12 @@ class AppTheme {
       foregroundColor: lText,
       elevation: 0,
       centerTitle: false,
+      toolbarHeight: kToolbarHeight + 12,
+      shadowColor: lBorder,
+      surfaceTintColor: Colors.transparent,
+      shape: Border(
+        bottom: BorderSide(color: lBorder, width: 1.5),
+      ),
     ),
     bottomNavigationBarTheme: const BottomNavigationBarThemeData(
       backgroundColor: lSurface,
@@ -66,6 +72,12 @@ class AppTheme {
       foregroundColor: dText,
       elevation: 0,
       centerTitle: false,
+      toolbarHeight: kToolbarHeight + 12,
+      shadowColor: dBorder,
+      surfaceTintColor: Colors.transparent,
+      shape: Border(
+        bottom: BorderSide(color: dBorder, width: 1.5),
+      ),
     ),
     bottomNavigationBarTheme: const BottomNavigationBarThemeData(
       backgroundColor: dSurface,

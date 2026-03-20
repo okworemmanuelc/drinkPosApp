@@ -21,6 +21,7 @@ class _AddProductSheetState extends State<AddProductSheet> {
   final _lowStockCtrl = TextEditingController(text: '5');
   final _initialStockCtrl = TextEditingController(text: '0');
   final _supplierCtrl = TextEditingController();
+  final _manufacturerCtrl = TextEditingController();
 
   String _unit = 'Bottle';
   String _colorHex = '#3B82F6';
@@ -35,6 +36,7 @@ class _AddProductSheetState extends State<AddProductSheet> {
   List<CategoryData> _allCategories = [];
   List<SupplierData> _supplierSuggestions = [];
   List<ManufacturerData> _allManufacturers = [];
+  List<ManufacturerData> _manufacturerSuggestions = [];
 
   bool _isSaving = false;
 
@@ -87,6 +89,7 @@ class _AddProductSheetState extends State<AddProductSheet> {
     _lowStockCtrl.dispose();
     _initialStockCtrl.dispose();
     _supplierCtrl.dispose();
+    _manufacturerCtrl.dispose();
     super.dispose();
   }
 
@@ -118,31 +121,79 @@ class _AddProductSheetState extends State<AddProductSheet> {
     });
   }
 
+  void _onManufacturerChanged(String query) {
+    final q = query.trim().toLowerCase();
+    setState(() {
+      _manufacturerSuggestions = q.isEmpty
+          ? []
+          : _allManufacturers
+                .where((m) => m.name.toLowerCase().contains(q))
+                .take(5)
+                .toList();
+    });
+  }
+
+  void _selectManufacturer(ManufacturerData manufacturer) {
+    _manufacturerCtrl.text = manufacturer.name;
+    setState(() {
+      _selectedManufacturer = manufacturer;
+      _manufacturerSuggestions = [];
+    });
+  }
+
+  void _clearManufacturer() {
+    _manufacturerCtrl.clear();
+    setState(() {
+      _selectedManufacturer = null;
+      _manufacturerSuggestions = [];
+    });
+  }
+
+  Future<void> _createNewManufacturer(String name) async {
+    final id = await database.inventoryDao.insertManufacturer(
+      ManufacturersCompanion.insert(name: name),
+    );
+    final manufacturers = await database.inventoryDao.getAllManufacturers();
+    final newM = manufacturers.firstWhere((m) => m.id == id);
+    setState(() {
+      _allManufacturers = manufacturers;
+      _selectManufacturer(newM);
+    });
+  }
+
+  Future<void> _createNewSupplier(String name) async {
+    final id = await database.catalogDao.insertSupplier(
+      SuppliersCompanion.insert(name: name),
+    );
+    final suppliers = await database.catalogDao.getAllSuppliers();
+    final newS = suppliers.firstWhere((s) => s.id == id);
+    setState(() {
+      _allSuppliers = suppliers;
+      _selectSupplier(newS);
+    });
+  }
+
   Future<void> _save() async {
     final name = _nameCtrl.text.trim();
-    if (name.isEmpty ||
-        _retailPriceCtrl.text.trim().isEmpty ||
-        _selectedCategory == null) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text(
-              'Product Name, Price, and Category are required.',
-            ),
-            backgroundColor: Colors.red.shade700,
-          ),
-        );
-      }
-      return;
+
+    String? missingField;
+    if (name.isEmpty) {
+      missingField = 'Product Name';
+    } else if (_selectedCategory == null) {
+      missingField = 'Category';
+    } else if (_retailPriceCtrl.text.trim().isEmpty) {
+      missingField = 'Retail Price';
+    } else if (_selectedWarehouse == null) {
+      missingField = 'Warehouse';
+    } else if (_crateSize != null && _selectedManufacturer == null) {
+      missingField = 'Manufacturer (required for glass/crate products)';
     }
 
-    if (_crateSize != null && _selectedManufacturer == null) {
+    if (missingField != null) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text(
-              'Manufacturer is required for crate/glass products.',
-            ),
+            content: Text('$missingField is required.'),
             backgroundColor: Colors.red.shade700,
           ),
         );
@@ -453,12 +504,9 @@ class _AddProductSheetState extends State<AddProductSheet> {
                       value: _crateSize,
                       items: const [
                         DropdownMenuItem(value: null, child: Text('None')),
-                        DropdownMenuItem(
-                            value: 'big', child: Text('Big (12 bottles)')),
-                        DropdownMenuItem(
-                            value: 'medium', child: Text('Medium (20 bottles)')),
-                        DropdownMenuItem(
-                            value: 'small', child: Text('Small (24 bottles)')),
+                        DropdownMenuItem(value: 'big', child: Text('Big')),
+                        DropdownMenuItem(value: 'medium', child: Text('Medium')),
+                        DropdownMenuItem(value: 'small', child: Text('Small')),
                       ],
                       onChanged: (v) => setState(() => _crateSize = v),
                     ),
@@ -470,27 +518,55 @@ class _AddProductSheetState extends State<AddProductSheet> {
                       subtext,
                     ),
                     const SizedBox(height: 8),
-                    if (_allManufacturers.isEmpty)
-                      Text(
-                        'No manufacturers yet — add one in the Empty Crates tab first.',
-                        style: TextStyle(color: subtext, fontSize: 12),
-                      )
-                    else
-                      AppDropdown<ManufacturerData?>(
-                        value: _selectedManufacturer,
-                        items: [
-                          DropdownMenuItem<ManufacturerData?>(
-                            value: null,
-                            child: Text('None', style: TextStyle(color: subtext)),
-                          ),
-                          ..._allManufacturers.map(
-                            (m) => DropdownMenuItem<ManufacturerData?>(
-                              value: m,
-                              child: Text(m.name),
+                    _searchField(
+                      controller: _manufacturerCtrl,
+                      hint: 'Search or type manufacturer name…',
+                      card: card,
+                      textColor: textColor,
+                      subtext: subtext,
+                      border: border,
+                      onChanged: _onManufacturerChanged,
+                      trailing: _selectedManufacturer != null
+                          ? GestureDetector(
+                              onTap: _clearManufacturer,
+                              child: Icon(
+                                Icons.close,
+                                size: 16,
+                                color: subtext,
+                              ),
+                            )
+                          : null,
+                    ),
+                    if (_manufacturerSuggestions.isNotEmpty ||
+                        (_manufacturerCtrl.text.trim().isNotEmpty &&
+                            _selectedManufacturer == null))
+                      _suggestionList(
+                        children: [
+                          ..._manufacturerSuggestions.map(
+                            (m) => _suggestionTile(
+                              label: m.name,
+                              textColor: textColor,
+                              card: card,
+                              border: border,
+                              onTap: () => _selectManufacturer(m),
                             ),
                           ),
+                          if (_manufacturerCtrl.text.trim().isNotEmpty &&
+                              !_manufacturerSuggestions.any((m) =>
+                                  m.name.toLowerCase() ==
+                                  _manufacturerCtrl.text.trim().toLowerCase()))
+                            _suggestionTile(
+                              label: 'Create "${_manufacturerCtrl.text.trim()}"',
+                              icon: Icons.add_circle_outline,
+                              textColor: blueMain,
+                              card: card,
+                              border: border,
+                              onTap: () => _createNewManufacturer(
+                                  _manufacturerCtrl.text.trim()),
+                            ),
                         ],
-                        onChanged: (v) => setState(() => _selectedManufacturer = v),
+                        card: card,
+                        border: border,
                       ),
                     const SizedBox(height: 16),
 
@@ -516,19 +592,34 @@ class _AddProductSheetState extends State<AddProductSheet> {
                             )
                           : null,
                     ),
-                    if (_supplierSuggestions.isNotEmpty)
+                    if (_supplierSuggestions.isNotEmpty ||
+                        (_supplierCtrl.text.trim().isNotEmpty &&
+                            _selectedSupplier == null))
                       _suggestionList(
-                        children: _supplierSuggestions
-                            .map(
-                              (s) => _suggestionTile(
-                                label: s.name,
-                                textColor: textColor,
-                                card: card,
-                                border: border,
-                                onTap: () => _selectSupplier(s),
-                              ),
-                            )
-                            .toList(),
+                        children: [
+                          ..._supplierSuggestions.map(
+                            (s) => _suggestionTile(
+                              label: s.name,
+                              textColor: textColor,
+                              card: card,
+                              border: border,
+                              onTap: () => _selectSupplier(s),
+                            ),
+                          ),
+                          if (_supplierCtrl.text.trim().isNotEmpty &&
+                              !_supplierSuggestions.any((s) =>
+                                  s.name.toLowerCase() ==
+                                  _supplierCtrl.text.trim().toLowerCase()))
+                            _suggestionTile(
+                              label: 'Create "${_supplierCtrl.text.trim()}"',
+                              icon: Icons.add_circle_outline,
+                              textColor: blueMain,
+                              card: card,
+                              border: border,
+                              onTap: () => _createNewSupplier(
+                                  _supplierCtrl.text.trim()),
+                            ),
+                        ],
                         card: card,
                         border: border,
                       ),
@@ -775,6 +866,7 @@ class _AddProductSheetState extends State<AddProductSheet> {
     required Color card,
     required Color border,
     required VoidCallback onTap,
+    IconData icon = Icons.person_outline,
   }) {
     return InkWell(
       onTap: onTap,
@@ -783,14 +875,17 @@ class _AddProductSheetState extends State<AddProductSheet> {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Row(
           children: [
-            const Icon(Icons.person_outline, size: 16, color: blueMain),
+            Icon(icon, size: 16, color: blueMain),
             const SizedBox(width: 10),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: textColor,
+            Expanded(
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: textColor,
+                ),
+                overflow: TextOverflow.ellipsis,
               ),
             ),
           ],

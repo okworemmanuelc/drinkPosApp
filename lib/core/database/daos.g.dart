@@ -71,6 +71,7 @@ mixin _$OrdersDaoMixin on DatabaseAccessor<AppDatabase> {
   $ManufacturersTable get manufacturers => attachedDatabase.manufacturers;
   $ProductsTable get products => attachedDatabase.products;
   $OrderItemsTable get orderItems => attachedDatabase.orderItems;
+  $SavedCartsTable get savedCarts => attachedDatabase.savedCarts;
   OrdersDaoManager get managers => OrdersDaoManager(this);
 }
 
@@ -97,6 +98,8 @@ class OrdersDaoManager {
       $$ProductsTableTableManager(_db.attachedDatabase, _db.products);
   $$OrderItemsTableTableManager get orderItems =>
       $$OrderItemsTableTableManager(_db.attachedDatabase, _db.orderItems);
+  $$SavedCartsTableTableManager get savedCarts =>
+      $$SavedCartsTableTableManager(_db.attachedDatabase, _db.savedCarts);
 }
 
 mixin _$CustomersDaoMixin on DatabaseAccessor<AppDatabase> {
