@@ -18,7 +18,16 @@ class CrateGroups extends Table {
   TextColumn get name => text()();
   IntColumn get size => integer()(); // 12=big, 20=medium, 24=small
   IntColumn get emptyCrateStock => integer().withDefault(const Constant(0))();
-  IntColumn get depositAmountKobo => integer().withDefault(const Constant(0))(); 
+  IntColumn get depositAmountKobo => integer().withDefault(const Constant(0))();
+}
+
+// 1b. Manufacturers — first-class entities that own crate pools
+@DataClassName('ManufacturerData')
+class Manufacturers extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get name => text()();
+  IntColumn get emptyCrateStock => integer().withDefault(const Constant(0))();
+  IntColumn get depositAmountKobo => integer().withDefault(const Constant(0))();
 }
 
 // 2. Warehouses
@@ -76,14 +85,16 @@ class Products extends Table {
   IntColumn get iconCodePoint => integer().nullable()();
   TextColumn get colorHex => text().nullable()();
   IntColumn get supplierId => integer().nullable().references(Suppliers, #id)();
+  IntColumn get manufacturerId => integer().nullable().references(Manufacturers, #id)();
   BoolColumn get isAvailable => boolean().withDefault(const Constant(true))();
   BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
   IntColumn get lowStockThreshold => integer().withDefault(const Constant(5))();
-  TextColumn get manufacturer => text().nullable()();
+  TextColumn get manufacturer => text().nullable()(); // kept for display; mirrors manufacturerId.name
   RealColumn get avgDailySales => real().withDefault(const Constant(0.0))();
   IntColumn get leadTimeDays => integer().withDefault(const Constant(0))();
   IntColumn get safetyStockQty => integer().withDefault(const Constant(0))();
   IntColumn get monthlyTargetUnits => integer().withDefault(const Constant(0))();
+  IntColumn get emptyCrateValueKobo => integer().withDefault(const Constant(0))();
 }
 
 // 6. Inventory
@@ -422,6 +433,7 @@ class WalletTransactions extends Table {
 @DriftDatabase(
   tables: [
     CrateGroups,
+    Manufacturers,
     Warehouses,
     Users,
     Categories,
@@ -473,7 +485,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 16;
+  int get schemaVersion => 19;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -490,20 +502,22 @@ class AppDatabase extends _$AppDatabase {
           debugPrint('[AppDatabase] onUpgrade: Upgrading from version $from to $to...');
           try {
             await customStatement('PRAGMA foreign_keys = OFF');
+            // Create any new tables that do not yet exist — preserves all existing data.
             for (final table in allTables) {
-              await m.drop(table).timeout(const Duration(seconds: 5));
+              await m.createTable(table);
             }
-            await m.createAll().timeout(const Duration(seconds: 15));
             await customStatement('PRAGMA foreign_keys = ON');
-            await _seedData();
           } catch (e) {
-            debugPrint('[AppDatabase] CRITICAL MIGRATION ERROR: $e');
+            debugPrint('[AppDatabase] MIGRATION ERROR: $e');
           }
         },
       );
 
   Future<void> _seedData() async {
     await batch((b) {
+      // Default warehouse — users can add more from the Warehouse screen
+      b.insert(warehouses, const WarehousesCompanion(name: Value('Main Store')));
+
       b.insert(crateGroups, const CrateGroupsCompanion(name: Value('Big Crate 12'), size: Value(12), depositAmountKobo: Value(150000)));
       b.insert(crateGroups, const CrateGroupsCompanion(name: Value('Medium Crate 20'), size: Value(20), depositAmountKobo: Value(150000)));
       b.insert(crateGroups, const CrateGroupsCompanion(name: Value('Small Crate 24'), size: Value(24), depositAmountKobo: Value(120000)));

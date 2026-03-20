@@ -4,6 +4,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../../core/database/app_database.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/theme_notifier.dart';
+import '../../../shared/widgets/app_dropdown.dart';
 
 class AddProductSheet extends StatefulWidget {
   final VoidCallback? onProductAdded;
@@ -19,7 +20,6 @@ class _AddProductSheetState extends State<AddProductSheet> {
   final _retailPriceCtrl = TextEditingController();
   final _lowStockCtrl = TextEditingController(text: '5');
   final _initialStockCtrl = TextEditingController(text: '0');
-  final _manufacturerCtrl = TextEditingController();
   final _supplierCtrl = TextEditingController();
 
   String _unit = 'Bottle';
@@ -28,13 +28,13 @@ class _AddProductSheetState extends State<AddProductSheet> {
   WarehouseData? _selectedWarehouse;
   SupplierData? _selectedSupplier;
   CategoryData? _selectedCategory;
+  ManufacturerData? _selectedManufacturer;
 
   List<WarehouseData> _warehouses = [];
   List<SupplierData> _allSuppliers = [];
   List<CategoryData> _allCategories = [];
   List<SupplierData> _supplierSuggestions = [];
-  List<String> _allManufacturers = [];
-  List<String> _manufacturerSuggestions = [];
+  List<ManufacturerData> _allManufacturers = [];
 
   bool _isSaving = false;
 
@@ -65,7 +65,7 @@ class _AddProductSheetState extends State<AddProductSheet> {
   Future<void> _loadData() async {
     final whs = await database.select(database.warehouses).get();
     final suppliers = await database.catalogDao.getAllSuppliers();
-    final manufacturers = await database.catalogDao.getDistinctManufacturers();
+    final manufacturers = await database.inventoryDao.getAllManufacturers();
     final cats = await database.select(database.categories).get();
     if (mounted) {
       setState(() {
@@ -86,26 +86,8 @@ class _AddProductSheetState extends State<AddProductSheet> {
     _retailPriceCtrl.dispose();
     _lowStockCtrl.dispose();
     _initialStockCtrl.dispose();
-    _manufacturerCtrl.dispose();
     _supplierCtrl.dispose();
     super.dispose();
-  }
-
-  void _onManufacturerChanged(String query) {
-    final q = query.trim().toLowerCase();
-    setState(() {
-      _manufacturerSuggestions = q.isEmpty
-          ? []
-          : _allManufacturers
-                .where((m) => m.toLowerCase().contains(q))
-                .take(5)
-                .toList();
-    });
-  }
-
-  void _selectManufacturer(String name) {
-    _manufacturerCtrl.text = name;
-    setState(() => _manufacturerSuggestions = []);
   }
 
   void _onSupplierChanged(String query) {
@@ -154,6 +136,20 @@ class _AddProductSheetState extends State<AddProductSheet> {
       return;
     }
 
+    if (_crateSize != null && _selectedManufacturer == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text(
+              'Manufacturer is required for crate/glass products.',
+            ),
+            backgroundColor: Colors.red.shade700,
+          ),
+        );
+      }
+      return;
+    }
+
     // Check for duplicate product name
     final existing = await database.catalogDao.findByName(name);
     if (existing != null) {
@@ -173,7 +169,6 @@ class _AddProductSheetState extends State<AddProductSheet> {
         .round();
     final lowStock = int.tryParse(_lowStockCtrl.text) ?? 5;
     final initialStock = int.tryParse(_initialStockCtrl.text) ?? 0;
-    final manufacturer = _manufacturerCtrl.text.trim();
 
     setState(() => _isSaving = true);
     try {
@@ -186,11 +181,15 @@ class _AddProductSheetState extends State<AddProductSheet> {
                 : _subtitleCtrl.text.trim(),
           ),
           retailPriceKobo: drift.Value(retailKobo),
+          sellingPriceKobo: drift.Value(retailKobo),
+          buyingPriceKobo: drift.Value(retailKobo),
           unit: drift.Value(_unit),
           colorHex: drift.Value(_colorHex),
           crateSize: drift.Value(_crateSize),
           lowStockThreshold: drift.Value(lowStock),
-          manufacturer: drift.Value(manufacturer.isEmpty ? null : manufacturer),
+          // Store both the FK id and the display name so existing text queries work
+          manufacturerId: drift.Value(_selectedManufacturer?.id),
+          manufacturer: drift.Value(_selectedManufacturer?.name),
           supplierId: drift.Value(_selectedSupplier?.id),
           categoryId: drift.Value(_selectedCategory?.id),
         ),
@@ -208,7 +207,7 @@ class _AddProductSheetState extends State<AddProductSheet> {
 
       await database.activityLogDao.log(
         action: 'New Product',
-        description: 'Product added: $name',
+        description: 'Product added: $name with initial stock $initialStock',
         entityId: productId.toString(),
         entityType: 'Product',
       );
@@ -333,7 +332,7 @@ class _AddProductSheetState extends State<AddProductSheet> {
                         style: TextStyle(color: subtext, fontSize: 13),
                       )
                     else
-                      _dropdownWidget<CategoryData?>(
+                      AppDropdown<CategoryData?>(
                         value: _selectedCategory,
                         items: _allCategories
                             .map(
@@ -344,9 +343,6 @@ class _AddProductSheetState extends State<AddProductSheet> {
                             )
                             .toList(),
                         onChanged: (v) => setState(() => _selectedCategory = v),
-                        card: card,
-                        textColor: textColor,
-                        border: border,
                       ),
                     const SizedBox(height: 14),
                     _field(
@@ -390,20 +386,14 @@ class _AddProductSheetState extends State<AddProductSheet> {
                     // ── UNIT SELECTOR ──────────────────────────────────────
                     _sectionLabel('UNIT', subtext),
                     const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: _units.map((u) {
-                        final sel = u == _unit;
-                        return _chip(
-                          label: u,
-                          selected: sel,
-                          onTap: () => setState(() => _unit = u),
-                          card: card,
-                          textColor: textColor,
-                          border: border,
-                        );
-                      }).toList(),
+                    AppDropdown<String>(
+                      value: _unit,
+                      items: _units
+                          .map((u) => DropdownMenuItem(value: u, child: Text(u)))
+                          .toList(),
+                      onChanged: (v) {
+                        if (v != null) setState(() => _unit = v);
+                      },
                     ),
                     const SizedBox(height: 16),
 
@@ -459,86 +449,48 @@ class _AddProductSheetState extends State<AddProductSheet> {
                       style: TextStyle(fontSize: 11, color: subtext),
                     ),
                     const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        _chip(
-                          label: 'None',
-                          selected: _crateSize == null,
-                          onTap: () => setState(() => _crateSize = null),
-                          card: card,
-                          textColor: textColor,
-                          border: border,
-                        ),
-                        _chip(
-                          label: 'Big (12 bottles)',
-                          selected: _crateSize == 'big',
-                          onTap: () => setState(() => _crateSize = 'big'),
-                          card: card,
-                          textColor: textColor,
-                          border: border,
-                        ),
-                        _chip(
-                          label: 'Medium (20 bottles)',
-                          selected: _crateSize == 'medium',
-                          onTap: () => setState(() => _crateSize = 'medium'),
-                          card: card,
-                          textColor: textColor,
-                          border: border,
-                        ),
-                        _chip(
-                          label: 'Small (24 bottles)',
-                          selected: _crateSize == 'small',
-                          onTap: () => setState(() => _crateSize = 'small'),
-                          card: card,
-                          textColor: textColor,
-                          border: border,
-                        ),
+                    AppDropdown<String?>(
+                      value: _crateSize,
+                      items: const [
+                        DropdownMenuItem(value: null, child: Text('None')),
+                        DropdownMenuItem(
+                            value: 'big', child: Text('Big (12 bottles)')),
+                        DropdownMenuItem(
+                            value: 'medium', child: Text('Medium (20 bottles)')),
+                        DropdownMenuItem(
+                            value: 'small', child: Text('Small (24 bottles)')),
                       ],
+                      onChanged: (v) => setState(() => _crateSize = v),
                     ),
                     const SizedBox(height: 16),
 
                     // ── MANUFACTURER ───────────────────────────────────────
-                    _sectionLabel('MANUFACTURER', subtext),
-                    const SizedBox(height: 8),
-                    _searchField(
-                      controller: _manufacturerCtrl,
-                      hint: 'e.g. Nigerian Breweries',
-                      card: card,
-                      textColor: textColor,
-                      subtext: subtext,
-                      border: border,
-                      onChanged: _onManufacturerChanged,
-                      trailing: _manufacturerCtrl.text.isNotEmpty
-                          ? GestureDetector(
-                              onTap: () {
-                                _manufacturerCtrl.clear();
-                                setState(() => _manufacturerSuggestions = []);
-                              },
-                              child: Icon(
-                                Icons.close,
-                                size: 16,
-                                color: subtext,
-                              ),
-                            )
-                          : null,
+                    _sectionLabel(
+                      _crateSize != null ? 'MANUFACTURER *' : 'MANUFACTURER',
+                      subtext,
                     ),
-                    if (_manufacturerSuggestions.isNotEmpty)
-                      _suggestionList(
-                        children: _manufacturerSuggestions
-                            .map(
-                              (m) => _suggestionTile(
-                                label: m,
-                                textColor: textColor,
-                                card: card,
-                                border: border,
-                                onTap: () => _selectManufacturer(m),
-                              ),
-                            )
-                            .toList(),
-                        card: card,
-                        border: border,
+                    const SizedBox(height: 8),
+                    if (_allManufacturers.isEmpty)
+                      Text(
+                        'No manufacturers yet — add one in the Empty Crates tab first.',
+                        style: TextStyle(color: subtext, fontSize: 12),
+                      )
+                    else
+                      AppDropdown<ManufacturerData?>(
+                        value: _selectedManufacturer,
+                        items: [
+                          DropdownMenuItem<ManufacturerData?>(
+                            value: null,
+                            child: Text('None', style: TextStyle(color: subtext)),
+                          ),
+                          ..._allManufacturers.map(
+                            (m) => DropdownMenuItem<ManufacturerData?>(
+                              value: m,
+                              child: Text(m.name),
+                            ),
+                          ),
+                        ],
+                        onChanged: (v) => setState(() => _selectedManufacturer = v),
                       ),
                     const SizedBox(height: 16),
 
@@ -582,78 +534,61 @@ class _AddProductSheetState extends State<AddProductSheet> {
                       ),
                     const SizedBox(height: 16),
 
-                    // ── QUANTITY + WAREHOUSE ────────────────────────────────
-                    Row(
+                    // ── QUANTITY ────────────────────────────────────────────
+                    _sectionLabel('QUANTITY', subtext),
+                    const SizedBox(height: 8),
+                    _field(
+                      '',
+                      _initialStockCtrl,
+                      '0',
+                      card,
+                      textColor,
+                      subtext,
+                      isNumber: true,
+                    ),
+                    const SizedBox(height: 16),
+                    Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _sectionLabel('QUANTITY', subtext),
-                              const SizedBox(height: 8),
-                              _field(
-                                '',
-                                _initialStockCtrl,
-                                '0',
-                                card,
-                                textColor,
-                                subtext,
-                                isNumber: true,
+                        _sectionLabel('SELECT WAREHOUSE *', subtext),
+                        const SizedBox(height: 8),
+                        if (_warehouses.isEmpty)
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 14,
+                            ),
+                            decoration: BoxDecoration(
+                              color: card,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: border),
+                            ),
+                            child: Text(
+                              'No warehouses',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: subtext,
                               ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _sectionLabel('WAREHOUSE', subtext),
-                              const SizedBox(height: 8),
-                              if (_warehouses.isEmpty)
-                                Container(
-                                  width: double.infinity,
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                    vertical: 14,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: card,
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(color: border),
-                                  ),
-                                  child: Text(
-                                    'No warehouses',
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      color: subtext,
+                            ),
+                          )
+                        else
+                          AppDropdown<WarehouseData?>(
+                            value: _selectedWarehouse,
+                            items: _warehouses
+                                .map(
+                                  (w) => DropdownMenuItem<WarehouseData?>(
+                                    value: w,
+                                    child: Text(
+                                      w.name,
+                                      overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
                                 )
-                              else
-                                _dropdownWidget<WarehouseData?>(
-                                  value: _selectedWarehouse,
-                                  items: _warehouses
-                                      .map(
-                                        (w) => DropdownMenuItem<WarehouseData?>(
-                                          value: w,
-                                          child: Text(
-                                            w.name,
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                        ),
-                                      )
-                                      .toList(),
-                                  onChanged: (v) =>
-                                      setState(() => _selectedWarehouse = v),
-                                  card: card,
-                                  textColor: textColor,
-                                  border: border,
-                                ),
-                            ],
+                                .toList(),
+                            onChanged: (v) =>
+                                setState(() => _selectedWarehouse = v),
                           ),
-                        ),
                       ],
                     ),
                     const SizedBox(height: 24),
@@ -714,34 +649,6 @@ class _AddProductSheetState extends State<AddProductSheet> {
     ),
   );
 
-  Widget _chip({
-    required String label,
-    required bool selected,
-    required VoidCallback onTap,
-    required Color card,
-    required Color textColor,
-    required Color border,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        decoration: BoxDecoration(
-          color: selected ? blueMain : card,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: selected ? blueMain : border),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            color: selected ? Colors.white : textColor,
-          ),
-        ),
-      ),
-    );
-  }
 
   Widget _field(
     String label,
@@ -887,39 +794,6 @@ class _AddProductSheetState extends State<AddProductSheet> {
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _dropdownWidget<T>({
-    required T value,
-    required List<DropdownMenuItem<T>> items,
-    required ValueChanged<T?> onChanged,
-    required Color card,
-    required Color textColor,
-    required Color border,
-  }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
-      decoration: BoxDecoration(
-        color: card,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: border),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<T>(
-          value: value,
-          items: items,
-          onChanged: onChanged,
-          isExpanded: true,
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: textColor,
-          ),
-          dropdownColor: card,
-          icon: const Icon(Icons.keyboard_arrow_down_rounded, color: blueMain),
         ),
       ),
     );

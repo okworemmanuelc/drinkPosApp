@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -28,6 +29,8 @@ class _StaffScreenState extends State<StaffScreen> {
   String _searchQuery = '';
   int _selectedWarehouseFilter = _kAllWarehouses;
   List<WarehouseData> _warehouses = [];
+  List<UserData> _users = [];
+  StreamSubscription<List<UserData>>? _usersSub;
 
   bool get _isDark => themeNotifier.value == ThemeMode.dark;
   Color get _bg => _isDark ? dBg : lBg;
@@ -43,6 +46,15 @@ class _StaffScreenState extends State<StaffScreen> {
     database.select(database.warehouses).get().then((ws) {
       if (mounted) setState(() => _warehouses = ws);
     });
+    _usersSub = database.select(database.users).watch().listen((data) {
+      if (mounted) setState(() => _users = data);
+    });
+  }
+
+  @override
+  void dispose() {
+    _usersSub?.cancel();
+    super.dispose();
   }
 
   @override
@@ -117,61 +129,54 @@ class _StaffScreenState extends State<StaffScreen> {
   }
 
   Widget _buildBody() {
-    return StreamBuilder<List<UserData>>(
-      stream: database.select(database.users).watch(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        var list = snapshot.data ?? [];
+    final listRaw = _users;
+    var list = [...listRaw];
 
-        if (_selectedWarehouseFilter != _kAllWarehouses) {
-          list = list.where((u) => u.warehouseId == _selectedWarehouseFilter).toList();
-        }
-        if (_searchQuery.isNotEmpty) {
-          list = list
-              .where((u) => u.name.toLowerCase().contains(_searchQuery.toLowerCase()))
-              .toList();
-        }
+    if (_selectedWarehouseFilter != _kAllWarehouses) {
+      list = list.where((u) => u.warehouseId == _selectedWarehouseFilter).toList();
+    }
+    if (_searchQuery.isNotEmpty) {
+      list = list
+          .where((u) => u.name.toLowerCase().contains(_searchQuery.toLowerCase()))
+          .toList();
+    }
 
-        if (list.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(FontAwesomeIcons.usersSlash,
-                    size: 48, color: _subtext.withValues(alpha: 0.5)),
-                const SizedBox(height: 16),
-                Text('No staff found',
-                    style: TextStyle(color: _subtext, fontSize: 16)),
-              ],
-            ),
-          );
-        }
-
-        return Column(
+    if (list.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            _buildWarehouseFilters(),
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
-                children: [
-                  for (final tier in [5, 4, 3, 2, 1]) ...[
-                    if (list.any((u) => roleFor(u.role).tier == tier)) ...[
-                      _buildSectionHeader(tier, list.where((u) => roleFor(u.role).tier == tier).length),
-                      const SizedBox(height: 8),
-                      ...list
-                          .where((u) => roleFor(u.role).tier == tier)
-                          .map((u) => _buildStaffCard(context, u)),
-                      const SizedBox(height: 16),
-                    ],
-                  ],
-                ],
-              ),
-            ),
+            Icon(FontAwesomeIcons.usersSlash,
+                size: 48, color: _subtext.withValues(alpha: 0.5)),
+            const SizedBox(height: 16),
+            Text('No staff found',
+                style: TextStyle(color: _subtext, fontSize: 16)),
           ],
-        );
-      },
+        ),
+      );
+    }
+
+    return Column(
+      children: [
+        _buildWarehouseFilters(),
+        Expanded(
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
+            children: [
+              for (final tier in [5, 4, 3, 2, 1]) ...[
+                if (list.any((u) => roleFor(u.role).tier == tier)) ...[
+                  _buildSectionHeader(tier, list.where((u) => roleFor(u.role).tier == tier).length),
+                  const SizedBox(height: 8),
+                  ...list
+                      .where((u) => roleFor(u.role).tier == tier)
+                      .map((u) => _buildStaffCard(context, u)),
+                  const SizedBox(height: 16),
+                ],
+              ],
+            ],
+          ),
+        ),
+      ],
     );
   }
 

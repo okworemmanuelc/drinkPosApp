@@ -99,41 +99,89 @@ class _MainLayoutState extends State<MainLayout> {
           child: ValueListenableBuilder<List<Map<String, dynamic>>>(
             valueListenable: cartService,
             builder: (context, cart, _) => Scaffold(
-              // Only the active screen is built — 1 screen instead of 12.
-              body: KeyedSubtree(
-                key: ValueKey<int>(currentIndex),
-                child: _buildScreen(currentIndex, cart),
-              ),
+              // Optimize performance by keeping primary screens in an IndexedStack.
+              // This preserves state (scroll position, form data) and makes switching instant.
+              body: () {
+                final primaryIndices = [0, 1, 2, 3, 9];
+                final stackIndex = primaryIndices.indexOf(currentIndex);
+
+                if (stackIndex != -1) {
+                  return IndexedStack(
+                    index: stackIndex,
+                    children: [
+                      const DashboardScreen(),
+                      const PosHomeScreen(),
+                      const InventoryScreen(),
+                      const OrdersScreen(),
+                      CartScreen(
+                        cart: cart,
+                        crateDeposit: 0.0,
+                        onCustomerChanged: _voidOnCustomerChanged,
+                      ),
+                    ],
+                  );
+                }
+
+                // For secondary screens (Customers, Payments, etc.), build dynamically to save memory.
+                return KeyedSubtree(
+                  key: ValueKey<int>(currentIndex),
+                  child: _buildScreen(currentIndex, cart),
+                );
+              }(),
               bottomNavigationBar: BottomNavigationBar(
-                currentIndex: (currentIndex >= 1 && currentIndex <= 3)
-                    ? (currentIndex - 1)
-                    : (currentIndex == 9 ? 3 : 0),
+                currentIndex: currentIndex == 0
+                    ? 0
+                    : (currentIndex == 1
+                        ? 1
+                        : (currentIndex == 2
+                            ? 2
+                            : (currentIndex == 3
+                                ? 3
+                                : (currentIndex == 9 ? 4 : 0)))),
                 onTap: (index) {
-                  if (index == 3) {
-                    navigationService.setIndex(9);
-                  } else {
-                    navigationService.setIndex(index + 1);
+                  switch (index) {
+                    case 0:
+                      navigationService.setIndex(0);
+                      break;
+                    case 1:
+                      navigationService.setIndex(1);
+                      break;
+                    case 2:
+                      navigationService.setIndex(2);
+                      break;
+                    case 3:
+                      navigationService.setIndex(3);
+                      break;
+                    case 4:
+                      navigationService.setIndex(9);
+                      break;
                   }
                 },
                 type: BottomNavigationBarType.fixed,
-                selectedItemColor:
-                    (currentIndex >= 1 && currentIndex <= 3) ||
-                        currentIndex == 9
-                    ? blueMain
-                    : Colors.grey,
-                unselectedItemColor: Colors.grey,
-                showUnselectedLabels: true,
                 items: [
                   const BottomNavigationBarItem(
-                    icon: Icon(Icons.point_of_sale),
+                    icon: Icon(Icons.dashboard_outlined),
+                    activeIcon: Icon(Icons.dashboard),
+                    label: 'Home',
+                  ),
+                  const BottomNavigationBarItem(
+                    icon: Icon(Icons.point_of_sale_outlined),
+                    activeIcon: Icon(Icons.point_of_sale),
                     label: 'POS',
                   ),
                   const BottomNavigationBarItem(
-                    icon: Icon(Icons.inventory_2),
-                    label: 'Inventory',
+                    icon: Icon(Icons.inventory_2_outlined),
+                    activeIcon: Icon(Icons.inventory_2),
+                    label: 'Stock',
                   ),
                   BottomNavigationBarItem(
                     icon: Badge(
+                      label: Text(_pendingOrderCount.toString()),
+                      isLabelVisible: _pendingOrderCount > 0,
+                      backgroundColor: danger,
+                      child: const Icon(Icons.receipt_long_outlined),
+                    ),
+                    activeIcon: Badge(
                       label: Text(_pendingOrderCount.toString()),
                       isLabelVisible: _pendingOrderCount > 0,
                       backgroundColor: danger,
@@ -142,19 +190,17 @@ class _MainLayoutState extends State<MainLayout> {
                     label: 'Orders',
                   ),
                   BottomNavigationBarItem(
-                    icon: AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 300),
-                      transitionBuilder: (child, animation) => ScaleTransition(
-                        scale: animation,
-                        child: child,
-                      ),
-                      child: Badge(
-                        key: ValueKey<int>(cart.length),
-                        label: Text(cart.length.toString()),
-                        isLabelVisible: cart.isNotEmpty,
-                        backgroundColor: danger,
-                        child: const Icon(Icons.shopping_cart),
-                      ),
+                    icon: Badge(
+                      label: Text(cart.length.toString()),
+                      isLabelVisible: cart.isNotEmpty,
+                      backgroundColor: danger,
+                      child: const Icon(Icons.shopping_cart_outlined),
+                    ),
+                    activeIcon: Badge(
+                      label: Text(cart.length.toString()),
+                      isLabelVisible: cart.isNotEmpty,
+                      backgroundColor: danger,
+                      child: const Icon(Icons.shopping_cart),
                     ),
                     label: 'Cart',
                   ),

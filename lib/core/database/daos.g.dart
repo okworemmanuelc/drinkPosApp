@@ -7,6 +7,7 @@ mixin _$CatalogDaoMixin on DatabaseAccessor<AppDatabase> {
   $SuppliersTable get suppliers => attachedDatabase.suppliers;
   $CategoriesTable get categories => attachedDatabase.categories;
   $CrateGroupsTable get crateGroups => attachedDatabase.crateGroups;
+  $ManufacturersTable get manufacturers => attachedDatabase.manufacturers;
   $ProductsTable get products => attachedDatabase.products;
   $WarehousesTable get warehouses => attachedDatabase.warehouses;
   CatalogDaoManager get managers => CatalogDaoManager(this);
@@ -21,6 +22,8 @@ class CatalogDaoManager {
       $$CategoriesTableTableManager(_db.attachedDatabase, _db.categories);
   $$CrateGroupsTableTableManager get crateGroups =>
       $$CrateGroupsTableTableManager(_db.attachedDatabase, _db.crateGroups);
+  $$ManufacturersTableTableManager get manufacturers =>
+      $$ManufacturersTableTableManager(_db.attachedDatabase, _db.manufacturers);
   $$ProductsTableTableManager get products =>
       $$ProductsTableTableManager(_db.attachedDatabase, _db.products);
   $$WarehousesTableTableManager get warehouses =>
@@ -31,6 +34,7 @@ mixin _$InventoryDaoMixin on DatabaseAccessor<AppDatabase> {
   $CategoriesTable get categories => attachedDatabase.categories;
   $CrateGroupsTable get crateGroups => attachedDatabase.crateGroups;
   $SuppliersTable get suppliers => attachedDatabase.suppliers;
+  $ManufacturersTable get manufacturers => attachedDatabase.manufacturers;
   $ProductsTable get products => attachedDatabase.products;
   $WarehousesTable get warehouses => attachedDatabase.warehouses;
   $InventoryTable get inventory => attachedDatabase.inventory;
@@ -46,6 +50,8 @@ class InventoryDaoManager {
       $$CrateGroupsTableTableManager(_db.attachedDatabase, _db.crateGroups);
   $$SuppliersTableTableManager get suppliers =>
       $$SuppliersTableTableManager(_db.attachedDatabase, _db.suppliers);
+  $$ManufacturersTableTableManager get manufacturers =>
+      $$ManufacturersTableTableManager(_db.attachedDatabase, _db.manufacturers);
   $$ProductsTableTableManager get products =>
       $$ProductsTableTableManager(_db.attachedDatabase, _db.products);
   $$WarehousesTableTableManager get warehouses =>
@@ -62,6 +68,7 @@ mixin _$OrdersDaoMixin on DatabaseAccessor<AppDatabase> {
   $CategoriesTable get categories => attachedDatabase.categories;
   $CrateGroupsTable get crateGroups => attachedDatabase.crateGroups;
   $SuppliersTable get suppliers => attachedDatabase.suppliers;
+  $ManufacturersTable get manufacturers => attachedDatabase.manufacturers;
   $ProductsTable get products => attachedDatabase.products;
   $OrderItemsTable get orderItems => attachedDatabase.orderItems;
   OrdersDaoManager get managers => OrdersDaoManager(this);
@@ -84,6 +91,8 @@ class OrdersDaoManager {
       $$CrateGroupsTableTableManager(_db.attachedDatabase, _db.crateGroups);
   $$SuppliersTableTableManager get suppliers =>
       $$SuppliersTableTableManager(_db.attachedDatabase, _db.suppliers);
+  $$ManufacturersTableTableManager get manufacturers =>
+      $$ManufacturersTableTableManager(_db.attachedDatabase, _db.manufacturers);
   $$ProductsTableTableManager get products =>
       $$ProductsTableTableManager(_db.attachedDatabase, _db.products);
   $$OrderItemsTableTableManager get orderItems =>
@@ -147,6 +156,7 @@ mixin _$DeliveriesDaoMixin on DatabaseAccessor<AppDatabase> {
   $PurchasesTable get purchases => attachedDatabase.purchases;
   $CategoriesTable get categories => attachedDatabase.categories;
   $CrateGroupsTable get crateGroups => attachedDatabase.crateGroups;
+  $ManufacturersTable get manufacturers => attachedDatabase.manufacturers;
   $ProductsTable get products => attachedDatabase.products;
   $PurchaseItemsTable get purchaseItems => attachedDatabase.purchaseItems;
   DeliveriesDaoManager get managers => DeliveriesDaoManager(this);
@@ -163,6 +173,8 @@ class DeliveriesDaoManager {
       $$CategoriesTableTableManager(_db.attachedDatabase, _db.categories);
   $$CrateGroupsTableTableManager get crateGroups =>
       $$CrateGroupsTableTableManager(_db.attachedDatabase, _db.crateGroups);
+  $$ManufacturersTableTableManager get manufacturers =>
+      $$ManufacturersTableTableManager(_db.attachedDatabase, _db.manufacturers);
   $$ProductsTableTableManager get products =>
       $$ProductsTableTableManager(_db.attachedDatabase, _db.products);
   $$PurchaseItemsTableTableManager get purchaseItems =>
@@ -249,6 +261,7 @@ mixin _$StockLedgerDaoMixin on DatabaseAccessor<AppDatabase> {
   $CategoriesTable get categories => attachedDatabase.categories;
   $CrateGroupsTable get crateGroups => attachedDatabase.crateGroups;
   $SuppliersTable get suppliers => attachedDatabase.suppliers;
+  $ManufacturersTable get manufacturers => attachedDatabase.manufacturers;
   $ProductsTable get products => attachedDatabase.products;
   $WarehousesTable get warehouses => attachedDatabase.warehouses;
   $UsersTable get users => attachedDatabase.users;
@@ -266,6 +279,8 @@ class StockLedgerDaoManager {
       $$CrateGroupsTableTableManager(_db.attachedDatabase, _db.crateGroups);
   $$SuppliersTableTableManager get suppliers =>
       $$SuppliersTableTableManager(_db.attachedDatabase, _db.suppliers);
+  $$ManufacturersTableTableManager get manufacturers =>
+      $$ManufacturersTableTableManager(_db.attachedDatabase, _db.manufacturers);
   $$ProductsTableTableManager get products =>
       $$ProductsTableTableManager(_db.attachedDatabase, _db.products);
   $$WarehousesTableTableManager get warehouses =>
@@ -284,6 +299,7 @@ mixin _$StockTransferDaoMixin on DatabaseAccessor<AppDatabase> {
   $CategoriesTable get categories => attachedDatabase.categories;
   $CrateGroupsTable get crateGroups => attachedDatabase.crateGroups;
   $SuppliersTable get suppliers => attachedDatabase.suppliers;
+  $ManufacturersTable get manufacturers => attachedDatabase.manufacturers;
   $ProductsTable get products => attachedDatabase.products;
   $UsersTable get users => attachedDatabase.users;
   $StockTransfersTable get stockTransfers => attachedDatabase.stockTransfers;
@@ -303,6 +319,8 @@ class StockTransferDaoManager {
       $$CrateGroupsTableTableManager(_db.attachedDatabase, _db.crateGroups);
   $$SuppliersTableTableManager get suppliers =>
       $$SuppliersTableTableManager(_db.attachedDatabase, _db.suppliers);
+  $$ManufacturersTableTableManager get manufacturers =>
+      $$ManufacturersTableTableManager(_db.attachedDatabase, _db.manufacturers);
   $$ProductsTableTableManager get products =>
       $$ProductsTableTableManager(_db.attachedDatabase, _db.products);
   $$UsersTableTableManager get users =>

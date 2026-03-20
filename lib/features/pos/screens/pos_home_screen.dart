@@ -8,7 +8,7 @@ import '../../../shared/widgets/shared_scaffold.dart';
 import '../../../shared/widgets/menu_button.dart';
 import '../../../shared/widgets/app_bar_header.dart';
 import '../../../shared/widgets/notification_bell.dart';
-import '../../../shared/widgets/fluid_menu.dart';
+import '../../../shared/widgets/app_dropdown.dart';
 import '../../customers/data/models/customer.dart';
 import '../../inventory/data/services/supplier_service.dart';
 import '../controllers/pos_controller.dart';
@@ -139,25 +139,25 @@ class _PosHomeScreenState extends State<PosHomeScreen> {
         children: [
           Expanded(
             flex: 4,
-            child: FluidMenu<CustomerGroup>(
+            child: AppDropdown<CustomerGroup>(
               value: _controller.selectedGroup,
               items: const [
-                FluidMenuItem(value: CustomerGroup.retailer, label: 'Retailer'),
-                FluidMenuItem(value: CustomerGroup.wholesaler, label: 'Wholesaler'),
+                DropdownMenuItem(value: CustomerGroup.retailer, child: Text('Retailer')),
+                DropdownMenuItem(value: CustomerGroup.wholesaler, child: Text('Wholesaler')),
               ],
               onChanged: (val) {
                 if (val != null) _controller.selectGroup(val);
               },
             ),
           ),
-          SizedBox(width: context.getRSize(12)),
+          SizedBox(width: context.getRSize(8)),
           Expanded(
             flex: 5,
-            child: FluidMenu<String>(
+            child: AppDropdown<String>(
               value: _controller.selectedSupplierId,
               items: [
-                const FluidMenuItem(value: 'All', label: 'All Suppliers'),
-                ...supplierService.getAll().map((s) => FluidMenuItem(value: s.id, label: s.name)),
+                const DropdownMenuItem(value: 'All', child: Text('All Suppliers')),
+                ...supplierService.getAll().map((s) => DropdownMenuItem(value: s.id, child: Text(s.name))),
               ],
               onChanged: (val) {
                 if (val != null) _controller.selectSupplier(val);

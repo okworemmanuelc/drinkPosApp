@@ -28,8 +28,22 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
   Color get _text => _isDark ? dText : lText;
   Color get _subtext => _isDark ? dSubtext : lSubtext;
   Color get _border => _isDark ? dBorder : lBorder;
-  Stream<List<WarehouseData>> get _warehousesStream =>
-      database.select(database.warehouses).watch();
+  List<WarehouseData> _warehouses = [];
+  StreamSubscription<List<WarehouseData>>? _warehousesSub;
+
+  @override
+  void initState() {
+    super.initState();
+    _warehousesSub = database.select(database.warehouses).watch().listen((data) {
+      if (mounted) setState(() => _warehouses = data);
+    });
+  }
+
+  @override
+  void dispose() {
+    _warehousesSub?.cancel();
+    super.dispose();
+  }
 
   // ── Add Warehouse ──────────────────────────────────────────────────────────
   void _showAddSheet(BuildContext context) {
@@ -156,15 +170,24 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
                             : () async {
                                 if (!formKey.currentState!.validate()) return;
                                 setSheet(() => saving = true);
-                                await database.into(database.warehouses).insert(
-                                      WarehousesCompanion.insert(
-                                        name: nameCtrl.text.trim(),
-                                        location: locationCtrl.text.trim().isEmpty
-                                            ? const Value.absent()
-                                            : Value(locationCtrl.text.trim()),
-                                      ),
+                                try {
+                                  await database.into(database.warehouses).insert(
+                                        WarehousesCompanion.insert(
+                                          name: nameCtrl.text.trim(),
+                                          location: locationCtrl.text.trim().isEmpty
+                                              ? const Value.absent()
+                                              : Value(locationCtrl.text.trim()),
+                                        ),
+                                      );
+                                  if (ctx.mounted) Navigator.pop(ctx);
+                                } catch (e) {
+                                  setSheet(() => saving = false);
+                                  if (ctx.mounted) {
+                                    ScaffoldMessenger.of(ctx).showSnackBar(
+                                      SnackBar(content: Text('Error: $e')),
                                     );
-                                if (ctx.mounted) Navigator.pop(ctx);
+                                  }
+                                }
                               },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.transparent,
@@ -522,14 +545,9 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
             ),
           ),
         ),
-        body: StreamBuilder<List<WarehouseData>>(
-          stream: _warehousesStream,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
-            }
-
-            final warehouses = snapshot.data ?? [];
+        body: Builder(
+          builder: (context) {
+            final warehouses = _warehouses;
 
             if (warehouses.isEmpty) {
               return _buildEmptyState(context);

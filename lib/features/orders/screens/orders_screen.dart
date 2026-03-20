@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -14,7 +15,7 @@ import '../../../core/utils/number_format.dart';
 import '../../../core/utils/responsive.dart';
 import '../../../core/database/app_database.dart';
 import '../../../shared/services/activity_log_service.dart';
-import '../../staff/models/staff.dart';
+// staff.dart import removed as it was moved to DB fetch
 import '../../../shared/services/order_service.dart';
 import '../../../shared/widgets/receipt_widget.dart';
 import '../../../shared/widgets/shared_scaffold.dart';
@@ -37,6 +38,8 @@ class _OrdersScreenState extends State<OrdersScreen>
   late TabController _tabController;
   final ScreenshotController _screenshotCtrl = ScreenshotController();
   String _completedFilter = 'All Time';
+  StreamSubscription<List<OrderWithItems>>? _ordersSub;
+  List<OrderWithItems> _allOrdersWithItems = [];
 
   bool get _isDark => themeNotifier.value == ThemeMode.dark;
   Color get _bg => _isDark ? dBg : lBg;
@@ -49,10 +52,14 @@ class _OrdersScreenState extends State<OrdersScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    _ordersSub = orderService.watchAllOrdersWithItems().listen((data) {
+      if (mounted) setState(() => _allOrdersWithItems = data);
+    });
   }
 
   @override
   void dispose() {
+    _ordersSub?.cancel();
     _tabController.dispose();
     super.dispose();
   }
@@ -66,10 +73,9 @@ class _OrdersScreenState extends State<OrdersScreen>
           activeRoute: 'orders',
           backgroundColor: _bg,
           appBar: _buildAppBar(context),
-          body: StreamBuilder<List<OrderWithItems>>(
-            stream: orderService.watchAllOrdersWithItems(),
-            builder: (context, snapshot) {
-              final allOrdersWithItems = snapshot.data ?? [];
+          body: Builder(
+            builder: (context) {
+              final allOrdersWithItems = _allOrdersWithItems;
               
               final pending = allOrdersWithItems.where((o) => o.order.status == 'pending').toList();
 
@@ -468,58 +474,85 @@ class _OrdersScreenState extends State<OrdersScreen>
   }
 
   void _showRiderSelection(BuildContext context, int orderId) {
-    final riders = staffService.getRiders();
     showModalBottomSheet(
       context: context,
       useSafeArea: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) {
-        return SafeArea(
-          child: Container(
-            decoration: BoxDecoration(
-              color: _surface,
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(20)),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-              Padding(
-                padding: EdgeInsets.all(context.getRSize(16)),
-                child: Text(
-                  'Assign Rider',
-                  style: TextStyle(
-                    fontSize: context.getRFontSize(18),
-                    fontWeight: FontWeight.bold,
-                    color: _text,
-                  ),
+        return FutureBuilder<List<UserData>>(
+          future: orderService.getRiders(),
+          builder: (context, snapshot) {
+            final riders = snapshot.data ?? [];
+            final isLoading = snapshot.connectionState == ConnectionState.waiting;
+            
+            return SafeArea(
+              child: Container(
+                decoration: BoxDecoration(
+                  color: _surface,
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Padding(
+                      padding: EdgeInsets.all(context.getRSize(16)),
+                      child: Text(
+                        'Assign Rider',
+                        style: TextStyle(
+                          fontSize: context.getRFontSize(18),
+                          fontWeight: FontWeight.bold,
+                          color: _text,
+                        ),
+                      ),
+                    ),
+                    if (isLoading)
+                      const Padding(
+                        padding: EdgeInsets.all(20),
+                        child: CircularProgressIndicator(),
+                      )
+                    else if (riders.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.all(20),
+                        child: Text(
+                          'No riders found in database.',
+                          style: TextStyle(color: _subtext),
+                        ),
+                      )
+                    else
+                      Flexible(
+                        child: ListView(
+                          shrinkWrap: true,
+                          children: [
+                            ListTile(
+                              leading: Icon(FontAwesomeIcons.store, color: _subtext, size: context.getRSize(18)),
+                              title: Text('Pick-up Order', style: TextStyle(color: _text)),
+                              onTap: () {
+                                orderService.assignRider(orderId, 'Pick-up Order');
+                                Navigator.pop(ctx);
+                              },
+                            ),
+                            ...riders.map((staff) => ListTile(
+                                  leading: Icon(FontAwesomeIcons.motorcycle, color: blueMain, size: context.getRSize(18)),
+                                  title: Text(staff.name, style: TextStyle(color: _text)),
+                                  subtitle: Text(staff.role.toUpperCase(), style: TextStyle(color: _subtext, fontSize: 12)),
+                                  onTap: () {
+                                    orderService.assignRider(orderId, staff.name);
+                                    Navigator.pop(ctx);
+                                  },
+                                )),
+                          ],
+                        ),
+                      ),
+                    SizedBox(height: context.getRSize(40)), // Increased padding for system navigation
+                  ],
                 ),
               ),
-              ListTile(
-                leading: Icon(FontAwesomeIcons.store, color: _subtext, size: context.getRSize(18)),
-                title: Text('Pick-up Order', style: TextStyle(color: _text)),
-                onTap: () {
-                  orderService.assignRider(orderId, 'Pick-up Order');
-                  Navigator.pop(ctx);
-                },
-              ),
-              ...riders.map((staff) => ListTile(
-                    leading: Icon(FontAwesomeIcons.motorcycle, color: blueMain, size: context.getRSize(18)),
-                    title: Text(staff.name, style: TextStyle(color: _text)),
-                    subtitle: Text(staff.role, style: TextStyle(color: _subtext, fontSize: 12)),
-                    onTap: () {
-                      orderService.assignRider(orderId, staff.name);
-                      Navigator.pop(ctx);
-                    },
-                  )),
-              SizedBox(height: context.getRSize(20)),
-            ],
-          ),
-        ),
-      );
-    },
-  );
-}
+            );
+          },
+        );
+      },
+    );
+  }
 
   void _viewReceipt(BuildContext context, OrderWithItems richOrder) {
     showModalBottomSheet(

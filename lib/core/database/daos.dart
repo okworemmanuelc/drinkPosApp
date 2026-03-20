@@ -5,7 +5,7 @@ import 'app_database.dart';
 
 part 'daos.g.dart';
 
-@DriftAccessor(tables: [Suppliers, Products, Categories, Warehouses])
+@DriftAccessor(tables: [Suppliers, Products, Categories, Warehouses, Manufacturers])
 class CatalogDao extends DatabaseAccessor<AppDatabase> with _$CatalogDaoMixin {
   CatalogDao(super.db);
   Stream<List<SupplierData>> watchAllSupplierDatas() => select(suppliers).watch();
@@ -13,17 +13,8 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> with _$CatalogDaoMixin {
   Future<int> insertSupplier(SuppliersCompanion companion) => into(suppliers).insert(companion);
   Future<int> insertProduct(ProductsCompanion companion) => into(products).insert(companion);
 
-  Future<List<String>> getDistinctManufacturers() async {
-    final query = selectOnly(products, distinct: true)
-      ..addColumns([products.manufacturer])
-      ..where(products.manufacturer.isNotNull() & products.isDeleted.not());
-    final rows = await query.get();
-    return rows
-        .map((r) => r.read(products.manufacturer))
-        .whereType<String>()
-        .where((s) => s.trim().isNotEmpty)
-        .toList();
-  }
+  /// Returns all manufacturers from the Manufacturers table.
+  Future<List<ManufacturerData>> getAllManufacturers() => select(manufacturers).get();
 
   Stream<List<ProductData>> watchAvailableProductDatas({int? categoryId}) {
     if (categoryId != null) {
@@ -39,21 +30,26 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> with _$CatalogDaoMixin {
     int productId, {
     required String name,
     String? manufacturer,
+    int? manufacturerId,
     required int buyingPriceKobo,
     required int retailPriceKobo,
     int? bulkBreakerPriceKobo,
     int? distributorPriceKobo,
+    int? emptyCrateValueKobo,
+    int? categoryId,
   }) =>
       (update(products)..where((t) => t.id.equals(productId))).write(
         ProductsCompanion(
           name: Value(name),
           manufacturer: Value(manufacturer),
-          // retail price is the selling price — no separate selling price field
+          manufacturerId: Value(manufacturerId),
           sellingPriceKobo: Value(retailPriceKobo),
           buyingPriceKobo: Value(buyingPriceKobo),
           retailPriceKobo: Value(retailPriceKobo),
           bulkBreakerPriceKobo: Value(bulkBreakerPriceKobo),
           distributorPriceKobo: Value(distributorPriceKobo),
+          emptyCrateValueKobo: Value(emptyCrateValueKobo ?? 0),
+          categoryId: categoryId != null ? Value(categoryId) : const Value.absent(),
         ),
       );
 
@@ -72,9 +68,28 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> with _$CatalogDaoMixin {
   }
 }
 
-@DriftAccessor(tables: [Products, Inventory, Warehouses, CrateGroups])
+@DriftAccessor(tables: [Products, Inventory, Warehouses, CrateGroups, Manufacturers])
 class InventoryDao extends DatabaseAccessor<AppDatabase> with _$InventoryDaoMixin {
   InventoryDao(super.db);
+
+  // ── Manufacturer CRUD ─────────────────────────────────────────────────────
+
+  Stream<List<ManufacturerData>> watchAllManufacturers() =>
+      (select(manufacturers)..orderBy([(t) => OrderingTerm.asc(t.name)])).watch();
+
+  Future<List<ManufacturerData>> getAllManufacturers() =>
+      (select(manufacturers)..orderBy([(t) => OrderingTerm.asc(t.name)])).get();
+
+  Future<int> insertManufacturer(ManufacturersCompanion companion) =>
+      into(manufacturers).insert(companion);
+
+  Future<void> updateManufacturerStock(int id, int newStock) =>
+      (update(manufacturers)..where((t) => t.id.equals(id)))
+          .write(ManufacturersCompanion(emptyCrateStock: Value(newStock)));
+
+  Future<void> updateManufacturerDeposit(int id, int depositKobo) =>
+      (update(manufacturers)..where((t) => t.id.equals(id)))
+          .write(ManufacturersCompanion(depositAmountKobo: Value(depositKobo)));
 
   // Returns a live stream of products filtered by category.
   // If categoryId is null, returns all categories (same as watchAllProductDatasWithStock).
@@ -137,8 +152,9 @@ class InventoryDao extends DatabaseAccessor<AppDatabase> with _$InventoryDaoMixi
 
   Stream<List<ProductDataWithStock>> watchProductDatasWithStockByWarehouse(int warehouseId) {
     final qty = inventory.quantity.sum();
+    // innerJoin ensures only products that have an inventory record in this warehouse are returned.
     final query = select(products).join([
-      leftOuterJoin(
+      innerJoin(
         inventory,
         inventory.productId.equalsExp(products.id) & inventory.warehouseId.equals(warehouseId),
       ),
@@ -151,7 +167,35 @@ class InventoryDao extends DatabaseAccessor<AppDatabase> with _$InventoryDaoMixi
               product: row.readTable(products),
               totalStock: row.read(qty) ?? 0,
             ))
+        .where((p) => p.totalStock > 0)
         .toList());
+  }
+
+  /// Streams the total quantity of empty-crate products (categoryId == 1) in a given warehouse.
+  /// Pass null to sum across all warehouses.
+  Stream<int> watchTotalEmptyCratesByWarehouse(int? warehouseId) {
+    final qty = inventory.quantity.sum();
+    if (warehouseId != null) {
+      final query = selectOnly(products)
+        ..join([
+          innerJoin(
+            inventory,
+            inventory.productId.equalsExp(products.id) &
+                inventory.warehouseId.equals(warehouseId),
+          ),
+        ])
+        ..where(products.categoryId.equals(1) & products.isDeleted.not())
+        ..addColumns([qty]);
+      return query.watchSingleOrNull().map((row) => row?.read(qty) ?? 0);
+    } else {
+      final query = selectOnly(products)
+        ..join([
+          leftOuterJoin(inventory, inventory.productId.equalsExp(products.id)),
+        ])
+        ..where(products.categoryId.equals(1) & products.isDeleted.not())
+        ..addColumns([qty]);
+      return query.watchSingleOrNull().map((row) => row?.read(qty) ?? 0);
+    }
   }
 
   Future<void> deductStock(int productId, int warehouseId, int qty) async {
@@ -197,71 +241,71 @@ class InventoryDao extends DatabaseAccessor<AppDatabase> with _$InventoryDaoMixi
         ));
   }
 
-  Future<void> addEmptyCrates(int crateGroupId, int quantity) async {
-    final row = await (select(crateGroups)..where((t) => t.id.equals(crateGroupId))).getSingleOrNull();
+  Future<void> updateCrateGroupStock(int groupId, int newStock) =>
+      (update(crateGroups)..where((t) => t.id.equals(groupId))).write(
+        CrateGroupsCompanion(emptyCrateStock: Value(newStock)),
+      );
+
+  Future<void> updateCrateGroupDeposit(int groupId, int depositKobo) =>
+      (update(crateGroups)..where((t) => t.id.equals(groupId))).write(
+        CrateGroupsCompanion(depositAmountKobo: Value(depositKobo)),
+      );
+
+  /// Adds empty crates to a manufacturer's physical stock.
+  Future<void> addEmptyCrates(int manufacturerId, int quantity) async {
+    final row = await (select(manufacturers)..where((t) => t.id.equals(manufacturerId))).getSingleOrNull();
     if (row != null) {
-      await (update(crateGroups)..where((t) => t.id.equals(crateGroupId)))
-          .write(CrateGroupsCompanion(emptyCrateStock: Value(row.emptyCrateStock + quantity)));
+      await (update(manufacturers)..where((t) => t.id.equals(manufacturerId)))
+          .write(ManufacturersCompanion(emptyCrateStock: Value(row.emptyCrateStock + quantity)));
     }
   }
 
-  Future<void> deductEmptyCrates(int crateGroupId, int quantity) async {
-    final row = await (select(crateGroups)..where((t) => t.id.equals(crateGroupId))).getSingleOrNull();
+  /// Deducts empty crates from a manufacturer's physical stock (floors at 0).
+  Future<void> deductEmptyCrates(int manufacturerId, int quantity) async {
+    final row = await (select(manufacturers)..where((t) => t.id.equals(manufacturerId))).getSingleOrNull();
     if (row != null) {
       final newStock = (row.emptyCrateStock - quantity).clamp(0, 999999);
-      await (update(crateGroups)..where((t) => t.id.equals(crateGroupId)))
-          .write(CrateGroupsCompanion(emptyCrateStock: Value(newStock)));
+      await (update(manufacturers)..where((t) => t.id.equals(manufacturerId)))
+          .write(ManufacturersCompanion(emptyCrateStock: Value(newStock)));
     }
   }
 
   /// Streams total bottle inventory per manufacturer for products with crateSize='big'.
+  /// Groups by manufacturer name (mirrored text column) for display.
   Stream<Map<String, int>> watchBigBottlesByManufacturer() {
     final qty = inventory.quantity.sum();
-    final mfrCol = products.manufacturer;
+    final mfrName = manufacturers.name;
     return (selectOnly(products)
-      ..join([leftOuterJoin(inventory, inventory.productId.equalsExp(products.id))])
+      ..join([
+        leftOuterJoin(inventory, inventory.productId.equalsExp(products.id)),
+        leftOuterJoin(manufacturers, manufacturers.id.equalsExp(products.manufacturerId)),
+      ])
       ..where(products.crateSize.equals('big') &
-              products.manufacturer.isNotNull() &
+              products.manufacturerId.isNotNull() &
               products.isDeleted.not())
-      ..addColumns([mfrCol, qty])
-      ..groupBy([mfrCol])
+      ..addColumns([mfrName, qty])
+      ..groupBy([mfrName])
     ).watch().map((rows) {
       final result = <String, int>{};
       for (final row in rows) {
-        final m = row.read(mfrCol);
+        final m = row.read(mfrName);
         if (m != null) result[m] = row.read(qty) ?? 0;
       }
       return result;
     });
   }
 
-  /// Streams total physical empty crates per manufacturer, derived from crate groups
-  /// linked to the manufacturer's big-crate products. Deduplicates shared crate groups.
+  /// Streams physical empty crates per manufacturer directly from the Manufacturers table.
   Stream<Map<String, int>> watchEmptyCratesByManufacturer() {
-    return (select(products)
-      ..where((t) =>
-          t.crateSize.equals('big') &
-          t.manufacturer.isNotNull() &
-          t.isDeleted.not())
-    ).join([
-      leftOuterJoin(crateGroups, crateGroups.id.equalsExp(products.crateGroupId)),
-    ]).watch().map((rows) {
-      final mfrToCgIds = <String, Set<int>>{};
-      final cgStock = <int, int>{};
-      for (final row in rows) {
-        final p = row.readTable(products);
-        final cg = row.readTableOrNull(crateGroups);
-        if (p.manufacturer == null) continue;
-        mfrToCgIds.putIfAbsent(p.manufacturer!, () => <int>{});
-        if (cg != null) {
-          mfrToCgIds[p.manufacturer!]!.add(cg.id);
-          cgStock[cg.id] = cg.emptyCrateStock;
-        }
-      }
-      return mfrToCgIds.map(
-        (mfr, cgIds) => MapEntry(mfr, cgIds.fold(0, (s, id) => s + (cgStock[id] ?? 0))),
-      );
-    });
+    return select(manufacturers).watch().map((list) =>
+        {for (final m in list) m.name: m.emptyCrateStock});
+  }
+
+  /// Streams the sum of all empty crates across all manufacturers.
+  Stream<int> watchTotalManufacturerEmptyCrates() {
+    final qty = manufacturers.emptyCrateStock.sum();
+    final query = selectOnly(manufacturers)..addColumns([qty]);
+    return query.watchSingleOrNull().map((row) => row?.read(qty) ?? 0);
   }
 }
 
@@ -275,15 +319,18 @@ class ManufacturerCrateStats {
   final String manufacturer;
   final int totalBottles;   // sum of inventory for big-crate products
   final int emptyCrates;    // sum of physical empty crates from linked crate groups
+  final int totalValueKobo; // total monetary value of all crates (full & empty)
 
   ManufacturerCrateStats({
     required this.manufacturer,
     required this.totalBottles,
     required this.emptyCrates,
+    required this.totalValueKobo,
   });
 
-  int get fullCratesEquiv => totalBottles ~/ 12;
-  int get totalCrateAssets => fullCratesEquiv + emptyCrates;
+  // Raw bottle count — no longer dividing by 12.
+  int get fullCratesEquiv => totalBottles;
+  int get totalCrateAssets => totalBottles + emptyCrates;
 }
 
 @DriftAccessor(tables: [Orders, OrderItems, Products, Customers])
@@ -292,12 +339,70 @@ class OrdersDao extends DatabaseAccessor<AppDatabase> with _$OrdersDaoMixin {
   Stream<List<OrderData>> watchPendingOrders() => (select(orders)..where((t) => t.status.equals('pending'))).watch();
   Stream<List<OrderData>> watchAllOrders() => select(orders).watch();
   Stream<List<OrderData>> watchOrdersByWarehouse(int? warehouseId) => select(orders).watch();
-  Stream<List<OrderWithItems>> watchAllOrdersWithItems() => Stream.value([]);
+  Stream<List<OrderWithItems>> watchAllOrdersWithItems() {
+    return select(orders).watch().asyncMap((orderList) async {
+      final result = <OrderWithItems>[];
+      for (final order in orderList) {
+        final itemRows = await (select(orderItems).join([
+          innerJoin(products, products.id.equalsExp(orderItems.productId)),
+        ])..where(orderItems.orderId.equals(order.id))).get();
+
+        final itemsWithProducts = itemRows.map((row) => OrderItemDataWithProductData(
+          row.readTable(orderItems),
+          row.readTable(products),
+        )).toList();
+
+        CustomerData? customer;
+        if (order.customerId != null) {
+          customer = await (select(customers)..where((t) => t.id.equals(order.customerId!))).getSingleOrNull();
+        }
+
+        result.add(OrderWithItems(order, itemsWithProducts, customer));
+      }
+      return result;
+    });
+  }
   Stream<List<OrderData>> watchCompletedOrders() => (select(orders)..where((t) => t.status.equals('completed'))).watch();
   Stream<List<OrderData>> watchCancelledOrders() => (select(orders)..where((t) => t.status.equals('cancelled'))).watch();
-  Future<void> markCompleted(int orderId, int staffId) async {}
-  Future<void> markCancelled(int orderId, String reason, int staffId) async {}
-  Future<void> assignRider(int orderId, String riderName) async {}
+  Future<void> markCompleted(int orderId, int staffId) async {
+    await transaction(() async {
+      // 1. Move order to completed
+      await (update(orders)..where((t) => t.id.equals(orderId))).write(
+        OrdersCompanion(
+          status: const Value('completed'),
+          completedAt: Value(DateTime.now()),
+        ),
+      );
+
+      // 2. Deduct stock and add empty crates for every item in the order
+      final items = await (select(orderItems)..where((t) => t.orderId.equals(orderId))).get();
+      for (final item in items) {
+        await db.inventoryDao.deductStock(item.productId, item.warehouseId, item.quantity);
+
+        // Glass products: returning bottles creates empty crates for the manufacturer
+        final product = await (select(products)..where((t) => t.id.equals(item.productId))).getSingleOrNull();
+        if (product?.manufacturerId != null) {
+          await db.inventoryDao.addEmptyCrates(product!.manufacturerId!, item.quantity);
+        }
+      }
+    });
+  }
+
+  Future<void> markCancelled(int orderId, String reason, int staffId) async {
+    await (update(orders)..where((t) => t.id.equals(orderId))).write(
+      OrdersCompanion(
+        status: const Value('cancelled'),
+        cancelledAt: Value(DateTime.now()),
+        cancellationReason: Value(reason),
+      ),
+    );
+  }
+
+  Future<void> assignRider(int orderId, String riderName) async {
+    await (update(orders)..where((t) => t.id.equals(orderId))).write(
+      OrdersCompanion(riderName: Value(riderName)),
+    );
+  }
   Future<String> createOrder({
     required OrdersCompanion order,
     required List<OrderItemsCompanion> items,
@@ -619,6 +724,7 @@ class WarehousesDao extends DatabaseAccessor<AppDatabase> with _$WarehousesDaoMi
   WarehousesDao(super.db);
   Stream<WarehouseData?> watchWarehouse(int id) => (select(warehouses)..where((t) => t.id.equals(id))).watchSingleOrNull();
   Stream<List<UserData>> watchAllStaff() => select(users).watch();
+  Future<List<UserData>> getRiders() => (select(users)..where((t) => t.role.equals('rider'))).get();
   Stream<List<UserData>> watchStaffByWarehouse(int warehouseId) => (select(users)..where((t) => t.warehouseId.equals(warehouseId))).watch();
   Future<void> assignStaffToWarehouse(int userId, int? warehouseId) => (update(users)..where((t) => t.id.equals(userId))).write(UsersCompanion(warehouseId: Value(warehouseId)));
   Stream<Map<int, int>> watchWarehouseStaffCounts() => Stream.value({});

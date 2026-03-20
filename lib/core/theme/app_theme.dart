@@ -3,6 +3,7 @@ import 'colors.dart';
 
 class AppTheme {
   static ThemeData light() => ThemeData(
+    useMaterial3: true,
     brightness: Brightness.light,
     scaffoldBackgroundColor: lBg,
     primaryColor: blueMain,
@@ -17,6 +18,14 @@ class AppTheme {
       foregroundColor: lText,
       elevation: 0,
       centerTitle: false,
+    ),
+    bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+      backgroundColor: lSurface,
+      selectedItemColor: blueMain,
+      unselectedItemColor: Colors.grey,
+      showSelectedLabels: true,
+      showUnselectedLabels: true,
+      type: BottomNavigationBarType.fixed,
     ),
     cardColor: lSurface,
     dividerColor: lBorder,
@@ -42,6 +51,7 @@ class AppTheme {
   );
 
   static ThemeData dark() => ThemeData(
+    useMaterial3: true,
     brightness: Brightness.dark,
     scaffoldBackgroundColor: dBg,
     primaryColor: blueMain,
@@ -56,6 +66,14 @@ class AppTheme {
       foregroundColor: dText,
       elevation: 0,
       centerTitle: false,
+    ),
+    bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+      backgroundColor: dSurface,
+      selectedItemColor: blueMain,
+      unselectedItemColor: Colors.grey,
+      showSelectedLabels: true,
+      showUnselectedLabels: true,
+      type: BottomNavigationBarType.fixed,
     ),
     cardColor: dCard,
     dividerColor: dBorder,

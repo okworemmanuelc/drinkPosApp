@@ -16,7 +16,7 @@ import '../../../shared/services/order_service.dart';
 import '../../../core/database/app_database.dart';
 import '../../customers/data/models/customer.dart';
 import '../../../shared/widgets/user_tips_modal.dart';
-import '../../../shared/widgets/fluid_menu.dart';
+import '../../../shared/widgets/app_dropdown.dart';
 
 const Color warning = Color(0xFFF59E0B);
 
@@ -331,13 +331,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _buildWarehouseDropdown() {
     return SizedBox(
-      width: context.getRSize(140),
-      child: FluidMenu<int?>(
+      width: context.getRSize(160),
+      child: AppDropdown<int?>(
         value: _selectedWarehouseId,
-        placeholder: 'All',
         items: [
-          const FluidMenuItem<int?>(value: null, label: 'All Warehouses'),
-          ..._warehouses.map((wh) => FluidMenuItem(value: wh.id, label: wh.name)),
+          const DropdownMenuItem<int?>(value: null, child: Text('All Warehouses')),
+          ..._warehouses.map((wh) => DropdownMenuItem(value: wh.id, child: Text(wh.name))),
         ],
         onChanged: (v) => setState(() => _selectedWarehouseId = v),
       ),
@@ -346,13 +345,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _buildPeriodDropdown() {
     return SizedBox(
-      width: context.getRSize(120),
-      child: FluidMenu<String>(
+      width: context.getRSize(140),
+      child: AppDropdown<String>(
         value: _selectedPeriod,
-        items: _periods.map((p) => FluidMenuItem(value: p, label: p)).toList(),
-        onChanged: (val) {
-          if (val != null) setState(() => _selectedPeriod = val);
-        },
+        items: _periods.map((p) => DropdownMenuItem(value: p, child: Text(p))).toList(),
+        onChanged: (v) => setState(() => _selectedPeriod = v ?? 'Day'),
       ),
     );
   }

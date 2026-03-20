@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../../core/theme/colors.dart';
@@ -31,6 +32,25 @@ class _StaffDetailsScreenState extends State<StaffDetailsScreen> {
   Color get _text => _isDark ? dText : lText;
   Color get _subtext => _isDark ? dSubtext : lSubtext;
   Color get _border => _isDark ? dBorder : lBorder;
+  List<OrderData> _staffOrders = [];
+  StreamSubscription<List<OrderData>>? _ordersSub;
+
+  @override
+  void initState() {
+    super.initState();
+    _ordersSub = (database.select(database.orders)
+          ..where((t) => t.staffId.equals(widget.user.id)))
+        .watch()
+        .listen((data) {
+      if (mounted) setState(() => _staffOrders = data);
+    });
+  }
+
+  @override
+  void dispose() {
+    _ordersSub?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -218,27 +238,26 @@ class _StaffDetailsScreenState extends State<StaffDetailsScreen> {
   }
 
   Widget _buildPerformanceMetrics(bool isWide) {
-    return StreamBuilder<List<OrderData>>(
-      stream: (database.select(database.orders)..where((t) => t.staffId.equals(widget.user.id))).watch(),
-      builder: (context, snapshot) {
-        final orders = snapshot.data ?? [];
-        final completed = orders.where((o) => o.status == 'completed').toList();
-        final totalSales = completed.fold<double>(0.0, (sum, o) => sum + (o.netAmountKobo / 100.0));
+    final orders = _staffOrders;
+    final completed = orders.where((o) => o.status == 'completed').toList();
+    final totalSales =
+        completed.fold<double>(0.0, (sum, o) => sum + (o.netAmountKobo / 100.0));
 
-        return GridView.count(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          crossAxisCount: isWide ? 3 : 2,
-          mainAxisSpacing: rSize(context, 12),
-          crossAxisSpacing: rSize(context, 12),
-          childAspectRatio: 1.2,
-          children: [
-            _statCard('Total Orders', orders.length.toString(), FontAwesomeIcons.receipt, blueMain),
-            _statCard('Completed', completed.length.toString(), FontAwesomeIcons.checkDouble, AppColors.success),
-            _statCard('Sales Volume', formatCurrency(totalSales), FontAwesomeIcons.nairaSign, const Color(0xFFA855F7)),
-          ],
-        );
-      },
+    return GridView.count(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      crossAxisCount: isWide ? 3 : 2,
+      mainAxisSpacing: rSize(context, 12),
+      crossAxisSpacing: rSize(context, 12),
+      childAspectRatio: 1.2,
+      children: [
+        _statCard('Total Orders', orders.length.toString(),
+            FontAwesomeIcons.receipt, blueMain),
+        _statCard('Completed', completed.length.toString(),
+            FontAwesomeIcons.checkDouble, AppColors.success),
+        _statCard('Sales Volume', formatCurrency(totalSales),
+            FontAwesomeIcons.nairaSign, const Color(0xFFA855F7)), // Fixed later if needed
+      ],
     );
   }
 

@@ -22,19 +22,21 @@ class OrderService {
       netAmountKobo: totalAmountKobo, // Assuming no discount for now
       amountPaidKobo: Value(amountPaidKobo),
       paymentType: paymentType,
-      status: 'completed',
+      status: 'pending',
       createdAt: Value(DateTime.now()),
       staffId: Value(staffId ?? 1),
     );
 
     final items = cart.map((item) {
+      final price = (item['price'] as num).toDouble();
+      final qty   = (item['qty']   as num).toDouble();
       return OrderItemsCompanion.insert(
         orderId: 0, // Set by DAO
-        productId: item['product'].id,
+        productId: (item['id'] as int?) ?? 0,
         warehouseId: 1, // Defaulting to main warehouse
-        quantity: (item['quantity'] as double).toInt(),
-        unitPriceKobo: (item['price'] * 100).round(),
-        totalKobo: (item['total'] * 100).round(),
+        quantity: qty.toInt(),
+        unitPriceKobo: (price * 100).round(),
+        totalKobo: (price * qty * 100).round(),
       );
     }).toList();
 
@@ -101,6 +103,10 @@ class OrderService {
 
   Future<void> assignRider(int orderId, String riderName) {
     return _ordersDao.assignRider(orderId, riderName);
+  }
+
+  Future<List<UserData>> getRiders() {
+    return database.warehousesDao.getRiders();
   }
 }
 

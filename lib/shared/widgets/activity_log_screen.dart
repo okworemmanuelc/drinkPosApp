@@ -10,7 +10,7 @@ import '../../features/inventory/data/inventory_data.dart';
 import '../../features/warehouse/data/models/warehouse.dart';
 import 'app_drawer.dart';
 import 'notification_bell.dart';
-import 'fluid_menu.dart';
+import 'app_dropdown.dart';
 
 class ActivityLogScreen extends StatefulWidget {
   const ActivityLogScreen({super.key});
@@ -199,18 +199,17 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
         color: surfaceCol,
         border: Border(bottom: BorderSide(color: borderCol)),
       ),
-      child: FluidMenu<String?>(
-            label: 'Filter by Warehouse',
-            value: _selectedWarehouseId,
-            placeholder: 'All Warehouses',
-            items: [
-              const FluidMenuItem<String?>(value: null, label: 'All Warehouses'),
-              ...kWarehouses.map((w) {
-                return FluidMenuItem<String?>(value: w.id, label: w.name);
-              }),
-            ],
-            onChanged: (val) => setState(() => _selectedWarehouseId = val),
-          ),
+      child: AppDropdown<String?>(
+        labelText: 'Filter by Warehouse',
+        value: _selectedWarehouseId,
+        items: [
+          const DropdownMenuItem<String?>(value: null, child: Text('All Warehouses')),
+          ...kWarehouses.map((w) {
+            return DropdownMenuItem<String?>(value: w.id, child: Text(w.name));
+          }),
+        ],
+        onChanged: (val) => setState(() => _selectedWarehouseId = val),
+      ),
     );
   }
 

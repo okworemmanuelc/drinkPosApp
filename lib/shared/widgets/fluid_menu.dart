@@ -45,7 +45,7 @@ class FluidMenu<T> extends StatelessWidget {
       builder: (context, mode, _) {
         final bool isDark = mode == ThemeMode.dark;
         final Color surface = isDark ? dSurface : lSurface;
-        final Color card = isDark ? dCard : lCard;
+
         final Color text = isDark ? dText : lText;
         final Color subtext = isDark ? dSubtext : lSubtext;
         final Color border = isDark ? dBorder : lBorder;
@@ -99,9 +99,8 @@ class FluidMenu<T> extends StatelessWidget {
                         width: bounded && isExpanded ? constraints.maxWidth : width,
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                         decoration: BoxDecoration(
-                          color: card,
+                          color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
                           borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: border),
                         ),
                         child: Row(
                           mainAxisSize: bounded ? MainAxisSize.max : MainAxisSize.min,
@@ -111,7 +110,7 @@ class FluidMenu<T> extends StatelessWidget {
                                 child: Text(
                                   selectedItem?.label ?? placeholder ?? 'Select option',
                                   style: TextStyle(
-                                    fontSize: 14,
+                                    fontSize: 13,
                                     fontWeight: FontWeight.w600,
                                     color: selectedItem != null ? text : subtext,
                                   ),
@@ -122,7 +121,7 @@ class FluidMenu<T> extends StatelessWidget {
                               Text(
                                 selectedItem?.label ?? placeholder ?? 'Select option',
                                 style: TextStyle(
-                                  fontSize: 14,
+                                  fontSize: 13,
                                   fontWeight: FontWeight.w600,
                                   color: selectedItem != null ? text : subtext,
                                 ),
@@ -155,7 +154,7 @@ class FluidMenu<T> extends StatelessWidget {
                   child: Text(
                     item.label,
                     style: TextStyle(
-                      fontSize: 14,
+                      fontSize: 13,
                       fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
                       color: isSelected ? blueMain : text,
                     ),

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-
 import '../../../../core/theme/colors.dart';
 import '../../../../core/theme/theme_notifier.dart';
 import '../../../../core/utils/number_format.dart';
@@ -8,7 +7,7 @@ import '../../../../core/utils/responsive.dart';
 import '../../../../shared/services/activity_log_service.dart';
 import '../../inventory/data/models/supplier.dart';
 import '../../inventory/data/services/supplier_service.dart';
-import '../../../shared/widgets/fluid_menu.dart';
+import '../../../shared/widgets/app_dropdown.dart';
 import '../data/models/delivery.dart';
 import '../data/services/delivery_service.dart';
 import '../../../../core/database/app_database.dart';
@@ -55,6 +54,8 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
   final List<_DeliveryItemLine> _lines = [];
   List<CrateGroupData> _crateGroups = [];
   List<ProductData> _allProducts = [];
+  List<WarehouseData> _warehouses = [];
+  WarehouseData? _selectedWarehouse;
 
   bool get _isDark => themeNotifier.value == ThemeMode.dark;
   Color get _surface => _isDark ? dSurface : lSurface;
@@ -69,6 +70,7 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
     _addLine(null);
     _loadCrateGroups();
     _loadProducts();
+    _loadWarehouses();
   }
 
   Future<void> _loadCrateGroups() async {
@@ -79,6 +81,16 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
   Future<void> _loadProducts() async {
     final products = await database.catalogDao.watchAvailableProductDatas().first;
     if (mounted) setState(() => _allProducts = products);
+  }
+
+  Future<void> _loadWarehouses() async {
+    final whs = await database.select(database.warehouses).get();
+    if (mounted) {
+      setState(() {
+        _warehouses = whs;
+        if (whs.isNotEmpty) _selectedWarehouse = whs.first;
+      });
+    }
   }
 
   @override
@@ -120,59 +132,92 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
   }
 
   Future<void> _submit() async {
-    bool isValid = true;
-    for (var l in _lines) {
-      if (l.productCtrl.text.isEmpty ||
-          (double.tryParse(l.qtyCtrl.text) ?? 0) <= 0 ||
-          l.selectedSupplier == null) {
-        isValid = false;
-        break;
-      }
-    }
-    if (!isValid) {
+    // Validate warehouse
+    if (_selectedWarehouse == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please fill product name, quantity > 0, and select a supplier'),
+          content: Text('Please select a destination warehouse.'),
           backgroundColor: danger,
         ),
       );
       return;
     }
 
+    // Validate each line
+    for (var l in _lines) {
+      if (l.selectedProduct == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Select a product from the list for each item.'),
+            backgroundColor: danger,
+          ),
+        );
+        return;
+      }
+      if ((double.tryParse(l.qtyCtrl.text) ?? 0) <= 0) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Quantity must be greater than 0 for each item.'),
+            backgroundColor: danger,
+          ),
+        );
+        return;
+      }
+      if (l.selectedSupplier == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please select a supplier for each item.'),
+            backgroundColor: danger,
+          ),
+        );
+        return;
+      }
+      if (l.selectedCategory == 'Glass Crates' && l.selectedCrateGroup == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Select a Crate Company for Glass Crate items.'),
+            backgroundColor: danger,
+          ),
+        );
+        return;
+      }
+    }
+
     final deliveryId = DateTime.now().millisecondsSinceEpoch.toString();
-    double grandTotal = 0;
     double totalQty = 0;
     final List<DeliveryItem> deliveryItems = [];
 
-    String mainSupplierName = 'Multiple Suppliers / Unknown';
-    if (_lines.isNotEmpty && _lines.first.selectedSupplier != null) {
-      mainSupplierName = _lines.first.selectedSupplier!.name;
-    } else if (_lines.isNotEmpty) {
-      mainSupplierName = '${_lines.first.productCtrl.text} Supplier';
-    }
+    String mainSupplierName = _lines.first.selectedSupplier!.name;
 
     for (var l in _lines) {
-      final qty = double.tryParse(l.qtyCtrl.text) ?? 0;
+      final qty = (double.tryParse(l.qtyCtrl.text) ?? 0).toInt();
       totalQty += qty;
 
-      if (l.selectedProduct != null) {
-        // Auto-add empty crates to DB for glass products (1:1 with quantity)
-        if (l.selectedCrateGroup != null) {
-          await database.inventoryDao.addEmptyCrates(
-            l.selectedCrateGroup!.id,
-            qty.toInt(),
-          );
-        }
+      // Update stock in the database
+      await database.inventoryDao.adjustStock(
+        l.selectedProduct!.id,
+        _selectedWarehouse!.id,
+        qty,
+        'Delivery received',
+        null,
+      );
+
+      // Auto-add empty crates for glass products
+      if (l.selectedCrateGroup != null) {
+        await database.inventoryDao.addEmptyCrates(
+          l.selectedCrateGroup!.id,
+          qty,
+        );
       }
 
       deliveryItems.add(
         DeliveryItem(
-          productId: l.selectedProduct?.id.toString() ?? '',
-          productName: l.productCtrl.text,
-          supplierName: l.selectedSupplier?.name ?? mainSupplierName,
+          productId: l.selectedProduct!.id.toString(),
+          productName: l.selectedProduct!.name,
+          supplierName: l.selectedSupplier!.name,
           crateGroupLabel: l.selectedCrateGroup?.name,
           unitPrice: 0,
-          quantity: qty,
+          quantity: qty.toDouble(),
         ),
       );
     }
@@ -182,7 +227,7 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
       supplierName: mainSupplierName,
       deliveredAt: DateTime.now(),
       items: deliveryItems,
-      totalValue: grandTotal,
+      totalValue: 0,
       status: 'confirmed',
     );
 
@@ -190,7 +235,7 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
 
     await activityLogService.logAction(
       "Delivery Received",
-      "Delivery from $mainSupplierName — ${deliveryItems.length} item(s) received into inventory",
+      "Delivery from $mainSupplierName to ${_selectedWarehouse!.name} — ${deliveryItems.length} item(s), ${totalQty.toInt()} units added to stock",
       relatedEntityId: delivery.id,
       relatedEntityType: "delivery",
     );
@@ -200,7 +245,8 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
     Navigator.pop(context);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Delivery of ${totalQty.toInt()} items received.'),
+        content: Text(
+          '${totalQty.toInt()} units added to ${_selectedWarehouse!.name}.'),
         backgroundColor: success,
       ),
     );
@@ -379,7 +425,29 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
                             color: _subtext,
                           ),
                         ),
-                        SizedBox(height: context.getRSize(20)),
+                        SizedBox(height: context.getRSize(16)),
+                        // ── WAREHOUSE SELECTOR ─────────────────────────────
+                        if (_warehouses.isEmpty)
+                          const Text(
+                            'No warehouses found. Add a warehouse first.',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: danger,
+                            ),
+                          )
+                        else
+                          AppDropdown<WarehouseData?>(
+                            labelText: 'DESTINATION WAREHOUSE *',
+                            value: _selectedWarehouse,
+                            items: _warehouses
+                                .map((w) => DropdownMenuItem(
+                                      value: w,
+                                      child: Text(w.name),
+                                    ))
+                                .toList(),
+                            onChanged: (v) => setState(() => _selectedWarehouse = v),
+                          ),
+                        SizedBox(height: context.getRSize(16)),
                       ],
                     ),
                   ),
@@ -442,7 +510,7 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
             SizedBox(height: context.getRSize(12)),
 
             _inputField(
-              'Product',
+              'Product *',
               line.productCtrl,
               'Start typing product name...',
               isAutocomplete: true,
@@ -455,25 +523,24 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
 
             const SizedBox(height: 12),
 
-            FluidMenu<String>(
-              label: 'Category',
+            AppDropdown<String>(
+              labelText: 'Category',
               value: line.selectedCategory,
               items: ['Glass Crates', 'Cans & PET', 'Kegs', 'Other']
-                  .map((c) => FluidMenuItem(value: c, label: c))
+                  .map((c) => DropdownMenuItem(value: c, child: Text(c)))
                   .toList(),
               onChanged: (v) => setState(() => line.selectedCategory = v!),
             ),
 
             if (line.selectedCategory == 'Glass Crates') ...[
               const SizedBox(height: 12),
-              FluidMenu<CrateGroupData>(
-                label: 'Crate Company',
+              AppDropdown<CrateGroupData>(
+                labelText: 'Crate Company *',
                 value: line.selectedCrateGroup,
-                placeholder: 'Select Crate Company',
                 items: _crateGroups.map((cg) {
-                  return FluidMenuItem(
+                  return DropdownMenuItem(
                     value: cg,
-                    label: '${cg.name} (${cg.size} bottles)',
+                    child: Text('${cg.name} (${cg.size} bottles)'),
                   );
                 }).toList(),
                 onChanged: (v) => setState(() => line.selectedCrateGroup = v),
@@ -482,11 +549,11 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
 
             const SizedBox(height: 12),
 
-            FluidMenu<Supplier>(
-              label: 'Supplier',
+            AppDropdown<Supplier>(
+              labelText: 'Supplier *',
               value: line.selectedSupplier,
               items: supplierService.getAll().map((s) {
-                return FluidMenuItem(value: s, label: s.name);
+                return DropdownMenuItem(value: s, child: Text(s.name));
               }).toList(),
               onChanged: (val) => setState(() => line.selectedSupplier = val),
             ),
@@ -503,7 +570,7 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
             const SizedBox(height: 12),
 
             _inputField(
-              'Qty',
+              'Qty *',
               line.qtyCtrl,
               '0',
               isNumber: true,

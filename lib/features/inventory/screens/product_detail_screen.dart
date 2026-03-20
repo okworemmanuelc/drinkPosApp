@@ -7,6 +7,7 @@ import '../../../core/utils/number_format.dart';
 import '../../../core/utils/responsive.dart';
 import '../../../core/utils/stock_calculator.dart';
 import '../data/models/inventory_item.dart';
+import '../../../shared/widgets/app_dropdown.dart';
 import '../../../core/database/app_database.dart';
 import '../../../shared/services/cart_service.dart';
 
@@ -32,17 +33,20 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   late TextEditingController _nameController;
   late TextEditingController _subtitleController;
   late TextEditingController _quantityController;
-  late TextEditingController _manufacturerController;
   late TextEditingController _buyingPriceController;
   late TextEditingController _retailPriceController;
   late TextEditingController _bulkBreakerPriceController;
   late TextEditingController _distributorPriceController;
   late TextEditingController _monthlyTargetController;
   late TextEditingController _emptyCratesController;
+  late TextEditingController _emptyCrateValueController;
 
   int _monthlyTarget = 0;
   int? _emptyCrateStock; // original value loaded from DB
-  int? _crateGroupId;    // DB id of the linked crate group
+  int? _selectedManufacturerId; // DB id of the linked manufacturer
+  int? _selectedCategoryId;
+  List<CategoryData> _allCategories = [];
+  List<ManufacturerData> _allManufacturers = [];
 
   ProductSalesSummary? _salesSummary;
   LastDeliveryInfo? _lastDelivery;
@@ -58,31 +62,42 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         widget.item.totalStock % 1 == 0 ? 0 : 1,
       ),
     );
-    _manufacturerController = TextEditingController(text: widget.item.manufacturer ?? '');
     _buyingPriceController = TextEditingController(text: (widget.item.buyingPrice ?? 0).toString());
     _retailPriceController = TextEditingController(text: (widget.item.retailPrice ?? 0).toString());
     _bulkBreakerPriceController = TextEditingController(text: (widget.item.bulkBreakerPrice ?? 0).toString());
     _distributorPriceController = TextEditingController(text: (widget.item.distributorPrice ?? 0).toString());
     _monthlyTargetController = TextEditingController(text: '0');
     _emptyCratesController = TextEditingController(text: '0');
+    _emptyCrateValueController = TextEditingController(text: '0');
 
     _loadProductData();
-    if (widget.item.crateGroupName != null) {
-      _loadEmptyCrateStock();
-    }
   }
 
   Future<void> _loadProductData() async {
     final productId = int.tryParse(widget.item.id);
     if (productId == null) return;
 
-    // Load monthly target from DB
+    // Load monthly target, categories, manufacturers from DB
     final product = await database.catalogDao.findById(productId);
-    if (product != null && mounted) {
+    final categories = await database.select(database.categories).get();
+    final manufacturers = await database.inventoryDao.getAllManufacturers();
+
+    if (mounted) {
       setState(() {
-        _monthlyTarget = product.monthlyTargetUnits;
-        _monthlyTargetController.text = _monthlyTarget.toString();
+        _allCategories = categories;
+        _allManufacturers = manufacturers;
+        if (product != null) {
+          _monthlyTarget = product.monthlyTargetUnits;
+          _monthlyTargetController.text = _monthlyTarget.toString();
+          _selectedCategoryId = product.categoryId;
+          _selectedManufacturerId = product.manufacturerId;
+          _emptyCrateValueController.text = (product.emptyCrateValueKobo / 100).toStringAsFixed(0);
+        }
       });
+      // Load empty crate stock from manufacturer if linked
+      if (product?.manufacturerId != null) {
+        _loadEmptyCrateStock(product!.manufacturerId!);
+      }
     }
 
     // Load sales summary from completed orders
@@ -99,14 +114,13 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     }
   }
 
-  Future<void> _loadEmptyCrateStock() async {
-    final groups = await database.inventoryDao.getAllCrateGroups();
-    final match = groups.where((g) => g.name == widget.item.crateGroupName);
-    if (match.isNotEmpty && mounted) {
+  Future<void> _loadEmptyCrateStock(int manufacturerId) async {
+    final manufacturers = await database.inventoryDao.getAllManufacturers();
+    final mfr = manufacturers.where((m) => m.id == manufacturerId).firstOrNull;
+    if (mfr != null && mounted) {
       setState(() {
-        _emptyCrateStock = match.first.emptyCrateStock;
-        _crateGroupId = match.first.id;
-        _emptyCratesController.text = _emptyCrateStock.toString();
+        _emptyCrateStock = mfr.emptyCrateStock;
+        _emptyCratesController.text = mfr.emptyCrateStock.toString();
       });
     }
   }
@@ -116,13 +130,13 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     _nameController.dispose();
     _subtitleController.dispose();
     _quantityController.dispose();
-    _manufacturerController.dispose();
     _buyingPriceController.dispose();
     _retailPriceController.dispose();
     _bulkBreakerPriceController.dispose();
     _distributorPriceController.dispose();
     _monthlyTargetController.dispose();
     _emptyCratesController.dispose();
+    _emptyCrateValueController.dispose();
     super.dispose();
   }
 
@@ -401,44 +415,55 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               'Manufacturer',
               '',
               const Color(0xFF6366F1),
-              trailing: Container(
-                width: context.getRSize(120),
-                padding: EdgeInsets.symmetric(
-                  horizontal: context.getRSize(8),
-                  vertical: context.getRSize(4),
-                ),
-                decoration: BoxDecoration(
-                  color: _bg,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: _border),
-                ),
-                child: TextField(
-                  controller: _manufacturerController,
-                  textAlign: TextAlign.end,
-                  style: TextStyle(
-                    fontSize: context.getRFontSize(13),
-                    fontWeight: FontWeight.bold,
-                    color: _text,
-                  ),
-                  decoration: InputDecoration(
-                    isDense: true,
-                    contentPadding: EdgeInsets.zero,
-                    border: InputBorder.none,
-                    hintText: 'e.g. Nigerian Breweries',
-                    hintStyle: TextStyle(fontSize: context.getRFontSize(10)),
-                  ),
-                  onChanged: (v) => setState(() {}),
+              trailing: SizedBox(
+                width: context.getRSize(160),
+                child: AppDropdown<int?>(
+                  value: _selectedManufacturerId,
+                  items: [
+                    DropdownMenuItem<int?>(
+                      value: null,
+                      child: Text('None', style: TextStyle(color: _subtext, fontSize: context.getRFontSize(12))),
+                    ),
+                    ..._allManufacturers.map((m) => DropdownMenuItem<int?>(
+                      value: m.id,
+                      child: Text(m.name, overflow: TextOverflow.ellipsis),
+                    )),
+                  ],
+                  onChanged: (v) => setState(() => _selectedManufacturerId = v),
                 ),
               ),
             ),
             _divider(context),
-            // Empty Crates — editable
+            // Category Dropdown
             _infoRow(
               context,
-              FontAwesomeIcons.beerMugEmpty,
-              'Empty Crates',
+              FontAwesomeIcons.tag,
+              'Category',
               '',
-              const Color(0xFFF59E0B),
+              success,
+              trailing: SizedBox(
+                width: context.getRSize(150),
+                child: AppDropdown<int?>(
+                  value: _selectedCategoryId,
+                  items: [
+                    const DropdownMenuItem(value: null, child: Text("None")),
+                    ..._allCategories.map((c) => DropdownMenuItem(
+                          value: c.id,
+                          child: Text(c.name),
+                        )),
+                  ],
+                  onChanged: (val) => setState(() => _selectedCategoryId = val),
+                ),
+              ),
+            ),
+            _divider(context),
+            // Empty Crate Value
+            _infoRow(
+              context,
+              FontAwesomeIcons.circleDollarToSlot,
+              'Empty Crate Value',
+              '',
+              const Color(0xFF14B8A6),
               trailing: Container(
                 width: context.getRSize(90),
                 padding: EdgeInsets.symmetric(
@@ -451,9 +476,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   border: Border.all(color: _border),
                 ),
                 child: TextField(
-                  controller: _emptyCratesController,
+                  controller: _emptyCrateValueController,
                   keyboardType: TextInputType.number,
-                  textAlign: TextAlign.center,
+                  textAlign: TextAlign.end,
                   style: TextStyle(
                     fontSize: context.getRFontSize(14),
                     fontWeight: FontWeight.bold,
@@ -463,6 +488,37 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     isDense: true,
                     contentPadding: EdgeInsets.zero,
                     border: InputBorder.none,
+                    prefixText: '₦',
+                    prefixStyle: TextStyle(fontSize: 12),
+                  ),
+                  onChanged: (v) => setState(() {}),
+                ),
+              ),
+            ),
+            _divider(context),
+            // Empty Crates — uneditable, shows manufacturer total
+            _infoRow(
+              context,
+              FontAwesomeIcons.beerMugEmpty,
+              'Empty Crates',
+              '',
+              const Color(0xFFF59E0B),
+              trailing: Container(
+                padding: EdgeInsets.symmetric(
+                  horizontal: context.getRSize(12),
+                  vertical: context.getRSize(6),
+                ),
+                decoration: BoxDecoration(
+                  color: blueMain.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: blueMain.withValues(alpha: 0.2)),
+                ),
+                child: Text(
+                  _emptyCrateStock?.toString() ?? '0',
+                  style: TextStyle(
+                    fontSize: context.getRFontSize(14),
+                    fontWeight: FontWeight.bold,
+                    color: blueMain,
                   ),
                 ),
               ),
@@ -1031,39 +1087,42 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     }
 
     final newQty = double.tryParse(_quantityController.text) ?? widget.item.totalStock;
-    final manufacturer = _manufacturerController.text.trim();
     final buying = double.tryParse(_buyingPriceController.text) ?? 0;
     final retail = double.tryParse(_retailPriceController.text) ?? 0;
     final bulk = double.tryParse(_bulkBreakerPriceController.text) ?? 0;
     final distributor = double.tryParse(_distributorPriceController.text) ?? 0;
 
+    final emptyVal = double.tryParse(_emptyCrateValueController.text) ?? 0;
     final productId = int.parse(widget.item.id);
 
     try {
-      // 1. Update Products table — name, manufacturer, prices
-      //    Retail price is used as the selling price (no separate field)
+      // 1. Update Products table — name, manufacturer, prices, empty crate value, category
+      final mfr = _allManufacturers.where((m) => m.id == _selectedManufacturerId).firstOrNull;
       await database.catalogDao.updateProductDetails(
         productId,
         name: name,
-        manufacturer: manufacturer.isEmpty ? null : manufacturer,
+        manufacturer: mfr?.name,
+        manufacturerId: _selectedManufacturerId,
         buyingPriceKobo: (buying * 100).round(),
         retailPriceKobo: (retail * 100).round(),
         bulkBreakerPriceKobo: bulk > 0 ? (bulk * 100).round() : null,
         distributorPriceKobo: distributor > 0 ? (distributor * 100).round() : null,
+        emptyCrateValueKobo: (emptyVal * 100).round(),
+        categoryId: _selectedCategoryId,
       );
 
       // 2. Save monthly target
       await database.catalogDao.updateMonthlyTarget(productId, _monthlyTarget);
 
-      // 3. Adjust empty crates if the value was changed
-      if (_crateGroupId != null) {
+      // 3. Adjust empty crates on the manufacturer if linked
+      if (_selectedManufacturerId != null) {
         final newCrates = int.tryParse(_emptyCratesController.text) ?? 0;
         final originalCrates = _emptyCrateStock ?? 0;
         final crateDelta = newCrates - originalCrates;
         if (crateDelta > 0) {
-          await database.inventoryDao.addEmptyCrates(_crateGroupId!, crateDelta);
+          await database.inventoryDao.addEmptyCrates(_selectedManufacturerId!, crateDelta);
         } else if (crateDelta < 0) {
-          await database.inventoryDao.deductEmptyCrates(_crateGroupId!, -crateDelta);
+          await database.inventoryDao.deductEmptyCrates(_selectedManufacturerId!, -crateDelta);
         }
         setState(() => _emptyCrateStock = newCrates);
       }
@@ -1094,7 +1153,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       // 6. Update local item object for UI feedback
       setState(() {
         widget.item.productName = name;
-        widget.item.manufacturer = manufacturer;
+        widget.item.manufacturer = mfr?.name;
         widget.item.buyingPrice = buying;
         widget.item.retailPrice = retail;
         widget.item.bulkBreakerPrice = bulk;

@@ -749,29 +749,43 @@ class _CartScreenState extends State<CartScreen> {
         .toList();
     final hasGlass = glassItems.isNotEmpty;
 
-    // Aggregate qty per crateGroupId
-    final Map<int, double> crateQtyMap = {};
-    for (final item in glassItems) {
-      final groupId = item['crateGroupId'] as int;
-      crateQtyMap[groupId] = (crateQtyMap[groupId] ?? 0) +
-          (item['qty'] as num).toDouble();
-    }
-
-    // Compute deposit per group
+    // Compute aggregate deposit across items
     double computedDeposit = 0;
     final List<_CrateDepositLine> depositLines = [];
-    for (final entry in crateQtyMap.entries) {
-      final cg = _crateGroups.where((g) => g.id == entry.key).firstOrNull;
+    final Map<int, double> groupAmounts = {};
+    final Map<int, double> groupQtys = {};
+    final Map<int, String> groupNames = {};
+
+    for (final item in glassItems) {
+      final groupId = item['crateGroupId'] as int?;
+      if (groupId == null) continue;
+
+      final cg = _crateGroups.where((g) => g.id == groupId).firstOrNull;
       if (cg == null) continue;
-      final depositPerCrate = cg.depositAmountKobo / 100.0;
-      final amount = entry.value * depositPerCrate;
+
+      // Product-specific overrides CrateGroup default
+      final productValue = (item['emptyCrateValueKobo'] ?? 0) as num;
+      final depositPerCrate = productValue > 0
+          ? productValue / 100.0
+          : cg.depositAmountKobo / 100.0;
+
+      final qty = (item['qty'] as num).toDouble();
+      final amount = qty * depositPerCrate;
+
       computedDeposit += amount;
+      groupQtys[groupId] = (groupQtys[groupId] ?? 0) + qty;
+      groupAmounts[groupId] = (groupAmounts[groupId] ?? 0) + amount;
+      groupNames[groupId] = cg.name;
+    }
+
+    for (final groupId in groupQtys.keys) {
+      final cg = _crateGroups.where((g) => g.id == groupId).firstOrNull;
       depositLines.add(
         _CrateDepositLine(
-          label: cg.name,
-          color: _crateColor(cg),
-          qty: entry.value,
-          amount: amount,
+          label: groupNames[groupId]!,
+          color: cg != null ? _crateColor(cg) : blueMain,
+          qty: groupQtys[groupId]!,
+          amount: groupAmounts[groupId]!,
         ),
       );
     }
@@ -779,7 +793,7 @@ class _CartScreenState extends State<CartScreen> {
     // Customer crate balance offset
     double customerCrateCredit = 0;
     if (hasGlass && _activeCustomer != null) {
-      for (final entry in crateQtyMap.entries) {
+      for (final entry in groupQtys.entries) {
         final cg = _crateGroups.where((g) => g.id == entry.key).firstOrNull;
         if (cg == null) continue;
         final depositPerCrate = cg.depositAmountKobo / 100.0;
@@ -788,8 +802,8 @@ class _CartScreenState extends State<CartScreen> {
       }
     }
 
-    // Total = Subtotal + manually entered crate deposit only
-    final tot = sub + _crateDeposit;
+    // Total = Subtotal + Required Deposit + Manual Deposit - Credit
+    final tot = sub + computedDeposit + _crateDeposit - customerCrateCredit;
 
     final customerName = _activeCustomer?.name ?? 'Walk-in Customer';
     final customerWallet = _activeCustomer?.customerWallet ?? 0.0;

@@ -358,6 +358,316 @@ class CrateGroupsCompanion extends UpdateCompanion<CrateGroupData> {
   }
 }
 
+class $ManufacturersTable extends Manufacturers
+    with TableInfo<$ManufacturersTable, ManufacturerData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $ManufacturersTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _emptyCrateStockMeta = const VerificationMeta(
+    'emptyCrateStock',
+  );
+  @override
+  late final GeneratedColumn<int> emptyCrateStock = GeneratedColumn<int>(
+    'empty_crate_stock',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _depositAmountKoboMeta = const VerificationMeta(
+    'depositAmountKobo',
+  );
+  @override
+  late final GeneratedColumn<int> depositAmountKobo = GeneratedColumn<int>(
+    'deposit_amount_kobo',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    name,
+    emptyCrateStock,
+    depositAmountKobo,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'manufacturers';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<ManufacturerData> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('empty_crate_stock')) {
+      context.handle(
+        _emptyCrateStockMeta,
+        emptyCrateStock.isAcceptableOrUnknown(
+          data['empty_crate_stock']!,
+          _emptyCrateStockMeta,
+        ),
+      );
+    }
+    if (data.containsKey('deposit_amount_kobo')) {
+      context.handle(
+        _depositAmountKoboMeta,
+        depositAmountKobo.isAcceptableOrUnknown(
+          data['deposit_amount_kobo']!,
+          _depositAmountKoboMeta,
+        ),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  ManufacturerData map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return ManufacturerData(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      )!,
+      emptyCrateStock: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}empty_crate_stock'],
+      )!,
+      depositAmountKobo: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}deposit_amount_kobo'],
+      )!,
+    );
+  }
+
+  @override
+  $ManufacturersTable createAlias(String alias) {
+    return $ManufacturersTable(attachedDatabase, alias);
+  }
+}
+
+class ManufacturerData extends DataClass
+    implements Insertable<ManufacturerData> {
+  final int id;
+  final String name;
+  final int emptyCrateStock;
+  final int depositAmountKobo;
+  const ManufacturerData({
+    required this.id,
+    required this.name,
+    required this.emptyCrateStock,
+    required this.depositAmountKobo,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['name'] = Variable<String>(name);
+    map['empty_crate_stock'] = Variable<int>(emptyCrateStock);
+    map['deposit_amount_kobo'] = Variable<int>(depositAmountKobo);
+    return map;
+  }
+
+  ManufacturersCompanion toCompanion(bool nullToAbsent) {
+    return ManufacturersCompanion(
+      id: Value(id),
+      name: Value(name),
+      emptyCrateStock: Value(emptyCrateStock),
+      depositAmountKobo: Value(depositAmountKobo),
+    );
+  }
+
+  factory ManufacturerData.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return ManufacturerData(
+      id: serializer.fromJson<int>(json['id']),
+      name: serializer.fromJson<String>(json['name']),
+      emptyCrateStock: serializer.fromJson<int>(json['emptyCrateStock']),
+      depositAmountKobo: serializer.fromJson<int>(json['depositAmountKobo']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'name': serializer.toJson<String>(name),
+      'emptyCrateStock': serializer.toJson<int>(emptyCrateStock),
+      'depositAmountKobo': serializer.toJson<int>(depositAmountKobo),
+    };
+  }
+
+  ManufacturerData copyWith({
+    int? id,
+    String? name,
+    int? emptyCrateStock,
+    int? depositAmountKobo,
+  }) => ManufacturerData(
+    id: id ?? this.id,
+    name: name ?? this.name,
+    emptyCrateStock: emptyCrateStock ?? this.emptyCrateStock,
+    depositAmountKobo: depositAmountKobo ?? this.depositAmountKobo,
+  );
+  ManufacturerData copyWithCompanion(ManufacturersCompanion data) {
+    return ManufacturerData(
+      id: data.id.present ? data.id.value : this.id,
+      name: data.name.present ? data.name.value : this.name,
+      emptyCrateStock: data.emptyCrateStock.present
+          ? data.emptyCrateStock.value
+          : this.emptyCrateStock,
+      depositAmountKobo: data.depositAmountKobo.present
+          ? data.depositAmountKobo.value
+          : this.depositAmountKobo,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ManufacturerData(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('emptyCrateStock: $emptyCrateStock, ')
+          ..write('depositAmountKobo: $depositAmountKobo')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, name, emptyCrateStock, depositAmountKobo);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is ManufacturerData &&
+          other.id == this.id &&
+          other.name == this.name &&
+          other.emptyCrateStock == this.emptyCrateStock &&
+          other.depositAmountKobo == this.depositAmountKobo);
+}
+
+class ManufacturersCompanion extends UpdateCompanion<ManufacturerData> {
+  final Value<int> id;
+  final Value<String> name;
+  final Value<int> emptyCrateStock;
+  final Value<int> depositAmountKobo;
+  const ManufacturersCompanion({
+    this.id = const Value.absent(),
+    this.name = const Value.absent(),
+    this.emptyCrateStock = const Value.absent(),
+    this.depositAmountKobo = const Value.absent(),
+  });
+  ManufacturersCompanion.insert({
+    this.id = const Value.absent(),
+    required String name,
+    this.emptyCrateStock = const Value.absent(),
+    this.depositAmountKobo = const Value.absent(),
+  }) : name = Value(name);
+  static Insertable<ManufacturerData> custom({
+    Expression<int>? id,
+    Expression<String>? name,
+    Expression<int>? emptyCrateStock,
+    Expression<int>? depositAmountKobo,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (name != null) 'name': name,
+      if (emptyCrateStock != null) 'empty_crate_stock': emptyCrateStock,
+      if (depositAmountKobo != null) 'deposit_amount_kobo': depositAmountKobo,
+    });
+  }
+
+  ManufacturersCompanion copyWith({
+    Value<int>? id,
+    Value<String>? name,
+    Value<int>? emptyCrateStock,
+    Value<int>? depositAmountKobo,
+  }) {
+    return ManufacturersCompanion(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      emptyCrateStock: emptyCrateStock ?? this.emptyCrateStock,
+      depositAmountKobo: depositAmountKobo ?? this.depositAmountKobo,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (emptyCrateStock.present) {
+      map['empty_crate_stock'] = Variable<int>(emptyCrateStock.value);
+    }
+    if (depositAmountKobo.present) {
+      map['deposit_amount_kobo'] = Variable<int>(depositAmountKobo.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ManufacturersCompanion(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('emptyCrateStock: $emptyCrateStock, ')
+          ..write('depositAmountKobo: $depositAmountKobo')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $WarehousesTable extends Warehouses
     with TableInfo<$WarehousesTable, WarehouseData> {
   @override
@@ -2068,6 +2378,20 @@ class $ProductsTable extends Products
       'REFERENCES suppliers (id)',
     ),
   );
+  static const VerificationMeta _manufacturerIdMeta = const VerificationMeta(
+    'manufacturerId',
+  );
+  @override
+  late final GeneratedColumn<int> manufacturerId = GeneratedColumn<int>(
+    'manufacturer_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES manufacturers (id)',
+    ),
+  );
   static const VerificationMeta _isAvailableMeta = const VerificationMeta(
     'isAvailable',
   );
@@ -2168,6 +2492,17 @@ class $ProductsTable extends Products
     requiredDuringInsert: false,
     defaultValue: const Constant(0),
   );
+  static const VerificationMeta _emptyCrateValueKoboMeta =
+      const VerificationMeta('emptyCrateValueKobo');
+  @override
+  late final GeneratedColumn<int> emptyCrateValueKobo = GeneratedColumn<int>(
+    'empty_crate_value_kobo',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -2186,6 +2521,7 @@ class $ProductsTable extends Products
     iconCodePoint,
     colorHex,
     supplierId,
+    manufacturerId,
     isAvailable,
     isDeleted,
     lowStockThreshold,
@@ -2194,6 +2530,7 @@ class $ProductsTable extends Products
     leadTimeDays,
     safetyStockQty,
     monthlyTargetUnits,
+    emptyCrateValueKobo,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -2323,6 +2660,15 @@ class $ProductsTable extends Products
         supplierId.isAcceptableOrUnknown(data['supplier_id']!, _supplierIdMeta),
       );
     }
+    if (data.containsKey('manufacturer_id')) {
+      context.handle(
+        _manufacturerIdMeta,
+        manufacturerId.isAcceptableOrUnknown(
+          data['manufacturer_id']!,
+          _manufacturerIdMeta,
+        ),
+      );
+    }
     if (data.containsKey('is_available')) {
       context.handle(
         _isAvailableMeta,
@@ -2389,6 +2735,15 @@ class $ProductsTable extends Products
         monthlyTargetUnits.isAcceptableOrUnknown(
           data['monthly_target_units']!,
           _monthlyTargetUnitsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('empty_crate_value_kobo')) {
+      context.handle(
+        _emptyCrateValueKoboMeta,
+        emptyCrateValueKobo.isAcceptableOrUnknown(
+          data['empty_crate_value_kobo']!,
+          _emptyCrateValueKoboMeta,
         ),
       );
     }
@@ -2465,6 +2820,10 @@ class $ProductsTable extends Products
         DriftSqlType.int,
         data['${effectivePrefix}supplier_id'],
       ),
+      manufacturerId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}manufacturer_id'],
+      ),
       isAvailable: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}is_available'],
@@ -2497,6 +2856,10 @@ class $ProductsTable extends Products
         DriftSqlType.int,
         data['${effectivePrefix}monthly_target_units'],
       )!,
+      emptyCrateValueKobo: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}empty_crate_value_kobo'],
+      )!,
     );
   }
 
@@ -2523,6 +2886,7 @@ class ProductData extends DataClass implements Insertable<ProductData> {
   final int? iconCodePoint;
   final String? colorHex;
   final int? supplierId;
+  final int? manufacturerId;
   final bool isAvailable;
   final bool isDeleted;
   final int lowStockThreshold;
@@ -2531,6 +2895,7 @@ class ProductData extends DataClass implements Insertable<ProductData> {
   final int leadTimeDays;
   final int safetyStockQty;
   final int monthlyTargetUnits;
+  final int emptyCrateValueKobo;
   const ProductData({
     required this.id,
     this.categoryId,
@@ -2548,6 +2913,7 @@ class ProductData extends DataClass implements Insertable<ProductData> {
     this.iconCodePoint,
     this.colorHex,
     this.supplierId,
+    this.manufacturerId,
     required this.isAvailable,
     required this.isDeleted,
     required this.lowStockThreshold,
@@ -2556,6 +2922,7 @@ class ProductData extends DataClass implements Insertable<ProductData> {
     required this.leadTimeDays,
     required this.safetyStockQty,
     required this.monthlyTargetUnits,
+    required this.emptyCrateValueKobo,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -2596,6 +2963,9 @@ class ProductData extends DataClass implements Insertable<ProductData> {
     if (!nullToAbsent || supplierId != null) {
       map['supplier_id'] = Variable<int>(supplierId);
     }
+    if (!nullToAbsent || manufacturerId != null) {
+      map['manufacturer_id'] = Variable<int>(manufacturerId);
+    }
     map['is_available'] = Variable<bool>(isAvailable);
     map['is_deleted'] = Variable<bool>(isDeleted);
     map['low_stock_threshold'] = Variable<int>(lowStockThreshold);
@@ -2606,6 +2976,7 @@ class ProductData extends DataClass implements Insertable<ProductData> {
     map['lead_time_days'] = Variable<int>(leadTimeDays);
     map['safety_stock_qty'] = Variable<int>(safetyStockQty);
     map['monthly_target_units'] = Variable<int>(monthlyTargetUnits);
+    map['empty_crate_value_kobo'] = Variable<int>(emptyCrateValueKobo);
     return map;
   }
 
@@ -2645,6 +3016,9 @@ class ProductData extends DataClass implements Insertable<ProductData> {
       supplierId: supplierId == null && nullToAbsent
           ? const Value.absent()
           : Value(supplierId),
+      manufacturerId: manufacturerId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(manufacturerId),
       isAvailable: Value(isAvailable),
       isDeleted: Value(isDeleted),
       lowStockThreshold: Value(lowStockThreshold),
@@ -2655,6 +3029,7 @@ class ProductData extends DataClass implements Insertable<ProductData> {
       leadTimeDays: Value(leadTimeDays),
       safetyStockQty: Value(safetyStockQty),
       monthlyTargetUnits: Value(monthlyTargetUnits),
+      emptyCrateValueKobo: Value(emptyCrateValueKobo),
     );
   }
 
@@ -2684,6 +3059,7 @@ class ProductData extends DataClass implements Insertable<ProductData> {
       iconCodePoint: serializer.fromJson<int?>(json['iconCodePoint']),
       colorHex: serializer.fromJson<String?>(json['colorHex']),
       supplierId: serializer.fromJson<int?>(json['supplierId']),
+      manufacturerId: serializer.fromJson<int?>(json['manufacturerId']),
       isAvailable: serializer.fromJson<bool>(json['isAvailable']),
       isDeleted: serializer.fromJson<bool>(json['isDeleted']),
       lowStockThreshold: serializer.fromJson<int>(json['lowStockThreshold']),
@@ -2692,6 +3068,9 @@ class ProductData extends DataClass implements Insertable<ProductData> {
       leadTimeDays: serializer.fromJson<int>(json['leadTimeDays']),
       safetyStockQty: serializer.fromJson<int>(json['safetyStockQty']),
       monthlyTargetUnits: serializer.fromJson<int>(json['monthlyTargetUnits']),
+      emptyCrateValueKobo: serializer.fromJson<int>(
+        json['emptyCrateValueKobo'],
+      ),
     );
   }
   @override
@@ -2714,6 +3093,7 @@ class ProductData extends DataClass implements Insertable<ProductData> {
       'iconCodePoint': serializer.toJson<int?>(iconCodePoint),
       'colorHex': serializer.toJson<String?>(colorHex),
       'supplierId': serializer.toJson<int?>(supplierId),
+      'manufacturerId': serializer.toJson<int?>(manufacturerId),
       'isAvailable': serializer.toJson<bool>(isAvailable),
       'isDeleted': serializer.toJson<bool>(isDeleted),
       'lowStockThreshold': serializer.toJson<int>(lowStockThreshold),
@@ -2722,6 +3102,7 @@ class ProductData extends DataClass implements Insertable<ProductData> {
       'leadTimeDays': serializer.toJson<int>(leadTimeDays),
       'safetyStockQty': serializer.toJson<int>(safetyStockQty),
       'monthlyTargetUnits': serializer.toJson<int>(monthlyTargetUnits),
+      'emptyCrateValueKobo': serializer.toJson<int>(emptyCrateValueKobo),
     };
   }
 
@@ -2742,6 +3123,7 @@ class ProductData extends DataClass implements Insertable<ProductData> {
     Value<int?> iconCodePoint = const Value.absent(),
     Value<String?> colorHex = const Value.absent(),
     Value<int?> supplierId = const Value.absent(),
+    Value<int?> manufacturerId = const Value.absent(),
     bool? isAvailable,
     bool? isDeleted,
     int? lowStockThreshold,
@@ -2750,6 +3132,7 @@ class ProductData extends DataClass implements Insertable<ProductData> {
     int? leadTimeDays,
     int? safetyStockQty,
     int? monthlyTargetUnits,
+    int? emptyCrateValueKobo,
   }) => ProductData(
     id: id ?? this.id,
     categoryId: categoryId.present ? categoryId.value : this.categoryId,
@@ -2773,6 +3156,9 @@ class ProductData extends DataClass implements Insertable<ProductData> {
         : this.iconCodePoint,
     colorHex: colorHex.present ? colorHex.value : this.colorHex,
     supplierId: supplierId.present ? supplierId.value : this.supplierId,
+    manufacturerId: manufacturerId.present
+        ? manufacturerId.value
+        : this.manufacturerId,
     isAvailable: isAvailable ?? this.isAvailable,
     isDeleted: isDeleted ?? this.isDeleted,
     lowStockThreshold: lowStockThreshold ?? this.lowStockThreshold,
@@ -2781,6 +3167,7 @@ class ProductData extends DataClass implements Insertable<ProductData> {
     leadTimeDays: leadTimeDays ?? this.leadTimeDays,
     safetyStockQty: safetyStockQty ?? this.safetyStockQty,
     monthlyTargetUnits: monthlyTargetUnits ?? this.monthlyTargetUnits,
+    emptyCrateValueKobo: emptyCrateValueKobo ?? this.emptyCrateValueKobo,
   );
   ProductData copyWithCompanion(ProductsCompanion data) {
     return ProductData(
@@ -2818,6 +3205,9 @@ class ProductData extends DataClass implements Insertable<ProductData> {
       supplierId: data.supplierId.present
           ? data.supplierId.value
           : this.supplierId,
+      manufacturerId: data.manufacturerId.present
+          ? data.manufacturerId.value
+          : this.manufacturerId,
       isAvailable: data.isAvailable.present
           ? data.isAvailable.value
           : this.isAvailable,
@@ -2840,6 +3230,9 @@ class ProductData extends DataClass implements Insertable<ProductData> {
       monthlyTargetUnits: data.monthlyTargetUnits.present
           ? data.monthlyTargetUnits.value
           : this.monthlyTargetUnits,
+      emptyCrateValueKobo: data.emptyCrateValueKobo.present
+          ? data.emptyCrateValueKobo.value
+          : this.emptyCrateValueKobo,
     );
   }
 
@@ -2862,6 +3255,7 @@ class ProductData extends DataClass implements Insertable<ProductData> {
           ..write('iconCodePoint: $iconCodePoint, ')
           ..write('colorHex: $colorHex, ')
           ..write('supplierId: $supplierId, ')
+          ..write('manufacturerId: $manufacturerId, ')
           ..write('isAvailable: $isAvailable, ')
           ..write('isDeleted: $isDeleted, ')
           ..write('lowStockThreshold: $lowStockThreshold, ')
@@ -2869,7 +3263,8 @@ class ProductData extends DataClass implements Insertable<ProductData> {
           ..write('avgDailySales: $avgDailySales, ')
           ..write('leadTimeDays: $leadTimeDays, ')
           ..write('safetyStockQty: $safetyStockQty, ')
-          ..write('monthlyTargetUnits: $monthlyTargetUnits')
+          ..write('monthlyTargetUnits: $monthlyTargetUnits, ')
+          ..write('emptyCrateValueKobo: $emptyCrateValueKobo')
           ..write(')'))
         .toString();
   }
@@ -2892,6 +3287,7 @@ class ProductData extends DataClass implements Insertable<ProductData> {
     iconCodePoint,
     colorHex,
     supplierId,
+    manufacturerId,
     isAvailable,
     isDeleted,
     lowStockThreshold,
@@ -2900,6 +3296,7 @@ class ProductData extends DataClass implements Insertable<ProductData> {
     leadTimeDays,
     safetyStockQty,
     monthlyTargetUnits,
+    emptyCrateValueKobo,
   ]);
   @override
   bool operator ==(Object other) =>
@@ -2921,6 +3318,7 @@ class ProductData extends DataClass implements Insertable<ProductData> {
           other.iconCodePoint == this.iconCodePoint &&
           other.colorHex == this.colorHex &&
           other.supplierId == this.supplierId &&
+          other.manufacturerId == this.manufacturerId &&
           other.isAvailable == this.isAvailable &&
           other.isDeleted == this.isDeleted &&
           other.lowStockThreshold == this.lowStockThreshold &&
@@ -2928,7 +3326,8 @@ class ProductData extends DataClass implements Insertable<ProductData> {
           other.avgDailySales == this.avgDailySales &&
           other.leadTimeDays == this.leadTimeDays &&
           other.safetyStockQty == this.safetyStockQty &&
-          other.monthlyTargetUnits == this.monthlyTargetUnits);
+          other.monthlyTargetUnits == this.monthlyTargetUnits &&
+          other.emptyCrateValueKobo == this.emptyCrateValueKobo);
 }
 
 class ProductsCompanion extends UpdateCompanion<ProductData> {
@@ -2948,6 +3347,7 @@ class ProductsCompanion extends UpdateCompanion<ProductData> {
   final Value<int?> iconCodePoint;
   final Value<String?> colorHex;
   final Value<int?> supplierId;
+  final Value<int?> manufacturerId;
   final Value<bool> isAvailable;
   final Value<bool> isDeleted;
   final Value<int> lowStockThreshold;
@@ -2956,6 +3356,7 @@ class ProductsCompanion extends UpdateCompanion<ProductData> {
   final Value<int> leadTimeDays;
   final Value<int> safetyStockQty;
   final Value<int> monthlyTargetUnits;
+  final Value<int> emptyCrateValueKobo;
   const ProductsCompanion({
     this.id = const Value.absent(),
     this.categoryId = const Value.absent(),
@@ -2973,6 +3374,7 @@ class ProductsCompanion extends UpdateCompanion<ProductData> {
     this.iconCodePoint = const Value.absent(),
     this.colorHex = const Value.absent(),
     this.supplierId = const Value.absent(),
+    this.manufacturerId = const Value.absent(),
     this.isAvailable = const Value.absent(),
     this.isDeleted = const Value.absent(),
     this.lowStockThreshold = const Value.absent(),
@@ -2981,6 +3383,7 @@ class ProductsCompanion extends UpdateCompanion<ProductData> {
     this.leadTimeDays = const Value.absent(),
     this.safetyStockQty = const Value.absent(),
     this.monthlyTargetUnits = const Value.absent(),
+    this.emptyCrateValueKobo = const Value.absent(),
   });
   ProductsCompanion.insert({
     this.id = const Value.absent(),
@@ -2999,6 +3402,7 @@ class ProductsCompanion extends UpdateCompanion<ProductData> {
     this.iconCodePoint = const Value.absent(),
     this.colorHex = const Value.absent(),
     this.supplierId = const Value.absent(),
+    this.manufacturerId = const Value.absent(),
     this.isAvailable = const Value.absent(),
     this.isDeleted = const Value.absent(),
     this.lowStockThreshold = const Value.absent(),
@@ -3007,6 +3411,7 @@ class ProductsCompanion extends UpdateCompanion<ProductData> {
     this.leadTimeDays = const Value.absent(),
     this.safetyStockQty = const Value.absent(),
     this.monthlyTargetUnits = const Value.absent(),
+    this.emptyCrateValueKobo = const Value.absent(),
   }) : name = Value(name);
   static Insertable<ProductData> custom({
     Expression<int>? id,
@@ -3025,6 +3430,7 @@ class ProductsCompanion extends UpdateCompanion<ProductData> {
     Expression<int>? iconCodePoint,
     Expression<String>? colorHex,
     Expression<int>? supplierId,
+    Expression<int>? manufacturerId,
     Expression<bool>? isAvailable,
     Expression<bool>? isDeleted,
     Expression<int>? lowStockThreshold,
@@ -3033,6 +3439,7 @@ class ProductsCompanion extends UpdateCompanion<ProductData> {
     Expression<int>? leadTimeDays,
     Expression<int>? safetyStockQty,
     Expression<int>? monthlyTargetUnits,
+    Expression<int>? emptyCrateValueKobo,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -3053,6 +3460,7 @@ class ProductsCompanion extends UpdateCompanion<ProductData> {
       if (iconCodePoint != null) 'icon_code_point': iconCodePoint,
       if (colorHex != null) 'color_hex': colorHex,
       if (supplierId != null) 'supplier_id': supplierId,
+      if (manufacturerId != null) 'manufacturer_id': manufacturerId,
       if (isAvailable != null) 'is_available': isAvailable,
       if (isDeleted != null) 'is_deleted': isDeleted,
       if (lowStockThreshold != null) 'low_stock_threshold': lowStockThreshold,
@@ -3062,6 +3470,8 @@ class ProductsCompanion extends UpdateCompanion<ProductData> {
       if (safetyStockQty != null) 'safety_stock_qty': safetyStockQty,
       if (monthlyTargetUnits != null)
         'monthly_target_units': monthlyTargetUnits,
+      if (emptyCrateValueKobo != null)
+        'empty_crate_value_kobo': emptyCrateValueKobo,
     });
   }
 
@@ -3082,6 +3492,7 @@ class ProductsCompanion extends UpdateCompanion<ProductData> {
     Value<int?>? iconCodePoint,
     Value<String?>? colorHex,
     Value<int?>? supplierId,
+    Value<int?>? manufacturerId,
     Value<bool>? isAvailable,
     Value<bool>? isDeleted,
     Value<int>? lowStockThreshold,
@@ -3090,6 +3501,7 @@ class ProductsCompanion extends UpdateCompanion<ProductData> {
     Value<int>? leadTimeDays,
     Value<int>? safetyStockQty,
     Value<int>? monthlyTargetUnits,
+    Value<int>? emptyCrateValueKobo,
   }) {
     return ProductsCompanion(
       id: id ?? this.id,
@@ -3108,6 +3520,7 @@ class ProductsCompanion extends UpdateCompanion<ProductData> {
       iconCodePoint: iconCodePoint ?? this.iconCodePoint,
       colorHex: colorHex ?? this.colorHex,
       supplierId: supplierId ?? this.supplierId,
+      manufacturerId: manufacturerId ?? this.manufacturerId,
       isAvailable: isAvailable ?? this.isAvailable,
       isDeleted: isDeleted ?? this.isDeleted,
       lowStockThreshold: lowStockThreshold ?? this.lowStockThreshold,
@@ -3116,6 +3529,7 @@ class ProductsCompanion extends UpdateCompanion<ProductData> {
       leadTimeDays: leadTimeDays ?? this.leadTimeDays,
       safetyStockQty: safetyStockQty ?? this.safetyStockQty,
       monthlyTargetUnits: monthlyTargetUnits ?? this.monthlyTargetUnits,
+      emptyCrateValueKobo: emptyCrateValueKobo ?? this.emptyCrateValueKobo,
     );
   }
 
@@ -3172,6 +3586,9 @@ class ProductsCompanion extends UpdateCompanion<ProductData> {
     if (supplierId.present) {
       map['supplier_id'] = Variable<int>(supplierId.value);
     }
+    if (manufacturerId.present) {
+      map['manufacturer_id'] = Variable<int>(manufacturerId.value);
+    }
     if (isAvailable.present) {
       map['is_available'] = Variable<bool>(isAvailable.value);
     }
@@ -3196,6 +3613,9 @@ class ProductsCompanion extends UpdateCompanion<ProductData> {
     if (monthlyTargetUnits.present) {
       map['monthly_target_units'] = Variable<int>(monthlyTargetUnits.value);
     }
+    if (emptyCrateValueKobo.present) {
+      map['empty_crate_value_kobo'] = Variable<int>(emptyCrateValueKobo.value);
+    }
     return map;
   }
 
@@ -3218,6 +3638,7 @@ class ProductsCompanion extends UpdateCompanion<ProductData> {
           ..write('iconCodePoint: $iconCodePoint, ')
           ..write('colorHex: $colorHex, ')
           ..write('supplierId: $supplierId, ')
+          ..write('manufacturerId: $manufacturerId, ')
           ..write('isAvailable: $isAvailable, ')
           ..write('isDeleted: $isDeleted, ')
           ..write('lowStockThreshold: $lowStockThreshold, ')
@@ -3225,7 +3646,8 @@ class ProductsCompanion extends UpdateCompanion<ProductData> {
           ..write('avgDailySales: $avgDailySales, ')
           ..write('leadTimeDays: $leadTimeDays, ')
           ..write('safetyStockQty: $safetyStockQty, ')
-          ..write('monthlyTargetUnits: $monthlyTargetUnits')
+          ..write('monthlyTargetUnits: $monthlyTargetUnits, ')
+          ..write('emptyCrateValueKobo: $emptyCrateValueKobo')
           ..write(')'))
         .toString();
   }
@@ -14726,6 +15148,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
   late final $CrateGroupsTable crateGroups = $CrateGroupsTable(this);
+  late final $ManufacturersTable manufacturers = $ManufacturersTable(this);
   late final $WarehousesTable warehouses = $WarehousesTable(this);
   late final $UsersTable users = $UsersTable(this);
   late final $CategoriesTable categories = $CategoriesTable(this);
@@ -14803,6 +15226,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   @override
   List<DatabaseSchemaEntity> get allSchemaEntities => [
     crateGroups,
+    manufacturers,
     warehouses,
     users,
     categories,
@@ -15253,6 +15677,296 @@ typedef $$CrateGroupsTableProcessedTableManager =
         bool productsRefs,
         bool customerCrateBalancesRefs,
       })
+    >;
+typedef $$ManufacturersTableCreateCompanionBuilder =
+    ManufacturersCompanion Function({
+      Value<int> id,
+      required String name,
+      Value<int> emptyCrateStock,
+      Value<int> depositAmountKobo,
+    });
+typedef $$ManufacturersTableUpdateCompanionBuilder =
+    ManufacturersCompanion Function({
+      Value<int> id,
+      Value<String> name,
+      Value<int> emptyCrateStock,
+      Value<int> depositAmountKobo,
+    });
+
+final class $$ManufacturersTableReferences
+    extends
+        BaseReferences<_$AppDatabase, $ManufacturersTable, ManufacturerData> {
+  $$ManufacturersTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static MultiTypedResultKey<$ProductsTable, List<ProductData>>
+  _productsRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.products,
+    aliasName: $_aliasNameGenerator(
+      db.manufacturers.id,
+      db.products.manufacturerId,
+    ),
+  );
+
+  $$ProductsTableProcessedTableManager get productsRefs {
+    final manager = $$ProductsTableTableManager(
+      $_db,
+      $_db.products,
+    ).filter((f) => f.manufacturerId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_productsRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+}
+
+class $$ManufacturersTableFilterComposer
+    extends Composer<_$AppDatabase, $ManufacturersTable> {
+  $$ManufacturersTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get emptyCrateStock => $composableBuilder(
+    column: $table.emptyCrateStock,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get depositAmountKobo => $composableBuilder(
+    column: $table.depositAmountKobo,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  Expression<bool> productsRefs(
+    Expression<bool> Function($$ProductsTableFilterComposer f) f,
+  ) {
+    final $$ProductsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.products,
+      getReferencedColumn: (t) => t.manufacturerId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ProductsTableFilterComposer(
+            $db: $db,
+            $table: $db.products,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+}
+
+class $$ManufacturersTableOrderingComposer
+    extends Composer<_$AppDatabase, $ManufacturersTable> {
+  $$ManufacturersTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get emptyCrateStock => $composableBuilder(
+    column: $table.emptyCrateStock,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get depositAmountKobo => $composableBuilder(
+    column: $table.depositAmountKobo,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$ManufacturersTableAnnotationComposer
+    extends Composer<_$AppDatabase, $ManufacturersTable> {
+  $$ManufacturersTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<int> get emptyCrateStock => $composableBuilder(
+    column: $table.emptyCrateStock,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get depositAmountKobo => $composableBuilder(
+    column: $table.depositAmountKobo,
+    builder: (column) => column,
+  );
+
+  Expression<T> productsRefs<T extends Object>(
+    Expression<T> Function($$ProductsTableAnnotationComposer a) f,
+  ) {
+    final $$ProductsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.products,
+      getReferencedColumn: (t) => t.manufacturerId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ProductsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.products,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+}
+
+class $$ManufacturersTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $ManufacturersTable,
+          ManufacturerData,
+          $$ManufacturersTableFilterComposer,
+          $$ManufacturersTableOrderingComposer,
+          $$ManufacturersTableAnnotationComposer,
+          $$ManufacturersTableCreateCompanionBuilder,
+          $$ManufacturersTableUpdateCompanionBuilder,
+          (ManufacturerData, $$ManufacturersTableReferences),
+          ManufacturerData,
+          PrefetchHooks Function({bool productsRefs})
+        > {
+  $$ManufacturersTableTableManager(_$AppDatabase db, $ManufacturersTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$ManufacturersTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$ManufacturersTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$ManufacturersTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<int> emptyCrateStock = const Value.absent(),
+                Value<int> depositAmountKobo = const Value.absent(),
+              }) => ManufacturersCompanion(
+                id: id,
+                name: name,
+                emptyCrateStock: emptyCrateStock,
+                depositAmountKobo: depositAmountKobo,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required String name,
+                Value<int> emptyCrateStock = const Value.absent(),
+                Value<int> depositAmountKobo = const Value.absent(),
+              }) => ManufacturersCompanion.insert(
+                id: id,
+                name: name,
+                emptyCrateStock: emptyCrateStock,
+                depositAmountKobo: depositAmountKobo,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$ManufacturersTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({productsRefs = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [if (productsRefs) db.products],
+              addJoins: null,
+              getPrefetchedDataCallback: (items) async {
+                return [
+                  if (productsRefs)
+                    await $_getPrefetchedData<
+                      ManufacturerData,
+                      $ManufacturersTable,
+                      ProductData
+                    >(
+                      currentTable: table,
+                      referencedTable: $$ManufacturersTableReferences
+                          ._productsRefsTable(db),
+                      managerFromTypedResult: (p0) =>
+                          $$ManufacturersTableReferences(
+                            db,
+                            table,
+                            p0,
+                          ).productsRefs,
+                      referencedItemsForCurrentItem: (item, referencedItems) =>
+                          referencedItems.where(
+                            (e) => e.manufacturerId == item.id,
+                          ),
+                      typedResults: items,
+                    ),
+                ];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$ManufacturersTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $ManufacturersTable,
+      ManufacturerData,
+      $$ManufacturersTableFilterComposer,
+      $$ManufacturersTableOrderingComposer,
+      $$ManufacturersTableAnnotationComposer,
+      $$ManufacturersTableCreateCompanionBuilder,
+      $$ManufacturersTableUpdateCompanionBuilder,
+      (ManufacturerData, $$ManufacturersTableReferences),
+      ManufacturerData,
+      PrefetchHooks Function({bool productsRefs})
     >;
 typedef $$WarehousesTableCreateCompanionBuilder =
     WarehousesCompanion Function({
@@ -17609,6 +18323,7 @@ typedef $$ProductsTableCreateCompanionBuilder =
       Value<int?> iconCodePoint,
       Value<String?> colorHex,
       Value<int?> supplierId,
+      Value<int?> manufacturerId,
       Value<bool> isAvailable,
       Value<bool> isDeleted,
       Value<int> lowStockThreshold,
@@ -17617,6 +18332,7 @@ typedef $$ProductsTableCreateCompanionBuilder =
       Value<int> leadTimeDays,
       Value<int> safetyStockQty,
       Value<int> monthlyTargetUnits,
+      Value<int> emptyCrateValueKobo,
     });
 typedef $$ProductsTableUpdateCompanionBuilder =
     ProductsCompanion Function({
@@ -17636,6 +18352,7 @@ typedef $$ProductsTableUpdateCompanionBuilder =
       Value<int?> iconCodePoint,
       Value<String?> colorHex,
       Value<int?> supplierId,
+      Value<int?> manufacturerId,
       Value<bool> isAvailable,
       Value<bool> isDeleted,
       Value<int> lowStockThreshold,
@@ -17644,6 +18361,7 @@ typedef $$ProductsTableUpdateCompanionBuilder =
       Value<int> leadTimeDays,
       Value<int> safetyStockQty,
       Value<int> monthlyTargetUnits,
+      Value<int> emptyCrateValueKobo,
     });
 
 final class $$ProductsTableReferences
@@ -17701,6 +18419,25 @@ final class $$ProductsTableReferences
       $_db.suppliers,
     ).filter((f) => f.id.sqlEquals($_column));
     final item = $_typedResult.readTableOrNull(_supplierIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static $ManufacturersTable _manufacturerIdTable(_$AppDatabase db) =>
+      db.manufacturers.createAlias(
+        $_aliasNameGenerator(db.products.manufacturerId, db.manufacturers.id),
+      );
+
+  $$ManufacturersTableProcessedTableManager? get manufacturerId {
+    final $_column = $_itemColumn<int>('manufacturer_id');
+    if ($_column == null) return null;
+    final manager = $$ManufacturersTableTableManager(
+      $_db,
+      $_db.manufacturers,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_manufacturerIdTable($_db));
     if (item == null) return manager;
     return ProcessedTableManager(
       manager.$state.copyWith(prefetchedData: [item]),
@@ -17984,6 +18721,11 @@ class $$ProductsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<int> get emptyCrateValueKobo => $composableBuilder(
+    column: $table.emptyCrateValueKobo,
+    builder: (column) => ColumnFilters(column),
+  );
+
   $$CategoriesTableFilterComposer get categoryId {
     final $$CategoriesTableFilterComposer composer = $composerBuilder(
       composer: this,
@@ -18044,6 +18786,29 @@ class $$ProductsTableFilterComposer
           }) => $$SuppliersTableFilterComposer(
             $db: $db,
             $table: $db.suppliers,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$ManufacturersTableFilterComposer get manufacturerId {
+    final $$ManufacturersTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.manufacturerId,
+      referencedTable: $db.manufacturers,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ManufacturersTableFilterComposer(
+            $db: $db,
+            $table: $db.manufacturers,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -18368,6 +19133,11 @@ class $$ProductsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get emptyCrateValueKobo => $composableBuilder(
+    column: $table.emptyCrateValueKobo,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$CategoriesTableOrderingComposer get categoryId {
     final $$CategoriesTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -18428,6 +19198,29 @@ class $$ProductsTableOrderingComposer
           }) => $$SuppliersTableOrderingComposer(
             $db: $db,
             $table: $db.suppliers,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$ManufacturersTableOrderingComposer get manufacturerId {
+    final $$ManufacturersTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.manufacturerId,
+      referencedTable: $db.manufacturers,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ManufacturersTableOrderingComposer(
+            $db: $db,
+            $table: $db.manufacturers,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -18536,6 +19329,11 @@ class $$ProductsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<int> get emptyCrateValueKobo => $composableBuilder(
+    column: $table.emptyCrateValueKobo,
+    builder: (column) => column,
+  );
+
   $$CategoriesTableAnnotationComposer get categoryId {
     final $$CategoriesTableAnnotationComposer composer = $composerBuilder(
       composer: this,
@@ -18596,6 +19394,29 @@ class $$ProductsTableAnnotationComposer
           }) => $$SuppliersTableAnnotationComposer(
             $db: $db,
             $table: $db.suppliers,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$ManufacturersTableAnnotationComposer get manufacturerId {
+    final $$ManufacturersTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.manufacturerId,
+      referencedTable: $db.manufacturers,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$ManufacturersTableAnnotationComposer(
+            $db: $db,
+            $table: $db.manufacturers,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -18824,6 +19645,7 @@ class $$ProductsTableTableManager
             bool categoryId,
             bool crateGroupId,
             bool supplierId,
+            bool manufacturerId,
             bool inventoryRefs,
             bool orderItemsRefs,
             bool purchaseItemsRefs,
@@ -18863,6 +19685,7 @@ class $$ProductsTableTableManager
                 Value<int?> iconCodePoint = const Value.absent(),
                 Value<String?> colorHex = const Value.absent(),
                 Value<int?> supplierId = const Value.absent(),
+                Value<int?> manufacturerId = const Value.absent(),
                 Value<bool> isAvailable = const Value.absent(),
                 Value<bool> isDeleted = const Value.absent(),
                 Value<int> lowStockThreshold = const Value.absent(),
@@ -18871,6 +19694,7 @@ class $$ProductsTableTableManager
                 Value<int> leadTimeDays = const Value.absent(),
                 Value<int> safetyStockQty = const Value.absent(),
                 Value<int> monthlyTargetUnits = const Value.absent(),
+                Value<int> emptyCrateValueKobo = const Value.absent(),
               }) => ProductsCompanion(
                 id: id,
                 categoryId: categoryId,
@@ -18888,6 +19712,7 @@ class $$ProductsTableTableManager
                 iconCodePoint: iconCodePoint,
                 colorHex: colorHex,
                 supplierId: supplierId,
+                manufacturerId: manufacturerId,
                 isAvailable: isAvailable,
                 isDeleted: isDeleted,
                 lowStockThreshold: lowStockThreshold,
@@ -18896,6 +19721,7 @@ class $$ProductsTableTableManager
                 leadTimeDays: leadTimeDays,
                 safetyStockQty: safetyStockQty,
                 monthlyTargetUnits: monthlyTargetUnits,
+                emptyCrateValueKobo: emptyCrateValueKobo,
               ),
           createCompanionCallback:
               ({
@@ -18915,6 +19741,7 @@ class $$ProductsTableTableManager
                 Value<int?> iconCodePoint = const Value.absent(),
                 Value<String?> colorHex = const Value.absent(),
                 Value<int?> supplierId = const Value.absent(),
+                Value<int?> manufacturerId = const Value.absent(),
                 Value<bool> isAvailable = const Value.absent(),
                 Value<bool> isDeleted = const Value.absent(),
                 Value<int> lowStockThreshold = const Value.absent(),
@@ -18923,6 +19750,7 @@ class $$ProductsTableTableManager
                 Value<int> leadTimeDays = const Value.absent(),
                 Value<int> safetyStockQty = const Value.absent(),
                 Value<int> monthlyTargetUnits = const Value.absent(),
+                Value<int> emptyCrateValueKobo = const Value.absent(),
               }) => ProductsCompanion.insert(
                 id: id,
                 categoryId: categoryId,
@@ -18940,6 +19768,7 @@ class $$ProductsTableTableManager
                 iconCodePoint: iconCodePoint,
                 colorHex: colorHex,
                 supplierId: supplierId,
+                manufacturerId: manufacturerId,
                 isAvailable: isAvailable,
                 isDeleted: isDeleted,
                 lowStockThreshold: lowStockThreshold,
@@ -18948,6 +19777,7 @@ class $$ProductsTableTableManager
                 leadTimeDays: leadTimeDays,
                 safetyStockQty: safetyStockQty,
                 monthlyTargetUnits: monthlyTargetUnits,
+                emptyCrateValueKobo: emptyCrateValueKobo,
               ),
           withReferenceMapper: (p0) => p0
               .map(
@@ -18962,6 +19792,7 @@ class $$ProductsTableTableManager
                 categoryId = false,
                 crateGroupId = false,
                 supplierId = false,
+                manufacturerId = false,
                 inventoryRefs = false,
                 orderItemsRefs = false,
                 purchaseItemsRefs = false,
@@ -19034,6 +19865,19 @@ class $$ProductsTableTableManager
                                         ._supplierIdTable(db),
                                     referencedColumn: $$ProductsTableReferences
                                         ._supplierIdTable(db)
+                                        .id,
+                                  )
+                                  as T;
+                        }
+                        if (manufacturerId) {
+                          state =
+                              state.withJoin(
+                                    currentTable: table,
+                                    currentColumn: table.manufacturerId,
+                                    referencedTable: $$ProductsTableReferences
+                                        ._manufacturerIdTable(db),
+                                    referencedColumn: $$ProductsTableReferences
+                                        ._manufacturerIdTable(db)
                                         .id,
                                   )
                                   as T;
@@ -19235,6 +20079,7 @@ typedef $$ProductsTableProcessedTableManager =
         bool categoryId,
         bool crateGroupId,
         bool supplierId,
+        bool manufacturerId,
         bool inventoryRefs,
         bool orderItemsRefs,
         bool purchaseItemsRefs,
@@ -30152,6 +30997,8 @@ class $AppDatabaseManager {
   $AppDatabaseManager(this._db);
   $$CrateGroupsTableTableManager get crateGroups =>
       $$CrateGroupsTableTableManager(_db, _db.crateGroups);
+  $$ManufacturersTableTableManager get manufacturers =>
+      $$ManufacturersTableTableManager(_db, _db.manufacturers);
   $$WarehousesTableTableManager get warehouses =>
       $$WarehousesTableTableManager(_db, _db.warehouses);
   $$UsersTableTableManager get users =>
