@@ -1,0 +1,266 @@
+import 'package:flutter/material.dart';
+import '../../core/database/app_database.dart';
+import '../../core/theme/colors.dart';
+import '../../shared/services/auth_service.dart';
+
+/// Shows a PIN-entry dialog that requires a user with [minimumTier] or above.
+///
+/// Returns the matching [UserData] when authorised, or `null` if the user
+/// cancelled or entered a PIN that doesn't meet the required tier.
+///
+/// Usage:
+/// ```dart
+/// final approver = await PinDialog.show(context);
+/// if (approver == null) return; // cancelled or wrong PIN
+/// // ... proceed with the protected action
+/// ```
+class PinDialog extends StatefulWidget {
+  /// Minimum role tier needed to pass.
+  /// 1 = Staff, 4 = Manager (default), 5 = CEO.
+  final int minimumTier;
+
+  /// Heading shown at the top of the dialog.
+  final String title;
+
+  const PinDialog({
+    super.key,
+    this.minimumTier = 4,
+    this.title = 'Manager Authorisation',
+  });
+
+  /// Convenience method — call this instead of showing the widget directly.
+  static Future<UserData?> show(
+    BuildContext context, {
+    int minimumTier = 4,
+    String title = 'Manager Authorisation',
+  }) {
+    return showDialog<UserData?>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => PinDialog(minimumTier: minimumTier, title: title),
+    );
+  }
+
+  @override
+  State<PinDialog> createState() => _PinDialogState();
+}
+
+class _PinDialogState extends State<PinDialog> {
+  String _pin = '';
+  String? _errorMessage;
+  bool _checking = false;
+
+  void _onDigit(String digit) {
+    if (_pin.length >= 4 || _checking) return;
+    setState(() {
+      _pin += digit;
+      _errorMessage = null;
+    });
+    if (_pin.length == 4) _submit();
+  }
+
+  void _onBackspace() {
+    if (_pin.isEmpty || _checking) return;
+    setState(() {
+      _pin = _pin.substring(0, _pin.length - 1);
+      _errorMessage = null;
+    });
+  }
+
+  Future<void> _submit() async {
+    setState(() => _checking = true);
+
+    final authorised = await authService.verifyPinForTier(_pin, widget.minimumTier);
+
+    if (!mounted) return;
+
+    if (!authorised) {
+      setState(() {
+        _pin = '';
+        _errorMessage = 'Wrong PIN or insufficient access.';
+        _checking = false;
+      });
+      return;
+    }
+
+    // PIN matched — find the specific user to return to the caller
+    final matches = await authService.getUsersByPin(_pin);
+    if (!mounted) return;
+
+    final approved = matches.firstWhere(
+      (u) => u.roleTier >= widget.minimumTier,
+    );
+    Navigator.pop(context, approved);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final surface = isDark ? dSurface : lSurface;
+    final cardCol = isDark ? dCard : lCard;
+    final textColor = isDark ? dText : lText;
+    final subtextColor = isDark ? dSubtext : lSubtext;
+
+    return Dialog(
+      backgroundColor: surface,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 28, 24, 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // ── Title ───────────────────────────────────────────────────
+            Text(
+              widget.title,
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w700,
+                color: textColor,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Enter a manager PIN to continue',
+              style: TextStyle(fontSize: 12, color: subtextColor),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+
+            // ── Four dots ────────────────────────────────────────────────
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(4, (i) {
+                final filled = i < _pin.length;
+                return AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  margin: const EdgeInsets.symmetric(horizontal: 8),
+                  width: 14,
+                  height: 14,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: filled ? blueMain : Colors.transparent,
+                    border: Border.all(
+                      color: filled ? blueMain : subtextColor,
+                      width: 2,
+                    ),
+                  ),
+                );
+              }),
+            ),
+            const SizedBox(height: 10),
+
+            // ── Error message ────────────────────────────────────────────
+            SizedBox(
+              height: 18,
+              child: _errorMessage != null
+                  ? Text(
+                      _errorMessage!,
+                      style: const TextStyle(
+                        color: danger,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      textAlign: TextAlign.center,
+                    )
+                  : null,
+            ),
+            const SizedBox(height: 16),
+
+            // ── Keypad ───────────────────────────────────────────────────
+            _buildKeyRow(['1', '2', '3'], cardCol, textColor),
+            const SizedBox(height: 8),
+            _buildKeyRow(['4', '5', '6'], cardCol, textColor),
+            const SizedBox(height: 8),
+            _buildKeyRow(['7', '8', '9'], cardCol, textColor),
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const SizedBox(width: 60, height: 52), // spacer
+                const SizedBox(width: 8),
+                _keyBtn('0', cardCol, textColor),
+                const SizedBox(width: 8),
+                _iconBtn(Icons.backspace_outlined, cardCol, textColor),
+              ],
+            ),
+
+            const SizedBox(height: 20),
+
+            // ── Cancel ───────────────────────────────────────────────────
+            if (_checking)
+              const SizedBox(
+                height: 24,
+                width: 24,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            else
+              TextButton(
+                onPressed: () => Navigator.pop(context, null),
+                child: Text(
+                  'Cancel',
+                  style: TextStyle(
+                    color: subtextColor,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildKeyRow(List<String> digits, Color card, Color text) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: digits.map((d) {
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: _keyBtn(d, card, text),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _keyBtn(String digit, Color card, Color text) {
+    return Material(
+      color: card,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => _onDigit(digit),
+        child: SizedBox(
+          width: 60,
+          height: 52,
+          child: Center(
+            child: Text(
+              digit,
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w600,
+                color: text,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _iconBtn(IconData icon, Color card, Color text) {
+    return Material(
+      color: card,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: _onBackspace,
+        child: SizedBox(
+          width: 60,
+          height: 52,
+          child: Center(child: Icon(icon, color: text, size: 22)),
+        ),
+      ),
+    );
+  }
+}

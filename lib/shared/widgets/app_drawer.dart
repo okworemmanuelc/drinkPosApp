@@ -256,6 +256,21 @@ class AppDrawer extends StatelessWidget {
         SizedBox(height: context.getRSize(12)),
         Divider(color: _border),
         SizedBox(height: context.getRSize(12)),
+        _navItem(
+          context,
+          FontAwesomeIcons.rightFromBracket,
+          'Log Out',
+          active: false,
+          iconColor: danger,
+          labelColor: danger,
+          onTap: () {
+            Navigator.pop(context); // close the drawer first
+            authService.logout();   // clears the user → main.dart shows login screen
+          },
+        ),
+        SizedBox(height: context.getRSize(12)),
+        Divider(color: _border),
+        SizedBox(height: context.getRSize(12)),
         _buildThemeToggle(context),
         // Extra space for system navigation bar
         SizedBox(height: MediaQuery.of(context).padding.bottom + context.getRSize(20)),
@@ -303,6 +318,8 @@ class AppDrawer extends StatelessWidget {
     String label, {
     bool active = false,
     VoidCallback? onTap,
+    Color? iconColor,
+    Color? labelColor,
   }) {
     return Container(
       margin: EdgeInsets.only(bottom: context.getRSize(6)),
@@ -329,7 +346,7 @@ class AppDrawer extends StatelessWidget {
                   child: Icon(
                     icon,
                     size: context.getRSize(16),
-                    color: active ? blueMain : _subtext,
+                    color: iconColor ?? (active ? blueMain : _subtext),
                   ),
                 ),
                 SizedBox(width: context.getRSize(14)),
@@ -339,7 +356,7 @@ class AppDrawer extends StatelessWidget {
                     style: TextStyle(
                       fontWeight: active ? FontWeight.bold : FontWeight.w600,
                       fontSize: context.getRFontSize(14.5),
-                      color: active ? blueMain : _text,
+                      color: labelColor ?? (active ? blueMain : _text),
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,

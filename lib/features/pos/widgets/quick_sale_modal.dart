@@ -53,7 +53,7 @@ class _QuickSaleModalState extends State<QuickSaleModal> {
           SizedBox(height: context.getRSize(12)),
           _modalField(_qtyCtrl, 'Quantity', FontAwesomeIcons.cubes, isNumber: true),
           SizedBox(height: context.getRSize(12)),
-          _modalField(_priceCtrl, 'Price', FontAwesomeIcons.nairaSign, isNumber: true),
+          _modalField(_priceCtrl, 'Price Per Unit', FontAwesomeIcons.nairaSign, isNumber: true),
         ],
       ),
       actions: [

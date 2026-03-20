@@ -15,6 +15,7 @@ import '../controllers/pos_controller.dart';
 import '../widgets/product_grid.dart';
 import '../widgets/category_filter_bar.dart';
 import '../widgets/quick_sale_modal.dart';
+import '../../../shared/widgets/pin_dialog.dart';
 
 class PosHomeScreen extends StatefulWidget {
   const PosHomeScreen({super.key});
@@ -221,10 +222,14 @@ class _PosHomeScreenState extends State<PosHomeScreen> {
     );
   }
 
-  void _showQuickSaleModal(BuildContext context) {
-    final mode = themeNotifier.value;
-    final isDark = mode == ThemeMode.dark;
-    
+  Future<void> _showQuickSaleModal(BuildContext context) async {
+    // Require a manager (tier 4+) before opening the quick-sale modal
+    final approver = await PinDialog.show(context, title: 'Quick Sale');
+    if (approver == null) return; // cancelled or wrong PIN
+
+    if (!context.mounted) return;
+
+    final isDark = themeNotifier.value == ThemeMode.dark;
     showDialog(
       context: context,
       builder: (ctx) => QuickSaleModal(

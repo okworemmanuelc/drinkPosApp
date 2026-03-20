@@ -496,7 +496,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 20;
+  int get schemaVersion => 21;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -513,10 +513,13 @@ class AppDatabase extends _$AppDatabase {
           debugPrint('[AppDatabase] onUpgrade: Upgrading from version $from to $to...');
           try {
             await customStatement('PRAGMA foreign_keys = OFF');
-            
+
             if (from < 20) {
               await m.createTable(savedCarts);
             }
+
+            // v21 — no DDL changes; default staff users are seeded on fresh installs only.
+            // Existing installs keep their current Users rows untouched.
 
             // Fallback: Create any other new tables that do not yet exist
             for (final table in allTables) {
@@ -542,6 +545,60 @@ class AppDatabase extends _$AppDatabase {
       b.insert(categories, const CategoriesCompanion(name: Value('Cans & PET')));
       b.insert(categories, const CategoriesCompanion(name: Value('Kegs')));
       b.insert(categories, const CategoriesCompanion(name: Value('Other')));
+
+      // ── Default Staff ────────────────────────────────────────────────────────
+      // These are placeholder accounts. Real login details will be set later.
+      // PINs follow a simple pattern so staff can log in immediately on a fresh device.
+      b.insert(
+        users,
+        const UsersCompanion(
+          name: Value('CEO'),
+          role: Value('CEO'),
+          roleTier: Value(5),
+          pin: Value('0000'),
+          avatarColor: Value('#8B5CF6'), // purple
+        ),
+      );
+      b.insert(
+        users,
+        const UsersCompanion(
+          name: Value('Manager'),
+          role: Value('manager'),
+          roleTier: Value(4),
+          pin: Value('1111'),
+          avatarColor: Value('#3B82F6'), // blue
+        ),
+      );
+      b.insert(
+        users,
+        const UsersCompanion(
+          name: Value('Cashier'),
+          role: Value('cashier'),
+          roleTier: Value(1),
+          pin: Value('2222'),
+          avatarColor: Value('#10B981'), // green
+        ),
+      );
+      b.insert(
+        users,
+        const UsersCompanion(
+          name: Value('Stock Keeper'),
+          role: Value('stock_keeper'),
+          roleTier: Value(1),
+          pin: Value('3333'),
+          avatarColor: Value('#F59E0B'), // amber
+        ),
+      );
+      b.insert(
+        users,
+        const UsersCompanion(
+          name: Value('Rider'),
+          role: Value('rider'),
+          roleTier: Value(1),
+          pin: Value('4444'),
+          avatarColor: Value('#EF4444'), // red
+        ),
+      );
     });
   }
 
