@@ -1,6 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import '../../../core/widgets/amber_fab.dart';
+import '../../../core/widgets/app_fab.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../../core/theme/colors.dart';
 
@@ -229,7 +229,7 @@ class _PosHomeScreenState extends State<PosHomeScreen> {
             ? totalQty.toInt().toString()
             : totalQty.toStringAsFixed(1);
 
-        return AmberFAB(
+        return AppFAB(
           onPressed: () {
             navigationService.setIndex(9); // 9 corresponds to Cart tab
           },

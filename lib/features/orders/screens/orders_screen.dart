@@ -565,6 +565,7 @@ class _OrdersScreenState extends State<OrdersScreen>
 
   void _viewReceipt(BuildContext context, OrderWithItems richOrder) {
     DateTime? reshareDate;
+    DateTime? reprintDate;
 
     showModalBottomSheet(
       context: context,
@@ -617,7 +618,7 @@ class _OrdersScreenState extends State<OrdersScreen>
                           customerAddress: richOrder.customer?.addressText ?? 'N/A',
                           cashReceived: currentOrder.amountPaidKobo / 100.0,
                           walletBalance: richOrder.customer?.customerWallet,
-                          reprintDate: DateTime.now(), 
+                          reprintDate: reprintDate,
                           reshareDate: reshareDate,
                           riderName: currentOrder.riderName,
                           deliveryRef: null,
@@ -644,7 +645,12 @@ class _OrdersScreenState extends State<OrdersScreen>
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                               ),
-                              onPressed: () => _printReceipt(context, richOrder),
+                              onPressed: () {
+                                setModalState(() {
+                                  reprintDate = DateTime.now();
+                                });
+                                _printReceipt(context, richOrder);
+                              },
                               icon: const Icon(FontAwesomeIcons.print, color: Colors.white, size: 18),
                               label: Text(
                                 'Print',
@@ -731,7 +737,10 @@ class _OrdersScreenState extends State<OrdersScreen>
           },
         );
       },
-    );
+    ).then((_) {
+      reshareDate = null;
+      reprintDate = null;
+    });
   }
 
   Future<void> _printReceipt(BuildContext context, OrderWithItems richOrder) async {

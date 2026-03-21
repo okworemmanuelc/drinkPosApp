@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import '../../../core/widgets/amber_fab.dart';
+import '../../../core/widgets/app_fab.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 import '../../../core/theme/colors.dart';
-
 import '../../../core/utils/number_format.dart';
 import '../../../core/utils/responsive.dart';
+import '../../../shared/services/auth_service.dart';
 import '../../../shared/widgets/app_drawer.dart';
 import '../../../shared/widgets/notification_bell.dart';
 import '../data/models/customer.dart';
@@ -45,20 +45,29 @@ class _CustomersScreenState extends State<CustomersScreen> {
                 child: ValueListenableBuilder<List<Customer>>(
                   valueListenable: customerService,
                   builder: (context, customers, child) {
-                    if (customers.isEmpty) {
+                    // CEO sees all; staff/manager see only their warehouse
+                    final user = authService.currentUser;
+                    final isCeo = (user?.roleTier ?? 0) >= 5;
+                    final filtered = isCeo
+                        ? customers
+                        : customers
+                            .where((c) => c.warehouseId == user?.warehouseId)
+                            .toList();
+
+                    if (filtered.isEmpty) {
                       return const Center(child: Text('No customers found.'));
                     }
                     return ListView.separated(
                       padding: context.rPadding(16).copyWith(
                             bottom: context.getRSize(100),
                           ),
-                      itemCount: customers.length,
+                      itemCount: filtered.length,
                       separatorBuilder: (context, index) =>
                           SizedBox(height: context.getRSize(12)),
                       itemBuilder: (context, index) {
                         return _buildCustomerCard(
                           context,
-                          customers[index],
+                          filtered[index],
                           cardCol,
                           surfaceCol,
                           textCol,
@@ -72,7 +81,7 @@ class _CustomersScreenState extends State<CustomersScreen> {
               ),
             ],
           ),
-          floatingActionButton: AmberFAB(
+          floatingActionButton: AppFAB(
             heroTag: 'customers_fab',
             onPressed: () => AddCustomerSheet.show(context),
             icon: FontAwesomeIcons.userPlus,

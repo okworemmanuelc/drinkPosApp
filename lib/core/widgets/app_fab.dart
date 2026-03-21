@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
-import '../theme/colors.dart';
 import '../utils/responsive.dart';
 
 /// A standardized Floating Action Button for the Ribaplus design system.
-/// Features an amber gradient, custom shadow, and specific minimum width.
-class AmberFAB extends StatelessWidget {
+/// Features a theme-aware gradient, custom shadow, and specific minimum width.
+class AppFAB extends StatelessWidget {
   final String label;
   final IconData icon;
   final VoidCallback onPressed;
@@ -12,7 +11,7 @@ class AmberFAB extends StatelessWidget {
   final double? width;
   final Widget? trailing;
 
-  const AmberFAB({
+  const AppFAB({
     super.key,
     required this.label,
     required this.icon,
@@ -24,6 +23,9 @@ class AmberFAB extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    
     // Width should match "Add Warehouse" style (~160-180px responsive)
     final double defaultWidth = rSize(context, 165);
     
@@ -33,15 +35,18 @@ class AmberFAB extends StatelessWidget {
         minWidth: width ?? defaultWidth,
       ),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [amberPrimary, amberDark],
+        gradient: LinearGradient(
+          colors: [
+            colorScheme.primary,
+            colorScheme.secondary,
+          ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: amberPrimary.withValues(alpha: 0.35),
+            color: colorScheme.primary.withValues(alpha: 0.35),
             blurRadius: 12,
             offset: const Offset(0, 5),
           ),
@@ -58,12 +63,16 @@ class AmberFAB extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(icon, color: Colors.black, size: rSize(context, 18)),
+                Icon(
+                  icon, 
+                  color: colorScheme.onPrimary, 
+                  size: rSize(context, 18),
+                ),
                 SizedBox(width: rSize(context, 10)),
                 Text(
                   label,
                   style: TextStyle(
-                    color: Colors.black,
+                    color: colorScheme.onPrimary,
                     fontWeight: FontWeight.bold,
                     fontSize: rFontSize(context, 15),
                   ),

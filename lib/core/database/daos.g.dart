@@ -61,8 +61,8 @@ class InventoryDaoManager {
 }
 
 mixin _$OrdersDaoMixin on DatabaseAccessor<AppDatabase> {
-  $CustomersTable get customers => attachedDatabase.customers;
   $WarehousesTable get warehouses => attachedDatabase.warehouses;
+  $CustomersTable get customers => attachedDatabase.customers;
   $UsersTable get users => attachedDatabase.users;
   $OrdersTable get orders => attachedDatabase.orders;
   $CategoriesTable get categories => attachedDatabase.categories;
@@ -78,10 +78,10 @@ mixin _$OrdersDaoMixin on DatabaseAccessor<AppDatabase> {
 class OrdersDaoManager {
   final _$OrdersDaoMixin _db;
   OrdersDaoManager(this._db);
-  $$CustomersTableTableManager get customers =>
-      $$CustomersTableTableManager(_db.attachedDatabase, _db.customers);
   $$WarehousesTableTableManager get warehouses =>
       $$WarehousesTableTableManager(_db.attachedDatabase, _db.warehouses);
+  $$CustomersTableTableManager get customers =>
+      $$CustomersTableTableManager(_db.attachedDatabase, _db.customers);
   $$UsersTableTableManager get users =>
       $$UsersTableTableManager(_db.attachedDatabase, _db.users);
   $$OrdersTableTableManager get orders =>
@@ -103,8 +103,8 @@ class OrdersDaoManager {
 }
 
 mixin _$CustomersDaoMixin on DatabaseAccessor<AppDatabase> {
-  $CustomersTable get customers => attachedDatabase.customers;
   $WarehousesTable get warehouses => attachedDatabase.warehouses;
+  $CustomersTable get customers => attachedDatabase.customers;
   $UsersTable get users => attachedDatabase.users;
   $OrdersTable get orders => attachedDatabase.orders;
   $CustomerWalletTransactionsTable get customerWalletTransactions =>
@@ -121,10 +121,10 @@ mixin _$CustomersDaoMixin on DatabaseAccessor<AppDatabase> {
 class CustomersDaoManager {
   final _$CustomersDaoMixin _db;
   CustomersDaoManager(this._db);
-  $$CustomersTableTableManager get customers =>
-      $$CustomersTableTableManager(_db.attachedDatabase, _db.customers);
   $$WarehousesTableTableManager get warehouses =>
       $$WarehousesTableTableManager(_db.attachedDatabase, _db.warehouses);
+  $$CustomersTableTableManager get customers =>
+      $$CustomersTableTableManager(_db.attachedDatabase, _db.customers);
   $$UsersTableTableManager get users =>
       $$UsersTableTableManager(_db.attachedDatabase, _db.users);
   $$OrdersTableTableManager get orders =>
@@ -187,6 +187,7 @@ class DeliveriesDaoManager {
 mixin _$ExpensesDaoMixin on DatabaseAccessor<AppDatabase> {
   $ExpenseCategoriesTable get expenseCategories =>
       attachedDatabase.expenseCategories;
+  $WarehousesTable get warehouses => attachedDatabase.warehouses;
   $ExpensesTable get expenses => attachedDatabase.expenses;
   ExpensesDaoManager get managers => ExpensesDaoManager(this);
 }
@@ -199,6 +200,8 @@ class ExpensesDaoManager {
         _db.attachedDatabase,
         _db.expenseCategories,
       );
+  $$WarehousesTableTableManager get warehouses =>
+      $$WarehousesTableTableManager(_db.attachedDatabase, _db.warehouses);
   $$ExpensesTableTableManager get expenses =>
       $$ExpensesTableTableManager(_db.attachedDatabase, _db.expenses);
 }

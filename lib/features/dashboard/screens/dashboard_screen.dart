@@ -11,7 +11,6 @@ import '../../../shared/widgets/menu_button.dart';
 import '../../../shared/widgets/app_bar_header.dart';
 import '../../../shared/widgets/notification_bell.dart';
 import '../../../core/theme/design_tokens.dart';
-import '../../../shared/models/order.dart';
 import '../../../shared/services/order_service.dart';
 import '../../../core/database/app_database.dart';
 import '../../customers/data/models/customer.dart';
@@ -45,7 +44,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   bool _showProTips = false;
 
   // DB-backed data
-  List<Order> _allOrders = [];
+  List<OrderWithItems> _allOrdersWithItems = [];
   List<ExpenseData> _allExpenses = [];
   List<Customer> _customers = [];
   double _totalStockValue = 0;
@@ -71,10 +70,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
       if (mounted) setState(() => _showProTips = count <= 1);
     });
 
-    // Check if the logged-in user is a manager — lock dashboard to their warehouse
+    // Lock managers (tier 4) and staff (tier < 4) to their own warehouse
     final currentUser = authService.currentUser;
     final userTier = currentUser?.roleTier ?? 5;
-    if (userTier == 4 && currentUser?.warehouseId != null) {
+    if (userTier < 5 && currentUser?.warehouseId != null) {
       _warehouseLocked = true;
       _selectedWarehouseId = currentUser!.warehouseId;
     }
@@ -94,8 +93,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
       }
     });
 
-    _ordersSub = orderService.watchAllOrders().listen((orders) {
-      if (mounted) setState(() => _allOrders = orders);
+    _ordersSub = orderService.watchAllOrdersWithItems().listen((orders) {
+      if (mounted) setState(() => _allOrdersWithItems = orders);
     });
 
     _expensesSub = database.expensesDao.watchAll().listen((expenses) {
@@ -158,39 +157,75 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Filter by selected period
-    final filteredOrders = _allOrders
+    // Filter by selected period and warehouse
+    final filteredOrdersWithItems = _allOrdersWithItems
         .where(
           (o) =>
-              _isDateInPeriod(o.createdAt, _selectedPeriod) &&
-              o.status == 'completed',
+              _isDateInPeriod(o.order.createdAt, _selectedPeriod) &&
+              o.order.status == 'completed' &&
+              (_selectedWarehouseId == null ||
+                  o.order.warehouseId == _selectedWarehouseId),
         )
         .toList();
 
     final filteredExpenses = _allExpenses
-        .where((e) => _isDateInPeriod(e.timestamp, _selectedPeriod))
+        .where(
+          (e) =>
+              _isDateInPeriod(e.timestamp, _selectedPeriod) &&
+              (_selectedWarehouseId == null ||
+                  e.warehouseId == _selectedWarehouseId),
+        )
         .toList();
 
+    // Filter customers by warehouse for credit/debt metrics
+    final filteredCustomers = _selectedWarehouseId == null
+        ? _customers
+        : _customers
+            .where((c) => c.warehouseId == _selectedWarehouseId)
+            .toList();
+
     // Metrics
-    final totalSales = filteredOrders.fold<double>(
+    final totalSales = filteredOrdersWithItems.fold<double>(
       0,
-      (sum, o) => sum + o.totalAmount,
+      (sum, o) => sum + o.order.totalAmountKobo / 100.0,
     );
     final totalExpenses = filteredExpenses.fold<double>(
       0,
       (sum, e) => sum + e.amountKobo / 100.0,
     );
-    final netProfit = totalSales - totalExpenses;
-    final pendingOrdersCount = _allOrders
-        .where((o) => o.status == 'pending')
+
+    // Profit — only calculated when at least one product has a buying price set
+    final hasBuyingPrices = filteredOrdersWithItems.any(
+      (o) => o.items.any((i) => i.product.buyingPriceKobo > 0),
+    );
+    double? netProfit;
+    if (hasBuyingPrices) {
+      double cogs = 0;
+      for (final o in filteredOrdersWithItems) {
+        for (final i in o.items) {
+          if (i.product.buyingPriceKobo > 0) {
+            cogs += i.item.quantity * i.product.buyingPriceKobo / 100.0;
+          }
+        }
+      }
+      netProfit = totalSales - cogs - totalExpenses;
+    }
+
+    final pendingOrdersCount = _allOrdersWithItems
+        .where(
+          (o) =>
+              o.order.status == 'pending' &&
+              (_selectedWarehouseId == null ||
+                  o.order.warehouseId == _selectedWarehouseId),
+        )
         .length;
 
-    final totalCredit = _customers.fold<double>(
+    final totalCredit = filteredCustomers.fold<double>(
       0,
       (sum, c) =>
           sum + (c.walletBalanceKobo > 0 ? c.walletBalanceKobo / 100.0 : 0),
     );
-    final totalDebt = _customers.fold<double>(
+    final totalDebt = filteredCustomers.fold<double>(
       0,
       (sum, c) =>
           sum +
@@ -414,7 +449,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildMetricsList({
     required double sales,
     required int pending,
-    required double profit,
+    required double? profit,
     required double credit,
     required double debt,
     required double expenses,
@@ -433,12 +468,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
         SizedBox(height: context.spacingM),
         _robustMetricCard(
           label: 'Net Profit',
-          value: formatCurrency(profit),
-          subtitle: 'After all deductions',
+          value: profit != null ? formatCurrency(profit) : '—',
+          subtitle: profit != null
+              ? 'Revenue minus cost of goods & expenses'
+              : 'Add buying prices to products to see profit',
           icon: FontAwesomeIcons.chartLine,
-          color: profit >= 0 ? success : danger,
-          trend: profit >= 0 ? 'Positive' : 'Negative',
-          isPositive: profit >= 0,
+          color: profit != null
+              ? (profit >= 0 ? success : danger)
+              : Theme.of(context).colorScheme.primary,
+          trend: profit != null
+              ? (profit >= 0 ? 'Positive' : 'Negative')
+              : 'N/A',
+          isPositive: profit == null || profit >= 0,
         ),
         SizedBox(height: context.spacingM),
         _robustMetricCard(

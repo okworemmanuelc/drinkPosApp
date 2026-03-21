@@ -6,6 +6,7 @@ import '../../../core/database/app_database.dart';
 import '../../../core/theme/colors.dart';
 
 import '../../../core/utils/responsive.dart';
+import '../../../core/widgets/app_fab.dart';
 import '../../../shared/services/activity_log_service.dart';
 import '../../../shared/widgets/shared_bottom_nav_bar.dart';
 
@@ -531,32 +532,20 @@ class _StockCountScreenState extends State<StockCountScreen> {
               tooltip: 'View History',
               onPressed: () => _viewHistory(context),
             ),
-            if (!_loading)
-              _saving
-                  ? Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Center(
-                        child: SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Theme.of(context).colorScheme.primary,
-                          ),
-                        ),
-                      ),
-                    )
-                  : TextButton(
-                      onPressed: _saveCount,
-                      child: Text(
-                        'Save Count',
-                        style: TextStyle(
-                          color: Theme.of(context).colorScheme.primary,
-                          fontWeight: FontWeight.w700,
-                          fontSize: context.getRFontSize(14),
-                        ),
-                      ),
+            if (!_loading && _saving)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Center(
+                  child: SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Theme.of(context).colorScheme.primary,
                     ),
+                  ),
+                ),
+              ),
           ],
         ),
         body: _loading
@@ -589,6 +578,14 @@ class _StockCountScreenState extends State<StockCountScreen> {
                 ),
               )
             : _buildTable(context),
+        floatingActionButton: _loading || _saving || _items.isEmpty
+            ? null
+            : AppFAB(
+                heroTag: 'save_count_fab',
+                onPressed: _saveCount,
+                icon: FontAwesomeIcons.floppyDisk,
+                label: 'Save Count',
+              ),
       ),
     );
   }

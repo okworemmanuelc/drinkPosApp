@@ -451,9 +451,16 @@ class OrdersDao extends DatabaseAccessor<AppDatabase> with _$OrdersDaoMixin {
   OrdersDao(super.db);
   Stream<List<OrderData>> watchPendingOrders() => (select(orders)..where((t) => t.status.equals('pending'))).watch();
   Stream<List<OrderData>> watchAllOrders() => select(orders).watch();
-  Stream<List<OrderData>> watchOrdersByWarehouse(int? warehouseId) => select(orders).watch();
-  Stream<List<OrderWithItems>> watchAllOrdersWithItems() {
-    return select(orders).watch().asyncMap((orderList) async {
+  Stream<List<OrderData>> watchOrdersByWarehouse(int? warehouseId) {
+    if (warehouseId == null) return select(orders).watch();
+    return (select(orders)..where((t) => t.warehouseId.equals(warehouseId))).watch();
+  }
+  Stream<List<OrderWithItems>> watchAllOrdersWithItems({int? warehouseId}) {
+    final query = select(orders);
+    if (warehouseId != null) {
+      query.where((t) => t.warehouseId.equals(warehouseId));
+    }
+    return query.watch().asyncMap((orderList) async {
       final result = <OrderWithItems>[];
       for (final order in orderList) {
         final itemRows = await (select(orderItems).join([
@@ -529,11 +536,15 @@ class OrdersDao extends DatabaseAccessor<AppDatabase> with _$OrdersDaoMixin {
     required int amountPaidKobo,
     required int totalAmountKobo,
     required int staffId,
+    int? warehouseId,
   }) async {
     return transaction(() async {
       // 1. Generate Order Number
       final orderNo = await generateOrderNumber();
-      final orderWithNo = order.copyWith(orderNumber: Value(orderNo));
+      final orderWithNo = order.copyWith(
+        orderNumber: Value(orderNo),
+        warehouseId: Value(warehouseId),
+      );
 
       // 2. Insert Order
       final orderId = await into(orders).insert(orderWithNo);
@@ -858,7 +869,10 @@ class LastDeliveryInfo {
 @DriftAccessor(tables: [Expenses, ExpenseCategories])
 class ExpensesDao extends DatabaseAccessor<AppDatabase> with _$ExpensesDaoMixin {
   ExpensesDao(super.db);
-  Stream<List<ExpenseData>> watchAll() => select(expenses).watch();
+  Stream<List<ExpenseData>> watchAll({int? warehouseId}) {
+    if (warehouseId == null) return select(expenses).watch();
+    return (select(expenses)..where((t) => t.warehouseId.equals(warehouseId))).watch();
+  }
   Future<void> addExpense(ExpensesCompanion companion) => into(expenses).insert(companion);
   Stream<double> watchTotalThisMonth() => Stream.value(0.0);
 }

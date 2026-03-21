@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 import '../../../core/theme/colors.dart';
-
 import '../../../core/utils/responsive.dart';
+import '../../../core/database/app_database.dart';
+import '../../../shared/services/auth_service.dart';
 import '../data/models/customer.dart';
 import '../data/services/customer_service.dart';
 import '../../../shared/widgets/fluid_menu.dart';
@@ -31,6 +32,21 @@ class _AddCustomerSheetState extends State<AddCustomerSheet> {
   final _phoneCtrl = TextEditingController();
   CustomerGroup _selectedGroup = CustomerGroup.retailer;
   final _formKey = GlobalKey<FormState>();
+
+  // Warehouse selection (CEO only)
+  List<WarehouseData> _warehouses = [];
+  int? _selectedWarehouseId;
+  bool get _isCeo => (authService.currentUser?.roleTier ?? 0) >= 5;
+
+  @override
+  void initState() {
+    super.initState();
+    if (_isCeo) {
+      database.select(database.warehouses).get().then((wh) {
+        if (mounted) setState(() => _warehouses = wh);
+      });
+    }
+  }
   Color get _surface => Theme.of(context).colorScheme.surface;
   Color get _cardBg => Theme.of(context).cardColor;
   Color get _text => Theme.of(context).colorScheme.onSurface;
@@ -113,6 +129,64 @@ class _AddCustomerSheetState extends State<AddCustomerSheet> {
           onChanged: (val) {
             if (val != null) setState(() => _selectedGroup = val);
           },
+        ),
+        SizedBox(height: context.getRSize(16)),
+      ],
+    );
+  }
+
+  Widget _warehouseDropdown() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Assign to Warehouse',
+          style: TextStyle(
+            fontSize: context.getRFontSize(12),
+            fontWeight: FontWeight.w700,
+            color: _subtext,
+          ),
+        ),
+        SizedBox(height: context.getRSize(8)),
+        Container(
+          decoration: BoxDecoration(
+            color: _cardBg,
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: DropdownButtonFormField<int>(
+            initialValue: _selectedWarehouseId,
+            hint: Text(
+              'Select warehouse',
+              style: TextStyle(color: _subtext, fontSize: context.getRFontSize(14)),
+            ),
+            decoration: InputDecoration(
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide.none,
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide(color: Theme.of(context).colorScheme.primary, width: 2),
+              ),
+              contentPadding: EdgeInsets.all(context.getRSize(16)),
+              filled: true,
+              fillColor: _cardBg,
+            ),
+            dropdownColor: _cardBg,
+            style: TextStyle(
+              fontSize: context.getRFontSize(14),
+              fontWeight: FontWeight.bold,
+              color: _text,
+            ),
+            items: _warehouses.map((wh) {
+              return DropdownMenuItem<int>(
+                value: wh.id,
+                child: Text(wh.name),
+              );
+            }).toList(),
+            onChanged: (val) => setState(() => _selectedWarehouseId = val),
+            validator: (v) => v == null ? 'Please select a warehouse' : null,
+          ),
         ),
         SizedBox(height: context.getRSize(16)),
       ],
@@ -235,6 +309,7 @@ class _AddCustomerSheetState extends State<AddCustomerSheet> {
                             'e.g. John Doe',
                           ),
                           _groupDropdown(),
+                          if (_isCeo) _warehouseDropdown(),
                           _inputField(
                             'Address',
                             _addressCtrl,
@@ -298,6 +373,11 @@ class _AddCustomerSheetState extends State<AddCustomerSheet> {
                           ),
                           onPressed: () {
                             if (_formKey.currentState!.validate()) {
+                              // CEO picks warehouse manually; others use their own warehouseId
+                              final warehouseId = _isCeo
+                                  ? _selectedWarehouseId
+                                  : authService.currentUser?.warehouseId;
+
                               final newCustomer = Customer(
                                 id: 0, // Database will generate this
                                 name: _nameCtrl.text.trim(),
@@ -308,6 +388,7 @@ class _AddCustomerSheetState extends State<AddCustomerSheet> {
                                     : _phoneCtrl.text.trim(),
                                 customerGroup: _selectedGroup,
                                 isWalkIn: false,
+                                warehouseId: warehouseId,
                               );
                               customerService.addCustomer(newCustomer);
                               Navigator.pop(context);

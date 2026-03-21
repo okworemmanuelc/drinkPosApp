@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../core/widgets/amber_fab.dart';
+import '../../../core/widgets/app_fab.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 import '../../../core/theme/colors.dart';
@@ -56,7 +56,7 @@ class _DeliveriesScreenState extends State<DeliveriesScreen> {
               ),
             ],
           ),
-          floatingActionButton: AmberFAB(
+          floatingActionButton: AppFAB(
             heroTag: 'deliveries_fab',
             onPressed: () => ReceiveDeliverySheet.show(context),
             icon: FontAwesomeIcons.truckRampBox,

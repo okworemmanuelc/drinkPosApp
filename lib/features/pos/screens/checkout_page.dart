@@ -9,6 +9,7 @@ import 'package:screenshot/screenshot.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:path_provider/path_provider.dart';
 
+import '../../../shared/services/auth_service.dart';
 import '../../../shared/services/cart_service.dart';
 import '../../../shared/services/order_service.dart';
 import '../../../shared/widgets/receipt_widget.dart';
@@ -483,7 +484,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
         totalAmountKobo: totalKobo,
         amountPaidKobo: amountPaidKobo,
         paymentType: _paymentLabel,
-        staffId: 1, // Default to admin for now, or get from session
+        staffId: authService.currentUser?.id ?? 1,
+        warehouseId: authService.currentUser?.warehouseId,
       );
 
       // ── Success Flow ────────────────────────────────────────────────

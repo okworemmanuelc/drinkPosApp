@@ -16,6 +16,7 @@ class Customer {
   final bool isWalkIn;
   final Map<String, int> emptyCratesBalance;
   final List<Payment> payments;
+  final int? warehouseId;
 
   Customer({
     required this.id,
@@ -30,6 +31,7 @@ class Customer {
     this.isWalkIn = false,
     this.emptyCratesBalance = const {},
     this.payments = const [],
+    this.warehouseId,
   }) : createdAt = createdAt ?? DateTime.now();
 
   double get customerWallet => walletBalanceKobo / 100.0;
@@ -48,6 +50,7 @@ class Customer {
     bool? isWalkIn,
     Map<String, int>? emptyCratesBalance,
     List<Payment>? payments,
+    int? warehouseId,
   }) {
     return Customer(
       id: id ?? this.id,
@@ -62,6 +65,7 @@ class Customer {
       isWalkIn: isWalkIn ?? this.isWalkIn,
       emptyCratesBalance: emptyCratesBalance ?? this.emptyCratesBalance,
       payments: payments ?? this.payments,
+      warehouseId: warehouseId ?? this.warehouseId,
     );
   }
 
@@ -84,6 +88,7 @@ class Customer {
       isWalkIn: data.id == -1,
       emptyCratesBalance: const {}, // TODO: Fetch from CrateBalances table
       payments: const [], // TODO: Fetch from Payments table
+      warehouseId: data.warehouseId,
     );
   }
 

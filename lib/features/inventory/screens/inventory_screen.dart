@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import '../../../core/widgets/amber_fab.dart';
+import '../../../core/widgets/app_fab.dart';
 import '../../../shared/services/navigation_service.dart';
 import '../../../shared/services/auth_service.dart';
 // import '../../../shared/services/activity_log_service.dart';
@@ -217,7 +217,7 @@ class _InventoryScreenState extends State<InventoryScreen>
         backgroundColor: _bg,
         appBar: _buildAppBar(context),
         floatingActionButton: _currentTab == 0
-            ? AmberFAB(
+            ? AppFAB(
                 onPressed: _showAddProductSheet,
                 icon: FontAwesomeIcons.plus,
                 label: 'Add Product',

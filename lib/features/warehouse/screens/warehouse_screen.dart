@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import '../../../core/widgets/amber_fab.dart';
+import '../../../core/widgets/app_fab.dart';
 import '../../../shared/widgets/shared_scaffold.dart';
 import '../../../shared/widgets/menu_button.dart';
 import '../../../shared/widgets/app_bar_header.dart';
@@ -512,7 +512,7 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
             SizedBox(width: rSize(context, 8)),
           ],
         ),
-        floatingActionButton: AmberFAB(
+        floatingActionButton: AppFAB(
           onPressed: () => _showAddSheet(context),
           icon: Icons.add_rounded,
           label: 'Add Warehouse',

@@ -121,6 +121,7 @@ class Customers extends Table {
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
   IntColumn get walletBalanceKobo => integer().withDefault(const Constant(0))();
   IntColumn get walletLimitKobo => integer().withDefault(const Constant(0))();
+  IntColumn get warehouseId => integer().nullable().references(Warehouses, #id)();
 }
 
 // 8. Suppliers
@@ -153,6 +154,7 @@ class Orders extends Table {
   TextColumn get cancellationReason => text().nullable()();
   TextColumn get barcode => text().nullable()();
   IntColumn get staffId => integer().nullable().references(Users, #id)();
+  IntColumn get warehouseId => integer().nullable().references(Warehouses, #id)();
 }
 
 // 10. Order Items
@@ -201,6 +203,7 @@ class Expenses extends Table {
   TextColumn get recordedBy => text().nullable()();
   TextColumn get reference => text().nullable()();
   DateTimeColumn get timestamp => dateTime().withDefault(currentDateAndTime)();
+  IntColumn get warehouseId => integer().nullable().references(Warehouses, #id)();
 }
 
 // 14. Expense Categories
@@ -498,7 +501,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 23;
+  int get schemaVersion => 25;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -531,11 +534,22 @@ class AppDatabase extends _$AppDatabase {
               // Version 23: Rescue migration to ensure column consistency.
               try { await m.addColumn(users, users.createdAt); } catch (_) {}
               try { await m.addColumn(users, users.lastNotificationSentAt); } catch (_) {}
-              
+
               final existingUsers = await select(users).get();
               if (existingUsers.isEmpty) {
                 await _seedDefaultStaff();
               }
+            }
+
+            if (from < 24) {
+              // Version 24: Add warehouseId to Customers for per-warehouse customer isolation.
+              try { await m.addColumn(customers, customers.warehouseId); } catch (_) {}
+            }
+
+            if (from < 25) {
+              // Version 25: Add warehouseId to Orders and Expenses for per-warehouse filtering.
+              try { await m.addColumn(orders, orders.warehouseId); } catch (_) {}
+              try { await m.addColumn(expenses, expenses.warehouseId); } catch (_) {}
             }
 
             // Fallback: Create any other new tables that do not yet exist

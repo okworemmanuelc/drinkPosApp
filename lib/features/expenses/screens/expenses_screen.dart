@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../core/widgets/amber_fab.dart';
+import '../../../core/widgets/app_fab.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:intl/intl.dart';
 
@@ -118,7 +118,7 @@ class _ExpensesScreenState extends State<ExpensesScreen>
               );
             },
           ),
-          floatingActionButton: AmberFAB(
+          floatingActionButton: AppFAB(
             heroTag: 'expenses_fab',
             onPressed: () => AddExpenseSheet.show(context),
             icon: FontAwesomeIcons.plus,

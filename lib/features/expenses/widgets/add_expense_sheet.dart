@@ -163,6 +163,7 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
         recordedBy: Value(_recordedByCtrl.text),
         reference: Value(_refCtrl.text),
         timestamp: Value(_selectedDate),
+        warehouseId: Value(authService.currentUser?.warehouseId),
       ),
     );
 
