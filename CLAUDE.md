@@ -135,3 +135,6 @@ lib/
 - Explicitly set `rootProject.name = "drink_pos_app"` in `android/settings.gradle.kts` to prevent the IDE or AI tools from creating duplicate root "android" elements.
 - Always use the explicit project name when configuring multi-project build settings to avoid naming collisions in the workspace.
 - Ensure `org.gradle.java.home` in `android/gradle.properties` points to a valid JDK path (prefer Android Studio's JBR) if the external environment is misconfigured.
+## Recent Updates
+- Completed app-wide theme migration to Ribaplus amber design system (resolving 700+ hardcoded color variables).
+- Updated all screens to dynamically use `Theme.of(context)` for Light/Dark mode compatibility.
