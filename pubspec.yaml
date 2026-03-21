@@ -119,11 +119,11 @@ flutter:
   # see https://flutter.dev/to/font-from-package
 
 flutter_native_splash:
-  color: "#0F172A"
+  color: "#050505"
   background_image: "assets/images/auth_bg.png"
   image: "assets/images/ribaplus_logo.png"
   android_12:
     image: "assets/images/ribaplus_logo.png"
-    color: "#0F172A"
+    color: "#050505"
   android: true
   ios: true

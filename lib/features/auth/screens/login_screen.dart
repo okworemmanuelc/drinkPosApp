@@ -138,16 +138,15 @@ class _LoginScreenState extends State<LoginScreen>
 
   @override
   Widget build(BuildContext context) {
-    const bg = Colors.transparent; 
-
+    const bg = Colors.transparent;
     return Scaffold(
       backgroundColor: Colors.black, // fallback
       body: Stack(
         children: [
           // ── Background Image ──────────────────────────────────────────
           Positioned.fill(
-            child: Image.network(
-              'https://images.unsplash.com/photo-1543007630-9710e4a00a20?auto=format&fit=crop&q=80&w=1935&ixlib=rb-4.0.3',
+            child: Image.asset(
+              'assets/images/auth_bg.png',
               fit: BoxFit.cover,
               errorBuilder: (context, error, stackTrace) =>
                   Container(color: Colors.black),

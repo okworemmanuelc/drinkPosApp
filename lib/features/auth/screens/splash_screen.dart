@@ -75,21 +75,15 @@ class _SplashScreenState extends State<SplashScreen>
 
   @override
   Widget build(BuildContext context) {
-    const bgUrl =
-        'https://images.unsplash.com/photo-1543007630-9710e4a00a20?auto=format&fit=crop&q=80&w=1935&ixlib=rb-4.0.3';
 
     return Scaffold(
       body: Stack(
         children: [
           // ── Background Image ──────────────────────────────────────────
           Positioned.fill(
-            child: Image.network(
-              bgUrl,
+            child: Image.asset(
+              'assets/images/auth_bg.png',
               fit: BoxFit.cover,
-              loadingBuilder: (context, child, loadingProgress) {
-                if (loadingProgress == null) return child;
-                return Container(color: Colors.black);
-              },
               errorBuilder: (context, error, stackTrace) {
                 return Container(color: Colors.black54);
               },
