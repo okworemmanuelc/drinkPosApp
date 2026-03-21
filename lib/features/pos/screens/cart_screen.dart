@@ -73,6 +73,7 @@ class _CartScreenState extends State<CartScreen>
       vsync: this,
       duration: const Duration(milliseconds: 480),
     );
+    cartService.activeCustomer.addListener(_onActiveCustomerChanged);
     database.select(database.crateGroups).watch().listen((data) {
       if (mounted) setState(() => _crateGroups = data);
     });
@@ -80,8 +81,13 @@ class _CartScreenState extends State<CartScreen>
 
   @override
   void dispose() {
+    cartService.activeCustomer.removeListener(_onActiveCustomerChanged);
     _clearCtrl.dispose();
     super.dispose();
+  }
+
+  void _onActiveCustomerChanged() {
+    if (mounted) setState(() => _activeCustomer = cartService.activeCustomer.value);
   }
 
   Future<void> _clearWithAnimation() async {
@@ -1329,7 +1335,7 @@ class _CartScreenState extends State<CartScreen>
                               child: Column(
                                 children: [
                                   _totalRow('Subtotal', sub, small: true),
-                                  if (hasGlass && computedDeposit > 0) ...[
+                                  if (hasGlass) ...[
                                     SizedBox(height: context.getRSize(6)),
                                     Row(
                                       mainAxisAlignment:

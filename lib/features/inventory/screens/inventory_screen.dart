@@ -18,6 +18,7 @@ import '../../../shared/widgets/notification_bell.dart';
 import '../../../shared/widgets/menu_button.dart';
 import '../../../shared/widgets/app_bar_header.dart';
 import 'supplier_detail_screen.dart';
+import 'stock_count_screen.dart';
 import 'product_detail_screen.dart';
 import '../../../core/theme/design_tokens.dart';
 import '../../../core/database/app_database.dart';
@@ -265,9 +266,21 @@ class _InventoryScreenState extends State<InventoryScreen>
         title: 'Inventory',
         subtitle: 'Stock Management',
       ),
-      actions: const [
-        NotificationBell(),
-        SizedBox(width: AppSpacing.s),
+      actions: [
+        IconButton(
+          tooltip: 'Daily Stock Count',
+          icon: const Icon(Icons.fact_check_outlined),
+          onPressed: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => StockCountScreen(
+                warehouseId: navigationService.lockedWarehouseId.value,
+              ),
+            ),
+          ),
+        ),
+        const NotificationBell(),
+        const SizedBox(width: AppSpacing.s),
       ],
     );
   }
@@ -683,7 +696,7 @@ class _InventoryScreenState extends State<InventoryScreen>
               value: _selectedManufacturer,
               labelText: 'Manufacturer',
               items: [
-                DropdownMenuItem(value: 'all', child: Text('All Manufacturers', style: TextStyle(color: _text))),
+                DropdownMenuItem(value: 'all', child: Text('All', style: TextStyle(color: _text))),
                 ..._dbManufacturers.map((m) => DropdownMenuItem(
                   value: m.name,
                   child: Text(m.name, style: TextStyle(color: _text)),
@@ -783,7 +796,7 @@ class _InventoryScreenState extends State<InventoryScreen>
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (_) => ProductDetailScreen(
+            builder: (context) => ProductDetailScreen(
               item: inventoryItem,
               onUpdateStock: () => setState(() {}),
             ),

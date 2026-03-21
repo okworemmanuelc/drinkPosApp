@@ -59,7 +59,8 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setSheet) => Padding(
           padding: EdgeInsets.only(
-            bottom: MediaQuery.of(ctx).viewInsets.bottom,
+            bottom: MediaQuery.of(ctx).viewInsets.bottom +
+                MediaQuery.of(ctx).padding.bottom,
           ),
           child: Container(
             decoration: BoxDecoration(
@@ -239,7 +240,8 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setSheet) => Padding(
           padding: EdgeInsets.only(
-            bottom: MediaQuery.of(ctx).viewInsets.bottom,
+            bottom: MediaQuery.of(ctx).viewInsets.bottom +
+                MediaQuery.of(ctx).padding.bottom,
           ),
           child: Container(
             decoration: BoxDecoration(
@@ -753,11 +755,8 @@ class _WarehouseCardState extends State<_WarehouseCard> {
             onTap: () {
               Navigator.push(
                 context,
-                PageRouteBuilder(
-                  opaque: true,
-                  transitionDuration: Duration.zero,
-                  reverseTransitionDuration: Duration.zero,
-                  pageBuilder: (_, __, ___) =>
+                MaterialPageRoute(
+                  builder: (context) =>
                       WarehouseDetailsScreen(warehouse: widget.warehouse),
                 ),
               );

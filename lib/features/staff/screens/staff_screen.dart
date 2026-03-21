@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -141,40 +142,39 @@ class _StaffScreenState extends State<StaffScreen> {
           .toList();
     }
 
-    if (list.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(FontAwesomeIcons.usersSlash,
-                size: 48, color: _subtext.withValues(alpha: 0.5)),
-            const SizedBox(height: 16),
-            Text('No staff found',
-                style: TextStyle(color: _subtext, fontSize: 16)),
-          ],
-        ),
-      );
-    }
-
     return Column(
       children: [
         _buildWarehouseFilters(),
         Expanded(
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
-            children: [
-              for (final tier in [5, 4, 3, 2, 1]) ...[
-                if (list.any((u) => roleFor(u.role).tier == tier)) ...[
-                  _buildSectionHeader(tier, list.where((u) => roleFor(u.role).tier == tier).length),
-                  const SizedBox(height: 8),
-                  ...list
-                      .where((u) => roleFor(u.role).tier == tier)
-                      .map((u) => _buildStaffCard(context, u)),
-                  const SizedBox(height: 16),
-                ],
-              ],
-            ],
-          ),
+          child: list.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(FontAwesomeIcons.usersSlash,
+                          size: 48, color: _subtext.withValues(alpha: 0.5)),
+                      const SizedBox(height: 16),
+                      Text('No staff found',
+                          style: TextStyle(color: _subtext, fontSize: 16)),
+                    ],
+                  ),
+                )
+              : ListView(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
+                  children: [
+                    for (final tier in [5, 4, 3, 2, 1]) ...[
+                      if (list.any((u) => roleFor(u.role).tier == tier)) ...[
+                        _buildSectionHeader(tier,
+                            list.where((u) => roleFor(u.role).tier == tier).length),
+                        const SizedBox(height: 8),
+                        ...list
+                            .where((u) => roleFor(u.role).tier == tier)
+                            .map((u) => _buildStaffCard(context, u)),
+                        const SizedBox(height: 16),
+                      ],
+                    ],
+                  ],
+                ),
         ),
       ],
     );
@@ -285,6 +285,7 @@ class _StaffScreenState extends State<StaffScreen> {
             ),
           );
         },
+        onLongPress: () => _showStaffActions(context, user),
         borderRadius: BorderRadius.circular(16),
         child: Padding(
           padding: EdgeInsets.all(context.getRSize(14)),
@@ -350,46 +351,10 @@ class _StaffScreenState extends State<StaffScreen> {
               RoleGuard(
                 minTier: 4,
                 fallback: const SizedBox.shrink(),
-                child: PopupMenuButton<String>(
+                child: IconButton(
+                  onPressed: () => _showStaffActions(context, user),
                   icon: Icon(FontAwesomeIcons.ellipsisVertical,
-                      size: context.getRSize(16), color: _subtext),
-                  color: _surface,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
-                  onSelected: (action) {
-                    if (action == 'edit') _showStaffSheet(context, user: user);
-                    if (action == 'delete') _confirmDelete(context, user);
-                  },
-                  itemBuilder: (_) => [
-                    PopupMenuItem(
-                      value: 'edit',
-                      child: Row(
-                        children: [
-                          Icon(FontAwesomeIcons.penToSquare,
-                              size: context.getRSize(14), color: blueMain),
-                          SizedBox(width: context.getRSize(10)),
-                          Text('Edit',
-                              style: TextStyle(
-                                  color: _text,
-                                  fontSize: context.getRFontSize(14))),
-                        ],
-                      ),
-                    ),
-                    PopupMenuItem(
-                      value: 'delete',
-                      child: Row(
-                        children: [
-                          Icon(FontAwesomeIcons.trash,
-                              size: context.getRSize(14), color: danger),
-                          SizedBox(width: context.getRSize(10)),
-                          Text('Delete',
-                              style: TextStyle(
-                                  color: danger,
-                                  fontSize: context.getRFontSize(14))),
-                        ],
-                      ),
-                    ),
-                  ],
+                      size: context.getRSize(16), color: _subtext.withValues(alpha: 0.6)),
                 ),
               ),
             ],
@@ -405,6 +370,37 @@ class _StaffScreenState extends State<StaffScreen> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => _StaffFormSheet(user: user, warehouses: _warehouses),
+    );
+  }
+
+  void _showStaffActions(BuildContext context, UserData user) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (ctx) => _StaffActionSheet(
+        user: user,
+        onEdit: () {
+          Navigator.pop(ctx);
+          _showStaffSheet(context, user: user);
+        },
+        onDelete: () {
+          Navigator.pop(ctx);
+          _confirmDelete(context, user);
+        },
+        onView: () {
+          Navigator.pop(ctx);
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => StaffDetailsScreen(
+                user: user,
+                warehouses: _warehouses,
+              ),
+            ),
+          );
+        },
+      ),
     );
   }
 
@@ -501,7 +497,10 @@ class _StaffFormSheetState extends State<_StaffFormSheet> {
       valueListenable: themeNotifier,
       builder: (context, mode, child) {
         return Padding(
-          padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom +
+                MediaQuery.of(context).padding.bottom,
+          ),
           child: Container(
             decoration: BoxDecoration(
               color: _surface,
@@ -637,9 +636,122 @@ class _StaffFormSheetState extends State<_StaffFormSheet> {
     if (!_formKey.currentState!.validate()) return;
     if (_selectedWarehouseId == null) return;
 
-    // Stub — no DB write in this version
+    final name = _nameCtrl.text.trim();
+    final pin  = _pinCtrl.text.trim();
+    final role = _selectedRole.value;
+    final tier = _selectedRole.tier;
 
-    if (mounted) Navigator.pop(context);
+    // Non-managers cannot be added to a warehouse that has no manager yet.
+    if (tier < 4) {
+      final staffInWarehouse = await (database.select(database.users)
+            ..where((u) => u.warehouseId.equals(_selectedWarehouseId!)))
+          .get();
+
+      // Exclude the user being edited, then count managers.
+      final otherManagers = staffInWarehouse
+          .where((u) =>
+              u.roleTier >= 4 &&
+              (widget.user == null || u.id != widget.user!.id))
+          .toList();
+
+      if (otherManagers.isEmpty) {
+        if (!mounted) return;
+        final warehouseName = widget.warehouses
+            .firstWhere((w) => w.id == _selectedWarehouseId,
+                orElse: () => const WarehouseData(id: -1, name: 'this warehouse'))
+            .name;
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            backgroundColor: _surface,
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            title: Row(
+              children: [
+                const Icon(FontAwesomeIcons.triangleExclamation,
+                    color: Color(0xFFF97316), size: 18),
+                const SizedBox(width: 10),
+                Text('No Manager Assigned',
+                    style: TextStyle(
+                        color: _text,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16)),
+              ],
+            ),
+            content: Text(
+              '"$warehouseName" does not have a manager yet.\n\n'
+              'You must assign a Manager (or higher) to this warehouse before adding regular staff.',
+              style: TextStyle(color: _subtext, height: 1.5),
+            ),
+            actions: [
+              ElevatedButton(
+                onPressed: () => Navigator.pop(ctx),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: blueMain,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10)),
+                ),
+                child: const Text('Got it',
+                    style: TextStyle(color: Colors.white)),
+              ),
+            ],
+          ),
+        );
+        return;
+      }
+    }
+
+    final warehouseName = widget.warehouses
+        .firstWhere((w) => w.id == _selectedWarehouseId,
+            orElse: () => const WarehouseData(id: -1, name: 'the warehouse'))
+        .name;
+
+    if (widget.user == null) {
+      // Insert new staff member
+      await database.into(database.users).insert(UsersCompanion(
+        name: Value(name),
+        pin: Value(pin),
+        role: Value(role),
+        roleTier: Value(tier),
+        warehouseId: Value(_selectedWarehouseId),
+      ));
+    } else {
+      // Update existing staff member
+      await (database.update(database.users)
+            ..where((u) => u.id.equals(widget.user!.id)))
+          .write(UsersCompanion(
+        name: Value(name),
+        pin: Value(pin),
+        role: Value(role),
+        roleTier: Value(tier),
+        warehouseId: Value(_selectedWarehouseId),
+      ));
+    }
+
+    if (!mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    Navigator.pop(context);
+    messenger.showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(FontAwesomeIcons.circleCheck,
+                color: Colors.white, size: 16),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                '$name has been successfully assigned to $warehouseName.',
+                style: const TextStyle(color: Colors.white),
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: const Color(0xFF22C55E),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        duration: const Duration(seconds: 4),
+      ),
+    );
   }
 
   InputDecoration _inputDecoration(String hint) {
@@ -662,6 +774,245 @@ class _StaffFormSheetState extends State<_StaffFormSheet> {
         borderSide: const BorderSide(color: blueMain),
       ),
     );
+  }
+}
+
+class _StaffActionSheet extends StatelessWidget {
+  final UserData user;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+  final VoidCallback onView;
+
+  const _StaffActionSheet({
+    required this.user,
+    required this.onEdit,
+    required this.onDelete,
+    required this.onView,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final bool isDark = themeNotifier.value == ThemeMode.dark;
+    final Color surfaceColor = isDark ? dSurface : lSurface;
+    final Color textColor = isDark ? dText : lText;
+    final Color subtextColor = isDark ? dSubtext : lSubtext;
+    final Color bgColor = isDark ? dBg : lBg;
+
+    final roleInfo = roleFor(user.role);
+    final avatarColor = _parseColor(user.avatarColor) ?? roleInfo.color;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: surfaceColor,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.2),
+            blurRadius: 40,
+            offset: const Offset(0, -5),
+          ),
+        ],
+      ),
+      padding: EdgeInsets.fromLTRB(24, 16, 24, MediaQuery.of(context).padding.bottom + 24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Center(
+            child: Container(
+              width: 48,
+              height: 5,
+              decoration: BoxDecoration(
+                color: subtextColor.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+          ),
+          const SizedBox(height: 24),
+          Row(
+            children: [
+              Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  color: avatarColor.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: avatarColor.withValues(alpha: 0.3), width: 2),
+                ),
+                child: Center(
+                  child: Text(
+                    _initials(user.name),
+                    style: TextStyle(
+                      color: avatarColor,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      user.name,
+                      style: TextStyle(
+                        color: textColor,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      roleInfo.label,
+                      style: TextStyle(
+                        color: roleInfo.color,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 32),
+          Text(
+            'AVAILABLE ACTIONS',
+            style: TextStyle(
+              color: subtextColor,
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1.2,
+            ),
+          ),
+          const SizedBox(height: 16),
+          _actionTile(
+            context,
+            icon: FontAwesomeIcons.userPen,
+            label: 'View Full Profile',
+            subtitle: 'Check performance & history',
+            color: blueMain,
+            onTap: onView,
+            isDark: isDark,
+            bg: bgColor,
+            text: textColor,
+            subtext: subtextColor,
+          ),
+          const SizedBox(height: 12),
+          _actionTile(
+            context,
+            icon: FontAwesomeIcons.penToSquare,
+            label: 'Edit Details',
+            subtitle: 'Update role or access PIN',
+            color: Colors.orange,
+            onTap: onEdit,
+            isDark: isDark,
+            bg: bgColor,
+            text: textColor,
+            subtext: subtextColor,
+          ),
+          const SizedBox(height: 12),
+          _actionTile(
+            context,
+            icon: FontAwesomeIcons.trashCan,
+            label: 'Terminate Access',
+            subtitle: 'Permanently remove from team',
+            color: danger,
+            onTap: onDelete,
+            isDark: isDark,
+            bg: bgColor,
+            text: textColor,
+            subtext: subtextColor,
+            isDanger: true,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _actionTile(
+    BuildContext context, {
+    required IconData icon,
+    required String label,
+    required String subtitle,
+    required Color color,
+    required VoidCallback onTap,
+    required bool isDark,
+    required Color bg,
+    required Color text,
+    required Color subtext,
+    bool isDanger = false,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: isDanger ? color.withValues(alpha: 0.1) : Colors.transparent),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, size: 18, color: color),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: TextStyle(
+                      color: isDanger ? color : text,
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      color: subtext.withValues(alpha: 0.6),
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              Icons.chevron_right_rounded,
+              color: subtext.withValues(alpha: 0.3),
+              size: 20,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _initials(String name) {
+    final parts = name.trim().split(' ');
+    if (parts.length >= 2) return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+    return name.substring(0, name.length.clamp(0, 2)).toUpperCase();
+  }
+
+  Color? _parseColor(String color) {
+    try {
+      return Color(int.parse(color.replaceAll('#', 'FF'), radix: 16));
+    } catch (_) {
+      return null;
+    }
   }
 }
 

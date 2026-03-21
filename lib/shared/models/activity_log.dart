@@ -8,6 +8,7 @@ class ActivityLog {
   final String? relatedEntityId;
   final String? relatedEntityType;
   final String? warehouseId;
+  final int? userId;
 
   ActivityLog({
     required this.id,
@@ -17,6 +18,7 @@ class ActivityLog {
     this.relatedEntityId,
     this.relatedEntityType,
     this.warehouseId,
+    this.userId,
   });
 
   factory ActivityLog.fromDb(ActivityLogData data) {
@@ -28,6 +30,7 @@ class ActivityLog {
       relatedEntityId: data.relatedEntityId,
       relatedEntityType: data.relatedEntityType,
       warehouseId: data.warehouseId,
+      userId: data.userId,
     );
   }
 }

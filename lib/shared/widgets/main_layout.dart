@@ -19,6 +19,56 @@ import '../../shared/services/order_service.dart';
 import '../../shared/models/order.dart';
 import '../../core/theme/colors.dart';
 
+// ── Lazy IndexedStack ──────────────────────────────────────────────────────
+// Only builds a child widget the very first time that tab is visited.
+// After that first build the child is kept alive forever (identical to a
+// normal IndexedStack), preserving scroll position and stream state.
+class _LazyIndexedStack extends StatefulWidget {
+  final int index;
+  final List<Widget> children;
+
+  const _LazyIndexedStack({required this.index, required this.children});
+
+  @override
+  State<_LazyIndexedStack> createState() => _LazyIndexedStackState();
+}
+
+class _LazyIndexedStackState extends State<_LazyIndexedStack> {
+  late final List<bool> _activated;
+
+  @override
+  void initState() {
+    super.initState();
+    // Mark only the first visible tab as activated; everything else is a stub.
+    _activated = List.generate(
+      widget.children.length,
+      (i) => i == widget.index,
+    );
+  }
+
+  @override
+  void didUpdateWidget(_LazyIndexedStack oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // First time the user visits a tab: activate it so the real widget builds.
+    if (!_activated[widget.index]) {
+      setState(() => _activated[widget.index] = true);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return IndexedStack(
+      index: widget.index,
+      children: List.generate(widget.children.length, (i) {
+        // Unvisited tabs get a bare SizedBox so nothing is built yet.
+        return _activated[i] ? widget.children[i] : const SizedBox.shrink();
+      }),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 class MainLayout extends StatefulWidget {
   const MainLayout({super.key});
 
@@ -62,28 +112,32 @@ class _MainLayoutState extends State<MainLayout> {
           child: ValueListenableBuilder<List<Map<String, dynamic>>>(
             valueListenable: cartService,
             builder: (context, cart, _) => Scaffold(
-              // Use IndexedStack for ALL screens to ensure form persistence and instant switching.
-              body: IndexedStack(
+              // IndexedStack keeps all screens alive for state preservation.
+              // RepaintBoundary isolates each screen's painting so Flutter does
+              // not repaint inactive screens when a detail route is pushed.
+              body: _LazyIndexedStack(
                 index: currentIndex,
-                  children: [
-                    const DashboardScreen(), // 0
-                    const PosHomeScreen(),   // 1
-                    const InventoryScreen(),  // 2
-                    const OrdersScreen(),     // 3
-                    const CustomersScreen(),  // 4
-                    const PaymentsScreen(),   // 5
-                    const ExpensesScreen(),   // 6
-                    const WarehouseScreen(),  // 7
-                    const StaffScreen(),      // 8
-                    CartScreen(               // 9
+                children: [
+                  const RepaintBoundary(child: DashboardScreen()),  // 0
+                  const RepaintBoundary(child: PosHomeScreen()),    // 1
+                  const RepaintBoundary(child: InventoryScreen()),  // 2
+                  const RepaintBoundary(child: OrdersScreen()),     // 3
+                  const RepaintBoundary(child: CustomersScreen()),  // 4
+                  const RepaintBoundary(child: PaymentsScreen()),   // 5
+                  const RepaintBoundary(child: ExpensesScreen()),   // 6
+                  const RepaintBoundary(child: WarehouseScreen()),  // 7
+                  const RepaintBoundary(child: StaffScreen()),      // 8
+                  RepaintBoundary(                                  // 9
+                    child: CartScreen(
                       cart: cart,
                       crateDeposit: 0.0,
                       onCustomerChanged: _voidOnCustomerChanged,
                     ),
-                    const DeliveriesScreen(),  // 10
-                    const ActivityLogScreen(), // 11
-                  ],
-                ),
+                  ),
+                  const RepaintBoundary(child: DeliveriesScreen()),  // 10
+                  const RepaintBoundary(child: ActivityLogScreen()), // 11
+                ],
+              ),
                 bottomNavigationBar: BottomNavigationBar(
                 currentIndex: currentIndex == 0
                     ? 0

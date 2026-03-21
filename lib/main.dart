@@ -7,6 +7,7 @@ import 'core/database/app_database.dart';
 import 'features/auth/screens/login_screen.dart';
 import 'shared/services/auth_service.dart';
 import 'shared/widgets/main_layout.dart';
+import 'features/auth/screens/warehouse_assignment_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -38,8 +39,16 @@ class RibaplusPosApp extends StatelessWidget {
         // automatically whenever a user logs in or out.
         home: ValueListenableBuilder(
           valueListenable: authService,
-          builder: (_, user, __) =>
-              user == null ? const LoginScreen() : const MainLayout(),
+          builder: (_, user, __) {
+            if (user == null) return const LoginScreen();
+            
+            // Staff below CEO level (tier 5) must have a warehouse assigned
+            if (user.roleTier < 5 && user.warehouseId == null) {
+              return WarehouseAssignmentScreen(user: user);
+            }
+            
+            return const MainLayout();
+          },
         ),
       ),
     );

@@ -11,6 +11,7 @@ import '../../inventory/data/models/inventory_log.dart';
 import '../../../core/utils/currency_input_formatter.dart';
 import '../../warehouse/data/models/warehouse.dart';
 import '../../../shared/widgets/fluid_menu.dart';
+import '../../../shared/widgets/shared_bottom_nav_bar.dart';
 
 class StockTransferScreen extends StatefulWidget {
   const StockTransferScreen({super.key});
@@ -179,6 +180,7 @@ class _StockTransferScreenState extends State<StockTransferScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _bg,
+      bottomNavigationBar: const SharedBottomNavBar(),
       appBar: AppBar(
         backgroundColor: _surface,
         elevation: 0,

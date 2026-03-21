@@ -17,6 +17,7 @@ import '../../../core/utils/currency_input_formatter.dart';
 import '../data/models/payment.dart';
 import '../data/services/customer_service.dart';
 import '../../../shared/widgets/fluid_menu.dart';
+import '../../../shared/widgets/shared_bottom_nav_bar.dart';
 
 class CustomerDetailScreen extends StatefulWidget {
   final Customer? customer;
@@ -120,6 +121,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
           return Scaffold(
             backgroundColor: bgCol,
             appBar: _buildAppBar(context, surfaceCol, textCol, borderCol),
+            bottomNavigationBar: const SharedBottomNavBar(),
             body: const Center(
               child: CircularProgressIndicator(
                 color: blueMain,
@@ -132,6 +134,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
         return Scaffold(
           backgroundColor: bgCol,
           appBar: _buildAppBar(context, surfaceCol, textCol, borderCol),
+          bottomNavigationBar: const SharedBottomNavBar(),
           body: SingleChildScrollView(
             padding: EdgeInsets.only(
               bottom:
@@ -1938,7 +1941,8 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
 
         return Padding(
           padding: EdgeInsets.only(
-            bottom: MediaQuery.of(modalCtx).viewInsets.bottom,
+            bottom: MediaQuery.of(modalCtx).viewInsets.bottom +
+                MediaQuery.of(modalCtx).padding.bottom,
           ),
           child: Container(
             decoration: BoxDecoration(

@@ -240,11 +240,8 @@ class _CustomersScreenState extends State<CustomersScreen> {
       onTap: () {
         Navigator.push(
           context,
-          PageRouteBuilder(
-            opaque: true,
-            pageBuilder: (_, __, ___) => CustomerDetailScreen(customer: customer),
-            transitionDuration: Duration.zero,
-            reverseTransitionDuration: Duration.zero,
+          MaterialPageRoute(
+            builder: (context) => CustomerDetailScreen(customer: customer),
           ),
         );
       },

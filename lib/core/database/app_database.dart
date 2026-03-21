@@ -51,6 +51,8 @@ class Users extends Table {
   TextColumn get avatarColor => text().withDefault(const Constant('#3B82F6'))();
   BoolColumn get biometricEnabled => boolean().withDefault(const Constant(false))();
   IntColumn get warehouseId => integer().nullable().references(Warehouses, #id)();
+  DateTimeColumn get createdAt => dateTime().nullable()();
+  DateTimeColumn get lastNotificationSentAt => dateTime().nullable()();
 }
 
 // 4. Categories
@@ -496,7 +498,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 21;
+  int get schemaVersion => 23;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -518,8 +520,23 @@ class AppDatabase extends _$AppDatabase {
               await m.createTable(savedCarts);
             }
 
-            // v21 — no DDL changes; default staff users are seeded on fresh installs only.
-            // Existing installs keep their current Users rows untouched.
+            if (from < 22) {
+              // Migration to 22: Added nullable createdAt and lastNotificationSentAt via raw SQL (User's manual edit)
+              // We try to add them again via Migrator in case v22 failed to align schema metadata
+              try { await m.addColumn(users, users.createdAt); } catch (_) {}
+              try { await m.addColumn(users, users.lastNotificationSentAt); } catch (_) {}
+            }
+
+            if (from < 23) {
+              // Version 23: Rescue migration to ensure column consistency.
+              try { await m.addColumn(users, users.createdAt); } catch (_) {}
+              try { await m.addColumn(users, users.lastNotificationSentAt); } catch (_) {}
+              
+              final existingUsers = await select(users).get();
+              if (existingUsers.isEmpty) {
+                await _seedDefaultStaff();
+              }
+            }
 
             // Fallback: Create any other new tables that do not yet exist
             for (final table in allTables) {
@@ -599,6 +616,18 @@ class AppDatabase extends _$AppDatabase {
           avatarColor: Value('#EF4444'), // red
         ),
       );
+    });
+  }
+
+  /// Seeds the 5 default staff accounts.
+  /// Safe to call any time — only used when the Users table is empty.
+  Future<void> _seedDefaultStaff() async {
+    await batch((b) {
+      b.insert(users, const UsersCompanion(name: Value('CEO'), role: Value('CEO'), roleTier: Value(5), pin: Value('0000'), avatarColor: Value('#8B5CF6')));
+      b.insert(users, const UsersCompanion(name: Value('Manager'), role: Value('manager'), roleTier: Value(4), pin: Value('1111'), avatarColor: Value('#3B82F6')));
+      b.insert(users, const UsersCompanion(name: Value('Cashier'), role: Value('cashier'), roleTier: Value(1), pin: Value('2222'), avatarColor: Value('#10B981')));
+      b.insert(users, const UsersCompanion(name: Value('Stock Keeper'), role: Value('stock_keeper'), roleTier: Value(1), pin: Value('3333'), avatarColor: Value('#F59E0B')));
+      b.insert(users, const UsersCompanion(name: Value('Rider'), role: Value('rider'), roleTier: Value(1), pin: Value('4444'), avatarColor: Value('#EF4444')));
     });
   }
 

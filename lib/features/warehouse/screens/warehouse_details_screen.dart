@@ -7,6 +7,7 @@ import '../../../core/utils/responsive.dart';
 import '../../../core/database/app_database.dart';
 import '../../../shared/services/navigation_service.dart';
 import '../../../shared/widgets/shared_scaffold.dart';
+import '../../../shared/widgets/shared_bottom_nav_bar.dart';
 import '../../../shared/widgets/app_bar_header.dart';
 import '../../../core/utils/number_format.dart';
 
@@ -87,6 +88,7 @@ class _WarehouseDetailsScreenState extends State<WarehouseDetailsScreen> {
     return SharedScaffold(
       activeRoute: 'warehouse',
       backgroundColor: _bg,
+      bottomNavigationBar: const SharedBottomNavBar(),
       appBar: AppBar(
         backgroundColor: _surface,
         elevation: 0,
@@ -554,6 +556,7 @@ class _WarehouseDetailsScreenState extends State<WarehouseDetailsScreen> {
                 FontAwesomeIcons.usersGear,
                 const Color(0xFFA855F7),
                 () {
+                  Navigator.of(context).pop();
                   navigationService.setIndex(8);
                 },
               ),

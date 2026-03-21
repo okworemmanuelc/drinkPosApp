@@ -10,6 +10,7 @@ import '../data/models/inventory_item.dart';
 import '../../../shared/widgets/app_dropdown.dart';
 import '../../../core/database/app_database.dart';
 import '../../../shared/services/cart_service.dart';
+import '../../../shared/widgets/shared_bottom_nav_bar.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ProductDetailScreen — full-screen product information view
@@ -51,6 +52,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   ProductSalesSummary? _salesSummary;
   LastDeliveryInfo? _lastDelivery;
   bool _deliveryLoaded = false;
+  bool _contentReady = false; // deferred load flag
 
   @override
   void initState() {
@@ -70,7 +72,13 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     _emptyCratesController = TextEditingController(text: '0');
     _emptyCrateValueController = TextEditingController(text: '0');
 
-    _loadProductData();
+    // Defer heavy DB calls + full widget tree until after the first frame
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        setState(() => _contentReady = true);
+        _loadProductData();
+      }
+    });
   }
 
   Future<void> _loadProductData() async {
@@ -151,6 +159,16 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // First frame: show a bare scaffold with a spinner so the screen opens
+    // instantly without trying to build the full heavy widget tree.
+    if (!_contentReady) {
+      return Scaffold(
+        backgroundColor: _bg,
+        body: const Center(child: CircularProgressIndicator(color: blueMain)),
+        bottomNavigationBar: const SharedBottomNavBar(),
+      );
+    }
+
     return Scaffold(
       backgroundColor: _bg,
       body: CustomScrollView(
@@ -159,7 +177,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           SliverToBoxAdapter(child: _buildBody(context)),
         ],
       ),
-      bottomNavigationBar: _buildBottomBar(context),
+      bottomNavigationBar: const SharedBottomNavBar(),
     );
   }
 
@@ -606,55 +624,37 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           SizedBox(height: context.getRSize(12)),
           _buildDeliveryCard(context),
 
+          SizedBox(height: context.getRSize(32)),
+          // ── Action Button ───────────────────────────────────────────
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: blueMain,
+                foregroundColor: Colors.white,
+                padding: EdgeInsets.symmetric(vertical: context.getRSize(16)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                elevation: 0,
+              ),
+              icon: Icon(FontAwesomeIcons.check, size: context.getRSize(16)),
+              label: Text(
+                'Update Product',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: context.getRFontSize(16),
+                ),
+              ),
+              onPressed: _updateProduct,
+            ),
+          ),
           SizedBox(height: context.getRSize(40)),
         ],
       ),
     );
   }
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // BOTTOM BAR — Update Product button
-  // ═══════════════════════════════════════════════════════════════════════════
-
-  Widget _buildBottomBar(BuildContext context) {
-    return SafeArea(
-      child: Container(
-        padding: EdgeInsets.fromLTRB(
-          context.getRSize(20),
-          context.getRSize(12),
-          context.getRSize(20),
-          context.getRSize(12),
-        ),
-        decoration: BoxDecoration(
-          color: _surface,
-          border: Border(top: BorderSide(color: _border)),
-        ),
-        child: SizedBox(
-          width: double.infinity,
-          child: ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: blueMain,
-              foregroundColor: Colors.white,
-              padding: EdgeInsets.symmetric(vertical: context.getRSize(16)),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              elevation: 0,
-            ),
-            icon: Icon(FontAwesomeIcons.check, size: context.getRSize(16)),
-            label: Text(
-              'Update Product',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: context.getRFontSize(16),
-              ),
-            ),
-            onPressed: _updateProduct,
-          ),
-        ),
-      ),
-    );
-  }
 
   // ═══════════════════════════════════════════════════════════════════════════
   // SHARED WIDGETS

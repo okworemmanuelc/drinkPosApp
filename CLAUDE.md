@@ -2,12 +2,19 @@
 
 Ribaplus POS is a modern Flutter-based Point of Sale application designed specifically for drinks distributors. It features offline-first capabilities with local SQLite storage and seamless cloud synchronization.
 
+## 📝 Summary of Major Recent Updates
+- **PIN-based Authentication**: Secure login with role-based navigation and warehouse access control.
+- **Crate Management 2.0**: Physical crate stocks moved to `Manufacturers` table; added manual **Empty Crate Return** modal with manager PIN authorisation for short returns.
+- **Performance Optimizations**: Implemented `LazyIndexedStack` for main navigation and deferred content rendering for detail screens to eliminate lag.
+- **Financial Accuracy**: Transitioned all currency handling to **Kobo (integers)** and all balances/stock totals to **computed values** (SQL SUMs) to prevent data drift.
+- **Enhanced Product Details**: Relocated "Update Product" button to scrollable content for better UX flow.
+
 ## 🛠 Tech Stack
 
 -   **Frontend**: Flutter (v3.10.7+)
 -   **Local Database**: [Drift](https://drift.simonbinder.eu/) (SQLite)
 -   **Remote Backend**: [Supabase](https://supabase.com/) (Auth, PostgreSQL, Real-time Sync)
--   **Authentication**: Removed. All auth screens (`lib/features/auth/screens/`) and widgets (`lib/features/auth/widgets/`) are deleted. `AuthService` is now a stub that returns a hardcoded CEO user. App boots directly into `MainLayout`.
+-   **Authentication**: PIN-based login via `LoginScreen`. `AuthService` holds the active `UserData?` as a `ValueNotifier`. `main.dart` switches between `LoginScreen` → `WarehouseAssignmentScreen` → `MainLayout` based on `authService.value`. `WarehouseAssignmentScreen` polls the DB every 5 s; when a `warehouseId` is assigned it calls `authService.setCurrentUser(updatedUser)` to unblock the user.
 -   **Printing**: ESC/POS Bluetooth Thermal Printing
 
 ## 📂 Project Structure
@@ -20,7 +27,7 @@ lib/
 │   ├── database/       # Drift database definition (app_database.dart, daos.dart)
 │   └── theme/          # Premium UI tokens and AppTheme
 ├── features/           # Modular feature implementations
-│   ├── auth/           # DELETED — all auth screens and widgets removed
+│   ├── auth/           # LoginScreen (PIN entry), WarehouseAssignmentScreen (unassigned staff waiting screen)
 │   ├── inventory/      # Product management, Stock tracking
 │   ├── pos/            # Checkout, Cart, Sales interface
 │   ├── orders/         # Order history and status management
@@ -57,6 +64,11 @@ lib/
 -   **orderService global**: Use the top-level `orderService` instance from `shared/services/order_service.dart`. Do NOT call `database.orderService` — that property does not exist on AppDatabase.
 -   **CustomerDetailScreen**: Accepts `Customer? customer` via constructor. Uses `addPostFrameCallback` to defer heavy widget tree and DB stream subscriptions until after the first frame commits (shows a spinner on first frame). Subscribes to `customersDao.watchWalletBalance(id)` and `customersDao.watchWalletHistory(id)` in the post-frame callback. All subscriptions cancelled in `dispose()`. Orders section shows empty state (no per-customer order query yet).
 -   **No mock data**: All mock/fake data has been removed from `CustomerDetailScreen`. Data must come from the DB only. Do NOT re-introduce mock lists/objects.
+-   **Staff management**: `_StaffFormSheet._submit()` in `lib/features/staff/screens/staff_screen.dart` performs real DB inserts/updates via `UsersCompanion`. Import `package:drift/drift.dart' show Value` for `Value(...)` wrappers. A non-manager (roleTier < 4) cannot be assigned to a warehouse that has no existing manager — validate before saving by querying the users table and filtering in Dart (`roleTier >= 4`). On success, pop the sheet and show a floating green `SnackBar`: capture `ScaffoldMessenger.of(context)` BEFORE calling `Navigator.pop` to avoid context-after-pop errors.
+-   **Warehouse → Staff navigation**: When navigating from a detail screen to a main-layout tab, always call `Navigator.of(context).pop()` first, then `navigationService.setIndex(n)`. Without the pop, the user stays on the detail screen and pressing back goes to the wrong screen.
+-   **Login redirect by role**: In `AuthService.setCurrentUser()`, after applying the warehouse lock, staff with `roleTier < 4` are automatically sent to the POS tab (`navigationService.setIndex(1)`). Managers (tier 4) and CEO (tier 5) land wherever the nav index already is.
+-   **Activity log role filter**: `ActivityLogScreen._filterLogs()` applies a role-based visibility rule using a `_userTiers` map (userId → roleTier) loaded once in `initState`. CEO (tier ≥ 5) sees all logs. Manager (tier 4) sees logs from performers with tier < 5 (hides CEO logs). Staff (tier < 4) sees logs from performers with tier < 4 (hides manager and CEO logs). Logs with a null `userId` (system/legacy) are visible to all. `ActivityLogService.logAction()` saves `authService.currentUser?.id` as the `staffId` so every action is attributed to the logged-in user.
+-   **Empty Crate Return Modal**: `lib/features/orders/widgets/crate_return_modal.dart` allows manual recording of returned crates per group. If the returned count is less than expected from the order, it triggers a `PinDialog` for **Manager Authorisation** (minimum tier 4).
 
 ## 🎨 UI/UX Patterns
 
@@ -67,15 +79,7 @@ lib/
 -   **One-shot vs reactive queries**: Use `get()` for one-time reads (e.g. loading form data). Use `watch()` only in `initState` with `.listen()`. Never use `watchSomething().first` — it opens a reactive stream that never closes and can deadlock DB writes. Use a dedicated `getAll...()` method with `select(...).get()` instead.
 -   **CatalogDao**: has `getAllSuppliers()` and `getAllManufacturers()` — one-shot `get()` queries for loading supplier/manufacturer lists in forms without keeping a stream open.
 -   **Heavy screen pattern**: For screens with large widget trees (500+ widgets), use `addPostFrameCallback` in `initState` to defer both the full widget tree and stream subscriptions until after the first frame. Set `_contentReady = false` initially; show a bare `CircularProgressIndicator` until the callback fires and sets `_contentReady = true`. This prevents ANR on slow devices.
--   **Navigator.push pattern**: Always use `PageRouteBuilder` with `opaque: true` and `transitionDuration: Duration.zero` instead of `MaterialPageRoute`. The slide transition in `MaterialPageRoute` renders old and new routes simultaneously, which overwhelms the main thread when the underlying `MainLayout` is heavy. Example:
-    ```dart
-    Navigator.push(context, PageRouteBuilder(
-      opaque: true,
-      transitionDuration: Duration.zero,
-      reverseTransitionDuration: Duration.zero,
-      pageBuilder: (_, __, ___) => const SomeDetailScreen(),
-    ));
-    ```
+-   **Navigator.push pattern**: Always use standard `MaterialPageRoute` for fluid page transitions. Zero-duration `PageRouteBuilder` forces synchronous rendering of complex screens in a single frame, which "hangs" the UI and causes noticeable delay before navigation occurs. For heavy profile/detail screens, pair `MaterialPageRoute` with the deferred content pattern (`addPostFrameCallback` with a `_contentReady` flag) so the screen shell loads instantly during the transition while the heavy widget tree builds afterwards.
 
 ## 🚀 Development Guidelines
 
@@ -85,7 +89,7 @@ lib/
 4.  **Database Updates**: When modifying `app_database.dart`, run `dart run build_runner build` to regenerate the G-files.
 5.  **Database Stability**: When watching single entities for profile screens, prefer `watchSingleOrNull()` over `watchSingle()` to prevent app crashes when data is still loading or temporarily unavailable.
 6.  **Schema Migrations**: Every time `schemaVersion` is bumped, add a matching `if (from < newVersion)` block inside `onUpgrade` in `app_database.dart`. Use `m.createTable(table)` for new tables. For new columns on existing tables use `m.addColumn(table, table.column)`. Never drop tables in `onUpgrade` — that wipes user data. The fallback `for (final table in allTables) { await m.createTable(table).catchError((_) => ...); }` loop at the end of `onUpgrade` safely handles any tables not yet explicitly handled — already-existing tables are silently skipped.
-7.  **MainLayout — IndexedStack for ALL screens**: `main_layout.dart` uses `IndexedStack` with all 12 screens as children. All screens stay alive simultaneously so form state and scroll position are preserved across tab switches. Current schema v20 and stream counts are manageable — do NOT switch back to a `_buildScreen` switch.
+7.  **MainLayout — lazy IndexedStack**: `main_layout.dart` wraps the 12-screen `IndexedStack` in a `_LazyIndexedStack` widget (defined in the same file). It only builds a screen the first time that tab is visited; unvisited tabs hold a `SizedBox.shrink()`. Once built, a screen stays alive forever (same behaviour as a plain `IndexedStack`). This prevents a 12-screen simultaneous build on first login. Do NOT replace `_LazyIndexedStack` with a plain `IndexedStack` or a `_buildScreen` switch.
 8.  **MainLayout — pending orders stream**: The pending-orders badge count is driven by a single `StreamSubscription<List<Order>>` stored in `_pendingOrdersSub` (initiated in `initState`, cancelled in `dispose`). Do NOT move it back into `build()` as a `StreamBuilder` — this creates a new Drift watcher on every bottom-nav rebuild.
 
 ## 📦 Assets

@@ -1036,6 +1036,28 @@ class $UsersTable extends Users with TableInfo<$UsersTable, UserData> {
       'REFERENCES warehouses (id)',
     ),
   );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _lastNotificationSentAtMeta =
+      const VerificationMeta('lastNotificationSentAt');
+  @override
+  late final GeneratedColumn<DateTime> lastNotificationSentAt =
+      GeneratedColumn<DateTime>(
+        'last_notification_sent_at',
+        aliasedName,
+        true,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: false,
+      );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -1048,6 +1070,8 @@ class $UsersTable extends Users with TableInfo<$UsersTable, UserData> {
     avatarColor,
     biometricEnabled,
     warehouseId,
+    createdAt,
+    lastNotificationSentAt,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -1136,6 +1160,21 @@ class $UsersTable extends Users with TableInfo<$UsersTable, UserData> {
         ),
       );
     }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    if (data.containsKey('last_notification_sent_at')) {
+      context.handle(
+        _lastNotificationSentAtMeta,
+        lastNotificationSentAt.isAcceptableOrUnknown(
+          data['last_notification_sent_at']!,
+          _lastNotificationSentAtMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -1185,6 +1224,14 @@ class $UsersTable extends Users with TableInfo<$UsersTable, UserData> {
         DriftSqlType.int,
         data['${effectivePrefix}warehouse_id'],
       ),
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      ),
+      lastNotificationSentAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}last_notification_sent_at'],
+      ),
     );
   }
 
@@ -1205,6 +1252,8 @@ class UserData extends DataClass implements Insertable<UserData> {
   final String avatarColor;
   final bool biometricEnabled;
   final int? warehouseId;
+  final DateTime? createdAt;
+  final DateTime? lastNotificationSentAt;
   const UserData({
     required this.id,
     required this.name,
@@ -1216,6 +1265,8 @@ class UserData extends DataClass implements Insertable<UserData> {
     required this.avatarColor,
     required this.biometricEnabled,
     this.warehouseId,
+    this.createdAt,
+    this.lastNotificationSentAt,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -1235,6 +1286,14 @@ class UserData extends DataClass implements Insertable<UserData> {
     map['biometric_enabled'] = Variable<bool>(biometricEnabled);
     if (!nullToAbsent || warehouseId != null) {
       map['warehouse_id'] = Variable<int>(warehouseId);
+    }
+    if (!nullToAbsent || createdAt != null) {
+      map['created_at'] = Variable<DateTime>(createdAt);
+    }
+    if (!nullToAbsent || lastNotificationSentAt != null) {
+      map['last_notification_sent_at'] = Variable<DateTime>(
+        lastNotificationSentAt,
+      );
     }
     return map;
   }
@@ -1257,6 +1316,12 @@ class UserData extends DataClass implements Insertable<UserData> {
       warehouseId: warehouseId == null && nullToAbsent
           ? const Value.absent()
           : Value(warehouseId),
+      createdAt: createdAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(createdAt),
+      lastNotificationSentAt: lastNotificationSentAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastNotificationSentAt),
     );
   }
 
@@ -1276,6 +1341,10 @@ class UserData extends DataClass implements Insertable<UserData> {
       avatarColor: serializer.fromJson<String>(json['avatarColor']),
       biometricEnabled: serializer.fromJson<bool>(json['biometricEnabled']),
       warehouseId: serializer.fromJson<int?>(json['warehouseId']),
+      createdAt: serializer.fromJson<DateTime?>(json['createdAt']),
+      lastNotificationSentAt: serializer.fromJson<DateTime?>(
+        json['lastNotificationSentAt'],
+      ),
     );
   }
   @override
@@ -1292,6 +1361,10 @@ class UserData extends DataClass implements Insertable<UserData> {
       'avatarColor': serializer.toJson<String>(avatarColor),
       'biometricEnabled': serializer.toJson<bool>(biometricEnabled),
       'warehouseId': serializer.toJson<int?>(warehouseId),
+      'createdAt': serializer.toJson<DateTime?>(createdAt),
+      'lastNotificationSentAt': serializer.toJson<DateTime?>(
+        lastNotificationSentAt,
+      ),
     };
   }
 
@@ -1306,6 +1379,8 @@ class UserData extends DataClass implements Insertable<UserData> {
     String? avatarColor,
     bool? biometricEnabled,
     Value<int?> warehouseId = const Value.absent(),
+    Value<DateTime?> createdAt = const Value.absent(),
+    Value<DateTime?> lastNotificationSentAt = const Value.absent(),
   }) => UserData(
     id: id ?? this.id,
     name: name ?? this.name,
@@ -1317,6 +1392,10 @@ class UserData extends DataClass implements Insertable<UserData> {
     avatarColor: avatarColor ?? this.avatarColor,
     biometricEnabled: biometricEnabled ?? this.biometricEnabled,
     warehouseId: warehouseId.present ? warehouseId.value : this.warehouseId,
+    createdAt: createdAt.present ? createdAt.value : this.createdAt,
+    lastNotificationSentAt: lastNotificationSentAt.present
+        ? lastNotificationSentAt.value
+        : this.lastNotificationSentAt,
   );
   UserData copyWithCompanion(UsersCompanion data) {
     return UserData(
@@ -1338,6 +1417,10 @@ class UserData extends DataClass implements Insertable<UserData> {
       warehouseId: data.warehouseId.present
           ? data.warehouseId.value
           : this.warehouseId,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      lastNotificationSentAt: data.lastNotificationSentAt.present
+          ? data.lastNotificationSentAt.value
+          : this.lastNotificationSentAt,
     );
   }
 
@@ -1353,7 +1436,9 @@ class UserData extends DataClass implements Insertable<UserData> {
           ..write('roleTier: $roleTier, ')
           ..write('avatarColor: $avatarColor, ')
           ..write('biometricEnabled: $biometricEnabled, ')
-          ..write('warehouseId: $warehouseId')
+          ..write('warehouseId: $warehouseId, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('lastNotificationSentAt: $lastNotificationSentAt')
           ..write(')'))
         .toString();
   }
@@ -1370,6 +1455,8 @@ class UserData extends DataClass implements Insertable<UserData> {
     avatarColor,
     biometricEnabled,
     warehouseId,
+    createdAt,
+    lastNotificationSentAt,
   );
   @override
   bool operator ==(Object other) =>
@@ -1384,7 +1471,9 @@ class UserData extends DataClass implements Insertable<UserData> {
           other.roleTier == this.roleTier &&
           other.avatarColor == this.avatarColor &&
           other.biometricEnabled == this.biometricEnabled &&
-          other.warehouseId == this.warehouseId);
+          other.warehouseId == this.warehouseId &&
+          other.createdAt == this.createdAt &&
+          other.lastNotificationSentAt == this.lastNotificationSentAt);
 }
 
 class UsersCompanion extends UpdateCompanion<UserData> {
@@ -1398,6 +1487,8 @@ class UsersCompanion extends UpdateCompanion<UserData> {
   final Value<String> avatarColor;
   final Value<bool> biometricEnabled;
   final Value<int?> warehouseId;
+  final Value<DateTime?> createdAt;
+  final Value<DateTime?> lastNotificationSentAt;
   const UsersCompanion({
     this.id = const Value.absent(),
     this.name = const Value.absent(),
@@ -1409,6 +1500,8 @@ class UsersCompanion extends UpdateCompanion<UserData> {
     this.avatarColor = const Value.absent(),
     this.biometricEnabled = const Value.absent(),
     this.warehouseId = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.lastNotificationSentAt = const Value.absent(),
   });
   UsersCompanion.insert({
     this.id = const Value.absent(),
@@ -1421,6 +1514,8 @@ class UsersCompanion extends UpdateCompanion<UserData> {
     this.avatarColor = const Value.absent(),
     this.biometricEnabled = const Value.absent(),
     this.warehouseId = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.lastNotificationSentAt = const Value.absent(),
   }) : name = Value(name),
        pin = Value(pin),
        role = Value(role);
@@ -1435,6 +1530,8 @@ class UsersCompanion extends UpdateCompanion<UserData> {
     Expression<String>? avatarColor,
     Expression<bool>? biometricEnabled,
     Expression<int>? warehouseId,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? lastNotificationSentAt,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -1447,6 +1544,9 @@ class UsersCompanion extends UpdateCompanion<UserData> {
       if (avatarColor != null) 'avatar_color': avatarColor,
       if (biometricEnabled != null) 'biometric_enabled': biometricEnabled,
       if (warehouseId != null) 'warehouse_id': warehouseId,
+      if (createdAt != null) 'created_at': createdAt,
+      if (lastNotificationSentAt != null)
+        'last_notification_sent_at': lastNotificationSentAt,
     });
   }
 
@@ -1461,6 +1561,8 @@ class UsersCompanion extends UpdateCompanion<UserData> {
     Value<String>? avatarColor,
     Value<bool>? biometricEnabled,
     Value<int?>? warehouseId,
+    Value<DateTime?>? createdAt,
+    Value<DateTime?>? lastNotificationSentAt,
   }) {
     return UsersCompanion(
       id: id ?? this.id,
@@ -1473,6 +1575,9 @@ class UsersCompanion extends UpdateCompanion<UserData> {
       avatarColor: avatarColor ?? this.avatarColor,
       biometricEnabled: biometricEnabled ?? this.biometricEnabled,
       warehouseId: warehouseId ?? this.warehouseId,
+      createdAt: createdAt ?? this.createdAt,
+      lastNotificationSentAt:
+          lastNotificationSentAt ?? this.lastNotificationSentAt,
     );
   }
 
@@ -1509,6 +1614,14 @@ class UsersCompanion extends UpdateCompanion<UserData> {
     if (warehouseId.present) {
       map['warehouse_id'] = Variable<int>(warehouseId.value);
     }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (lastNotificationSentAt.present) {
+      map['last_notification_sent_at'] = Variable<DateTime>(
+        lastNotificationSentAt.value,
+      );
+    }
     return map;
   }
 
@@ -1524,7 +1637,9 @@ class UsersCompanion extends UpdateCompanion<UserData> {
           ..write('roleTier: $roleTier, ')
           ..write('avatarColor: $avatarColor, ')
           ..write('biometricEnabled: $biometricEnabled, ')
-          ..write('warehouseId: $warehouseId')
+          ..write('warehouseId: $warehouseId, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('lastNotificationSentAt: $lastNotificationSentAt')
           ..write(')'))
         .toString();
   }
@@ -16991,6 +17106,8 @@ typedef $$UsersTableCreateCompanionBuilder =
       Value<String> avatarColor,
       Value<bool> biometricEnabled,
       Value<int?> warehouseId,
+      Value<DateTime?> createdAt,
+      Value<DateTime?> lastNotificationSentAt,
     });
 typedef $$UsersTableUpdateCompanionBuilder =
     UsersCompanion Function({
@@ -17004,6 +17121,8 @@ typedef $$UsersTableUpdateCompanionBuilder =
       Value<String> avatarColor,
       Value<bool> biometricEnabled,
       Value<int?> warehouseId,
+      Value<DateTime?> createdAt,
+      Value<DateTime?> lastNotificationSentAt,
     });
 
 final class $$UsersTableReferences
@@ -17217,6 +17336,16 @@ class $$UsersTableFilterComposer extends Composer<_$AppDatabase, $UsersTable> {
 
   ColumnFilters<bool> get biometricEnabled => $composableBuilder(
     column: $table.biometricEnabled,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get lastNotificationSentAt => $composableBuilder(
+    column: $table.lastNotificationSentAt,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -17450,6 +17579,16 @@ class $$UsersTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get lastNotificationSentAt => $composableBuilder(
+    column: $table.lastNotificationSentAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$WarehousesTableOrderingComposer get warehouseId {
     final $$WarehousesTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -17513,6 +17652,14 @@ class $$UsersTableAnnotationComposer
 
   GeneratedColumn<bool> get biometricEnabled => $composableBuilder(
     column: $table.biometricEnabled,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get lastNotificationSentAt => $composableBuilder(
+    column: $table.lastNotificationSentAt,
     builder: (column) => column,
   );
 
@@ -17742,6 +17889,8 @@ class $$UsersTableTableManager
                 Value<String> avatarColor = const Value.absent(),
                 Value<bool> biometricEnabled = const Value.absent(),
                 Value<int?> warehouseId = const Value.absent(),
+                Value<DateTime?> createdAt = const Value.absent(),
+                Value<DateTime?> lastNotificationSentAt = const Value.absent(),
               }) => UsersCompanion(
                 id: id,
                 name: name,
@@ -17753,6 +17902,8 @@ class $$UsersTableTableManager
                 avatarColor: avatarColor,
                 biometricEnabled: biometricEnabled,
                 warehouseId: warehouseId,
+                createdAt: createdAt,
+                lastNotificationSentAt: lastNotificationSentAt,
               ),
           createCompanionCallback:
               ({
@@ -17766,6 +17917,8 @@ class $$UsersTableTableManager
                 Value<String> avatarColor = const Value.absent(),
                 Value<bool> biometricEnabled = const Value.absent(),
                 Value<int?> warehouseId = const Value.absent(),
+                Value<DateTime?> createdAt = const Value.absent(),
+                Value<DateTime?> lastNotificationSentAt = const Value.absent(),
               }) => UsersCompanion.insert(
                 id: id,
                 name: name,
@@ -17777,6 +17930,8 @@ class $$UsersTableTableManager
                 avatarColor: avatarColor,
                 biometricEnabled: biometricEnabled,
                 warehouseId: warehouseId,
+                createdAt: createdAt,
+                lastNotificationSentAt: lastNotificationSentAt,
               ),
           withReferenceMapper: (p0) => p0
               .map(

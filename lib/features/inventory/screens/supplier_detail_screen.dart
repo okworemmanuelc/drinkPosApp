@@ -13,6 +13,7 @@ import '../data/models/crate_group.dart';
 import '../data/models/crate_stock.dart';
 import '../data/models/inventory_log.dart';
 import '../../pos/data/products_data.dart';
+import '../../../shared/widgets/shared_bottom_nav_bar.dart';
 
 class SupplierDetailScreen extends StatefulWidget {
   final Supplier supplier;
@@ -40,6 +41,7 @@ class _SupplierDetailScreenState extends State<SupplierDetailScreen> {
       valueListenable: themeNotifier,
       builder: (ctx, val, child) => Scaffold(
         backgroundColor: _bg,
+        bottomNavigationBar: const SharedBottomNavBar(),
         appBar: AppBar(
           backgroundColor: _surface,
           elevation: 0,

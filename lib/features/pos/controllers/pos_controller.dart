@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
 import '../../../../core/database/app_database.dart';
 import '../../../shared/services/cart_service.dart';
+import '../../../shared/services/navigation_service.dart';
 import '../../customers/data/models/customer.dart';
 import 'dart:async';
 
 class PosController extends ChangeNotifier {
   List<ProductDataWithStock> allProducts = [];
   List<CategoryData> categories = [];
+  List<ManufacturerData> manufacturers = [];
   int? selectedCategoryId;
-  String selectedSupplierId = 'All';
+  String selectedManufacturerId = 'All';
   CustomerGroup selectedGroup = CustomerGroup.retailer;
   String searchQuery = '';
   bool isSearching = false;
@@ -22,8 +24,10 @@ class PosController extends ChangeNotifier {
 
   void _init() {
     _loadCategories();
+    _loadManufacturers();
     _subscribeToProducts();
     cartService.activeCustomer.addListener(_onCustomerSelected);
+    navigationService.lockedWarehouseId.addListener(_subscribeToProducts);
   }
 
   @override
@@ -31,6 +35,7 @@ class PosController extends ChangeNotifier {
     _productsSub?.cancel();
     _debounce?.cancel();
     cartService.activeCustomer.removeListener(_onCustomerSelected);
+    navigationService.lockedWarehouseId.removeListener(_subscribeToProducts);
     super.dispose();
   }
 
@@ -39,14 +44,32 @@ class PosController extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> _loadManufacturers() async {
+    manufacturers = await database.catalogDao.getAllManufacturers();
+    notifyListeners();
+  }
+
   void _subscribeToProducts() {
     _productsSub?.cancel();
-    _productsSub = database.inventoryDao
-        .watchProductsByCategory(selectedCategoryId)
-        .listen((data) {
-      allProducts = data;
-      notifyListeners();
-    });
+    
+    final warehouseId = navigationService.lockedWarehouseId.value;
+    
+    // If we have a warehouse lock, only watch products for that warehouse
+    if (warehouseId != null) {
+      _productsSub = database.inventoryDao
+          .watchProductDatasWithStockByWarehouse(warehouseId)
+          .listen((data) {
+        allProducts = data;
+        notifyListeners();
+      });
+    } else {
+      _productsSub = database.inventoryDao
+          .watchProductsByCategory(selectedCategoryId)
+          .listen((data) {
+        allProducts = data;
+        notifyListeners();
+      });
+    }
   }
 
   void _onCustomerSelected() {
@@ -63,8 +86,8 @@ class PosController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void selectSupplier(String supplierId) {
-    selectedSupplierId = supplierId;
+  void selectManufacturer(String manufacturerId) {
+    selectedManufacturerId = manufacturerId;
     notifyListeners();
   }
 
@@ -96,11 +119,8 @@ class PosController extends ChangeNotifier {
             item.product.isAvailable &&
             !item.product.isDeleted)
         .where((item) {
-          if (selectedSupplierId == 'All') return true;
-          // Note: The original code didn't actually filter by supplier in the list, 
-          // though it had a dropdown. I'll add the filter logic here.
-          // In a real app, this might need database-side filtering.
-          return true; // Keeping original behavior for now
+          if (selectedManufacturerId == 'All') return true;
+          return item.product.manufacturerId?.toString() == selectedManufacturerId;
         })
         .toList();
 

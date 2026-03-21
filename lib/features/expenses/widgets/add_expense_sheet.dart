@@ -550,9 +550,9 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
                         context.getRSize(20),
                         context.getRSize(16),
                         context.getRSize(20),
-                        context.getRSize(
-                          MediaQuery.of(context).padding.bottom + 16,
-                        ),
+                        MediaQuery.of(context).viewInsets.bottom +
+                            MediaQuery.of(context).padding.bottom +
+                            context.getRSize(16),
                       ),
                       child: Container(
                         width: double.infinity,

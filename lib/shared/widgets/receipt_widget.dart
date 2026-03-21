@@ -18,6 +18,7 @@ class ReceiptWidget extends StatelessWidget {
   final double? cashReceived;
   final double? walletBalance;
   final DateTime? reprintDate;
+  final DateTime? reshareDate;
   final String? riderName;
   final String? deliveryRef;
   final String? orderStatus;
@@ -37,6 +38,7 @@ class ReceiptWidget extends StatelessWidget {
     this.cashReceived,
     this.walletBalance,
     this.reprintDate,
+    this.reshareDate,
     this.riderName,
     this.deliveryRef,
     this.orderStatus,
@@ -81,6 +83,29 @@ class ReceiptWidget extends StatelessWidget {
               ),
               child: Text(
                 'REPRINTED',
+                style: TextStyle(
+                  fontSize: context.getRFontSize(16),
+                  fontWeight: FontWeight.w900,
+                  color: Colors.red,
+                  letterSpacing: 2,
+                ),
+              ),
+            ),
+            SizedBox(height: context.getRSize(12)),
+          ],
+          if (reshareDate != null) ...[
+            Container(
+              padding: EdgeInsets.symmetric(
+                horizontal: context.getRSize(12),
+                vertical: context.getRSize(4),
+              ),
+              decoration: BoxDecoration(
+                color: Colors.red.withValues(alpha: 0.1),
+                border: Border.all(color: Colors.red.withValues(alpha: 0.5)),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                'RESHARED',
                 style: TextStyle(
                   fontSize: context.getRFontSize(16),
                   fontWeight: FontWeight.w900,
@@ -321,10 +346,10 @@ class ReceiptWidget extends StatelessWidget {
           ),
           SizedBox(height: context.getRSize(8)),
           BarcodeWidget(
-            barcode: Barcode.code128(),
+            barcode: Barcode.qrCode(),
             data: orderId,
-            width: context.getRSize(200),
-            height: context.getRSize(60),
+            width: context.getRSize(120),
+            height: context.getRSize(120),
             style: TextStyle(
               fontSize: context.getRFontSize(12),
               color: textCol,

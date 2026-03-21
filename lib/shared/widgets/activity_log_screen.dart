@@ -6,8 +6,10 @@ import '../../core/theme/theme_notifier.dart';
 import '../../core/utils/responsive.dart';
 import '../models/activity_log.dart';
 import '../services/activity_log_service.dart';
+import '../../core/database/app_database.dart';
 import '../../features/inventory/data/inventory_data.dart';
 import '../../features/warehouse/data/models/warehouse.dart';
+import '../services/auth_service.dart';
 import 'app_drawer.dart';
 import 'notification_bell.dart';
 import 'app_dropdown.dart';
@@ -21,6 +23,23 @@ class ActivityLogScreen extends StatefulWidget {
 
 class _ActivityLogScreenState extends State<ActivityLogScreen> {
   String? _selectedWarehouseId;
+  // userId → roleTier map, loaded once on init
+  Map<int, int> _userTiers = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserTiers();
+  }
+
+  Future<void> _loadUserTiers() async {
+    final users = await (database.select(database.users)).get();
+    if (mounted) {
+      setState(() {
+        _userTiers = {for (final u in users) u.id: u.roleTier};
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -214,16 +233,30 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
   }
 
   List<ActivityLog> _filterLogs(List<ActivityLog> logs) {
-    if (_selectedWarehouseId == null) return logs;
+    final currentUser = authService.currentUser;
+    final currentTier = currentUser?.roleTier ?? 5;
 
-    return logs.where((log) {
-      final isInventory = log.relatedEntityType == 'inventory' || 
-                         log.action.toLowerCase().contains('inventory') || 
+    // Role-based visibility:
+    // CEO (≥5): sees all
+    // Manager (4): sees tier < 5 (not CEO logs)
+    // Staff (<4): sees tier < 4 (not manager or CEO logs)
+    final roleFiltered = logs.where((log) {
+      if (currentTier >= 5) return true; // CEO sees everything
+      if (log.userId == null) return true; // system/legacy logs visible to all
+      final performerTier = _userTiers[log.userId] ?? 1;
+      // Manager sees up to tier 4; Staff sees up to tier 3
+      final visibleBelow = currentTier >= 4 ? 5 : 4;
+      return performerTier < visibleBelow;
+    }).toList();
+
+    if (_selectedWarehouseId == null) return roleFiltered;
+
+    return roleFiltered.where((log) {
+      final isInventory = log.relatedEntityType == 'inventory' ||
+                         log.action.toLowerCase().contains('inventory') ||
                          log.action.toLowerCase().contains('stock') ||
                          log.action.toLowerCase().contains('delivery');
-      
-      if (!isInventory) return true; // Always show non-inventory logs
-      
+      if (!isInventory) return true;
       return log.warehouseId == _selectedWarehouseId;
     }).toList();
   }

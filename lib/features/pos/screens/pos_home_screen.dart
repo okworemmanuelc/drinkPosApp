@@ -10,7 +10,6 @@ import '../../../shared/widgets/app_bar_header.dart';
 import '../../../shared/widgets/notification_bell.dart';
 import '../../../shared/widgets/app_dropdown.dart';
 import '../../customers/data/models/customer.dart';
-import '../../inventory/data/services/supplier_service.dart';
 import '../controllers/pos_controller.dart';
 import '../widgets/product_grid.dart';
 import '../widgets/category_filter_bar.dart';
@@ -155,13 +154,13 @@ class _PosHomeScreenState extends State<PosHomeScreen> {
           Expanded(
             flex: 5,
             child: AppDropdown<String>(
-              value: _controller.selectedSupplierId,
+              value: _controller.selectedManufacturerId,
               items: [
-                const DropdownMenuItem(value: 'All', child: Text('All Suppliers')),
-                ...supplierService.getAll().map((s) => DropdownMenuItem(value: s.id, child: Text(s.name))),
+                const DropdownMenuItem(value: 'All', child: Text('All')),
+                ..._controller.manufacturers.map((m) => DropdownMenuItem(value: m.id.toString(), child: Text(m.name))),
               ],
               onChanged: (val) {
-                if (val != null) _controller.selectSupplier(val);
+                if (val != null) _controller.selectManufacturer(val);
               },
             ),
           ),

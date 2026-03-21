@@ -73,7 +73,7 @@ class AppDrawer extends StatelessWidget {
               borderRadius: BorderRadius.circular(14),
               child: Image.asset(
                 'assets/images/ribaplus_logo.png',
-                fit: BoxFit.cover,
+                fit: BoxFit.contain,
               ),
             ),
           ),
@@ -261,6 +261,7 @@ class AppDrawer extends StatelessWidget {
           FontAwesomeIcons.rightFromBracket,
           'Log Out',
           active: false,
+          outlined: true,
           iconColor: danger,
           labelColor: danger,
           onTap: () {
@@ -317,12 +318,19 @@ class AppDrawer extends StatelessWidget {
     IconData icon,
     String label, {
     bool active = false,
+    bool outlined = false,
     VoidCallback? onTap,
     Color? iconColor,
     Color? labelColor,
   }) {
     return Container(
       margin: EdgeInsets.only(bottom: context.getRSize(6)),
+      decoration: outlined
+          ? BoxDecoration(
+              border: Border.all(color: danger.withValues(alpha: 0.5)),
+              borderRadius: BorderRadius.circular(14),
+            )
+          : null,
       child: Material(
         color: active ? blueMain.withValues(alpha: 0.1) : Colors.transparent,
         borderRadius: BorderRadius.circular(14),

@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 import '../../core/database/app_database.dart';
 import '../models/activity_log.dart';
+import 'auth_service.dart';
 
 class ActivityLogService extends ValueNotifier<List<ActivityLog>> {
   ActivityLogService() : super([]) {
@@ -20,9 +21,8 @@ class ActivityLogService extends ValueNotifier<List<ActivityLog>> {
     String? relatedEntityType,
     String? warehouseId,
   }) async {
-    // Auth is removed — no real user row exists in DB, so pass null to avoid FK violation
     await database.activityLogDao.log(
-      staffId: null,
+      staffId: authService.currentUser?.id,
       action: action,
       description: description,
       entityId: relatedEntityId,

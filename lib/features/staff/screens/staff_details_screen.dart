@@ -7,6 +7,7 @@ import '../../../core/utils/responsive.dart';
 import '../../../core/database/app_database.dart';
 import '../../../core/utils/number_format.dart';
 import '../../../shared/widgets/shared_scaffold.dart';
+import '../../../shared/widgets/shared_bottom_nav_bar.dart';
 import '../../../shared/widgets/app_bar_header.dart';
 import '../../../shared/widgets/role_guard.dart';
 import 'staff_constants.dart';
@@ -34,15 +35,21 @@ class _StaffDetailsScreenState extends State<StaffDetailsScreen> {
   Color get _border => _isDark ? dBorder : lBorder;
   List<OrderData> _staffOrders = [];
   StreamSubscription<List<OrderData>>? _ordersSub;
+  bool _contentReady = false;
 
   @override
   void initState() {
     super.initState();
-    _ordersSub = (database.select(database.orders)
-          ..where((t) => t.staffId.equals(widget.user.id)))
-        .watch()
-        .listen((data) {
-      if (mounted) setState(() => _staffOrders = data);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        setState(() => _contentReady = true);
+        _ordersSub = (database.select(database.orders)
+              ..where((t) => t.staffId.equals(widget.user.id)))
+            .watch()
+            .listen((data) {
+          if (mounted) setState(() => _staffOrders = data);
+        });
+      }
     });
   }
 
@@ -60,9 +67,32 @@ class _StaffDetailsScreenState extends State<StaffDetailsScreen> {
             orElse: () => const WarehouseData(id: -1, name: 'Unassigned'))
         .name;
 
+    if (!_contentReady) {
+      return SharedScaffold(
+        activeRoute: 'staff',
+        backgroundColor: _bg,
+        bottomNavigationBar: const SharedBottomNavBar(),
+        appBar: AppBar(
+          backgroundColor: _surface,
+          elevation: 0,
+          leading: IconButton(
+            icon: Icon(Icons.arrow_back_ios_new_rounded, color: _text, size: 20),
+            onPressed: () => Navigator.pop(context),
+          ),
+          title: AppBarHeader(
+            icon: FontAwesomeIcons.userTie,
+            title: widget.user.name,
+            subtitle: widget.user.role.toUpperCase(),
+          ),
+        ),
+        body: const Center(child: CircularProgressIndicator(color: blueMain)),
+      );
+    }
+
     return SharedScaffold(
       activeRoute: 'staff',
       backgroundColor: _bg,
+      bottomNavigationBar: const SharedBottomNavBar(),
       appBar: AppBar(
         backgroundColor: _surface,
         elevation: 0,
@@ -180,29 +210,32 @@ class _StaffDetailsScreenState extends State<StaffDetailsScreen> {
       context: context,
       backgroundColor: _surface,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Change Role', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _text)),
-            const SizedBox(height: 16),
-            ...roleOptions.map((role) => ListTile(
-              leading: Container(
-                width: 12,
-                height: 12,
-                decoration: BoxDecoration(color: role.color, shape: BoxShape.circle),
-              ),
-              title: Text(role.label, style: TextStyle(color: _text)),
-              onTap: () {
-                Navigator.pop(context);
-                if (role.value != widget.user.role) {
-                  _confirmRoleChange(role);
-                }
-              },
-            )),
-          ],
+      builder: (context) => SafeArea(
+        top: false,
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Change Role', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _text)),
+              const SizedBox(height: 16),
+              ...roleOptions.map((role) => ListTile(
+                leading: Container(
+                  width: 12,
+                  height: 12,
+                  decoration: BoxDecoration(color: role.color, shape: BoxShape.circle),
+                ),
+                title: Text(role.label, style: TextStyle(color: _text)),
+                onTap: () {
+                  Navigator.pop(context);
+                  if (role.value != widget.user.role) {
+                    _confirmRoleChange(role);
+                  }
+                },
+              )),
+            ],
+          ),
         ),
       ),
     );

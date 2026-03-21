@@ -18,6 +18,7 @@ class ThermalReceiptService {
     double? cashReceived,
     double? walletBalance,
     DateTime? reprintDate,
+    DateTime? reshareDate,
     String? riderName,
     String? deliveryRef,
     String? orderStatus,
@@ -50,6 +51,18 @@ class ThermalReceiptService {
     if (reprintDate != null) {
       bytes += generator.text(
         'REPRINTED',
+        styles: const PosStyles(
+          align: PosAlign.center,
+          height: PosTextSize.size2,
+          width: PosTextSize.size2,
+          bold: true,
+        ),
+      );
+      bytes += generator.hr();
+    }
+    if (reshareDate != null) {
+      bytes += generator.text(
+        'RESHARED',
         styles: const PosStyles(
           align: PosAlign.center,
           height: PosTextSize.size2,
@@ -201,15 +214,12 @@ class ThermalReceiptService {
 
     bytes += generator.text('');
 
-    // --- 6. BARCODE ---
-    // ESC/POS Code 128 explicitly requires a subset control character to define the encoding type.
-    // {B (123, 66) specifies Subset B which accepts all ascii chars.
-    final List<int> barcodeData = [123, 66, ...orderId.codeUnits];
-    bytes += generator.barcode(
-      Barcode.code128(barcodeData),
-      textPos: BarcodeText.none,
+    // --- 6. QR CODE ---
+    bytes += generator.qrcode(
+      orderId,
+      size: QRSize.size4,
     );
-    // Explicitly print the unformatted number below the barcode
+    // Explicitly print the unformatted number below the QR code
     bytes += generator.text(
       orderId,
       styles: const PosStyles(align: PosAlign.center),

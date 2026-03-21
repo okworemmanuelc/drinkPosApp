@@ -164,15 +164,15 @@ class FluidMenu<T> extends StatelessWidget {
               style: MenuStyle(
                 backgroundColor: WidgetStatePropertyAll(surface),
                 surfaceTintColor: WidgetStatePropertyAll(surface),
-                elevation: const WidgetStatePropertyAll(12),
-                shadowColor: WidgetStatePropertyAll(Colors.black.withValues(alpha: 0.2)),
+                elevation: const WidgetStatePropertyAll(16),
+                shadowColor: WidgetStatePropertyAll(Colors.black.withValues(alpha: 0.25)),
+                side: WidgetStatePropertyAll(BorderSide(color: border.withValues(alpha: 0.5))),
                 shape: WidgetStatePropertyAll(
                   RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(18),
-                    side: BorderSide(color: border),
+                    borderRadius: BorderRadius.circular(20),
                   ),
                 ),
-                padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 8)),
+                padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 10)),
               ),
             ),
           ],
