@@ -600,7 +600,7 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
         context.getRSize(16),
         context.getRSize(12),
         context.getRSize(16),
-        context.getRSize(24),
+        context.bottomInset + context.getRSize(16),
       ),
       decoration: BoxDecoration(
         color: _surface,

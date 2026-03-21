@@ -145,6 +145,24 @@ class InventoryDao extends DatabaseAccessor<AppDatabase> with _$InventoryDaoMixi
         .toList());
   }
 
+  /// Live stream of products with stock totals for a single warehouse.
+  Stream<List<ProductDataWithStock>> watchProductsByWarehouse(int warehouseId) {
+    final qty = inventory.quantity.sum();
+    final query = select(products).join([
+      leftOuterJoin(inventory, inventory.productId.equalsExp(products.id)),
+    ])
+      ..where(products.isDeleted.not())
+      ..where(inventory.warehouseId.equals(warehouseId))
+      ..groupBy([products.id])
+      ..addColumns([qty]);
+    return query.watch().map((rows) => rows
+        .map((row) => ProductDataWithStock(
+              product: row.readTable(products),
+              totalStock: row.read(qty) ?? 0,
+            ))
+        .toList());
+  }
+
   Stream<List<ProductDataWithStock>> watchAllProductDatasWithStock() {
     final qty = inventory.quantity.sum();
     final query = select(products).join([
@@ -844,6 +862,8 @@ class NotificationsDao extends DatabaseAccessor<AppDatabase> with _$Notification
   Stream<int> watchUnreadCount() => select(notifications).watch().map((l) => l.where((e) => !e.isRead).length);
   Future<void> markRead(int id) => (update(notifications)..where((t) => t.id.equals(id))).write(const NotificationsCompanion(isRead: Value(true)));
   Future<void> markAllRead() => update(notifications).write(const NotificationsCompanion(isRead: Value(true)));
+  Future<void> deleteSingle(int id) => (delete(notifications)..where((t) => t.id.equals(id))).go();
+  Future<void> clearAll() => delete(notifications).go();
 }
 
 @DriftAccessor(tables: [StockTransactions, Products])

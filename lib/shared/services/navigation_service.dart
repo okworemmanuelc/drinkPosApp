@@ -6,6 +6,7 @@ class NavigationService {
   NavigationService._internal();
 
   final ValueNotifier<int> currentIndex = ValueNotifier<int>(0);
+  final List<int> _history = [];
   final ValueNotifier<String?> selectedWarehouseId = ValueNotifier<String?>(null);
 
   /// True when the logged-in user's warehouse access is locked to one location.
@@ -16,7 +17,20 @@ class NavigationService {
   final ValueNotifier<int?> lockedWarehouseId = ValueNotifier<int?>(null);
 
   void setIndex(int index) {
-    currentIndex.value = index;
+    if (currentIndex.value != index) {
+      _history.add(currentIndex.value);
+      // Keep history reasonable
+      if (_history.length > 10) _history.removeAt(0);
+      currentIndex.value = index;
+    }
+  }
+
+  bool popIndex() {
+    if (_history.isNotEmpty) {
+      currentIndex.value = _history.removeLast();
+      return true;
+    }
+    return false;
   }
 
   /// Called right after login. Locks non-CEO users to their assigned warehouse.

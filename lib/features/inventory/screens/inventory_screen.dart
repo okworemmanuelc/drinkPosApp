@@ -3,6 +3,7 @@ import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../../shared/services/navigation_service.dart';
+import '../../../shared/services/auth_service.dart';
 // import '../../../shared/services/activity_log_service.dart';
 
 import '../../../core/theme/colors.dart';
@@ -90,8 +91,11 @@ class _InventoryScreenState extends State<InventoryScreen>
           _warehouses = list;
           final locked = navigationService.warehouseLocked.value;
           final lockedId = navigationService.lockedWarehouseId.value;
-          if (locked && lockedId != null) {
-            // Non-CEO: pin to their assigned warehouse
+          final userTier = authService.currentUser?.roleTier ?? 5;
+          // Only staff (tier < 4) are pinned to their warehouse.
+          // Managers (tier 4) can browse all warehouses but edit restrictions
+          // are enforced in ProductDetailScreen.
+          if (locked && lockedId != null && userTier < 4) {
             _selectedWarehouseId = lockedId.toString();
           } else {
             // CEO or no lock: default to Main Store
@@ -1333,9 +1337,7 @@ class _InventoryScreenState extends State<InventoryScreen>
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom + MediaQuery.of(context).padding.bottom,
-        ),
+        padding: EdgeInsets.only(bottom: context.bottomInset),
         child: Container(
           decoration: BoxDecoration(
             color: _isDark ? const Color(0xFF1E293B) : Colors.white,
@@ -1784,11 +1786,7 @@ class _InventoryScreenState extends State<InventoryScreen>
       backgroundColor: Colors.transparent,
       builder: (_) => StatefulBuilder(
         builder: (ctx, setB) => Padding(
-          padding: EdgeInsets.only(
-            bottom:
-                MediaQuery.of(ctx).viewInsets.bottom +
-                MediaQuery.of(ctx).padding.bottom,
-          ),
+          padding: EdgeInsets.only(bottom: ctx.bottomInset),
           child: Container(
             decoration: BoxDecoration(
               color: _isDark ? dSurface : lSurface,

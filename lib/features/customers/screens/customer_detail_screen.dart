@@ -1425,11 +1425,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
         final subtextCol = isDark ? dSubtext : lSubtext;
 
         return Padding(
-          padding: EdgeInsets.only(
-            bottom:
-                MediaQuery.of(modalCtx).viewInsets.bottom +
-                MediaQuery.of(modalCtx).padding.bottom,
-          ),
+          padding: EdgeInsets.only(bottom: modalCtx.bottomInset),
           child: Container(
             constraints: BoxConstraints(
               maxHeight: MediaQuery.of(modalCtx).size.height * 0.85,
@@ -1648,11 +1644,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
         return StatefulBuilder(
           builder: (dialogCtx, setDialogState) {
             return Padding(
-              padding: EdgeInsets.only(
-                bottom:
-                    MediaQuery.of(modalCtx).viewInsets.bottom +
-                    MediaQuery.of(modalCtx).padding.bottom,
-              ),
+              padding: EdgeInsets.only(bottom: modalCtx.bottomInset),
               child: Container(
                 constraints: BoxConstraints(
                   maxHeight: MediaQuery.of(modalCtx).size.height * 0.85,
@@ -1940,10 +1932,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
         );
 
         return Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(modalCtx).viewInsets.bottom +
-                MediaQuery.of(modalCtx).padding.bottom,
-          ),
+          padding: EdgeInsets.only(bottom: modalCtx.bottomInset),
           child: Container(
             decoration: BoxDecoration(
               color: surfaceCol,
@@ -1955,7 +1944,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
               modalCtx.getRSize(20),
               modalCtx.getRSize(20),
               modalCtx.getRSize(20),
-              modalCtx.getRSize(32),
+              modalCtx.bottomInset + 32,
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,

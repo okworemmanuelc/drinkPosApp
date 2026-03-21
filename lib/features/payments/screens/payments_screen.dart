@@ -518,11 +518,7 @@ class _PaymentsScreenState extends State<PaymentsScreen>
       backgroundColor: Colors.transparent,
       builder: (_) => StatefulBuilder(
         builder: (ctx, setB) => Padding(
-          padding: EdgeInsets.only(
-            bottom:
-                MediaQuery.of(ctx).viewInsets.bottom +
-                MediaQuery.of(ctx).padding.bottom,
-          ),
+          padding: EdgeInsets.only(bottom: ctx.bottomInset),
           child: Container(
             decoration: BoxDecoration(
               color: _isDark ? dSurface : lSurface,

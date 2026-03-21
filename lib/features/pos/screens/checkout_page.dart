@@ -782,7 +782,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
               return Column(
                 children: [
-                  Padding(
+                   Padding(
                     padding: const EdgeInsets.all(16),
                     child: Text(
                       'Select Receipt Printer',

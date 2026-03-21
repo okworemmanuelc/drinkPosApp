@@ -265,8 +265,7 @@ class _AddCustomerSheetState extends State<AddCustomerSheet> {
                           context.getRSize(16),
                           context.getRSize(20),
                           context.getRSize(
-                            MediaQuery.of(context).padding.bottom + 
-                            MediaQuery.of(context).viewInsets.bottom + 16,
+                            context.bottomInset + 16,
                           ),
                         ),
                       child: Container(

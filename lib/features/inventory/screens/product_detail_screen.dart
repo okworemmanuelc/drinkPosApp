@@ -9,6 +9,7 @@ import '../../../core/utils/stock_calculator.dart';
 import '../data/models/inventory_item.dart';
 import '../../../shared/widgets/app_dropdown.dart';
 import '../../../core/database/app_database.dart';
+import '../../../shared/services/auth_service.dart';
 import '../../../shared/services/cart_service.dart';
 import '../../../shared/widgets/shared_bottom_nav_bar.dart';
 
@@ -53,6 +54,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   LastDeliveryInfo? _lastDelivery;
   bool _deliveryLoaded = false;
   bool _contentReady = false; // deferred load flag
+  bool _canEdit = true; // false for managers viewing other-warehouse products, and for staff
 
   @override
   void initState() {
@@ -84,6 +86,29 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   Future<void> _loadProductData() async {
     final productId = int.tryParse(widget.item.id);
     if (productId == null) return;
+
+    // Determine edit permission based on role
+    final user = authService.currentUser;
+    final tier = user?.roleTier ?? 1;
+    if (tier >= 5) {
+      // CEO: always editable
+      if (mounted) setState(() => _canEdit = true);
+    } else if (tier >= 4) {
+      // Manager: editable only if the product has stock in their warehouse
+      final mgrWarehouseId = user?.warehouseId;
+      if (mgrWarehouseId == null) {
+        if (mounted) setState(() => _canEdit = false);
+      } else {
+        final rows = await (database.select(database.inventory)
+              ..where((t) => t.productId.equals(productId)))
+            .get();
+        final hasStock = rows.any((r) => r.warehouseId == mgrWarehouseId);
+        if (mounted) setState(() => _canEdit = hasStock);
+      }
+    } else {
+      // Staff: read-only
+      if (mounted) setState(() => _canEdit = false);
+    }
 
     // Load monthly target, categories, manufacturers from DB
     final product = await database.catalogDao.findById(productId);
@@ -220,7 +245,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         onPressed: () => Navigator.pop(context),
       ),
       actions: [
-        IconButton(
+        if (_canEdit) IconButton(
           onPressed: () => _confirmDelete(context),
           icon: Container(
             padding: EdgeInsets.all(context.getRSize(8)),
@@ -313,6 +338,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         constraints: BoxConstraints(maxWidth: context.screenWidth * 0.8),
                         child: TextField(
                           controller: _nameController,
+                          readOnly: !_canEdit,
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontSize: context.getRFontSize(24),
@@ -410,6 +436,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 ),
                 child: TextField(
                   controller: _quantityController,
+                  readOnly: !_canEdit,
                   keyboardType: TextInputType.number,
                   textAlign: TextAlign.center,
                   style: TextStyle(
@@ -447,7 +474,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       child: Text(m.name, overflow: TextOverflow.ellipsis),
                     )),
                   ],
-                  onChanged: (v) => setState(() => _selectedManufacturerId = v),
+                  onChanged: _canEdit ? (v) => setState(() => _selectedManufacturerId = v) : (_) {},
                 ),
               ),
             ),
@@ -470,7 +497,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                           child: Text(c.name),
                         )),
                   ],
-                  onChanged: (val) => setState(() => _selectedCategoryId = val),
+                  onChanged: _canEdit ? (val) => setState(() => _selectedCategoryId = val) : (_) {},
                 ),
               ),
             ),
@@ -495,6 +522,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 ),
                 child: TextField(
                   controller: _emptyCrateValueController,
+                  readOnly: !_canEdit,
                   keyboardType: TextInputType.number,
                   textAlign: TextAlign.end,
                   style: TextStyle(
@@ -625,30 +653,57 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           _buildDeliveryCard(context),
 
           SizedBox(height: context.getRSize(32)),
-          // ── Action Button ───────────────────────────────────────────
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: blueMain,
-                foregroundColor: Colors.white,
-                padding: EdgeInsets.symmetric(vertical: context.getRSize(16)),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
+          if (_canEdit) ...[
+            // ── Action Button ─────────────────────────────────────────
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: blueMain,
+                  foregroundColor: Colors.white,
+                  padding: EdgeInsets.symmetric(vertical: context.getRSize(16)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  elevation: 0,
                 ),
-                elevation: 0,
-              ),
-              icon: Icon(FontAwesomeIcons.check, size: context.getRSize(16)),
-              label: Text(
-                'Update Product',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: context.getRFontSize(16),
+                icon: Icon(FontAwesomeIcons.check, size: context.getRSize(16)),
+                label: Text(
+                  'Update Product',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: context.getRFontSize(16),
+                  ),
                 ),
+                onPressed: _updateProduct,
               ),
-              onPressed: _updateProduct,
             ),
-          ),
+          ] else ...[
+            // ── Read-only notice ──────────────────────────────────────
+            Container(
+              width: double.infinity,
+              padding: EdgeInsets.all(context.getRSize(16)),
+              decoration: BoxDecoration(
+                color: _surface,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: _border),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.lock_outline, size: context.getRSize(16), color: _subtext),
+                  SizedBox(width: context.getRSize(8)),
+                  Text(
+                    'View only — this product is not in your warehouse',
+                    style: TextStyle(
+                      fontSize: context.getRFontSize(13),
+                      color: _subtext,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
           SizedBox(height: context.getRSize(40)),
         ],
       ),
@@ -907,6 +962,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       width: context.getRSize(40),
                       child: TextField(
                         controller: _monthlyTargetController,
+                        readOnly: !_canEdit,
                         keyboardType: TextInputType.number,
                         style: TextStyle(
                           fontSize: context.getRFontSize(12),
@@ -1058,6 +1114,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       ),
       child: TextField(
         controller: controller,
+        readOnly: !_canEdit,
         keyboardType: TextInputType.number,
         textAlign: TextAlign.end,
         style: TextStyle(

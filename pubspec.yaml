@@ -58,6 +58,7 @@ dependencies:
   shared_preferences: ^2.2.3
   crypto: ^3.0.3
   rxdart: 0.28.0
+  flutter_svg: ^2.2.4
 
 dev_dependencies:
   flutter_test:
@@ -87,6 +88,7 @@ flutter:
     - assets/images/calculator_bg.png
     - assets/images/auth_gradient_bg.png
     - assets/images/ribaplus_logo.png
+    - assets/images/logo.svg
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

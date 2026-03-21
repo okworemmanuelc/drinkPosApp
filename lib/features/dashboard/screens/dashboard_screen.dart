@@ -17,6 +17,7 @@ import '../../../core/database/app_database.dart';
 import '../../customers/data/models/customer.dart';
 import '../../../shared/widgets/user_tips_modal.dart';
 import '../../../shared/widgets/app_dropdown.dart';
+import '../../../shared/services/auth_service.dart';
 
 const Color warning = Color(0xFFF59E0B);
 
@@ -35,6 +36,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
   int? _selectedWarehouseId;
   List<WarehouseData> _warehouses = [];
   StreamSubscription? _warehousesSub;
+
+  // True when the logged-in user is a manager locked to one warehouse
+  bool _warehouseLocked = false;
+  String _lockedWarehouseName = '';
 
   // Pro-tips hero visibility
   bool _showProTips = false;
@@ -68,9 +73,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
       if (mounted) setState(() => _showProTips = count <= 1);
     });
 
+    // Check if the logged-in user is a manager — lock dashboard to their warehouse
+    final currentUser = authService.currentUser;
+    final userTier = currentUser?.roleTier ?? 5;
+    if (userTier == 4 && currentUser?.warehouseId != null) {
+      _warehouseLocked = true;
+      _selectedWarehouseId = currentUser!.warehouseId;
+    }
+
     // Warehouses for the filter dropdown
     _warehousesSub = database.select(database.warehouses).watch().listen((wh) {
-      if (mounted) setState(() => _warehouses = wh);
+      if (mounted) {
+        setState(() {
+          _warehouses = wh;
+          if (_warehouseLocked && _selectedWarehouseId != null) {
+            _lockedWarehouseName = wh
+                .where((w) => w.id == _selectedWarehouseId)
+                .map((w) => w.name)
+                .firstOrNull ?? '';
+          }
+        });
+      }
     });
 
     _ordersSub = orderService.watchAllOrders().listen((orders) {
@@ -87,20 +110,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
       if (mounted) setState(() => _customers = customers.map((d) => Customer.fromDb(d)).toList());
     });
 
-    _inventorySub = database.inventoryDao
-        .watchAllProductDatasWithStock()
-        .listen((items) {
-          if (mounted) {
-            setState(() {
-              _totalStockValue = items.fold<double>(
-                0,
-                (sum, item) =>
-                    sum +
-                    (item.totalStock * item.product.sellingPriceKobo / 100.0),
-              );
-            });
-          }
+    // For managers locked to a warehouse, only count stock in that warehouse
+    final stockStream = (_warehouseLocked && _selectedWarehouseId != null)
+        ? database.inventoryDao.watchProductsByWarehouse(_selectedWarehouseId!)
+        : database.inventoryDao.watchAllProductDatasWithStock();
+
+    _inventorySub = stockStream.listen((items) {
+      if (mounted) {
+        setState(() {
+          _totalStockValue = items.fold<double>(
+            0,
+            (sum, item) =>
+                sum +
+                (item.totalStock * item.product.sellingPriceKobo / 100.0),
+          );
         });
+      }
+    });
   }
 
   @override
@@ -318,7 +344,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
         SizedBox(height: context.getRSize(12)),
         Row(
           children: [
-            if (_warehouses.isNotEmpty) ...[
+            if (_warehouseLocked) ...[
+              Flexible(child: _buildLockedWarehouseChip()),
+              SizedBox(width: context.getRSize(8)),
+            ] else if (_warehouses.isNotEmpty) ...[
               Flexible(child: _buildWarehouseDropdown()),
               SizedBox(width: context.getRSize(8)),
             ],
@@ -326,6 +355,35 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ],
         ),
       ],
+    );
+  }
+
+  Widget _buildLockedWarehouseChip() {
+    return Container(
+      height: 48,
+      padding: EdgeInsets.symmetric(horizontal: context.getRSize(12)),
+      decoration: BoxDecoration(
+        color: _surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _border),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.warehouse_outlined, size: context.getRSize(14), color: blueMain),
+          SizedBox(width: context.getRSize(6)),
+          Text(
+            _lockedWarehouseName.isEmpty ? 'My Warehouse' : _lockedWarehouseName,
+            style: TextStyle(
+              fontSize: context.getRFontSize(13),
+              fontWeight: FontWeight.w600,
+              color: blueMain,
+            ),
+          ),
+          SizedBox(width: context.getRSize(4)),
+          Icon(Icons.lock_outline, size: context.getRSize(12), color: _subtext),
+        ],
+      ),
     );
   }
 

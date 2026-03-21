@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/theme_notifier.dart';
 import '../../core/utils/responsive.dart';
@@ -71,8 +72,8 @@ class AppDrawer extends StatelessWidget {
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(14),
-              child: Image.asset(
-                'assets/images/ribaplus_logo.png',
+              child: SvgPicture.asset(
+                'assets/images/logo.svg',
                 fit: BoxFit.contain,
               ),
             ),

@@ -287,8 +287,7 @@ class _CrateReturnModalState extends State<CrateReturnModal> {
                   context.getRSize(20),
                   context.getRSize(12),
                   context.getRSize(20),
-                  context.getRSize(20) +
-                      MediaQuery.of(context).viewInsets.bottom,
+                  context.getRSize(20) + context.bottomInset,
                 ),
                 child: Row(
                   children: [

@@ -59,8 +59,7 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setSheet) => Padding(
           padding: EdgeInsets.only(
-            bottom: MediaQuery.of(ctx).viewInsets.bottom +
-                MediaQuery.of(ctx).padding.bottom,
+            bottom: ctx.bottomInset,
           ),
           child: Container(
             decoration: BoxDecoration(
@@ -240,8 +239,7 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setSheet) => Padding(
           padding: EdgeInsets.only(
-            bottom: MediaQuery.of(ctx).viewInsets.bottom +
-                MediaQuery.of(ctx).padding.bottom,
+            bottom: ctx.bottomInset,
           ),
           child: Container(
             decoration: BoxDecoration(

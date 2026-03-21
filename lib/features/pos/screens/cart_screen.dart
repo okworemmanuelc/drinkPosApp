@@ -410,7 +410,7 @@ class _CartScreenState extends State<CartScreen>
                                 modalCtx.getRSize(20),
                                 0,
                                 modalCtx.getRSize(20),
-                                modalCtx.getRSize(20),
+                                modalCtx.bottomInset + 20,
                               ),
                               children: [
                                 _buildCustomerTile(null, modalCtx),
@@ -703,7 +703,7 @@ class _CartScreenState extends State<CartScreen>
                     context.getRSize(24),
                     context.getRSize(16),
                     context.getRSize(24),
-                    context.getRSize(24),
+                    context.bottomInset + 24,
                   ),
                   child: ListView(
                     controller: scrollController,
@@ -737,7 +737,7 @@ class _CartScreenState extends State<CartScreen>
                           ),
                           SizedBox(width: context.getRSize(12)),
                           Text(
-                            'Crate Deposit',
+                            'Deposit Paid',
                             style: TextStyle(
                               fontSize: context.getRFontSize(18),
                               fontWeight: FontWeight.w800,
@@ -1336,28 +1336,70 @@ class _CartScreenState extends State<CartScreen>
                                 children: [
                                   _totalRow('Subtotal', sub, small: true),
                                   if (hasGlass) ...[
-                                    SizedBox(height: context.getRSize(6)),
-                                    Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Text(
-                                          'Required Crates Deposit',
-                                          style: TextStyle(
-                                            fontSize: context.getRFontSize(13),
-                                            fontWeight: FontWeight.w700,
-                                            color: blueMain,
+                                    SizedBox(height: context.getRSize(8)),
+                                    Container(
+                                      width: double.infinity,
+                                      padding: EdgeInsets.symmetric(
+                                        horizontal: context.getRSize(16),
+                                        vertical: context.getRSize(14),
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: _cardBg,
+                                        borderRadius: BorderRadius.circular(14),
+                                        border: Border.all(color: _border),
+                                      ),
+                                      child: Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Row(
+                                            children: [
+                                              Container(
+                                                padding: EdgeInsets.all(
+                                                  context.getRSize(8),
+                                                ),
+                                                decoration: BoxDecoration(
+                                                  gradient:
+                                                      const LinearGradient(
+                                                        colors: [
+                                                          blueLight,
+                                                          blueMain,
+                                                        ],
+                                                      ),
+                                                  borderRadius:
+                                                      BorderRadius.circular(10),
+                                                ),
+                                                child: Icon(
+                                                  FontAwesomeIcons.beerMugEmpty,
+                                                  size: context.getRSize(13),
+                                                  color: Colors.white,
+                                                ),
+                                              ),
+                                              SizedBox(
+                                                width: context.getRSize(10),
+                                              ),
+                                              Text(
+                                                'Crate Deposit',
+                                                style: TextStyle(
+                                                  fontSize: context
+                                                      .getRFontSize(14),
+                                                  fontWeight: FontWeight.w700,
+                                                  color: _text,
+                                                ),
+                                              ),
+                                            ],
                                           ),
-                                        ),
-                                        Text(
-                                          formatCurrency(computedDeposit),
-                                          style: TextStyle(
-                                            fontSize: context.getRFontSize(13),
-                                            fontWeight: FontWeight.w700,
-                                            color: blueMain,
+                                          Text(
+                                            formatCurrency(computedDeposit),
+                                            style: TextStyle(
+                                              fontSize:
+                                                  context.getRFontSize(15),
+                                              fontWeight: FontWeight.w800,
+                                              color: blueMain,
+                                            ),
                                           ),
-                                        ),
-                                      ],
+                                        ],
+                                      ),
                                     ),
                                   ],
                                   SizedBox(height: context.getRSize(8)),
@@ -1534,7 +1576,7 @@ class _CartScreenState extends State<CartScreen>
                                     ),
                                     SizedBox(height: context.getRSize(8)),
                                   ],
-                                  // Crate Deposit tappable button — always visible
+                                  // Deposit Paid tappable button — always visible
                                   GestureDetector(
                                     onTap: () => _showEditCrateDeposit(),
                                     child: Container(
@@ -1586,7 +1628,7 @@ class _CartScreenState extends State<CartScreen>
                                                 width: context.getRSize(10),
                                               ),
                                               Text(
-                                                'Crate Deposit',
+                                                'Deposit Paid',
                                                 style: TextStyle(
                                                   fontSize: context
                                                       .getRFontSize(14),

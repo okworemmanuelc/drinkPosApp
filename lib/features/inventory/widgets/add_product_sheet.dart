@@ -5,6 +5,7 @@ import '../../../core/database/app_database.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/theme_notifier.dart';
 import '../../../shared/widgets/app_dropdown.dart';
+import '../../../core/utils/responsive.dart';
 
 class AddProductSheet extends StatefulWidget {
   final VoidCallback? onProductAdded;
@@ -291,9 +292,7 @@ class _AddProductSheetState extends State<AddProductSheet> {
 
     return Padding(
       padding: EdgeInsets.only(
-        bottom:
-            MediaQuery.of(context).viewInsets.bottom +
-            MediaQuery.of(context).padding.bottom,
+        bottom: context.bottomInset,
       ),
       child: Container(
         constraints: BoxConstraints(

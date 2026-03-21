@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../../../core/database/app_database.dart';
 import '../../../core/theme/colors.dart';
 import '../../../shared/services/auth_service.dart';
+import '../../../core/utils/responsive.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -361,7 +363,7 @@ class _PinPad extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             // ── Logo ────────────────────────────────────────────────────
-            Image.asset('assets/images/ribaplus_logo.png', height: 80),
+            SvgPicture.asset('assets/images/logo.svg', height: 80),
             const SizedBox(height: 12),
             Text(
               'Ribaplus POS',
@@ -554,7 +556,7 @@ class _UserPickerSheet extends StatelessWidget {
         color: surface,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+      padding: EdgeInsets.fromLTRB(24, 16, 24, context.bottomInset + 16),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [

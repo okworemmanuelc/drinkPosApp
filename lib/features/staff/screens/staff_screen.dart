@@ -498,8 +498,7 @@ class _StaffFormSheetState extends State<_StaffFormSheet> {
       builder: (context, mode, child) {
         return Padding(
           padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom +
-                MediaQuery.of(context).padding.bottom,
+            bottom: context.bottomInset,
           ),
           child: Container(
             decoration: BoxDecoration(

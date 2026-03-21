@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/services.dart';
 
 import 'package:flutter/material.dart';
 import '../../features/dashboard/screens/dashboard_screen.dart';
@@ -83,6 +84,10 @@ class _MainLayoutState extends State<MainLayout> {
   int _pendingOrderCount = 0;
   StreamSubscription<List<Order>>? _pendingOrdersSub;
 
+  // Double-back-to-exit state
+  DateTime? _lastBackPress;
+  static const _exitThreshold = Duration(seconds: 2);
+
   @override
   void initState() {
     super.initState();
@@ -104,10 +109,35 @@ class _MainLayoutState extends State<MainLayout> {
       valueListenable: navigationService.currentIndex,
       builder: (context, currentIndex, _) {
         return PopScope(
-          canPop: currentIndex == 1,
+          canPop: false,
           onPopInvokedWithResult: (didPop, result) {
             if (didPop) return;
-            if (currentIndex != 1) navigationService.setIndex(1);
+
+            if (currentIndex != 1) {
+              // Try to go back in history
+              final popped = navigationService.popIndex();
+              if (!popped) {
+                // If no history, jump to POS
+                navigationService.setIndex(1);
+              }
+            } else {
+              // We are on POS screen (index 1) - handle double-back-to-exit
+              final now = DateTime.now();
+              if (_lastBackPress == null ||
+                  now.difference(_lastBackPress!) > _exitThreshold) {
+                _lastBackPress = now;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Tapping back again closes the app'),
+                    duration: Duration(seconds: 2),
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+              } else {
+                // Consecutive tap within threshold - exit app
+                SystemNavigator.pop();
+              }
+            }
           },
           child: ValueListenableBuilder<List<Map<String, dynamic>>>(
             valueListenable: cartService,

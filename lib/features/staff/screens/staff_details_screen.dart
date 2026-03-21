@@ -210,11 +210,9 @@ class _StaffDetailsScreenState extends State<StaffDetailsScreen> {
       context: context,
       backgroundColor: _surface,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-      builder: (context) => SafeArea(
-        top: false,
-        child: Container(
-          padding: const EdgeInsets.all(24),
-          child: Column(
+      builder: (context) => Container(
+        padding: EdgeInsets.fromLTRB(24, 24, 24, context.bottomInset + 16),
+        child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -237,7 +235,6 @@ class _StaffDetailsScreenState extends State<StaffDetailsScreen> {
             ],
           ),
         ),
-      ),
     );
   }
 

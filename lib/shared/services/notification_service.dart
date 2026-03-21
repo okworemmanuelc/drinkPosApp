@@ -28,9 +28,16 @@ class NotificationService extends ValueNotifier<List<NotificationModel>> {
     await database.notificationsDao.markAllRead();
   }
 
-  void deleteNotification(String id) {}
+  Future<void> deleteNotification(String id) async {
+    final intId = int.tryParse(id);
+    if (intId != null) {
+      await database.notificationsDao.deleteSingle(intId);
+    }
+  }
 
-  void clearAll() {}
+  Future<void> clearAll() async {
+    await database.notificationsDao.clearAll();
+  }
 
   int get unreadCount => value.where((n) => !n.isRead).length;
 }

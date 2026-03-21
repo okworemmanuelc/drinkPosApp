@@ -85,4 +85,9 @@ extension ResponsiveHelper on BuildContext {
     right: getRSize(right),
     bottom: getRSize(bottom),
   );
+
+  /// Returns the combined bottom padding (safe area + keyboard view insets).
+  double get bottomInset =>
+      (MediaQuery.maybeOf(this)?.padding.bottom ?? 0) +
+      (MediaQuery.maybeOf(this)?.viewInsets.bottom ?? 0);
 }

@@ -2,13 +2,32 @@ import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../features/customers/data/models/customer.dart';
 import '../../core/database/app_database.dart';
+import 'auth_service.dart';
 
 class CartService extends ValueNotifier<List<Map<String, dynamic>>> {
   final ValueNotifier<Customer?> activeCustomer = ValueNotifier<Customer?>(null);
 
-  CartService() : super([]);
+  // Per-user cart storage: userId → cart items
+  final Map<int, List<Map<String, dynamic>>> _userCarts = {};
+  // Per-user active customer: userId → customer
+  final Map<int, Customer?> _userCustomers = {};
+
+  CartService() : super([]) {
+    // Swap to the new user's cart whenever login/logout happens
+    authService.addListener(_onUserChanged);
+  }
+
+  void _onUserChanged() {
+    final uid = _uid;
+    value = List.from(_userCarts[uid] ?? []);
+    activeCustomer.value = _userCustomers[uid];
+  }
+
+  /// The current user's ID. Falls back to 0 (anonymous) when nobody is logged in.
+  int get _uid => authService.currentUser?.id ?? 0;
 
   void setActiveCustomer(Customer? customer) {
+    _userCustomers[_uid] = customer;
     activeCustomer.value = customer;
   }
 
@@ -17,14 +36,13 @@ class CartService extends ValueNotifier<List<Map<String, dynamic>>> {
     final String name = product is ProductData ? product.name : product['name'];
     final int? id = product is ProductData ? product.id : null;
 
-    final index = value.indexWhere((item) => item['id'] == id && item['name'] == name);
+    final current = List<Map<String, dynamic>>.from(_userCarts[_uid] ?? []);
+    final index = current.indexWhere((item) => item['id'] == id && item['name'] == name);
 
     if (index != -1) {
-      final updatedList = List<Map<String, dynamic>>.from(value);
-      updatedList[index]['qty'] += qty;
-      value = updatedList;
+      current[index]['qty'] += qty;
     } else {
-      final Map<String, dynamic> itemToAdd = {
+      current.add({
         'id': id,
         'name': name,
         'subtitle': product is ProductData ? product.subtitle : product['subtitle'],
@@ -36,37 +54,47 @@ class CartService extends ValueNotifier<List<Map<String, dynamic>>> {
         'crateGroupId': product is ProductData ? product.crateGroupId : product['crateGroupId'],
         'crateGroupName': product is ProductData ? null : product['crateGroupName'],
         'emptyCrateValueKobo': product is ProductData ? product.emptyCrateValueKobo : (product['emptyCrateValueKobo'] ?? 0),
-      };
-
-      value = [...value, itemToAdd];
+      });
     }
+
+    _userCarts[_uid] = current;
+    value = List.from(current);
   }
 
   void updateQty(String productName, double newQty) {
-    final index = value.indexWhere((item) => item['name'] == productName);
+    final current = List<Map<String, dynamic>>.from(_userCarts[_uid] ?? []);
+    final index = current.indexWhere((item) => item['name'] == productName);
     if (index != -1) {
-      final updatedList = List<Map<String, dynamic>>.from(value);
       if (newQty <= 0) {
-        updatedList.removeAt(index);
+        current.removeAt(index);
       } else {
-        updatedList[index]['qty'] = newQty;
+        current[index]['qty'] = newQty;
       }
-      value = updatedList;
+      _userCarts[_uid] = current;
+      value = List.from(current);
     }
   }
 
   void removeItem(String productName) {
-    value = value.where((item) => item['name'] != productName).toList();
+    final current = List<Map<String, dynamic>>.from(_userCarts[_uid] ?? [])
+        .where((item) => item['name'] != productName)
+        .toList();
+    _userCarts[_uid] = current;
+    value = List.from(current);
   }
 
   void clear() {
+    _userCarts[_uid] = [];
+    _userCustomers[_uid] = null;
     value = [];
     activeCustomer.value = null;
   }
 
   void loadCart(List<Map<String, dynamic>> items, Customer? customer) {
+    _userCustomers[_uid] = customer;
+    _userCarts[_uid] = List.from(items);
     activeCustomer.value = customer;
-    value = items;
+    value = List.from(items);
   }
 
   double get totalItems =>
