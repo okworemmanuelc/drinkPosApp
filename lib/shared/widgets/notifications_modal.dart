@@ -5,7 +5,7 @@ import '../services/notification_service.dart';
 import '../models/notification.dart';
 import '../../core/utils/responsive.dart';
 import '../../core/theme/colors.dart';
-import '../../core/theme/theme_notifier.dart';
+
 import '../../core/database/app_database.dart';
 
 class NotificationsModal extends StatelessWidget {
@@ -19,12 +19,6 @@ class NotificationsModal extends StatelessWidget {
       builder: (context) => const NotificationsModal(),
     );
   }
-
-  bool get _isDark => themeNotifier.value == ThemeMode.dark;
-  Color get _bg => _isDark ? dSurface : lSurface;
-  Color get _text => _isDark ? dText : lText;
-  Color get _subtext => _isDark ? dSubtext : lSubtext;
-  Color get _border => _isDark ? dBorder : lBorder;
 
   @override
   Widget build(BuildContext context) {
@@ -42,7 +36,7 @@ class NotificationsModal extends StatelessWidget {
             onTap: () {}, // Prevent tap from reaching the barrier
             child: Container(
               decoration: BoxDecoration(
-                color: _bg,
+                color: Theme.of(context).colorScheme.surface,
                 borderRadius:
                     const BorderRadius.vertical(top: Radius.circular(28)),
               ),
@@ -55,7 +49,7 @@ class NotificationsModal extends StatelessWidget {
                       width: context.getRSize(40),
                       height: context.getRSize(4),
                       decoration: BoxDecoration(
-                        color: _border,
+                        color: Theme.of(context).dividerColor,
                         borderRadius: BorderRadius.circular(2),
                       ),
                     ),
@@ -109,7 +103,7 @@ class NotificationsModal extends StatelessWidget {
                             Text(
                               'Background',
                               style: TextStyle(
-                                color: _subtext.withValues(alpha: 0.6),
+                                color: Theme.of(context).textTheme.bodySmall?.color ?? Theme.of(context).iconTheme.color!.withValues(alpha: 0.6),
                                 fontSize: context.getRFontSize(11),
                                 fontWeight: FontWeight.w500,
                               ),
@@ -120,7 +114,7 @@ class NotificationsModal extends StatelessWidget {
                     },
                   ),
                    
-                  Divider(height: 1, color: _border),
+                  Divider(height: 1, color: Theme.of(context).dividerColor),
                   // List
                   Expanded(
                     child: ValueListenableBuilder(
@@ -171,7 +165,7 @@ class NotificationsModal extends StatelessWidget {
                 style: TextStyle(
                   fontSize: context.getRFontSize(18),
                   fontWeight: FontWeight.bold,
-                  color: _text,
+                  color: Theme.of(context).colorScheme.onSurface,
                 ),
               ),
             ],
@@ -202,13 +196,13 @@ class NotificationsModal extends StatelessWidget {
           Icon(
             FontAwesomeIcons.bellSlash,
             size: context.getRSize(48),
-            color: _border,
+            color: Theme.of(context).dividerColor,
           ),
           SizedBox(height: context.getRSize(16)),
           Text(
             'No notifications yet',
             style: TextStyle(
-              color: _subtext,
+              color: Theme.of(context).textTheme.bodySmall?.color ?? Theme.of(context).iconTheme.color!,
               fontSize: context.getRFontSize(16),
               fontWeight: FontWeight.w600,
             ),
@@ -226,11 +220,10 @@ class _NotificationCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool isDark = themeNotifier.value == ThemeMode.dark;
-    final Color cardBg = isDark ? dCard : lCard;
-    final Color textCol = isDark ? dText : lText;
-    final Color subtextCol = isDark ? dSubtext : lSubtext;
-    final Color borderCol = isDark ? dBorder : lBorder;
+    final Color cardBg = Theme.of(context).cardColor;
+    final Color textCol = Theme.of(context).colorScheme.onSurface;
+    final Color subtextCol = Theme.of(context).textTheme.bodySmall?.color ?? Theme.of(context).iconTheme.color!;
+    final Color borderCol = Theme.of(context).dividerColor;
 
     final IconData icon = _getIconForType(notification.type);
     final Color iconColor = _getColorForType(notification.type);
@@ -330,4 +323,8 @@ class _NotificationCard extends StatelessWidget {
     }
   }
 }
+
+
+
+
 

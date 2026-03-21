@@ -3,7 +3,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/theme/colors.dart';
-import '../../../core/theme/theme_notifier.dart';
+
 import '../../../core/utils/number_format.dart';
 import '../../../core/utils/responsive.dart';
 import '../../../shared/widgets/app_drawer.dart';
@@ -29,13 +29,11 @@ class _ExpensesScreenState extends State<ExpensesScreen>
 
   List<ExpenseData> _allExpenses = [];
   StreamSubscription? _expensesSub;
-
-  bool get _isDark => themeNotifier.value == ThemeMode.dark;
-  Color get _bg => _isDark ? dBg : lBg;
-  Color get _surface => _isDark ? dSurface : lSurface;
-  Color get _text => _isDark ? dText : lText;
-  Color get _subtext => _isDark ? dSubtext : lSubtext;
-  Color get _border => _isDark ? dBorder : lBorder;
+  Color get _bg => Theme.of(context).scaffoldBackgroundColor;
+  Color get _surface => Theme.of(context).colorScheme.surface;
+  Color get _text => Theme.of(context).colorScheme.onSurface;
+  Color get _subtext => Theme.of(context).textTheme.bodySmall?.color ?? Theme.of(context).iconTheme.color!;
+  Color get _border => Theme.of(context).dividerColor;
 
   @override
   void initState() {
@@ -84,6 +82,7 @@ class _ExpensesScreenState extends State<ExpensesScreen>
 
   @override
   Widget build(BuildContext context) {
+    final themeNotifier = ValueNotifier<ThemeMode>(ThemeMode.system);
     return ValueListenableBuilder<ThemeMode>(
       valueListenable: themeNotifier,
       builder: (context, mode, child) {
@@ -121,14 +120,14 @@ class _ExpensesScreenState extends State<ExpensesScreen>
           floatingActionButton: Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [danger, danger.withValues(alpha: 0.8)],
+                colors: [danger, Theme.of(context).colorScheme.error.withValues(alpha: 0.8)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
               borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
-                  color: danger.withValues(alpha: 0.3),
+                  color: Theme.of(context).colorScheme.error.withValues(alpha: 0.3),
                   blurRadius: 10,
                   offset: const Offset(0, 4),
                 ),
@@ -189,7 +188,7 @@ class _ExpensesScreenState extends State<ExpensesScreen>
                   height: 2.5,
                   width: context.getRSize(16),
                   decoration: BoxDecoration(
-                    color: danger,
+                    color: Theme.of(context).colorScheme.error,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -216,12 +215,12 @@ class _ExpensesScreenState extends State<ExpensesScreen>
             padding: EdgeInsets.all(context.getRSize(8)),
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [danger.withValues(alpha: 0.8), danger],
+                colors: [Theme.of(context).colorScheme.error.withValues(alpha: 0.8), danger],
               ),
               borderRadius: BorderRadius.circular(12),
               boxShadow: [
                 BoxShadow(
-                  color: danger.withValues(alpha: 0.3),
+                  color: Theme.of(context).colorScheme.error.withValues(alpha: 0.3),
                   blurRadius: 8,
                   offset: const Offset(0, 2),
                 ),
@@ -254,7 +253,7 @@ class _ExpensesScreenState extends State<ExpensesScreen>
                   'Manage operating costs',
                   style: TextStyle(
                     fontSize: context.getRFontSize(11),
-                    color: danger,
+                    color: Theme.of(context).colorScheme.error,
                     fontWeight: FontWeight.w600,
                   ),
                   maxLines: 1,
@@ -267,9 +266,9 @@ class _ExpensesScreenState extends State<ExpensesScreen>
       ),
       bottom: TabBar(
         controller: _tabController,
-        labelColor: danger,
+        labelColor: Theme.of(context).colorScheme.error,
         unselectedLabelColor: _subtext,
-        indicatorColor: danger,
+        indicatorColor: Theme.of(context).colorScheme.error,
         indicatorWeight: 3,
         labelStyle: TextStyle(
           fontWeight: FontWeight.bold,
@@ -478,7 +477,7 @@ class _ExpensesScreenState extends State<ExpensesScreen>
         Container(
           padding: EdgeInsets.all(context.getRSize(16)),
           decoration: BoxDecoration(
-            color: _isDark ? dCard : lSurface,
+            color: Theme.of(context).cardColor,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(color: _border),
           ),
@@ -573,12 +572,12 @@ class _ExpensesScreenState extends State<ExpensesScreen>
       padding: EdgeInsets.all(context.getRSize(20)),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [danger.withValues(alpha: 0.8), danger],
+          colors: [Theme.of(context).colorScheme.error.withValues(alpha: 0.8), danger],
         ),
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: danger.withValues(alpha: 0.3),
+            color: Theme.of(context).colorScheme.error.withValues(alpha: 0.3),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -757,12 +756,11 @@ class _ExpenseCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final themeNotifier = ThemeNotifier.instance;
-    final isDark = themeNotifier.value == ThemeMode.dark;
-    final cardBg = isDark ? dCard : lSurface;
-    final textCol = isDark ? dText : lText;
-    final subtextCol = isDark ? dSubtext : lSubtext;
-    final borderCol = isDark ? dBorder : lBorder;
+    
+    final cardBg = Theme.of(context).cardColor;
+    final textCol = Theme.of(context).colorScheme.onSurface;
+    final subtextCol = Theme.of(context).textTheme.bodySmall?.color ?? Theme.of(context).iconTheme.color!;
+    final borderCol = Theme.of(context).dividerColor;
 
     final dateStr = DateFormat('MMM d, y • h:mm a').format(expense.date);
 
@@ -791,12 +789,12 @@ class _ExpenseCard extends StatelessWidget {
             Container(
               padding: EdgeInsets.all(context.getRSize(12)),
               decoration: BoxDecoration(
-                color: danger.withValues(alpha: 0.1),
+                color: Theme.of(context).colorScheme.error.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
               child: Icon(
                 _getIconForCategory(expense.category),
-                color: danger,
+                color: Theme.of(context).colorScheme.error,
                 size: context.getRSize(16),
               ),
             ),
@@ -895,9 +893,10 @@ class _ExpenseCard extends StatelessWidget {
       ),
     );
   }
-} // Temporary themeNotifier instance mapping
-
-class ThemeNotifier {
-  static final instance = themeNotifier;
 }
+
+
+
+
+
 

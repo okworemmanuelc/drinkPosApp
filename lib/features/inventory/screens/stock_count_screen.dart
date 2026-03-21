@@ -4,14 +4,23 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 import '../../../core/database/app_database.dart';
 import '../../../core/theme/colors.dart';
-import '../../../core/theme/theme_notifier.dart';
+
 import '../../../core/utils/responsive.dart';
 import '../../../shared/services/activity_log_service.dart';
 import '../../../shared/widgets/shared_bottom_nav_bar.dart';
 
+// Flat display-list item: either a warehouse section header or a row index.
+class _DisplayItem {
+  final String? warehouseName;
+  final int? rowIndex;
+  bool get isHeader => warehouseName != null;
+  const _DisplayItem.header(String name) : warehouseName = name, rowIndex = null;
+  const _DisplayItem.row(int idx) : warehouseName = null, rowIndex = idx;
+}
+
 class StockCountScreen extends StatefulWidget {
   /// If provided, only products in this warehouse are loaded and adjustments
-  /// are written to this warehouse. Null means all warehouses (totals).
+  /// are written to this warehouse. Null means all warehouses (grouped view).
   final int? warehouseId;
 
   const StockCountScreen({super.key, this.warehouseId});
@@ -21,18 +30,16 @@ class StockCountScreen extends StatefulWidget {
 }
 
 class _StockCountScreenState extends State<StockCountScreen> {
-  List<ProductDataWithStock> _products = [];
+  List<ProductStockWithWarehouse> _items = [];
   final List<TextEditingController> _controllers = [];
   bool _loading = true;
   bool _saving = false;
-
-  bool get _isDark => themeNotifier.value == ThemeMode.dark;
-  Color get _bg => _isDark ? dBg : lBg;
-  Color get _surface => _isDark ? dSurface : lSurface;
-  Color get _text => _isDark ? dText : lText;
-  Color get _subtext => _isDark ? dSubtext : lSubtext;
-  Color get _border => _isDark ? dBorder : lBorder;
-  Color get _card => _isDark ? dCard : lCard;
+  Color get _bg => Theme.of(context).scaffoldBackgroundColor;
+  Color get _surface => Theme.of(context).colorScheme.surface;
+  Color get _text => Theme.of(context).colorScheme.onSurface;
+  Color get _subtext => Theme.of(context).textTheme.bodySmall?.color ?? Theme.of(context).iconTheme.color!;
+  Color get _border => Theme.of(context).dividerColor;
+  Color get _card => Theme.of(context).cardColor;
 
   @override
   void initState() {
@@ -49,16 +56,14 @@ class _StockCountScreenState extends State<StockCountScreen> {
   }
 
   Future<void> _loadProducts() async {
-    final products = await database.inventoryDao
-        .getProductsWithStock(warehouseId: widget.warehouseId);
+    final items = await database.inventoryDao
+        .getProductsStockPerWarehouse(warehouseId: widget.warehouseId);
     if (!mounted) return;
     setState(() {
-      _products = products;
+      _items = items;
       _controllers.clear();
-      for (final p in products) {
-        _controllers.add(
-          TextEditingController(text: p.totalStock.toString()),
-        );
+      for (final item in items) {
+        _controllers.add(TextEditingController(text: item.totalStock.toString()));
       }
       _loading = false;
     });
@@ -66,39 +71,21 @@ class _StockCountScreenState extends State<StockCountScreen> {
 
   int _diff(int index) {
     final actual = int.tryParse(_controllers[index].text) ?? 0;
-    return actual - _products[index].totalStock;
+    return actual - _items[index].totalStock;
   }
 
   Future<void> _saveCount() async {
     setState(() => _saving = true);
 
-    // Decide which warehouse to write adjustments to.
-    // Use the screen's warehouseId, or fall back to the first warehouse in DB.
-    int? targetWarehouseId = widget.warehouseId;
-    if (targetWarehouseId == null) {
-      final warehouses = await database.select(database.warehouses).get();
-      if (warehouses.isNotEmpty) targetWarehouseId = warehouses.first.id;
-    }
-
-    if (targetWarehouseId == null) {
-      if (mounted) {
-        setState(() => _saving = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No warehouse found. Cannot save.')),
-        );
-      }
-      return;
-    }
-
     int adjustedCount = 0;
-    for (int i = 0; i < _products.length; i++) {
+    for (int i = 0; i < _items.length; i++) {
       final diff = _diff(i);
       if (diff == 0) continue;
 
-      final product = _products[i].product;
+      final item = _items[i];
       await database.inventoryDao.adjustStock(
-        product.id,
-        targetWarehouseId,
+        item.product.id,
+        item.warehouseId,
         diff,
         'Daily stock count adjustment',
         null,
@@ -107,10 +94,9 @@ class _StockCountScreenState extends State<StockCountScreen> {
       final sign = diff > 0 ? '+' : '';
       await activityLogService.logAction(
         'stock_count',
-        'Stock count: ${product.name} adjusted by $sign$diff '
-            '(system: ${_products[i].totalStock}, '
-            'actual: ${_products[i].totalStock + diff})',
-        relatedEntityId: product.id.toString(),
+        'Stock count: ${item.product.name} adjusted by $sign$diff '
+            '(system: ${item.totalStock}, actual: ${item.totalStock + diff})',
+        relatedEntityId: item.product.id.toString(),
         relatedEntityType: 'product',
       );
 
@@ -134,8 +120,340 @@ class _StockCountScreenState extends State<StockCountScreen> {
     Navigator.pop(context);
   }
 
+  // ── History ────────────────────────────────────────────────────────────────
+
+  Future<void> _viewHistory(BuildContext context) async {
+    final logs = await database.activityLogDao.getStockCountLogs();
+
+    // Group by calendar date (YYYY-MM-DD key for easy sorting)
+    final Map<String, List<ActivityLogData>> grouped = {};
+    for (final log in logs) {
+      final t = log.timestamp;
+      final key =
+          '${t.year}-${t.month.toString().padLeft(2, '0')}-${t.day.toString().padLeft(2, '0')}';
+      grouped.putIfAbsent(key, () => []).add(log);
+    }
+    final dates = grouped.keys.toList()..sort((a, b) => b.compareTo(a));
+
+    if (!context.mounted) return;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => DraggableScrollableSheet(
+        initialChildSize: 0.7,
+        maxChildSize: 0.95,
+        minChildSize: 0.4,
+        builder: (ctx, scrollCtrl) => Container(
+          decoration: BoxDecoration(
+            color: _surface,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            children: [
+              // Handle
+              Padding(
+                padding: EdgeInsets.symmetric(vertical: context.getRSize(12)),
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: _border,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: context.getRSize(20)),
+                child: Row(
+                  children: [
+                    Icon(
+                      FontAwesomeIcons.clockRotateLeft,
+                      size: context.getRSize(16),
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                    SizedBox(width: context.getRSize(10)),
+                    Text(
+                      'Count History',
+                      style: TextStyle(
+                        color: _text,
+                        fontSize: context.getRFontSize(18),
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(height: context.getRSize(8)),
+              Divider(color: _border, height: 1),
+              if (dates.isEmpty)
+                Expanded(
+                  child: Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          FontAwesomeIcons.clockRotateLeft,
+                          size: context.getRSize(36),
+                          color: _border,
+                        ),
+                        SizedBox(height: context.getRSize(12)),
+                        Text(
+                          'No history yet',
+                          style: TextStyle(
+                            color: _subtext,
+                            fontSize: context.getRFontSize(15),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              else
+                Expanded(
+                  child: ListView.separated(
+                    controller: scrollCtrl,
+                    padding: EdgeInsets.symmetric(vertical: context.getRSize(8)),
+                    itemCount: dates.length,
+                    separatorBuilder: (_, __) =>
+                        Divider(color: _border, height: 1, indent: context.getRSize(20)),
+                    itemBuilder: (ctx, i) {
+                      final dateKey = dates[i];
+                      final dayLogs = grouped[dateKey]!;
+                      final date = DateTime.parse(dateKey);
+                      final label = _formatDate(date);
+
+                      return ListTile(
+                        contentPadding: EdgeInsets.symmetric(
+                          horizontal: context.getRSize(20),
+                          vertical: context.getRSize(4),
+                        ),
+                        leading: Container(
+                          padding: EdgeInsets.all(context.getRSize(10)),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.08),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Icon(
+                            FontAwesomeIcons.clipboardCheck,
+                            size: context.getRSize(14),
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                        ),
+                        title: Text(
+                          label,
+                          style: TextStyle(
+                            color: _text,
+                            fontWeight: FontWeight.w700,
+                            fontSize: context.getRFontSize(14),
+                          ),
+                        ),
+                        subtitle: Text(
+                          '${dayLogs.length} adjustment${dayLogs.length == 1 ? '' : 's'}',
+                          style: TextStyle(
+                            color: _subtext,
+                            fontSize: context.getRFontSize(12),
+                          ),
+                        ),
+                        trailing: Icon(
+                          Icons.chevron_right,
+                          color: _subtext,
+                          size: context.getRSize(20),
+                        ),
+                        onTap: () {
+                          Navigator.pop(ctx);
+                          _showDayDetail(context, label, dayLogs);
+                        },
+                      );
+                    },
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showDayDetail(
+      BuildContext context, String dateLabel, List<ActivityLogData> logs) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => DraggableScrollableSheet(
+        initialChildSize: 0.75,
+        maxChildSize: 0.95,
+        minChildSize: 0.4,
+        builder: (ctx, scrollCtrl) => Container(
+          decoration: BoxDecoration(
+            color: _surface,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            children: [
+              // Handle
+              Padding(
+                padding: EdgeInsets.symmetric(vertical: context.getRSize(12)),
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: _border,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: context.getRSize(20)),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            dateLabel,
+                            style: TextStyle(
+                              color: _text,
+                              fontSize: context.getRFontSize(18),
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          Text(
+                            'Stock count adjustments',
+                            style: TextStyle(
+                              color: _subtext,
+                              fontSize: context.getRFontSize(12),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: context.getRSize(10),
+                        vertical: context.getRSize(4),
+                      ),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        '${logs.length} item${logs.length == 1 ? '' : 's'}',
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.primary,
+                          fontSize: context.getRFontSize(12),
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(height: context.getRSize(8)),
+              Divider(color: _border, height: 1),
+              Expanded(
+                child: ListView.separated(
+                  controller: scrollCtrl,
+                  padding: EdgeInsets.symmetric(
+                    vertical: context.getRSize(12),
+                    horizontal: context.getRSize(16),
+                  ),
+                  itemCount: logs.length,
+                  separatorBuilder: (_, __) => SizedBox(height: context.getRSize(8)),
+                  itemBuilder: (ctx, i) {
+                    final log = logs[i];
+                    // Detect positive/negative adjustment from description
+                    final isPositive = log.description.contains('adjusted by +');
+                    final isNegative = log.description.contains('adjusted by -');
+                    final accentColor = isPositive
+                        ? success
+                        : isNegative
+                            ? danger
+                            : _subtext;
+
+                    return Container(
+                      padding: EdgeInsets.all(context.getRSize(12)),
+                      decoration: BoxDecoration(
+                        color: _card,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: accentColor.withValues(alpha: 0.25),
+                        ),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            margin: EdgeInsets.only(
+                              top: context.getRSize(2),
+                              right: context.getRSize(10),
+                            ),
+                            width: context.getRSize(8),
+                            height: context.getRSize(8),
+                            decoration: BoxDecoration(
+                              color: accentColor,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  log.description,
+                                  style: TextStyle(
+                                    color: _text,
+                                    fontSize: context.getRFontSize(13),
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                SizedBox(height: context.getRSize(4)),
+                                Text(
+                                  _formatTime(log.timestamp),
+                                  style: TextStyle(
+                                    color: _subtext,
+                                    fontSize: context.getRFontSize(11),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _formatDate(DateTime date) {
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    ];
+    return '${months[date.month - 1]} ${date.day}, ${date.year}';
+  }
+
+  String _formatTime(DateTime dt) {
+    final h = dt.hour > 12 ? dt.hour - 12 : (dt.hour == 0 ? 12 : dt.hour);
+    final m = dt.minute.toString().padLeft(2, '0');
+    final ampm = dt.hour >= 12 ? 'PM' : 'AM';
+    return '$h:$m $ampm';
+  }
+
+  // ── Build ──────────────────────────────────────────────────────────────────
+
   @override
   Widget build(BuildContext context) {
+    final themeNotifier = ValueNotifier<ThemeMode>(ThemeMode.system);
     return ValueListenableBuilder<ThemeMode>(
       valueListenable: themeNotifier,
       builder: (_, __, ___) => Scaffold(
@@ -170,9 +488,18 @@ class _StockCountScreenState extends State<StockCountScreen> {
             ],
           ),
           actions: [
+            IconButton(
+              icon: Icon(
+                FontAwesomeIcons.clockRotateLeft,
+                color: _text,
+                size: context.getRSize(16),
+              ),
+              tooltip: 'View History',
+              onPressed: () => _viewHistory(context),
+            ),
             if (!_loading)
               _saving
-                  ? const Padding(
+                  ? Padding(
                       padding: EdgeInsets.symmetric(horizontal: 16),
                       child: Center(
                         child: SizedBox(
@@ -180,7 +507,7 @@ class _StockCountScreenState extends State<StockCountScreen> {
                           height: 20,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            color: blueMain,
+                            color: Theme.of(context).colorScheme.primary,
                           ),
                         ),
                       ),
@@ -190,7 +517,7 @@ class _StockCountScreenState extends State<StockCountScreen> {
                       child: Text(
                         'Save Count',
                         style: TextStyle(
-                          color: blueMain,
+                          color: Theme.of(context).colorScheme.primary,
                           fontWeight: FontWeight.w700,
                           fontSize: context.getRFontSize(14),
                         ),
@@ -199,13 +526,13 @@ class _StockCountScreenState extends State<StockCountScreen> {
           ],
         ),
         body: _loading
-            ? const Center(
+            ? Center(
                 child: CircularProgressIndicator(
-                  color: blueMain,
+                  color: Theme.of(context).colorScheme.primary,
                   strokeWidth: 2,
                 ),
               )
-            : _products.isEmpty
+            : _items.isEmpty
                 ? Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -233,6 +560,18 @@ class _StockCountScreenState extends State<StockCountScreen> {
   }
 
   Widget _buildTable(BuildContext context) {
+    // Build flat display list: warehouse headers interleaved with row indices
+    final displayItems = <_DisplayItem>[];
+    String? lastWarehouse;
+    for (int i = 0; i < _items.length; i++) {
+      final name = _items[i].warehouseName;
+      if (name != lastWarehouse) {
+        displayItems.add(_DisplayItem.header(name));
+        lastWarehouse = name;
+      }
+      displayItems.add(_DisplayItem.row(i));
+    }
+
     return Column(
       children: [
         _buildTableHeader(context),
@@ -241,8 +580,13 @@ class _StockCountScreenState extends State<StockCountScreen> {
             padding: EdgeInsets.only(
               bottom: context.getRSize(24) + MediaQuery.of(context).padding.bottom,
             ),
-            itemCount: _products.length,
-            itemBuilder: (_, i) => _buildRow(context, i),
+            itemCount: displayItems.length,
+            itemBuilder: (_, idx) {
+              final di = displayItems[idx];
+              return di.isHeader
+                  ? _buildWarehouseHeader(context, di.warehouseName!)
+                  : _buildRow(context, di.rowIndex!);
+            },
           ),
         ),
       ],
@@ -282,9 +626,47 @@ class _StockCountScreenState extends State<StockCountScreen> {
     );
   }
 
+  Widget _buildWarehouseHeader(BuildContext context, String name) {
+    return Container(
+      padding: EdgeInsets.fromLTRB(
+        context.getRSize(16),
+        context.getRSize(14),
+        context.getRSize(16),
+        context.getRSize(6),
+      ),
+      color: _bg,
+      child: Row(
+        children: [
+          Container(
+            padding: EdgeInsets.all(context.getRSize(6)),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(
+              FontAwesomeIcons.warehouse,
+              size: context.getRSize(11),
+              color: Theme.of(context).colorScheme.primary,
+            ),
+          ),
+          SizedBox(width: context.getRSize(8)),
+          Text(
+            name,
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.primary,
+              fontSize: context.getRFontSize(12),
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.3,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildRow(BuildContext context, int i) {
-    final product = _products[i].product;
-    final systemStock = _products[i].totalStock;
+    final item = _items[i];
+    final systemStock = item.totalStock;
 
     return StatefulBuilder(
       builder: (context, setRowState) {
@@ -317,7 +699,7 @@ class _StockCountScreenState extends State<StockCountScreen> {
               Expanded(
                 flex: 5,
                 child: Text(
-                  product.name,
+                  item.product.name,
                   style: TextStyle(
                     color: _text,
                     fontSize: context.getRFontSize(13),
@@ -368,7 +750,7 @@ class _StockCountScreenState extends State<StockCountScreen> {
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(color: blueMain, width: 1.5),
+                      borderSide: BorderSide(color: Theme.of(context).colorScheme.primary, width: 1.5),
                     ),
                   ),
                   onChanged: (_) => setRowState(() {}),
@@ -393,3 +775,5 @@ class _StockCountScreenState extends State<StockCountScreen> {
     );
   }
 }
+
+

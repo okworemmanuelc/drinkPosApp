@@ -10,7 +10,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../../../core/theme/colors.dart';
-import '../../../core/theme/theme_notifier.dart';
+
 import '../../../core/utils/number_format.dart';
 import '../../../core/utils/responsive.dart';
 import '../../../core/database/app_database.dart';
@@ -41,13 +41,11 @@ class _OrdersScreenState extends State<OrdersScreen>
   String _completedFilter = 'All Time';
   StreamSubscription<List<OrderWithItems>>? _ordersSub;
   List<OrderWithItems> _allOrdersWithItems = [];
-
-  bool get _isDark => themeNotifier.value == ThemeMode.dark;
-  Color get _bg => _isDark ? dBg : lBg;
-  Color get _surface => _isDark ? dSurface : lSurface;
-  Color get _text => _isDark ? dText : lText;
-  Color get _subtext => _isDark ? dSubtext : lSubtext;
-  Color get _border => _isDark ? dBorder : lBorder;
+  Color get _bg => Theme.of(context).scaffoldBackgroundColor;
+  Color get surfaceCol => Theme.of(context).colorScheme.surface;
+  Color get textCol => Theme.of(context).colorScheme.onSurface;
+  Color get subtextCol => Theme.of(context).textTheme.bodySmall?.color ?? Theme.of(context).iconTheme.color!;
+  Color get borderCol => Theme.of(context).dividerColor;
 
   @override
   void initState() {
@@ -67,6 +65,7 @@ class _OrdersScreenState extends State<OrdersScreen>
 
   @override
   Widget build(BuildContext context) {
+    final themeNotifier = ValueNotifier<ThemeMode>(ThemeMode.system);
     return ValueListenableBuilder<ThemeMode>(
       valueListenable: themeNotifier,
       builder: (context, mode, child) {
@@ -117,9 +116,9 @@ class _OrdersScreenState extends State<OrdersScreen>
 
   PreferredSizeWidget _buildAppBar(BuildContext context) {
     return AppBar(
-      backgroundColor: _surface,
+      backgroundColor: surfaceCol,
       elevation: 0,
-      iconTheme: IconThemeData(color: _text),
+      iconTheme: IconThemeData(color: textCol),
       leading: const MenuButton(),
       title: const AppBarHeader(
         icon: FontAwesomeIcons.receipt,
@@ -130,9 +129,9 @@ class _OrdersScreenState extends State<OrdersScreen>
       actions: const [NotificationBell(), SizedBox(width: 8)],
       bottom: TabBar(
         controller: _tabController,
-        labelColor: blueMain,
-        unselectedLabelColor: _subtext,
-        indicatorColor: blueMain,
+        labelColor: Theme.of(context).colorScheme.primary,
+        unselectedLabelColor: subtextCol,
+        indicatorColor: Theme.of(context).colorScheme.primary,
         indicatorWeight: 3,
         labelStyle: TextStyle(
           fontWeight: FontWeight.bold,
@@ -162,7 +161,7 @@ class _OrdersScreenState extends State<OrdersScreen>
   Widget _buildFilterChips(BuildContext context) {
     final filters = ['Day', 'Week', 'Month', 'Year', 'To Date', 'All Time'];
     return Container(
-      color: _surface,
+      color: surfaceCol,
       padding: EdgeInsets.symmetric(vertical: context.getRSize(8)),
       height: context.getRSize(56),
       child: ListView.separated(
@@ -179,7 +178,7 @@ class _OrdersScreenState extends State<OrdersScreen>
               f,
               style: TextStyle(
                 fontSize: context.getRFontSize(12),
-                color: isSelected ? Colors.white : _text,
+                color: isSelected ? Colors.white : textCol,
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
               ),
             ),
@@ -187,12 +186,12 @@ class _OrdersScreenState extends State<OrdersScreen>
             onSelected: (val) {
               setState(() => _completedFilter = f);
             },
-            selectedColor: blueMain,
+            selectedColor: Theme.of(context).colorScheme.primary,
             backgroundColor: _bg,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(20),
               side: BorderSide(
-                color: isSelected ? Colors.transparent : _border,
+                color: isSelected ? Colors.transparent : borderCol,
               ),
             ),
             showCheckmark: false,
@@ -225,12 +224,12 @@ class _OrdersScreenState extends State<OrdersScreen>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: context.getRSize(48), color: _border),
+            Icon(icon, size: context.getRSize(48), color: borderCol),
             SizedBox(height: context.getRSize(16)),
             Text(
               text,
               style: TextStyle(
-                color: _subtext,
+                color: subtextCol,
                 fontSize: context.getRFontSize(16),
                 fontWeight: FontWeight.w600,
               ),
@@ -278,19 +277,19 @@ class _OrdersScreenState extends State<OrdersScreen>
       context: context,
       builder: (ctx) {
         return AlertDialog(
-          backgroundColor: _surface,
+          backgroundColor: surfaceCol,
           title: Text(
             'Confirm Order',
-            style: TextStyle(color: _text, fontWeight: FontWeight.bold),
+            style: TextStyle(color: textCol, fontWeight: FontWeight.bold),
           ),
           content: Text(
             'Mark order #${order.id} as completed?',
-            style: TextStyle(color: _subtext),
+            style: TextStyle(color: subtextCol),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: Text('Cancel', style: TextStyle(color: _subtext)),
+              child: Text('Cancel', style: TextStyle(color: subtextCol)),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
@@ -353,23 +352,23 @@ class _OrdersScreenState extends State<OrdersScreen>
       context: context,
       builder: (ctx) {
         return AlertDialog(
-          backgroundColor: _surface,
+          backgroundColor: surfaceCol,
           title: Text(
             'Cancel Order',
-            style: TextStyle(color: _text, fontWeight: FontWeight.bold),
+            style: TextStyle(color: textCol, fontWeight: FontWeight.bold),
           ),
           content: Text(
             'Are you sure you want to cancel order #${order.id}?',
-            style: TextStyle(color: _subtext),
+            style: TextStyle(color: subtextCol),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: Text('Back', style: TextStyle(color: _subtext)),
+              child: Text('Back', style: TextStyle(color: subtextCol)),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: danger,
+                backgroundColor: Theme.of(context).colorScheme.error,
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
@@ -395,20 +394,20 @@ class _OrdersScreenState extends State<OrdersScreen>
       showDialog(
         context: context,
         builder: (ctx) => AlertDialog(
-          backgroundColor: _surface,
-          title: Text('Refund Payment', style: TextStyle(color: _text, fontWeight: FontWeight.bold)),
+          backgroundColor: surfaceCol,
+          title: Text('Refund Payment', style: TextStyle(color: textCol, fontWeight: FontWeight.bold)),
           content: Text(
             'Partial payment was made (${formatCurrency(order.amountPaidKobo / 100.0)} of ${formatCurrency(order.netAmountKobo / 100.0)}). '
             'The refund will be credited to ${order.orderNumber}\'s wallet.',
-            style: TextStyle(color: _subtext),
+            style: TextStyle(color: subtextCol),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: Text('Cancel', style: TextStyle(color: _subtext)),
+              child: Text('Cancel', style: TextStyle(color: subtextCol)),
             ),
             ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: blueMain, foregroundColor: Colors.white),
+              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary, foregroundColor: Colors.white),
               onPressed: () {
                 Navigator.pop(ctx);
                 _processRefund(order, toWallet: true);
@@ -429,7 +428,7 @@ class _OrdersScreenState extends State<OrdersScreen>
       builder: (ctx) => SafeArea(
         child: Container(
           decoration: BoxDecoration(
-            color: _surface,
+            color: surfaceCol,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
           ),
           child: Column(
@@ -439,27 +438,27 @@ class _OrdersScreenState extends State<OrdersScreen>
               padding: EdgeInsets.all(context.getRSize(16)),
               child: Text(
                 'Refund Method',
-                style: TextStyle(fontSize: context.getRFontSize(18), fontWeight: FontWeight.bold, color: _text),
+                style: TextStyle(fontSize: context.getRFontSize(18), fontWeight: FontWeight.bold, color: textCol),
               ),
             ),
             Text(
               'Select how you want to refund ${formatCurrency(order.amountPaidKobo / 100.0)}',
-              style: TextStyle(color: _subtext, fontSize: 13),
+              style: TextStyle(color: subtextCol, fontSize: 13),
             ),
             const SizedBox(height: 16),
             ListTile(
               leading: Icon(FontAwesomeIcons.wallet, color: success, size: context.getRSize(18)),
-              title: Text('Refund to Wallet', style: TextStyle(color: _text)),
-              subtitle: Text('Add balance to customer\'s wallet', style: TextStyle(color: _subtext, fontSize: 12)),
+              title: Text('Refund to Wallet', style: TextStyle(color: textCol)),
+              subtitle: Text('Add balance to customer\'s wallet', style: TextStyle(color: subtextCol, fontSize: 12)),
               onTap: () {
                 Navigator.pop(ctx);
                 _processRefund(order, toWallet: true);
               },
             ),
             ListTile(
-              leading: Icon(FontAwesomeIcons.moneyBillWave, color: blueMain, size: context.getRSize(18)),
-              title: Text('Refund to Cash', style: TextStyle(color: _text)),
-              subtitle: Text('Record as cash payout', style: TextStyle(color: _subtext, fontSize: 12)),
+              leading: Icon(FontAwesomeIcons.moneyBillWave, color: Theme.of(context).colorScheme.primary, size: context.getRSize(18)),
+              title: Text('Refund to Cash', style: TextStyle(color: textCol)),
+              subtitle: Text('Record as cash payout', style: TextStyle(color: subtextCol, fontSize: 12)),
               onTap: () {
                 Navigator.pop(ctx);
                 _processRefund(order, toWallet: false);
@@ -498,7 +497,7 @@ class _OrdersScreenState extends State<OrdersScreen>
             return SafeArea(
               child: Container(
                 decoration: BoxDecoration(
-                  color: _surface,
+                  color: surfaceCol,
                   borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
                 ),
                 child: Column(
@@ -511,7 +510,7 @@ class _OrdersScreenState extends State<OrdersScreen>
                         style: TextStyle(
                           fontSize: context.getRFontSize(18),
                           fontWeight: FontWeight.bold,
-                          color: _text,
+                          color: textCol,
                         ),
                       ),
                     ),
@@ -525,7 +524,7 @@ class _OrdersScreenState extends State<OrdersScreen>
                         padding: const EdgeInsets.all(20),
                         child: Text(
                           'No riders found in database.',
-                          style: TextStyle(color: _subtext),
+                          style: TextStyle(color: subtextCol),
                         ),
                       )
                     else
@@ -534,17 +533,17 @@ class _OrdersScreenState extends State<OrdersScreen>
                           shrinkWrap: true,
                           children: [
                             ListTile(
-                              leading: Icon(FontAwesomeIcons.store, color: _subtext, size: context.getRSize(18)),
-                              title: Text('Pick-up Order', style: TextStyle(color: _text)),
+                              leading: Icon(FontAwesomeIcons.store, color: subtextCol, size: context.getRSize(18)),
+                              title: Text('Pick-up Order', style: TextStyle(color: textCol)),
                               onTap: () {
                                 orderService.assignRider(orderId, 'Pick-up Order');
                                 Navigator.pop(ctx);
                               },
                             ),
                             ...riders.map((staff) => ListTile(
-                                  leading: Icon(FontAwesomeIcons.motorcycle, color: blueMain, size: context.getRSize(18)),
-                                  title: Text(staff.name, style: TextStyle(color: _text)),
-                                  subtitle: Text(staff.role.toUpperCase(), style: TextStyle(color: _subtext, fontSize: 12)),
+                                  leading: Icon(FontAwesomeIcons.motorcycle, color: Theme.of(context).colorScheme.primary, size: context.getRSize(18)),
+                                  title: Text(staff.name, style: TextStyle(color: textCol)),
+                                  subtitle: Text(staff.role.toUpperCase(), style: TextStyle(color: subtextCol, fontSize: 12)),
                                   onTap: () {
                                     orderService.assignRider(orderId, staff.name);
                                     Navigator.pop(ctx);
@@ -579,7 +578,7 @@ class _OrdersScreenState extends State<OrdersScreen>
             return Container(
               height: MediaQuery.of(context).size.height * 0.85,
               decoration: BoxDecoration(
-                color: _surface,
+                color: surfaceCol,
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
               ),
               child: Column(
@@ -589,7 +588,7 @@ class _OrdersScreenState extends State<OrdersScreen>
                     width: context.getRSize(40),
                     height: context.getRSize(5),
                     decoration: BoxDecoration(
-                      color: _border,
+                      color: borderCol,
                       borderRadius: BorderRadius.circular(10),
                     ),
                   ),
@@ -637,7 +636,7 @@ class _OrdersScreenState extends State<OrdersScreen>
                           Expanded(
                             child: ElevatedButton.icon(
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: blueMain,
+                                backgroundColor: Theme.of(context).colorScheme.primary,
                                 padding: EdgeInsets.symmetric(
                                   vertical: context.getRSize(16),
                                 ),
@@ -662,7 +661,7 @@ class _OrdersScreenState extends State<OrdersScreen>
                             Expanded(
                               child: ElevatedButton.icon(
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: danger,
+                                  backgroundColor: Theme.of(context).colorScheme.error,
                                   padding: EdgeInsets.symmetric(
                                     vertical: context.getRSize(16),
                                   ),
@@ -852,15 +851,13 @@ class _OrderCard extends StatelessWidget {
     this.onReturnCrates,
   });
 
-  bool get _isDark => themeNotifier.value == ThemeMode.dark;
-  Color get _text => _isDark ? dText : lText;
-  Color get _subtext => _isDark ? dSubtext : lSubtext;
-  Color get _border => _isDark ? dBorder : lBorder;
-  Color get _cardBg => _isDark ? dCard : lCard;
-  Color get _surface => _isDark ? dSurface : lSurface;
-
   @override
   Widget build(BuildContext context) {
+    final textCol = Theme.of(context).colorScheme.onSurface;
+    final subtextCol = Theme.of(context).textTheme.bodySmall?.color ?? Theme.of(context).iconTheme.color!;
+    final borderCol = Theme.of(context).dividerColor;
+    final cardCol = Theme.of(context).cardColor;
+    final surfaceCol = Theme.of(context).colorScheme.surface;
     final order = orderWithItems.order;
     final customer = orderWithItems.customer;
     final walletBalanceKobo = customer?.walletBalanceKobo ?? 0;
@@ -883,9 +880,9 @@ class _OrderCard extends StatelessWidget {
     return Container(
       margin: EdgeInsets.only(bottom: context.getRSize(16)),
       decoration: BoxDecoration(
-        color: _cardBg,
+        color: cardCol,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _border),
+        border: Border.all(color: borderCol),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.03),
@@ -910,13 +907,13 @@ class _OrderCard extends StatelessWidget {
                     Container(
                       padding: EdgeInsets.all(context.getRSize(10)),
                       decoration: BoxDecoration(
-                        color: blueMain.withValues(alpha: 0.1),
+                        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Icon(
                         FontAwesomeIcons.user,
                         size: context.getRSize(16),
-                        color: blueMain,
+                        color: Theme.of(context).colorScheme.primary,
                       ),
                     ),
                     SizedBox(width: context.getRSize(12)),
@@ -927,7 +924,7 @@ class _OrderCard extends StatelessWidget {
                           Text(
                             customer?.name ?? 'Walk-in Customer',
                             style: TextStyle(
-                              color: _text,
+                              color: textCol,
                               fontWeight: FontWeight.bold,
                               fontSize: context.getRFontSize(15),
                             ),
@@ -936,7 +933,7 @@ class _OrderCard extends StatelessWidget {
                           Text(
                             customer?.addressText ?? 'N/A',
                             style: TextStyle(
-                              color: _subtext,
+                              color: subtextCol,
                               fontSize: context.getRFontSize(13),
                             ),
                             maxLines: 1,
@@ -973,7 +970,7 @@ class _OrderCard extends StatelessWidget {
                                 icon: Icon(
                                   FontAwesomeIcons.motorcycle,
                                   size: context.getRSize(20),
-                                  color: blueMain,
+                                  color: Theme.of(context).colorScheme.primary,
                                 ),
                                 onPressed: () => onAssignRider?.call(order.id),
                                 padding: EdgeInsets.zero,
@@ -984,7 +981,7 @@ class _OrderCard extends StatelessWidget {
                                 order.riderName,
                                 style: TextStyle(
                                   fontSize: context.getRFontSize(10),
-                                  color: _subtext,
+                                  color: subtextCol,
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
@@ -1050,7 +1047,7 @@ class _OrderCard extends StatelessWidget {
                   ],
                 ),
               ),
-              Divider(height: 1, color: _border),
+              Divider(height: 1, color: borderCol),
 
               // Order ID & Time
               Padding(
@@ -1069,7 +1066,7 @@ class _OrderCard extends StatelessWidget {
                         Text(
                           'Order #${order.id}',
                           style: TextStyle(
-                            color: _subtext,
+                            color: subtextCol,
                             fontWeight: FontWeight.w600,
                             fontSize: context.getRFontSize(13),
                           ),
@@ -1078,7 +1075,7 @@ class _OrderCard extends StatelessWidget {
                           Text(
                             'Barcode: ${order.barcode}',
                             style: TextStyle(
-                              color: _subtext,
+                              color: subtextCol,
                               fontSize: context.getRFontSize(11),
                               letterSpacing: 0.5,
                             ),
@@ -1088,7 +1085,7 @@ class _OrderCard extends StatelessWidget {
                     Text(
                       '$dateStr$timeStr',
                       style: TextStyle(
-                        color: _subtext,
+                        color: subtextCol,
                         fontSize: context.getRFontSize(12),
                       ),
                     ),
@@ -1112,7 +1109,7 @@ class _OrderCard extends StatelessWidget {
                             child: Text(
                               '${item.quantity}x ${product.name}',
                               style: TextStyle(
-                                color: _text,
+                                color: textCol,
                                 fontSize: context.getRFontSize(14),
                               ),
                             ),
@@ -1120,7 +1117,7 @@ class _OrderCard extends StatelessWidget {
                           Text(
                             formatCurrency(item.totalKobo / 100.0),
                             style: TextStyle(
-                              color: _text,
+                              color: textCol,
                               fontWeight: FontWeight.w600,
                               fontSize: context.getRFontSize(14),
                             ),
@@ -1132,7 +1129,7 @@ class _OrderCard extends StatelessWidget {
                 ),
               ),
 
-              Divider(height: 1, color: _border),
+              Divider(height: 1, color: borderCol),
 
               // Totals
               Padding(
@@ -1147,7 +1144,7 @@ class _OrderCard extends StatelessWidget {
                           Text(
                             'Total: ${formatCurrency(order.netAmountKobo / 100.0)}',
                             style: TextStyle(
-                              color: _text,
+                              color: textCol,
                               fontWeight: FontWeight.w600,
                               fontSize: context.getRFontSize(13),
                             ),
@@ -1156,7 +1153,7 @@ class _OrderCard extends StatelessWidget {
                           Text(
                             'Paid: ${formatCurrency(order.amountPaidKobo / 100.0)} • ${order.paymentType}',
                             style: TextStyle(
-                              color: _subtext,
+                              color: subtextCol,
                               fontSize: context.getRFontSize(12),
                             ),
                           ),
@@ -1199,11 +1196,11 @@ class _OrderCard extends StatelessWidget {
                     context.getRSize(16),
                   ),
                   decoration: BoxDecoration(
-                    color: _surface,
+                    color: surfaceCol,
                     borderRadius: const BorderRadius.vertical(
                       bottom: Radius.circular(16),
                     ),
-                    border: Border(top: BorderSide(color: _border)),
+                    border: Border(top: BorderSide(color: borderCol)),
                   ),
                   child: Row(
                     children: [
@@ -1211,7 +1208,7 @@ class _OrderCard extends StatelessWidget {
                         Expanded(
                           child: TextButton.icon(
                             style: TextButton.styleFrom(
-                              foregroundColor: danger,
+                              foregroundColor: Theme.of(context).colorScheme.error,
                               padding: EdgeInsets.symmetric(
                                 vertical: context.getRSize(12),
                               ),
@@ -1238,7 +1235,7 @@ class _OrderCard extends StatelessWidget {
                         Expanded(
                           child: ElevatedButton.icon(
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: blueMain,
+                              backgroundColor: Theme.of(context).colorScheme.primary,
                               foregroundColor: Colors.white,
                               elevation: 0,
                               padding: EdgeInsets.symmetric(
@@ -1266,7 +1263,7 @@ class _OrderCard extends StatelessWidget {
                         Expanded(
                           child: ElevatedButton.icon(
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: danger,
+                              backgroundColor: Theme.of(context).colorScheme.error,
                               foregroundColor: Colors.white,
                               elevation: 0,
                               padding: EdgeInsets.symmetric(
@@ -1300,4 +1297,7 @@ class _OrderCard extends StatelessWidget {
     );
   }
 }
+
+
+
 

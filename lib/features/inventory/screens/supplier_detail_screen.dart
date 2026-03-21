@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 import '../../../core/theme/colors.dart';
-import '../../../core/theme/theme_notifier.dart';
+
 import '../../../core/utils/number_format.dart';
 import '../../../core/utils/responsive.dart';
 import '../../../core/utils/stock_calculator.dart';
@@ -26,17 +26,16 @@ class SupplierDetailScreen extends StatefulWidget {
 
 class _SupplierDetailScreenState extends State<SupplierDetailScreen> {
   String _timeFilter = 'Month'; // Default filter
-
-  bool get _isDark => themeNotifier.value == ThemeMode.dark;
-  Color get _bg => _isDark ? dBg : lBg;
-  Color get _surface => _isDark ? dSurface : lSurface;
-  Color get _cardBg => _isDark ? dCard : lCard;
-  Color get _text => _isDark ? dText : lText;
-  Color get _subtext => _isDark ? dSubtext : lSubtext;
-  Color get _border => _isDark ? dBorder : lBorder;
+  Color get _bg => Theme.of(context).scaffoldBackgroundColor;
+  Color get _surface => Theme.of(context).colorScheme.surface;
+  Color get _cardBg => Theme.of(context).cardColor;
+  Color get _text => Theme.of(context).colorScheme.onSurface;
+  Color get _subtext => Theme.of(context).textTheme.bodySmall?.color ?? Theme.of(context).iconTheme.color!;
+  Color get _border => Theme.of(context).dividerColor;
 
   @override
   Widget build(BuildContext context) {
+    final themeNotifier = ValueNotifier<ThemeMode>(ThemeMode.system);
     return ValueListenableBuilder<ThemeMode>(
       valueListenable: themeNotifier,
       builder: (ctx, val, child) => Scaffold(
@@ -84,12 +83,12 @@ class _SupplierDetailScreenState extends State<SupplierDetailScreen> {
           width: context.getRSize(80),
           height: context.getRSize(80),
           decoration: BoxDecoration(
-            color: blueMain.withValues(alpha: 0.1),
+            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
             shape: BoxShape.circle,
           ),
           child: Icon(
             FontAwesomeIcons.buildingColumns,
-            color: blueMain,
+            color: Theme.of(context).colorScheme.primary,
             size: context.getRSize(32),
           ),
         ),
@@ -369,7 +368,7 @@ class _SupplierDetailScreenState extends State<SupplierDetailScreen> {
               style: TextStyle(
                 fontSize: context.getRFontSize(15),
                 fontWeight: FontWeight.w800,
-                color: blueMain,
+                color: Theme.of(context).colorScheme.primary,
               ),
             ),
           ],
@@ -469,5 +468,7 @@ class _SupplierDetailScreenState extends State<SupplierDetailScreen> {
     );
   }
 }
+
+
 
 

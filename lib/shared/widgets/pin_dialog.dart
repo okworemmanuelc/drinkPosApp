@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/database/app_database.dart';
-import '../../core/theme/colors.dart';
+
 import '../../shared/services/auth_service.dart';
 
 /// Shows a PIN-entry dialog that requires a user with [minimumTier] or above.
@@ -95,11 +95,12 @@ class _PinDialogState extends State<PinDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final surface = isDark ? dSurface : lSurface;
-    final cardCol = isDark ? dCard : lCard;
-    final textColor = isDark ? dText : lText;
-    final subtextColor = isDark ? dSubtext : lSubtext;
+    final t = Theme.of(context);
+    final surface = t.colorScheme.surface;
+    final cardCol = t.cardColor;
+    final textColor = t.colorScheme.onSurface;
+    final subtextColor = t.textTheme.bodySmall?.color ?? t.iconTheme.color!;
+    final primary = t.colorScheme.primary;
 
     return Dialog(
       backgroundColor: surface,
@@ -139,9 +140,9 @@ class _PinDialogState extends State<PinDialog> {
                   height: 14,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: filled ? blueMain : Colors.transparent,
+                    color: filled ? primary : Colors.transparent,
                     border: Border.all(
-                      color: filled ? blueMain : subtextColor,
+                      color: filled ? primary : subtextColor,
                       width: 2,
                     ),
                   ),
@@ -156,8 +157,8 @@ class _PinDialogState extends State<PinDialog> {
               child: _errorMessage != null
                   ? Text(
                       _errorMessage!,
-                      style: const TextStyle(
-                        color: danger,
+                      style: TextStyle(
+                        color: t.colorScheme.error,
                         fontSize: 12,
                         fontWeight: FontWeight.w500,
                       ),

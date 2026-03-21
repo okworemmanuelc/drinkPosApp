@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../core/theme/colors.dart';
-import '../../core/theme/theme_notifier.dart';
+
 import '../../core/utils/responsive.dart';
 
 class UserTipsModal extends StatefulWidget {
@@ -57,12 +57,6 @@ class _UserTipsModalState extends State<UserTipsModal> {
     },
   ];
 
-  bool get _isDark => themeNotifier.value == ThemeMode.dark;
-  Color get _surface => _isDark ? dSurface : lSurface;
-  Color get _text => _isDark ? dText : lText;
-  Color get _subtext => _isDark ? dSubtext : lSubtext;
-  Color get _border => _isDark ? dBorder : lBorder;
-
   @override
   Widget build(BuildContext context) {
     return DraggableScrollableSheet(
@@ -71,7 +65,7 @@ class _UserTipsModalState extends State<UserTipsModal> {
       maxChildSize: 0.9,
       builder: (_, controller) => Container(
         decoration: BoxDecoration(
-          color: _surface,
+          color: Theme.of(context).colorScheme.surface,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
           boxShadow: [
             BoxShadow(
@@ -89,7 +83,7 @@ class _UserTipsModalState extends State<UserTipsModal> {
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: _border,
+                color: Theme.of(context).dividerColor,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -106,16 +100,16 @@ class _UserTipsModalState extends State<UserTipsModal> {
                     style: TextStyle(
                       fontSize: context.getRFontSize(22),
                       fontWeight: FontWeight.w900,
-                      color: _text,
+                      color: Theme.of(context).colorScheme.onSurface,
                       letterSpacing: -0.5,
                     ),
                   ),
                   const Spacer(),
                   IconButton(
                     onPressed: () => Navigator.pop(context),
-                    icon: Icon(Icons.close, color: _subtext, size: context.getRSize(18)),
+                    icon: Icon(Icons.close, color: Theme.of(context).textTheme.bodySmall?.color ?? Theme.of(context).iconTheme.color!, size: context.getRSize(18)),
                     style: IconButton.styleFrom(
-                      backgroundColor: _border.withValues(alpha: 0.1),
+                      backgroundColor: Theme.of(context).dividerColor.withValues(alpha: 0.1),
                       padding: EdgeInsets.all(context.getRSize(6)),
                     ),
                   ),
@@ -154,7 +148,7 @@ class _UserTipsModalState extends State<UserTipsModal> {
                             style: TextStyle(
                               fontSize: context.getRFontSize(20),
                               fontWeight: FontWeight.bold,
-                              color: _text,
+                              color: Theme.of(context).colorScheme.onSurface,
                             ),
                           ),
                           SizedBox(height: context.getRSize(8)),
@@ -163,7 +157,7 @@ class _UserTipsModalState extends State<UserTipsModal> {
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: context.getRFontSize(14),
-                              color: _subtext,
+                              color: Theme.of(context).textTheme.bodySmall?.color ?? Theme.of(context).iconTheme.color!,
                               height: 1.4,
                               fontWeight: FontWeight.w500,
                             ),
@@ -188,7 +182,7 @@ class _UserTipsModalState extends State<UserTipsModal> {
                     width: _currentPage == index ? context.getRSize(24) : context.getRSize(8),
                     height: context.getRSize(8),
                     decoration: BoxDecoration(
-                      color: _currentPage == index ? blueMain : _border,
+                      color: _currentPage == index ? blueMain : Theme.of(context).dividerColor,
                       borderRadius: BorderRadius.circular(context.getRSize(4)),
                     ),
                   ),
@@ -214,10 +208,10 @@ class _UserTipsModalState extends State<UserTipsModal> {
                         ),
                         style: OutlinedButton.styleFrom(
                           padding: EdgeInsets.symmetric(vertical: context.getRSize(14)),
-                          side: BorderSide(color: _border),
+                          side: BorderSide(color: Theme.of(context).dividerColor),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                         ),
-                        child: Text('Back', style: TextStyle(color: _text, fontWeight: FontWeight.bold, fontSize: context.getRFontSize(14))),
+                        child: Text('Back', style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.bold, fontSize: context.getRFontSize(14))),
                       ),
                     ),
                   if (_currentPage > 0) SizedBox(width: context.getRSize(16)),
@@ -255,4 +249,8 @@ class _UserTipsModalState extends State<UserTipsModal> {
     );
   }
 }
+
+
+
+
 

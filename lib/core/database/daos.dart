@@ -381,12 +381,51 @@ class InventoryDao extends DatabaseAccessor<AppDatabase> with _$InventoryDaoMixi
       (a, b) => a + b,
     );
   }
+
+  /// One-time snapshot: every (product, warehouse) pair sorted by warehouse
+  /// name then product name. Suitable for the warehouse-grouped stock count UI.
+  /// Pass [warehouseId] to restrict to a single warehouse.
+  Future<List<ProductStockWithWarehouse>> getProductsStockPerWarehouse({int? warehouseId}) async {
+    final query = select(products).join([
+      innerJoin(inventory, inventory.productId.equalsExp(products.id)),
+      innerJoin(warehouses, warehouses.id.equalsExp(inventory.warehouseId)),
+    ])
+      ..where(products.isDeleted.not())
+      ..orderBy([
+        OrderingTerm.asc(warehouses.name),
+        OrderingTerm.asc(products.name),
+      ]);
+    if (warehouseId != null) {
+      query.where(inventory.warehouseId.equals(warehouseId));
+    }
+    final rows = await query.get();
+    return rows.map((row) => ProductStockWithWarehouse(
+      warehouseId: row.readTable(warehouses).id,
+      warehouseName: row.readTable(warehouses).name,
+      product: row.readTable(products),
+      totalStock: row.readTable(inventory).quantity,
+    )).toList();
+  }
 }
 
 class ProductDataWithStock {
   final ProductData product;
   final int totalStock;
   ProductDataWithStock({required this.product, required this.totalStock});
+}
+
+/// One (product, warehouse) row used by the warehouse-sorted stock count.
+class ProductStockWithWarehouse {
+  final int warehouseId;
+  final String warehouseName;
+  final ProductData product;
+  final int totalStock;
+  const ProductStockWithWarehouse({
+    required this.warehouseId,
+    required this.warehouseName,
+    required this.product,
+    required this.totalStock,
+  });
 }
 
 class ManufacturerCrateStats {
@@ -841,12 +880,14 @@ class ActivityLogDao extends DatabaseAccessor<AppDatabase> with _$ActivityLogDao
   Future<void> log({int? staffId, required String action, required String description, String? entityId, String? entityType, String? warehouseId}) => into(activityLogs).insert(ActivityLogsCompanion.insert(userId: Value(staffId), action: action, description: description, relatedEntityId: Value(entityId), relatedEntityType: Value(entityType), warehouseId: Value(warehouseId)));
   Stream<List<ActivityLogData>> watchRecent({int limit = 100}) => (select(activityLogs)..orderBy([(t) => OrderingTerm.desc(t.timestamp)])..limit(limit)).watch();
   Future<List<ActivityLogData>> getForEntity(String entityId) => (select(activityLogs)..where((t) => t.relatedEntityId.equals(entityId))).get();
+  Future<List<ActivityLogData>> getStockCountLogs() => (select(activityLogs)..where((t) => t.action.equals('stock_count'))..orderBy([(t) => OrderingTerm.desc(t.timestamp)])).get();
 }
 
 @DriftAccessor(tables: [Users, Warehouses])
 class WarehousesDao extends DatabaseAccessor<AppDatabase> with _$WarehousesDaoMixin {
   WarehousesDao(super.db);
   Stream<WarehouseData?> watchWarehouse(int id) => (select(warehouses)..where((t) => t.id.equals(id))).watchSingleOrNull();
+  Future<WarehouseData?> getWarehouse(int id) => (select(warehouses)..where((t) => t.id.equals(id))).getSingleOrNull();
   Stream<List<UserData>> watchAllStaff() => select(users).watch();
   Future<List<UserData>> getRiders() => (select(users)..where((t) => t.role.equals('rider'))).get();
   Stream<List<UserData>> watchStaffByWarehouse(int warehouseId) => (select(users)..where((t) => t.warehouseId.equals(warehouseId))).watch();

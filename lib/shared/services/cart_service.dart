@@ -90,6 +90,33 @@ class CartService extends ValueNotifier<List<Map<String, dynamic>>> {
     activeCustomer.value = null;
   }
 
+  /// Refreshes product fields (name, price, emptyCrateValueKobo) across ALL
+  /// user carts for the given product ID. Does not touch qty.
+  /// Call this immediately after saving a product update to the DB.
+  void refreshProduct({
+    required int productId,
+    required String name,
+    required double price,
+    required int emptyCrateValueKobo,
+  }) {
+    bool anyChanged = false;
+    for (final uid in _userCarts.keys) {
+      final cart = _userCarts[uid]!;
+      for (int i = 0; i < cart.length; i++) {
+        if (cart[i]['id'] == productId) {
+          cart[i] = Map<String, dynamic>.from(cart[i])
+            ..['name'] = name
+            ..['price'] = price
+            ..['emptyCrateValueKobo'] = emptyCrateValueKobo;
+          anyChanged = true;
+        }
+      }
+    }
+    if (anyChanged) {
+      value = List.from(_userCarts[_uid] ?? []);
+    }
+  }
+
   void loadCart(List<Map<String, dynamic>> items, Customer? customer) {
     _userCustomers[_uid] = customer;
     _userCarts[_uid] = List.from(items);

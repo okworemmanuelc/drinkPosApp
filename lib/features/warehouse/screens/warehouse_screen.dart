@@ -7,7 +7,7 @@ import '../../../shared/widgets/menu_button.dart';
 import '../../../shared/widgets/app_bar_header.dart';
 import '../../../shared/widgets/notification_bell.dart';
 import '../../../core/theme/colors.dart';
-import '../../../core/theme/theme_notifier.dart';
+
 import '../../../core/theme/design_tokens.dart';
 import '../../../core/utils/responsive.dart';
 import '../../../core/database/app_database.dart';
@@ -22,12 +22,11 @@ class WarehouseScreen extends StatefulWidget {
 }
 
 class _WarehouseScreenState extends State<WarehouseScreen> {
-  bool get _isDark => themeNotifier.value == ThemeMode.dark;
-  Color get _bg => _isDark ? dBg : lBg;
-  Color get _surface => _isDark ? dSurface : lSurface;
-  Color get _text => _isDark ? dText : lText;
-  Color get _subtext => _isDark ? dSubtext : lSubtext;
-  Color get _border => _isDark ? dBorder : lBorder;
+  Color get _bg => Theme.of(context).scaffoldBackgroundColor;
+  Color get _surface => Theme.of(context).colorScheme.surface;
+  Color get _text => Theme.of(context).colorScheme.onSurface;
+  Color get _subtext => Theme.of(context).textTheme.bodySmall?.color ?? Theme.of(context).iconTheme.color!;
+  Color get _border => Theme.of(context).dividerColor;
   List<WarehouseData> _warehouses = [];
   StreamSubscription<List<WarehouseData>>? _warehousesSub;
 
@@ -99,12 +98,12 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
                       Container(
                         padding: EdgeInsets.all(rSize(ctx, 10)),
                         decoration: BoxDecoration(
-                          color: blueMain.withValues(alpha: 0.1),
+                          color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Icon(
                           FontAwesomeIcons.warehouse,
-                          color: blueMain,
+                          color: Theme.of(context).colorScheme.primary,
                           size: rSize(ctx, 18),
                         ),
                       ),
@@ -158,7 +157,7 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
                         borderRadius: BorderRadius.circular(16),
                         boxShadow: [
                           BoxShadow(
-                            color: blueMain.withValues(alpha: 0.35),
+                            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.35),
                             blurRadius: 10,
                             offset: const Offset(0, 4),
                           ),
@@ -276,12 +275,12 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
                       Container(
                         padding: EdgeInsets.all(rSize(ctx, 10)),
                         decoration: BoxDecoration(
-                          color: blueMain.withValues(alpha: 0.1),
+                          color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Icon(
                           FontAwesomeIcons.penToSquare,
-                          color: blueMain,
+                          color: Theme.of(context).colorScheme.primary,
                           size: rSize(ctx, 18),
                         ),
                       ),
@@ -329,7 +328,7 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
                         borderRadius: BorderRadius.circular(16),
                         boxShadow: [
                           BoxShadow(
-                            color: blueMain.withValues(alpha: 0.35),
+                            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.35),
                             blurRadius: 10,
                             offset: const Offset(0, 4),
                           ),
@@ -492,6 +491,7 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
   // ── Build ──────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
+    final themeNotifier = ValueNotifier<ThemeMode>(ThemeMode.system);
     return ValueListenableBuilder<ThemeMode>(
       valueListenable: themeNotifier,
       builder: (_, _, _) => SharedScaffold(
@@ -521,7 +521,7 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: blueMain.withValues(alpha: 0.3),
+                color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
                 blurRadius: 10,
                 offset: const Offset(0, 4),
               ),
@@ -579,13 +579,13 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
           Container(
             padding: EdgeInsets.all(rSize(context, 24)),
             decoration: BoxDecoration(
-              color: blueMain.withValues(alpha: 0.08),
+              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.08),
               shape: BoxShape.circle,
             ),
             child: Icon(
               FontAwesomeIcons.warehouse,
               size: rSize(context, 40),
-              color: blueMain.withValues(alpha: 0.5),
+              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5),
             ),
           ),
           SizedBox(height: rSize(context, 20)),
@@ -656,7 +656,7 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: blueMain, width: 1.5),
+          borderSide: BorderSide(color: Theme.of(context).colorScheme.primary, width: 1.5),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
@@ -695,15 +695,13 @@ class _WarehouseCardState extends State<_WarehouseCard> {
 
   StreamSubscription<List<ProductDataWithStock>>? _invSub;
   StreamSubscription<List<UserData>>? _staffSub;
-
-  bool get _isDark => themeNotifier.value == ThemeMode.dark;
-  Color get _surface => _isDark ? dSurface : lSurface;
-  Color get _text => _isDark ? dText : lText;
-  Color get _subtext => _isDark ? dSubtext : lSubtext;
+  Color get _surface => Theme.of(context).colorScheme.surface;
+  Color get _text => Theme.of(context).colorScheme.onSurface;
+  Color get _subtext => Theme.of(context).textTheme.bodySmall?.color ?? Theme.of(context).iconTheme.color!;
   // Stronger border for card edges and dividers — more visible in light mode
-  Color get _strongBorder => _isDark ? dBorder : const Color(0xFFCBD5E1);
+  Color get _strongBorder => Theme.of(context).dividerColor;
   // Subtle blue-tinted stripe for stats/actions section in light mode
-  Color get _stripe => _isDark ? dCard : const Color(0xFFF0F6FF);
+  Color get _stripe => Theme.of(context).cardColor;
 
   @override
   void initState() {
@@ -742,8 +740,8 @@ class _WarehouseCardState extends State<_WarehouseCard> {
         border: Border.all(color: _strongBorder),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: _isDark ? 0.2 : 0.07),
-            blurRadius: _isDark ? 10 : 16,
+            color: Colors.black.withValues(alpha: 0.07),
+            blurRadius: 10,
             offset: const Offset(0, 3),
           ),
         ],
@@ -769,11 +767,11 @@ class _WarehouseCardState extends State<_WarehouseCard> {
                   Container(
                     padding: EdgeInsets.all(rSize(context, 12)),
                     decoration: BoxDecoration(
-                      color: blueMain.withValues(alpha: 0.1),
+                      color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Icon(FontAwesomeIcons.warehouse,
-                        color: blueMain, size: rSize(context, 20)),
+                        color: Theme.of(context).colorScheme.primary, size: rSize(context, 20)),
                   ),
                   SizedBox(width: rSize(context, 14)),
                   Expanded(
@@ -833,7 +831,7 @@ class _WarehouseCardState extends State<_WarehouseCard> {
                     icon: FontAwesomeIcons.boxesStacked,
                     label: 'Total Units',
                     value: totalStock.toString(),
-                    color: blueMain,
+                    color: Theme.of(context).colorScheme.primary,
                   ),
                 ),
                 Container(width: 1, height: 36, color: _strongBorder),
@@ -880,7 +878,7 @@ class _WarehouseCardState extends State<_WarehouseCard> {
                 Expanded(
                   child: _actionButton(
                     icon: FontAwesomeIcons.penToSquare,
-                    color: blueMain,
+                    color: Theme.of(context).colorScheme.primary,
                     label: 'Edit',
                     onTap: widget.onEdit,
                   ),
@@ -974,4 +972,8 @@ class _WarehouseCardState extends State<_WarehouseCard> {
     );
   }
 }
+
+
+
+
 

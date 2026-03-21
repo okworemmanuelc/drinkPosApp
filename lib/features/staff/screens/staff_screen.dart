@@ -6,7 +6,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 import '../../../core/database/app_database.dart';
 import '../../../core/theme/colors.dart';
-import '../../../core/theme/theme_notifier.dart';
+
 import '../../../core/utils/responsive.dart';
 import '../../../shared/widgets/app_drawer.dart';
 import '../../../shared/widgets/menu_button.dart';
@@ -32,14 +32,12 @@ class _StaffScreenState extends State<StaffScreen> {
   List<WarehouseData> _warehouses = [];
   List<UserData> _users = [];
   StreamSubscription<List<UserData>>? _usersSub;
-
-  bool get _isDark => themeNotifier.value == ThemeMode.dark;
-  Color get _bg => _isDark ? dBg : lBg;
-  Color get _surface => _isDark ? dSurface : lSurface;
-  Color get _text => _isDark ? dText : lText;
-  Color get _subtext => _isDark ? dSubtext : lSubtext;
-  Color get _border => _isDark ? dBorder : lBorder;
-  Color get _card => _isDark ? dCard : lCard;
+  Color get _bg => Theme.of(context).scaffoldBackgroundColor;
+  Color get _surface => Theme.of(context).colorScheme.surface;
+  Color get _text => Theme.of(context).colorScheme.onSurface;
+  Color get _subtext => Theme.of(context).textTheme.bodySmall?.color ?? Theme.of(context).iconTheme.color!;
+  Color get _border => Theme.of(context).dividerColor;
+  Color get _card => Theme.of(context).cardColor;
 
   @override
   void initState() {
@@ -60,6 +58,7 @@ class _StaffScreenState extends State<StaffScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final themeNotifier = ValueNotifier<ThemeMode>(ThemeMode.system);
     return ValueListenableBuilder<ThemeMode>(
       valueListenable: themeNotifier,
       builder: (context, mode, child) {
@@ -103,7 +102,7 @@ class _StaffScreenState extends State<StaffScreen> {
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: blueMain.withValues(alpha: 0.5)),
+                      borderSide: BorderSide(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5)),
                     ),
                   ),
                 ),
@@ -117,7 +116,7 @@ class _StaffScreenState extends State<StaffScreen> {
             fallback: const SizedBox.shrink(),
             child: FloatingActionButton.extended(
               onPressed: () => _showStaffSheet(context),
-              backgroundColor: blueMain,
+              backgroundColor: Theme.of(context).colorScheme.primary,
               icon: const Icon(FontAwesomeIcons.plus, size: 16, color: Colors.white),
               label: const Text('Add Staff',
                   style: TextStyle(
@@ -425,7 +424,7 @@ class _StaffScreenState extends State<StaffScreen> {
               // Stub — no DB delete in this version
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: danger,
+              backgroundColor: Theme.of(context).colorScheme.error,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
             child: const Text('Delete', style: TextStyle(color: Colors.white)),
@@ -466,13 +465,11 @@ class _StaffFormSheetState extends State<_StaffFormSheet> {
   late RoleOption _selectedRole;
   int? _selectedWarehouseId;
   bool _showPin = false;
-
-  bool get _isDark => themeNotifier.value == ThemeMode.dark;
-  Color get _surface => _isDark ? dSurface : lSurface;
-  Color get _bg => _isDark ? dBg : lBg;
-  Color get _text => _isDark ? dText : lText;
-  Color get _subtext => _isDark ? dSubtext : lSubtext;
-  Color get _border => _isDark ? dBorder : lBorder;
+  Color get _surface => Theme.of(context).colorScheme.surface;
+  Color get _bg => Theme.of(context).scaffoldBackgroundColor;
+  Color get _text => Theme.of(context).colorScheme.onSurface;
+  Color get _subtext => Theme.of(context).textTheme.bodySmall?.color ?? Theme.of(context).iconTheme.color!;
+  Color get _border => Theme.of(context).dividerColor;
 
   @override
   void initState() {
@@ -493,6 +490,7 @@ class _StaffFormSheetState extends State<_StaffFormSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final themeNotifier = ValueNotifier<ThemeMode>(ThemeMode.system);
     return ValueListenableBuilder<ThemeMode>(
       valueListenable: themeNotifier,
       builder: (context, mode, child) {
@@ -609,7 +607,7 @@ class _StaffFormSheetState extends State<_StaffFormSheet> {
                     child: ElevatedButton(
                       onPressed: _submit,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: blueMain,
+                        backgroundColor: Theme.of(context).colorScheme.primary,
                         shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(16)),
                       ),
@@ -686,7 +684,7 @@ class _StaffFormSheetState extends State<_StaffFormSheet> {
               ElevatedButton(
                 onPressed: () => Navigator.pop(ctx),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: blueMain,
+                  backgroundColor: Theme.of(context).colorScheme.primary,
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10)),
                 ),
@@ -770,7 +768,7 @@ class _StaffFormSheetState extends State<_StaffFormSheet> {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: blueMain),
+        borderSide: BorderSide(color: Theme.of(context).colorScheme.primary),
       ),
     );
   }
@@ -791,11 +789,10 @@ class _StaffActionSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool isDark = themeNotifier.value == ThemeMode.dark;
-    final Color surfaceColor = isDark ? dSurface : lSurface;
-    final Color textColor = isDark ? dText : lText;
-    final Color subtextColor = isDark ? dSubtext : lSubtext;
-    final Color bgColor = isDark ? dBg : lBg;
+    final Color surfaceColor = Theme.of(context).colorScheme.surface;
+    final Color textColor = Theme.of(context).colorScheme.onSurface;
+    final Color subtextColor = Theme.of(context).textTheme.bodySmall?.color ?? Theme.of(context).iconTheme.color!;
+    final Color bgColor = Theme.of(context).scaffoldBackgroundColor;
 
     final roleInfo = roleFor(user.role);
     final avatarColor = _parseColor(user.avatarColor) ?? roleInfo.color;
@@ -892,9 +889,9 @@ class _StaffActionSheet extends StatelessWidget {
             icon: FontAwesomeIcons.userPen,
             label: 'View Full Profile',
             subtitle: 'Check performance & history',
-            color: blueMain,
+            color: Theme.of(context).colorScheme.primary,
             onTap: onView,
-            isDark: isDark,
+            isDark: Theme.of(context).brightness == Brightness.dark,
             bg: bgColor,
             text: textColor,
             subtext: subtextColor,
@@ -907,7 +904,7 @@ class _StaffActionSheet extends StatelessWidget {
             subtitle: 'Update role or access PIN',
             color: Colors.orange,
             onTap: onEdit,
-            isDark: isDark,
+            isDark: Theme.of(context).brightness == Brightness.dark,
             bg: bgColor,
             text: textColor,
             subtext: subtextColor,
@@ -918,9 +915,9 @@ class _StaffActionSheet extends StatelessWidget {
             icon: FontAwesomeIcons.trashCan,
             label: 'Terminate Access',
             subtitle: 'Permanently remove from team',
-            color: danger,
+            color: Theme.of(context).colorScheme.error,
             onTap: onDelete,
-            isDark: isDark,
+            isDark: Theme.of(context).brightness == Brightness.dark,
             bg: bgColor,
             text: textColor,
             subtext: subtextColor,
@@ -1014,4 +1011,7 @@ class _StaffActionSheet extends StatelessWidget {
     }
   }
 }
+
+
+
 

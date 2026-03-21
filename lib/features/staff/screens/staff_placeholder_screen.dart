@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../core/theme/colors.dart';
-import '../../../core/theme/theme_notifier.dart';
+
 import '../../../core/utils/responsive.dart';
 
 class StaffPlaceholderScreen extends StatelessWidget {
@@ -8,13 +7,14 @@ class StaffPlaceholderScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final themeNotifier = ValueNotifier<ThemeMode>(ThemeMode.system);
     return ValueListenableBuilder<ThemeMode>(
       valueListenable: themeNotifier,
       builder: (context, mode, child) {
-        final isDark = mode == ThemeMode.dark;
-        final bg = isDark ? dBg : lBg;
-        final surface = isDark ? dSurface : lSurface;
-        final text = isDark ? dText : lText;
+        
+        final bg = Theme.of(context).scaffoldBackgroundColor;
+        final surface = Theme.of(context).colorScheme.surface;
+        final text = Theme.of(context).colorScheme.onSurface;
 
         return Scaffold(
           backgroundColor: bg,
@@ -48,3 +48,5 @@ class StaffPlaceholderScreen extends StatelessWidget {
     );
   }
 }
+
+

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 import '../../../core/theme/colors.dart';
-import '../../../core/theme/theme_notifier.dart';
+
 import '../../../core/utils/responsive.dart';
 import '../data/models/customer.dart';
 import '../data/services/customer_service.dart';
@@ -31,13 +31,11 @@ class _AddCustomerSheetState extends State<AddCustomerSheet> {
   final _phoneCtrl = TextEditingController();
   CustomerGroup _selectedGroup = CustomerGroup.retailer;
   final _formKey = GlobalKey<FormState>();
-
-  bool get _isDark => themeNotifier.value == ThemeMode.dark;
-  Color get _surface => _isDark ? dSurface : lSurface;
-  Color get _cardBg => _isDark ? dCard : lCard;
-  Color get _text => _isDark ? dText : lText;
-  Color get _subtext => _isDark ? dSubtext : lSubtext;
-  Color get _border => _isDark ? dBorder : lBorder;
+  Color get _surface => Theme.of(context).colorScheme.surface;
+  Color get _cardBg => Theme.of(context).cardColor;
+  Color get _text => Theme.of(context).colorScheme.onSurface;
+  Color get _subtext => Theme.of(context).textTheme.bodySmall?.color ?? Theme.of(context).iconTheme.color!;
+  Color get _border => Theme.of(context).dividerColor;
 
   @override
   void dispose() {
@@ -86,7 +84,7 @@ class _AddCustomerSheetState extends State<AddCustomerSheet> {
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
-              borderSide: const BorderSide(color: blueMain, width: 2),
+              borderSide: BorderSide(color: Theme.of(context).colorScheme.primary, width: 2),
             ),
             contentPadding: EdgeInsets.all(context.getRSize(16)),
           ),
@@ -171,15 +169,15 @@ class _AddCustomerSheetState extends State<AddCustomerSheet> {
                                 width: context.getRSize(44),
                                 height: context.getRSize(44),
                                 decoration: BoxDecoration(
-                                  gradient: const LinearGradient(
-                                    colors: [blueLight, blueMain],
+                                  gradient: LinearGradient(
+                                    colors: [Theme.of(context).colorScheme.primary.withValues(alpha: 0.7), Theme.of(context).colorScheme.primary],
                                     begin: Alignment.topLeft,
                                     end: Alignment.bottomRight,
                                   ),
                                   borderRadius: BorderRadius.circular(12),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: blueMain.withValues(alpha: 0.3),
+                                      color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
                                       blurRadius: 8,
                                       offset: const Offset(0, 2),
                                     ),
@@ -207,7 +205,7 @@ class _AddCustomerSheetState extends State<AddCustomerSheet> {
                                     'Client Details & Contact',
                                     style: TextStyle(
                                       fontSize: context.getRFontSize(13),
-                                      color: blueMain,
+                                      color: Theme.of(context).colorScheme.primary,
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),
@@ -279,7 +277,7 @@ class _AddCustomerSheetState extends State<AddCustomerSheet> {
                           borderRadius: BorderRadius.circular(16),
                           boxShadow: [
                             BoxShadow(
-                              color: blueMain.withValues(alpha: 0.3),
+                              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
                               blurRadius: 10,
                               offset: const Offset(0, 4),
                             ),
@@ -335,4 +333,5 @@ class _AddCustomerSheetState extends State<AddCustomerSheet> {
     );
   }
 }
+
 

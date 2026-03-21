@@ -4,7 +4,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/theme/colors.dart';
-import '../../../core/theme/theme_notifier.dart';
+
 import '../../../core/utils/number_format.dart';
 import '../../../core/utils/responsive.dart';
 import '../../../shared/services/activity_log_service.dart';
@@ -80,13 +80,11 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
     'Supplies',
     'Others',
   ];
-
-  bool get _isDark => themeNotifier.value == ThemeMode.dark;
-  Color get _surface => _isDark ? dSurface : lSurface;
-  Color get _cardBg => _isDark ? dCard : lCard;
-  Color get _text => _isDark ? dText : lText;
-  Color get _subtext => _isDark ? dSubtext : lSubtext;
-  Color get _border => _isDark ? dBorder : lBorder;
+  Color get _surface => Theme.of(context).colorScheme.surface;
+  Color get _cardBg => Theme.of(context).cardColor;
+  Color get _text => Theme.of(context).colorScheme.onSurface;
+  Color get _subtext => Theme.of(context).textTheme.bodySmall?.color ?? Theme.of(context).iconTheme.color!;
+  Color get _border => Theme.of(context).dividerColor;
 
   @override
   void dispose() {
@@ -104,9 +102,10 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
       firstDate: DateTime(2000),
       lastDate: DateTime(2100),
       builder: (context, child) {
+        final isDark = Theme.of(context).brightness == Brightness.dark;
         return Theme(
           data: Theme.of(context).copyWith(
-            colorScheme: _isDark
+            colorScheme: isDark
                 ? const ColorScheme.dark(primary: danger, surface: dSurface)
                 : const ColorScheme.light(primary: danger, surface: lSurface),
           ),
@@ -128,9 +127,9 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
 
     if (isOthers && desc.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text('Description is required for "Others" category.'),
-          backgroundColor: danger,
+          backgroundColor: Theme.of(context).colorScheme.error,
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -140,11 +139,11 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
     final needsReceipt = amount >= largeExpenseThreshold;
     if (needsReceipt && _receiptFile == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text(
             'Receipt upload is required for expenses of 20,000 and above.',
           ),
-          backgroundColor: danger,
+          backgroundColor: Theme.of(context).colorScheme.error,
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -184,7 +183,7 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: danger, width: 2),
+        borderSide: BorderSide(color: Theme.of(context).colorScheme.error, width: 2),
       ),
       contentPadding: EdgeInsets.all(context.getRSize(16)),
     );
@@ -256,7 +255,7 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
                                 decoration: BoxDecoration(
                                   gradient: LinearGradient(
                                     colors: [
-                                      danger.withValues(alpha: 0.8),
+                                      Theme.of(context).colorScheme.error.withValues(alpha: 0.8),
                                       danger,
                                     ],
                                     begin: Alignment.topLeft,
@@ -265,7 +264,7 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
                                   borderRadius: BorderRadius.circular(12),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: danger.withValues(alpha: 0.3),
+                                      color: Theme.of(context).colorScheme.error.withValues(alpha: 0.3),
                                       blurRadius: 8,
                                       offset: const Offset(0, 2),
                                     ),
@@ -293,7 +292,7 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
                                     'Log operating costs',
                                     style: TextStyle(
                                       fontSize: context.getRFontSize(13),
-                                      color: danger,
+                                      color: Theme.of(context).colorScheme.error,
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),
@@ -339,7 +338,7 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
                                     setState(() => _selectedCategory = cat);
                                   }
                                 },
-                                selectedColor: danger,
+                                selectedColor: Theme.of(context).colorScheme.error,
                                 backgroundColor: _cardBg,
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(20),
@@ -468,7 +467,7 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
                                   borderRadius: BorderRadius.circular(14),
                                   border: Border.all(
                                     color: _receiptFile == null
-                                        ? danger.withValues(alpha: 0.5)
+                                        ? Theme.of(context).colorScheme.error.withValues(alpha: 0.5)
                                         : success,
                                     width: 1,
                                   ),
@@ -519,7 +518,7 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
                                 child: Text(
                                   'Please upload a receipt to continue',
                                   style: TextStyle(
-                                    color: danger,
+                                    color: Theme.of(context).colorScheme.error,
                                     fontSize: context.getRFontSize(11),
                                   ),
                                 ),
@@ -556,14 +555,14 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
                         width: double.infinity,
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
-                            colors: [danger.withValues(alpha: 0.8), danger],
+                            colors: [Theme.of(context).colorScheme.error.withValues(alpha: 0.8), danger],
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                           ),
                           borderRadius: BorderRadius.circular(16),
                           boxShadow: [
                             BoxShadow(
-                              color: danger.withValues(alpha: 0.3),
+                              color: Theme.of(context).colorScheme.error.withValues(alpha: 0.3),
                               blurRadius: 10,
                               offset: const Offset(0, 4),
                             ),
@@ -603,4 +602,6 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
     );
   }
 }
+
+
 

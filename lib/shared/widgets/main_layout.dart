@@ -18,7 +18,7 @@ import '../../shared/services/cart_service.dart';
 import '../../shared/services/navigation_service.dart';
 import '../../shared/services/order_service.dart';
 import '../../shared/models/order.dart';
-import '../../core/theme/colors.dart';
+
 
 // ── Lazy IndexedStack ──────────────────────────────────────────────────────
 // Only builds a child widget the very first time that tab is visited.
@@ -105,7 +105,7 @@ class _MainLayoutState extends State<MainLayout> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final t = Theme.of(context);
     return ValueListenableBuilder<int>(
       valueListenable: navigationService.currentIndex,
       builder: (context, currentIndex, _) {
@@ -181,11 +181,11 @@ class _MainLayoutState extends State<MainLayout> {
                                 ? 3
                                 : (currentIndex == 9 ? 4 : 0))));
 
-                final iconColor = isDark ? dSubtext : lSubtext;
+                final iconColor = t.textTheme.bodySmall?.color ?? t.iconTheme.color!;
 
                 return BottomNavigationBar(
                   currentIndex: navIndex,
-                  selectedItemColor: isNavTab ? blueMain : iconColor,
+                  selectedItemColor: isNavTab ? t.colorScheme.primary : iconColor,
                   unselectedItemColor: iconColor,
                   onTap: (index) {
                     switch (index) {
@@ -232,13 +232,13 @@ class _MainLayoutState extends State<MainLayout> {
                       icon: Badge(
                         label: Text(_pendingOrderCount.toString()),
                         isLabelVisible: _pendingOrderCount > 0,
-                        backgroundColor: danger,
+                        backgroundColor: t.colorScheme.error,
                         child: const Icon(Icons.receipt_long_outlined),
                       ),
                       activeIcon: Badge(
                         label: Text(_pendingOrderCount.toString()),
                         isLabelVisible: _pendingOrderCount > 0,
-                        backgroundColor: danger,
+                        backgroundColor: t.colorScheme.error,
                         child: Icon(isNavTab
                             ? Icons.receipt_long
                             : Icons.receipt_long_outlined),
@@ -249,13 +249,13 @@ class _MainLayoutState extends State<MainLayout> {
                       icon: Badge(
                         label: Text(cart.length.toString()),
                         isLabelVisible: cart.isNotEmpty,
-                        backgroundColor: danger,
+                        backgroundColor: t.colorScheme.error,
                         child: const Icon(Icons.shopping_cart_outlined),
                       ),
                       activeIcon: Badge(
                         label: Text(cart.length.toString()),
                         isLabelVisible: cart.isNotEmpty,
-                        backgroundColor: danger,
+                        backgroundColor: t.colorScheme.error,
                         child: Icon(isNavTab
                             ? Icons.shopping_cart
                             : Icons.shopping_cart_outlined),

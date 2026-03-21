@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 import '../../../core/theme/colors.dart';
-import '../../../core/theme/theme_notifier.dart';
+
 import '../../../core/utils/number_format.dart';
 import '../../../core/utils/responsive.dart';
 import '../../../core/utils/stock_calculator.dart';
@@ -174,13 +174,12 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   }
 
   // ── Theme helpers ─────────────────────────────────────────────────────────
-  bool get _isDark => themeNotifier.value == ThemeMode.dark;
-  Color get _bg => _isDark ? dBg : lBg;
-  Color get _surface => _isDark ? dSurface : lSurface;
-  Color get _cardBg => _isDark ? dCard : lCard;
-  Color get _text => _isDark ? dText : lText;
-  Color get _subtext => _isDark ? dSubtext : lSubtext;
-  Color get _border => _isDark ? dBorder : lBorder;
+  Color get _bg => Theme.of(context).scaffoldBackgroundColor;
+  Color get _surface => Theme.of(context).colorScheme.surface;
+  Color get _cardBg => Theme.of(context).cardColor;
+  Color get _text => Theme.of(context).colorScheme.onSurface;
+  Color get _subtext => Theme.of(context).textTheme.bodySmall?.color ?? Theme.of(context).iconTheme.color!;
+  Color get _border => Theme.of(context).dividerColor;
 
   @override
   Widget build(BuildContext context) {
@@ -189,7 +188,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     if (!_contentReady) {
       return Scaffold(
         backgroundColor: _bg,
-        body: const Center(child: CircularProgressIndicator(color: blueMain)),
+        body: Center(child: CircularProgressIndicator(color: Theme.of(context).colorScheme.primary)),
         bottomNavigationBar: const SharedBottomNavBar(),
       );
     }
@@ -250,13 +249,13 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           icon: Container(
             padding: EdgeInsets.all(context.getRSize(8)),
             decoration: BoxDecoration(
-              color: danger.withValues(alpha: 0.1),
+              color: Theme.of(context).colorScheme.error.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(
               FontAwesomeIcons.trashCan,
               size: context.getRSize(18),
-              color: danger,
+              color: Theme.of(context).colorScheme.error,
             ),
           ),
         ),
@@ -308,7 +307,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                           child: Container(
                             padding: EdgeInsets.all(context.getRSize(4)),
                             decoration: BoxDecoration(
-                              color: blueMain,
+                              color: Theme.of(context).colorScheme.primary,
                               shape: BoxShape.circle,
                               border: Border.all(color: Colors.white, width: 2),
                             ),
@@ -422,7 +421,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               FontAwesomeIcons.cubesStacked,
               'Total Quantity',
               '',
-              blueMain,
+              Theme.of(context).colorScheme.primary,
               trailing: Container(
                 width: context.getRSize(100),
                 padding: EdgeInsets.symmetric(
@@ -555,16 +554,16 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   vertical: context.getRSize(6),
                 ),
                 decoration: BoxDecoration(
-                  color: blueMain.withValues(alpha: 0.1),
+                  color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: blueMain.withValues(alpha: 0.2)),
+                  border: Border.all(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.2)),
                 ),
                 child: Text(
                   _emptyCrateStock?.toString() ?? '0',
                   style: TextStyle(
                     fontSize: context.getRFontSize(14),
                     fontWeight: FontWeight.bold,
-                    color: blueMain,
+                    color: Theme.of(context).colorScheme.primary,
                   ),
                 ),
               ),
@@ -600,7 +599,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               FontAwesomeIcons.tag,
               'Retail Price',
               '',
-              blueMain,
+              Theme.of(context).colorScheme.primary,
               trailing: _inlinePriceInput(_retailPriceController),
             ),
             _divider(context),
@@ -627,7 +626,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               FontAwesomeIcons.chartLine,
               'Total Stock Value',
               formatCurrency(totalStockValue),
-              blueMain,
+              Theme.of(context).colorScheme.primary,
             ),
           ]),
 
@@ -659,7 +658,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               width: double.infinity,
               child: ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: blueMain,
+                  backgroundColor: Theme.of(context).colorScheme.primary,
                   foregroundColor: Colors.white,
                   padding: EdgeInsets.symmetric(vertical: context.getRSize(16)),
                   shape: RoundedRectangleBorder(
@@ -967,7 +966,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         style: TextStyle(
                           fontSize: context.getRFontSize(12),
                           fontWeight: FontWeight.bold,
-                          color: blueMain,
+                          color: Theme.of(context).colorScheme.primary,
                         ),
                         decoration: const InputDecoration(
                           isDense: true,
@@ -1010,7 +1009,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               minHeight: context.getRSize(6),
               backgroundColor: _border,
               valueColor: AlwaysStoppedAnimation<Color>(
-                progress >= 1.0 ? success : blueMain,
+                progress >= 1.0 ? success : Theme.of(context).colorScheme.primary,
               ),
             ),
           ),
@@ -1029,7 +1028,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             child: SizedBox(
               width: context.getRSize(20),
               height: context.getRSize(20),
-              child: const CircularProgressIndicator(strokeWidth: 2, color: blueMain),
+              child: CircularProgressIndicator(strokeWidth: 2, color: Theme.of(context).colorScheme.primary),
             ),
           ),
         ),
@@ -1057,7 +1056,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         FontAwesomeIcons.calendarDay,
         'Date',
         _fmtDate(d.date),
-        blueMain,
+        Theme.of(context).colorScheme.primary,
       ),
       _divider(context),
       _infoRow(
@@ -1199,7 +1198,15 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         );
       }
 
-      // 5. Log the edit
+      // 5. Push updated product fields into any active cart
+      cartService.refreshProduct(
+        productId: productId,
+        name: name,
+        price: retail,
+        emptyCrateValueKobo: (emptyVal * 100).round(),
+      );
+
+      // 6. Log the edit
       await database.activityLogDao.log(
         action: 'update_product',
         description: 'Updated product details for $name',
@@ -1207,7 +1214,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         entityType: 'product',
       );
 
-      // 6. Update local item object for UI feedback
+      // 7. Update local item object for UI feedback
       setState(() {
         widget.item.productName = name;
         widget.item.manufacturer = mfr?.name;
@@ -1262,10 +1269,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 SnackBar(content: Text('${widget.item.productName} deleted')),
               );
             },
-            child: const Text('Delete', style: TextStyle(color: danger)),
+            child: Text('Delete', style: TextStyle(color: Theme.of(context).colorScheme.error)),
           ),
         ],
       ),
     );
   }
 }
+

@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 import '../../../core/theme/colors.dart';
-import '../../../core/theme/theme_notifier.dart';
+
 import '../../../core/utils/number_format.dart';
 import '../../../core/utils/responsive.dart';
 import '../../customers/data/models/customer.dart';
@@ -244,14 +244,12 @@ class _CartScreenState extends State<CartScreen>
       },
     );
   }
-
-  bool get _isDark => themeNotifier.value == ThemeMode.dark;
-  Color get _bg => _isDark ? dBg : lBg;
-  Color get _surface => _isDark ? dSurface : lSurface;
-  Color get _cardBg => _isDark ? dCard : lSurface;
-  Color get _text => _isDark ? dText : lText;
-  Color get _subtext => _isDark ? dSubtext : lSubtext;
-  Color get _border => _isDark ? dBorder : lBorder;
+  Color get _bg => Theme.of(context).scaffoldBackgroundColor;
+  Color get _surface => Theme.of(context).colorScheme.surface;
+  
+  Color get _text => Theme.of(context).colorScheme.onSurface;
+  Color get _subtext => Theme.of(context).textTheme.bodySmall?.color ?? Theme.of(context).iconTheme.color!;
+  Color get _border => Theme.of(context).dividerColor;
 
   void _showChangeCustomerModal() {
     showModalBottomSheet(
@@ -332,7 +330,7 @@ class _CartScreenState extends State<CartScreen>
                                   children: [
                                     TextButton.icon(
                                       style: TextButton.styleFrom(
-                                        backgroundColor: blueMain.withValues(alpha: 0.1),
+                                        backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
                                       ),
                                       onPressed: () {
                                         Navigator.pop(modalCtx);
@@ -384,15 +382,15 @@ class _CartScreenState extends State<CartScreen>
                                   color: _subtext,
                                 ),
                                 filled: true,
-                                fillColor: _isDark ? dCard : lCard,
+                                fillColor: Theme.of(context).cardColor,
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(14),
                                   borderSide: BorderSide.none,
                                 ),
                                 focusedBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(14),
-                                  borderSide: const BorderSide(
-                                    color: blueMain,
+                                  borderSide: BorderSide(
+                                    color: Theme.of(context).colorScheme.primary,
                                     width: 2,
                                   ),
                                 ),
@@ -465,7 +463,7 @@ class _CartScreenState extends State<CartScreen>
             Container(
               padding: EdgeInsets.all(modalCtx.getRSize(10)),
               decoration: BoxDecoration(
-                color: blueMain.withValues(alpha: 0.15),
+                color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.15),
                 shape: BoxShape.circle,
               ),
               child: Icon(
@@ -473,7 +471,7 @@ class _CartScreenState extends State<CartScreen>
                     ? FontAwesomeIcons.userTag
                     : FontAwesomeIcons.user,
                 size: modalCtx.getRSize(16),
-                color: blueMain,
+                color: Theme.of(context).colorScheme.primary,
               ),
             ),
             SizedBox(width: modalCtx.getRSize(14)),
@@ -519,7 +517,7 @@ class _CartScreenState extends State<CartScreen>
             if (isSelected)
               Icon(
                 FontAwesomeIcons.circleCheck,
-                color: blueMain,
+                color: Theme.of(context).colorScheme.primary,
                 size: modalCtx.getRSize(18),
               ),
           ],
@@ -534,7 +532,7 @@ class _CartScreenState extends State<CartScreen>
       context: ctx,
       builder: (_) => StatefulBuilder(
         builder: (dCtx, setD) => AlertDialog(
-          backgroundColor: _isDark ? dSurface : lSurface,
+          backgroundColor: Theme.of(context).colorScheme.surface,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(24),
           ),
@@ -555,7 +553,7 @@ class _CartScreenState extends State<CartScreen>
                 item['name'],
                 style: TextStyle(
                   fontSize: ctx.getRFontSize(13),
-                  color: blueMain,
+                  color: Theme.of(context).colorScheme.primary,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -592,7 +590,7 @@ class _CartScreenState extends State<CartScreen>
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(14),
-                      borderSide: const BorderSide(color: blueMain, width: 2),
+                      borderSide: BorderSide(color: Theme.of(context).colorScheme.primary, width: 2),
                     ),
                     contentPadding: EdgeInsets.symmetric(
                       vertical: ctx.getRSize(16),
@@ -615,17 +613,17 @@ class _CartScreenState extends State<CartScreen>
               },
               icon: Icon(
                 FontAwesomeIcons.trash,
-                color: danger,
+                color: Theme.of(context).colorScheme.error,
                 size: ctx.getRSize(15),
               ),
-              label: const Text(
+              label: Text(
                 'Remove',
-                style: TextStyle(color: danger, fontWeight: FontWeight.bold),
+                style: TextStyle(color: Theme.of(context).colorScheme.error, fontWeight: FontWeight.bold),
               ),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: blueMain,
+                backgroundColor: Theme.of(context).colorScheme.primary,
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -662,11 +660,11 @@ class _CartScreenState extends State<CartScreen>
         height: context.getRSize(46),
         margin: EdgeInsets.symmetric(horizontal: context.getRSize(10)),
         decoration: BoxDecoration(
-          color: blueMain.withValues(alpha: 0.1),
+          color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: blueMain.withValues(alpha: 0.3)),
+          border: Border.all(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3)),
         ),
-        child: Icon(icon, size: context.getRSize(16), color: blueMain),
+        child: Icon(icon, size: context.getRSize(16), color: Theme.of(context).colorScheme.primary),
       ),
     );
   }
@@ -694,7 +692,7 @@ class _CartScreenState extends State<CartScreen>
                 onTap: () {}, // Prevent tap from reaching the barrier
                 child: Container(
                   decoration: BoxDecoration(
-                    color: _isDark ? dSurface : lSurface,
+                    color: Theme.of(context).colorScheme.surface,
                     borderRadius: const BorderRadius.vertical(
                       top: Radius.circular(28),
                     ),
@@ -724,8 +722,8 @@ class _CartScreenState extends State<CartScreen>
                           Container(
                             padding: EdgeInsets.all(context.getRSize(10)),
                             decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                colors: [blueLight, blueMain],
+                              gradient: LinearGradient(
+                                colors: [Theme.of(context).colorScheme.primary.withValues(alpha: 0.7), Theme.of(context).colorScheme.primary],
                               ),
                               borderRadius: BorderRadius.circular(12),
                             ),
@@ -782,7 +780,7 @@ class _CartScreenState extends State<CartScreen>
                             color: _subtext.withValues(alpha: 0.4),
                           ),
                           filled: true,
-                          fillColor: _isDark ? dCard : lCard,
+                          fillColor: Theme.of(context).cardColor,
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(14),
                             borderSide: BorderSide.none,
@@ -790,7 +788,7 @@ class _CartScreenState extends State<CartScreen>
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(14),
                             borderSide:
-                                const BorderSide(color: blueMain, width: 2),
+                                BorderSide(color: Theme.of(context).colorScheme.primary, width: 2),
                           ),
                           contentPadding: EdgeInsets.symmetric(
                             horizontal: context.getRSize(16),
@@ -847,7 +845,7 @@ class _CartScreenState extends State<CartScreen>
                                   borderRadius: BorderRadius.circular(14),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: blueMain.withValues(alpha: 0.3),
+                                      color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
                                       blurRadius: 10,
                                       offset: const Offset(0, 4),
                                     ),
@@ -923,8 +921,12 @@ class _CartScreenState extends State<CartScreen>
     );
 
     // ── Glass detection & crate deposit computation ──
+    // A glass item is any cart item with a crateGroupId OR a product-level
+    // emptyCrateValueKobo > 0 (covers products not yet linked to a group).
     final glassItems = cartItems
-        .where((i) => i['crateGroupId'] != null)
+        .where((i) =>
+            i['crateGroupId'] != null ||
+            ((i['emptyCrateValueKobo'] ?? 0) as num) > 0)
         .toList();
     final hasGlass = glassItems.isNotEmpty;
 
@@ -934,27 +936,40 @@ class _CartScreenState extends State<CartScreen>
     final Map<int, double> groupAmounts = {};
     final Map<int, double> groupQtys = {};
     final Map<int, String> groupNames = {};
+    // Tracks items with no crateGroupId, keyed by product name
+    final Map<String, double> ungroupedAmounts = {};
+    final Map<String, double> ungroupedQtys = {};
 
     for (final item in glassItems) {
       final groupId = item['crateGroupId'] as int?;
-      if (groupId == null) continue;
-
-      final cg = _crateGroups.where((g) => g.id == groupId).firstOrNull;
-      if (cg == null) continue;
-
-      // Product-specific overrides CrateGroup default
       final productValue = (item['emptyCrateValueKobo'] ?? 0) as num;
-      final depositPerCrate = productValue > 0
-          ? productValue / 100.0
-          : cg.depositAmountKobo / 100.0;
-
       final qty = (item['qty'] as num).toDouble();
-      final amount = qty * depositPerCrate;
 
+      double depositPerCrate;
+      if (productValue > 0) {
+        // Product-specific deposit — no crateGroup lookup needed
+        depositPerCrate = productValue / 100.0;
+      } else {
+        // Fall back to CrateGroup default
+        if (groupId == null) continue;
+        final cg = _crateGroups.where((g) => g.id == groupId).firstOrNull;
+        if (cg == null) continue;
+        depositPerCrate = cg.depositAmountKobo / 100.0;
+      }
+
+      final amount = qty * depositPerCrate;
       computedDeposit += amount;
-      groupQtys[groupId] = (groupQtys[groupId] ?? 0) + qty;
-      groupAmounts[groupId] = (groupAmounts[groupId] ?? 0) + amount;
-      groupNames[groupId] = cg.name;
+
+      if (groupId != null) {
+        groupQtys[groupId] = (groupQtys[groupId] ?? 0) + qty;
+        groupAmounts[groupId] = (groupAmounts[groupId] ?? 0) + amount;
+        final cg = _crateGroups.where((g) => g.id == groupId).firstOrNull;
+        groupNames[groupId] = cg?.name ?? (item['name'] as String);
+      } else {
+        final label = item['name'] as String;
+        ungroupedQtys[label] = (ungroupedQtys[label] ?? 0) + qty;
+        ungroupedAmounts[label] = (ungroupedAmounts[label] ?? 0) + amount;
+      }
     }
 
     for (final groupId in groupQtys.keys) {
@@ -962,9 +977,20 @@ class _CartScreenState extends State<CartScreen>
       depositLines.add(
         _CrateDepositLine(
           label: groupNames[groupId]!,
-          color: cg != null ? _crateColor(cg) : blueMain,
+          color: cg != null ? _crateColor(cg) : Theme.of(context).colorScheme.primary,
           qty: groupQtys[groupId]!,
           amount: groupAmounts[groupId]!,
+        ),
+      );
+    }
+
+    for (final entry in ungroupedAmounts.entries) {
+      depositLines.add(
+        _CrateDepositLine(
+          label: entry.key,
+          color: Theme.of(context).colorScheme.primary,
+          qty: ungroupedQtys[entry.key]!,
+          amount: entry.value,
         ),
       );
     }
@@ -981,13 +1007,15 @@ class _CartScreenState extends State<CartScreen>
       }
     }
 
-    // Total = Subtotal + Required Deposit + Manual Deposit - Credit
-    final tot = sub + computedDeposit + _crateDeposit - customerCrateCredit;
+    // Total = Subtotal + Deposit Paid (manually entered) - Credit
+    // computedDeposit is informational only — not added to the payable total
+    final tot = sub + _crateDeposit - customerCrateCredit;
 
     final customerName = _activeCustomer?.name ?? 'Walk-in Customer';
     final customerWallet = _activeCustomer?.customerWallet ?? 0.0;
     final isOwe = customerWallet < 0;
 
+    final themeNotifier = ValueNotifier<ThemeMode>(ThemeMode.system);
     return ValueListenableBuilder<ThemeMode>(
       valueListenable: themeNotifier,
       builder: (_, mode, child) => SharedScaffold(
@@ -1017,22 +1045,22 @@ class _CartScreenState extends State<CartScreen>
                     vertical: context.getRSize(4),
                   ),
                   decoration: BoxDecoration(
-                    color: danger.withValues(alpha: 0.1),
+                    color: Theme.of(context).colorScheme.error.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: danger.withValues(alpha: 0.2)),
+                    border: Border.all(color: Theme.of(context).colorScheme.error.withValues(alpha: 0.2)),
                   ),
                   child: Row(
                     children: [
                       Icon(
                         FontAwesomeIcons.trashCan,
-                        color: danger,
+                        color: Theme.of(context).colorScheme.error,
                         size: context.getRSize(13),
                       ),
                       SizedBox(width: context.getRSize(6)),
                       Text(
                         'Clear',
                         style: TextStyle(
-                          color: danger,
+                          color: Theme.of(context).colorScheme.error,
                           fontWeight: FontWeight.bold,
                           fontSize: context.getRFontSize(12),
                         ),
@@ -1062,7 +1090,7 @@ class _CartScreenState extends State<CartScreen>
                 child: Container(
                   padding: EdgeInsets.all(context.getRSize(16)),
                   decoration: BoxDecoration(
-                    color: _cardBg,
+                    color: Theme.of(context).cardColor,
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(color: _border),
                   ),
@@ -1071,7 +1099,7 @@ class _CartScreenState extends State<CartScreen>
                       Container(
                         padding: EdgeInsets.all(context.getRSize(10)),
                         decoration: BoxDecoration(
-                          color: blueMain.withValues(alpha: 0.15),
+                          color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Icon(
@@ -1079,7 +1107,7 @@ class _CartScreenState extends State<CartScreen>
                               ? FontAwesomeIcons.userTag
                               : FontAwesomeIcons.user,
                           size: context.getRSize(16),
-                          color: blueMain,
+                          color: Theme.of(context).colorScheme.primary,
                         ),
                       ),
                       SizedBox(width: context.getRSize(14)),
@@ -1210,7 +1238,7 @@ class _CartScreenState extends State<CartScreen>
                                       context.getRSize(12),
                                     ),
                                     decoration: BoxDecoration(
-                                      color: _cardBg,
+                                      color: Theme.of(context).cardColor,
                                       borderRadius: BorderRadius.circular(14),
                                       border: Border.all(
                                         color: _border.withValues(alpha: 0.5),
@@ -1277,7 +1305,7 @@ class _CartScreenState extends State<CartScreen>
                                             style: TextStyle(
                                               fontWeight: FontWeight.w900,
                                               fontSize: context.getRFontSize(16),
-                                              color: blueMain,
+                                              color: Theme.of(context).colorScheme.primary,
                                             ),
                                           ),
                                         ),
@@ -1343,68 +1371,71 @@ class _CartScreenState extends State<CartScreen>
                                   _totalRow('Subtotal', sub, small: true),
                                   if (hasGlass) ...[
                                     SizedBox(height: context.getRSize(8)),
-                                    Container(
-                                      width: double.infinity,
-                                      padding: EdgeInsets.symmetric(
-                                        horizontal: context.getRSize(16),
-                                        vertical: context.getRSize(14),
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: _cardBg,
-                                        borderRadius: BorderRadius.circular(14),
-                                        border: Border.all(color: _border),
-                                      ),
-                                      child: Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          Row(
-                                            children: [
-                                              Container(
-                                                padding: EdgeInsets.all(
-                                                  context.getRSize(8),
-                                                ),
-                                                decoration: BoxDecoration(
-                                                  gradient:
-                                                      const LinearGradient(
-                                                        colors: [
-                                                          blueLight,
-                                                          blueMain,
-                                                        ],
-                                                      ),
-                                                  borderRadius:
-                                                      BorderRadius.circular(10),
-                                                ),
-                                                child: Icon(
+                                    // ── Crate Deposit (informational / greyed out) ──
+                                    Opacity(
+                                      opacity: 0.5,
+                                      child: Container(
+                                        width: double.infinity,
+                                        padding: EdgeInsets.symmetric(
+                                          horizontal: context.getRSize(16),
+                                          vertical: context.getRSize(12),
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: Theme.of(context).cardColor,
+                                          borderRadius: BorderRadius.circular(14),
+                                          border: Border.all(color: _border),
+                                        ),
+                                        child: Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            Row(
+                                              children: [
+                                                Icon(
                                                   FontAwesomeIcons.beerMugEmpty,
                                                   size: context.getRSize(13),
-                                                  color: Colors.white,
+                                                  color: _subtext,
                                                 ),
-                                              ),
-                                              SizedBox(
-                                                width: context.getRSize(10),
-                                              ),
-                                              Text(
-                                                'Crate Deposit',
-                                                style: TextStyle(
-                                                  fontSize: context
-                                                      .getRFontSize(14),
-                                                  fontWeight: FontWeight.w700,
-                                                  color: _text,
+                                                SizedBox(
+                                                  width: context.getRSize(8),
                                                 ),
-                                              ),
-                                            ],
-                                          ),
-                                          Text(
-                                            formatCurrency(computedDeposit),
-                                            style: TextStyle(
-                                              fontSize:
-                                                  context.getRFontSize(15),
-                                              fontWeight: FontWeight.w800,
-                                              color: blueMain,
+                                                Column(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  children: [
+                                                    Text(
+                                                      'Crate Deposit',
+                                                      style: TextStyle(
+                                                        fontSize: context
+                                                            .getRFontSize(13),
+                                                        fontWeight:
+                                                            FontWeight.w600,
+                                                        color: _subtext,
+                                                      ),
+                                                    ),
+                                                    Text(
+                                                      'suggested · not charged',
+                                                      style: TextStyle(
+                                                        fontSize: context
+                                                            .getRFontSize(10),
+                                                        color: _subtext,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ],
                                             ),
-                                          ),
-                                        ],
+                                            Text(
+                                              formatCurrency(computedDeposit),
+                                              style: TextStyle(
+                                                fontSize:
+                                                    context.getRFontSize(14),
+                                                fontWeight: FontWeight.w700,
+                                                color: _subtext,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
                                       ),
                                     ),
                                   ],
@@ -1417,7 +1448,7 @@ class _CartScreenState extends State<CartScreen>
                                         context.getRSize(14),
                                       ),
                                       decoration: BoxDecoration(
-                                        color: _cardBg,
+                                        color: Theme.of(context).cardColor,
                                         borderRadius: BorderRadius.circular(14),
                                         border: Border.all(color: _border),
                                       ),
@@ -1433,10 +1464,10 @@ class _CartScreenState extends State<CartScreen>
                                                 ),
                                                 decoration: BoxDecoration(
                                                   gradient:
-                                                      const LinearGradient(
+                                                      LinearGradient(
                                                         colors: [
                                                           blueLight,
-                                                          blueMain,
+                                                          Theme.of(context).colorScheme.primary,
                                                         ],
                                                       ),
                                                   borderRadius:
@@ -1542,7 +1573,7 @@ class _CartScreenState extends State<CartScreen>
                                                   fontSize: context
                                                       .getRFontSize(14),
                                                   fontWeight: FontWeight.w800,
-                                                  color: blueMain,
+                                                  color: Theme.of(context).colorScheme.primary,
                                                 ),
                                               ),
                                             ],
@@ -1594,13 +1625,13 @@ class _CartScreenState extends State<CartScreen>
                                       decoration: BoxDecoration(
                                         gradient: LinearGradient(
                                           colors: [
-                                            blueMain.withValues(alpha: 0.08),
-                                            blueMain.withValues(alpha: 0.04),
+                                            Theme.of(context).colorScheme.primary.withValues(alpha: 0.08),
+                                            Theme.of(context).colorScheme.primary.withValues(alpha: 0.04),
                                           ],
                                         ),
                                         borderRadius: BorderRadius.circular(14),
                                         border: Border.all(
-                                          color: blueMain.withValues(alpha: 0.12),
+                                          color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.12),
                                         ),
                                       ),
                                       child: Row(
@@ -1615,10 +1646,10 @@ class _CartScreenState extends State<CartScreen>
                                                 ),
                                                 decoration: BoxDecoration(
                                                   gradient:
-                                                      const LinearGradient(
+                                                      LinearGradient(
                                                         colors: [
                                                           blueLight,
-                                                          blueMain,
+                                                          Theme.of(context).colorScheme.primary,
                                                         ],
                                                       ),
                                                   borderRadius:
@@ -1652,7 +1683,7 @@ class _CartScreenState extends State<CartScreen>
                                                   fontSize: context
                                                       .getRFontSize(15),
                                                   fontWeight: FontWeight.w800,
-                                                  color: blueMain,
+                                                  color: Theme.of(context).colorScheme.primary,
                                                 ),
                                               ),
                                               SizedBox(
@@ -1661,7 +1692,7 @@ class _CartScreenState extends State<CartScreen>
                                               Icon(
                                                 FontAwesomeIcons.penToSquare,
                                                 size: context.getRSize(13),
-                                                color: blueMain,
+                                                color: Theme.of(context).colorScheme.primary,
                                               ),
                                             ],
                                           ),
@@ -1683,7 +1714,7 @@ class _CartScreenState extends State<CartScreen>
                                             padding: EdgeInsets.symmetric(
                                               vertical: context.getRSize(12),
                                             ),
-                                            side: const BorderSide(color: blueMain),
+                                            side: BorderSide(color: Theme.of(context).colorScheme.primary),
                                             shape: RoundedRectangleBorder(
                                               borderRadius: BorderRadius.circular(12),
                                             ),
@@ -1692,12 +1723,12 @@ class _CartScreenState extends State<CartScreen>
                                           icon: Icon(
                                             FontAwesomeIcons.floppyDisk,
                                             size: context.getRSize(14),
-                                            color: blueMain,
+                                            color: Theme.of(context).colorScheme.primary,
                                           ),
                                           label: Text(
                                             'Save Cart',
                                             style: TextStyle(
-                                              color: blueMain,
+                                              color: Theme.of(context).colorScheme.primary,
                                               fontWeight: FontWeight.bold,
                                               fontSize: context.getRFontSize(13),
                                             ),
@@ -1711,7 +1742,7 @@ class _CartScreenState extends State<CartScreen>
                                             padding: EdgeInsets.symmetric(
                                               vertical: context.getRSize(12),
                                             ),
-                                            side: const BorderSide(color: blueMain),
+                                            side: BorderSide(color: Theme.of(context).colorScheme.primary),
                                             shape: RoundedRectangleBorder(
                                               borderRadius: BorderRadius.circular(12),
                                             ),
@@ -1720,12 +1751,12 @@ class _CartScreenState extends State<CartScreen>
                                           icon: Icon(
                                             FontAwesomeIcons.clockRotateLeft,
                                             size: context.getRSize(14),
-                                            color: blueMain,
+                                            color: Theme.of(context).colorScheme.primary,
                                           ),
                                           label: Text(
                                             'Recall',
                                             style: TextStyle(
-                                              color: blueMain,
+                                              color: Theme.of(context).colorScheme.primary,
                                               fontWeight: FontWeight.bold,
                                               fontSize: context.getRFontSize(13),
                                             ),
@@ -1770,7 +1801,7 @@ class _CartScreenState extends State<CartScreen>
                                         borderRadius: BorderRadius.circular(16),
                                         boxShadow: [
                                           BoxShadow(
-                                            color: blueMain.withValues(alpha: 0.3),
+                                            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
                                             blurRadius: 14,
                                             offset: const Offset(0, 6),
                                           ),
@@ -1830,5 +1861,10 @@ class _CrateDepositLine {
     required this.amount,
   });
 }
+
+
+
+
+
 
 

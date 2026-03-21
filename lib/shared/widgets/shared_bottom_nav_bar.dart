@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../../core/theme/colors.dart';
 import '../../shared/models/order.dart';
 import '../../shared/services/cart_service.dart';
 import '../../shared/services/navigation_service.dart';
@@ -61,6 +60,7 @@ class _SharedBottomNavBarState extends State<SharedBottomNavBar> {
 
   @override
   Widget build(BuildContext context) {
+    final t = Theme.of(context);
     return ValueListenableBuilder<int>(
       valueListenable: navigationService.currentIndex,
       builder: (context, currentIndex, _) {
@@ -100,13 +100,13 @@ class _SharedBottomNavBarState extends State<SharedBottomNavBar> {
                 icon: Badge(
                   label: Text(_pendingOrderCount.toString()),
                   isLabelVisible: _pendingOrderCount > 0,
-                  backgroundColor: danger,
+                  backgroundColor: t.colorScheme.error,
                   child: const Icon(Icons.receipt_long_outlined),
                 ),
                 activeIcon: Badge(
                   label: Text(_pendingOrderCount.toString()),
                   isLabelVisible: _pendingOrderCount > 0,
-                  backgroundColor: danger,
+                  backgroundColor: t.colorScheme.error,
                   child: const Icon(Icons.receipt_long),
                 ),
                 label: 'Orders',
@@ -115,13 +115,13 @@ class _SharedBottomNavBarState extends State<SharedBottomNavBar> {
                 icon: Badge(
                   label: Text(cart.length.toString()),
                   isLabelVisible: cart.isNotEmpty,
-                  backgroundColor: danger,
+                  backgroundColor: t.colorScheme.error,
                   child: const Icon(Icons.shopping_cart_outlined),
                 ),
                 activeIcon: Badge(
                   label: Text(cart.length.toString()),
                   isLabelVisible: cart.isNotEmpty,
-                  backgroundColor: danger,
+                  backgroundColor: t.colorScheme.error,
                   child: const Icon(Icons.shopping_cart),
                 ),
                 label: 'Cart',

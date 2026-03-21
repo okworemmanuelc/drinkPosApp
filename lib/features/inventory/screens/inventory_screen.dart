@@ -7,7 +7,7 @@ import '../../../shared/services/auth_service.dart';
 // import '../../../shared/services/activity_log_service.dart';
 
 import '../../../core/theme/colors.dart';
-import '../../../core/theme/theme_notifier.dart';
+
 import '../../../core/utils/responsive.dart'; // RESPONSIVE: utility imported
 import '../data/models/crate_group.dart';
 import '../data/models/supplier.dart';
@@ -60,19 +60,17 @@ class _InventoryScreenState extends State<InventoryScreen>
   StreamSubscription<int>? _emptyCratesSumSub;
   StreamSubscription<List<ActivityLogData>>? _logsSub;
   List<ActivityLogData> _dbLogs = [];
-
-  bool get _isDark => themeNotifier.value == ThemeMode.dark;
-  Color get _bg => _isDark ? dBg : lBg;
-  Color get _surface => _isDark ? dSurface : lSurface;
-  Color get _cardBg => _isDark ? dCard : lSurface;
-  Color get _text => _isDark ? dText : lText;
-  Color get _subtext => _isDark ? dSubtext : lSubtext;
-  Color get _border => _isDark ? dBorder : lBorder;
+  Color get _bg => Theme.of(context).scaffoldBackgroundColor;
+  Color get _surface => Theme.of(context).colorScheme.surface;
+  
+  Color get _text => Theme.of(context).colorScheme.onSurface;
+  Color get _subtext => Theme.of(context).textTheme.bodySmall?.color ?? Theme.of(context).iconTheme.color!;
+  Color get _border => Theme.of(context).dividerColor;
 
   List<CrateGroupData> get _activeCrateGroups =>
       _dbCrateGroups.where((cg) => cg.emptyCrateStock > 0).toList();
 
-  Color _crateColor(int? id) => _cgColors[id] ?? blueMain;
+  Color _crateColor(int? id) => _cgColors[id] ?? Theme.of(context).colorScheme.primary;
 
   @override
   void initState() {
@@ -210,6 +208,7 @@ class _InventoryScreenState extends State<InventoryScreen>
 
   @override
   Widget build(BuildContext context) {
+    final themeNotifier = ValueNotifier<ThemeMode>(ThemeMode.system);
     return ValueListenableBuilder<ThemeMode>(
       valueListenable: themeNotifier,
       builder: (_, _, _) => SharedScaffold(
@@ -219,7 +218,7 @@ class _InventoryScreenState extends State<InventoryScreen>
         floatingActionButton: _currentTab == 0
             ? FloatingActionButton.extended(
                 onPressed: _showAddProductSheet,
-                backgroundColor: blueMain,
+                backgroundColor: Theme.of(context).colorScheme.primary,
                 foregroundColor: Colors.white,
                 icon: const Icon(FontAwesomeIcons.plus, size: 14),
                 label: const Text(
@@ -311,7 +310,7 @@ class _InventoryScreenState extends State<InventoryScreen>
             'Total SKUs',
             '$totalItems',
             FontAwesomeIcons.layerGroup,
-            blueMain,
+            Theme.of(context).colorScheme.primary,
             isActive: _stockFilter == 'all',
             onTap: () => setState(() {
               _stockFilter = 'all';
@@ -398,7 +397,7 @@ class _InventoryScreenState extends State<InventoryScreen>
       child: Container(
         padding: EdgeInsets.all(context.spacingM),
         decoration: BoxDecoration(
-          color: _isDark ? dCard : lCard,
+          color: Theme.of(context).cardColor,
           borderRadius: BorderRadius.circular(context.radiusM),
           border: Border.all(
             color: isActive ? color : color.withValues(alpha: 0.2),
@@ -454,7 +453,7 @@ class _InventoryScreenState extends State<InventoryScreen>
         isScrollable: true,
         tabAlignment: TabAlignment.start,
         dividerColor: Colors.transparent, // Fix 1px overflow/line issue
-        labelColor: blueMain,
+        labelColor: Theme.of(context).colorScheme.primary,
         unselectedLabelColor: _subtext,
         labelStyle: TextStyle(
           fontWeight: FontWeight.w700,
@@ -464,7 +463,7 @@ class _InventoryScreenState extends State<InventoryScreen>
           fontWeight: FontWeight.w600,
           fontSize: context.getRFontSize(13), // RESPONSIVE
         ),
-        indicatorColor: blueMain,
+        indicatorColor: Theme.of(context).colorScheme.primary,
         indicatorWeight: 3,
         tabs: const [
           Tab(text: 'Products'),
@@ -536,13 +535,13 @@ class _InventoryScreenState extends State<InventoryScreen>
             width: double.infinity,
             child: ElevatedButton.icon(
               style: ElevatedButton.styleFrom(
-                backgroundColor: blueMain.withValues(alpha: 0.1),
-                foregroundColor: blueMain,
+                backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                foregroundColor: Theme.of(context).colorScheme.primary,
                 elevation: 0,
                 padding: EdgeInsets.symmetric(vertical: context.getRSize(16)),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14),
-                  side: BorderSide(color: blueMain.withValues(alpha: 0.3)),
+                  side: BorderSide(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3)),
                 ),
               ),
               icon: Icon(FontAwesomeIcons.plus, size: context.getRSize(16)),
@@ -587,7 +586,7 @@ class _InventoryScreenState extends State<InventoryScreen>
                         margin: EdgeInsets.only(bottom: context.getRSize(12)),
                         padding: EdgeInsets.all(context.getRSize(16)),
                         decoration: BoxDecoration(
-                          color: _cardBg,
+                          color: Theme.of(context).cardColor,
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(color: _border),
                         ),
@@ -597,12 +596,12 @@ class _InventoryScreenState extends State<InventoryScreen>
                               width: context.getRSize(48),
                               height: context.getRSize(48),
                               decoration: BoxDecoration(
-                                color: blueMain.withValues(alpha: 0.1),
+                                color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: Icon(
                                 FontAwesomeIcons.buildingColumns,
-                                color: blueMain,
+                                color: Theme.of(context).colorScheme.primary,
                                 size: context.getRSize(20),
                               ),
                             ),
@@ -725,7 +724,7 @@ class _InventoryScreenState extends State<InventoryScreen>
         vertical: context.getRSize(10),
       ),
       decoration: BoxDecoration(
-        color: _cardBg,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: _border),
       ),
@@ -769,7 +768,7 @@ class _InventoryScreenState extends State<InventoryScreen>
 
     final accent = product.colorHex != null
         ? Color(int.parse(product.colorHex!.replaceFirst('#', '0xFF')))
-        : blueMain;
+        : Theme.of(context).colorScheme.primary;
 
     return GestureDetector(
       onTap: () {
@@ -810,11 +809,11 @@ class _InventoryScreenState extends State<InventoryScreen>
       child: Container(
         margin: EdgeInsets.only(bottom: context.spacingS),
         decoration: BoxDecoration(
-          color: _cardBg,
+          color: Theme.of(context).cardColor,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: isOut
-                ? danger.withValues(alpha: 0.3)
+                ? Theme.of(context).colorScheme.error.withValues(alpha: 0.3)
                 : (isLow
                       ? const Color(0xFFF59E0B).withValues(alpha: 0.3)
                       : _border),
@@ -940,16 +939,16 @@ class _InventoryScreenState extends State<InventoryScreen>
         Container(
           padding: EdgeInsets.all(context.getRSize(16)),
           decoration: BoxDecoration(
-            color: _isDark ? const Color(0xFF1E293B) : const Color(0xFFEFF6FF),
+            color: Theme.of(context).cardColor,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: blueMain.withValues(alpha: 0.2)),
+            border: Border.all(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.2)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 children: [
-                  Icon(FontAwesomeIcons.circleInfo, size: context.getRSize(14), color: blueMain),
+                  Icon(FontAwesomeIcons.circleInfo, size: context.getRSize(14), color: Theme.of(context).colorScheme.primary),
                   SizedBox(width: context.getRSize(8)),
                   Expanded(
                     child: Text(
@@ -995,7 +994,7 @@ class _InventoryScreenState extends State<InventoryScreen>
           Container(
             padding: EdgeInsets.all(context.getRSize(20)),
             decoration: BoxDecoration(
-              color: _isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
+              color: Theme.of(context).cardColor,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(color: _border),
             ),
@@ -1031,13 +1030,13 @@ class _InventoryScreenState extends State<InventoryScreen>
             Container(
               padding: EdgeInsets.all(context.getRSize(8)),
               decoration: BoxDecoration(
-                color: blueMain.withValues(alpha: 0.1),
+                color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Icon(
                 FontAwesomeIcons.boxesStacked,
                 size: context.getRSize(14),
-                color: blueMain,
+                color: Theme.of(context).colorScheme.primary,
               ),
             ),
             SizedBox(width: context.getRSize(10)),
@@ -1114,7 +1113,7 @@ class _InventoryScreenState extends State<InventoryScreen>
         return Container(
           padding: EdgeInsets.all(context.getRSize(16)),
           decoration: BoxDecoration(
-            color: _isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
+            color: Theme.of(context).cardColor,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(color: _border),
           ),
@@ -1139,7 +1138,7 @@ class _InventoryScreenState extends State<InventoryScreen>
                   labelText: 'Manufacturer Name',
                   labelStyle: TextStyle(color: _subtext, fontSize: context.getRFontSize(13)),
                   filled: true,
-                  fillColor: _isDark ? const Color(0xFF0F172A) : Colors.white,
+                  fillColor: Theme.of(context).colorScheme.surface,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide.none,
@@ -1159,7 +1158,7 @@ class _InventoryScreenState extends State<InventoryScreen>
                         labelText: 'Initial Crates',
                         labelStyle: TextStyle(color: _subtext, fontSize: context.getRFontSize(12)),
                         filled: true,
-                        fillColor: _isDark ? const Color(0xFF0F172A) : Colors.white,
+                        fillColor: Theme.of(context).colorScheme.surface,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                           borderSide: BorderSide.none,
@@ -1178,7 +1177,7 @@ class _InventoryScreenState extends State<InventoryScreen>
                         labelText: 'Deposit (₦)',
                         labelStyle: TextStyle(color: _subtext, fontSize: context.getRFontSize(12)),
                         filled: true,
-                        fillColor: _isDark ? const Color(0xFF0F172A) : Colors.white,
+                        fillColor: Theme.of(context).colorScheme.surface,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                           borderSide: BorderSide.none,
@@ -1194,7 +1193,7 @@ class _InventoryScreenState extends State<InventoryScreen>
                 width: double.infinity,
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: blueMain,
+                    backgroundColor: Theme.of(context).colorScheme.primary,
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     padding: EdgeInsets.symmetric(vertical: context.getRSize(14)),
@@ -1239,7 +1238,7 @@ class _InventoryScreenState extends State<InventoryScreen>
     return Container(
       margin: EdgeInsets.only(bottom: context.getRSize(12)),
       decoration: BoxDecoration(
-        color: _isDark ? const Color(0xFF1E293B) : Colors.white,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: _border),
       ),
@@ -1307,16 +1306,16 @@ class _InventoryScreenState extends State<InventoryScreen>
                   vertical: context.getRSize(6),
                 ),
                 decoration: BoxDecoration(
-                  color: blueMain.withValues(alpha: 0.1),
+                  color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: blueMain.withValues(alpha: 0.3)),
+                  border: Border.all(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3)),
                 ),
                 child: Text(
                   'Edit',
                   style: TextStyle(
                     fontSize: context.getRFontSize(12),
                     fontWeight: FontWeight.bold,
-                    color: blueMain,
+                    color: Theme.of(context).colorScheme.primary,
                   ),
                 ),
               ),
@@ -1340,7 +1339,7 @@ class _InventoryScreenState extends State<InventoryScreen>
         padding: EdgeInsets.only(bottom: context.bottomInset),
         child: Container(
           decoration: BoxDecoration(
-            color: _isDark ? const Color(0xFF1E293B) : Colors.white,
+            color: Theme.of(context).cardColor,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
           ),
           padding: EdgeInsets.fromLTRB(
@@ -1373,7 +1372,7 @@ class _InventoryScreenState extends State<InventoryScreen>
                   labelText: 'Empty Crate Stock',
                   labelStyle: TextStyle(color: _subtext),
                   filled: true,
-                  fillColor: _isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9),
+                  fillColor: Theme.of(context).colorScheme.surface,
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
                   contentPadding: EdgeInsets.all(context.getRSize(16)),
                   suffixText: 'crates',
@@ -1389,7 +1388,7 @@ class _InventoryScreenState extends State<InventoryScreen>
                   labelText: 'Deposit Amount (₦)',
                   labelStyle: TextStyle(color: _subtext),
                   filled: true,
-                  fillColor: _isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9),
+                  fillColor: Theme.of(context).colorScheme.surface,
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
                   contentPadding: EdgeInsets.all(context.getRSize(16)),
                   prefixText: '₦',
@@ -1401,7 +1400,7 @@ class _InventoryScreenState extends State<InventoryScreen>
                 width: double.infinity,
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: blueMain,
+                    backgroundColor: Theme.of(context).colorScheme.primary,
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                     padding: EdgeInsets.symmetric(vertical: context.getRSize(16)),
@@ -1475,7 +1474,7 @@ class _InventoryScreenState extends State<InventoryScreen>
             vertical: context.getRSize(10),
           ),
           decoration: BoxDecoration(
-            color: _isDark ? dCard : lCard,
+            color: Theme.of(context).cardColor,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
             border: Border.all(color: _border),
           ),
@@ -1508,7 +1507,7 @@ class _InventoryScreenState extends State<InventoryScreen>
               vertical: context.getRSize(12),
             ),
             decoration: BoxDecoration(
-              color: _cardBg,
+              color: Theme.of(context).cardColor,
               borderRadius: isLast
                   ? const BorderRadius.vertical(bottom: Radius.circular(14))
                   : BorderRadius.zero,
@@ -1545,7 +1544,7 @@ class _InventoryScreenState extends State<InventoryScreen>
                     ],
                   ),
                 ),
-                _dataCell(context, stat.fullCratesEquiv.toString(), blueMain),
+                _dataCell(context, stat.fullCratesEquiv.toString(), Theme.of(context).colorScheme.primary),
                 _dataCell(context, stat.emptyCrates.toString(),
                     stat.emptyCrates == 0 ? danger : const Color(0xFFA855F7)),
                 _dataCell(context, stat.totalCrateAssets.toString(),
@@ -1640,16 +1639,16 @@ class _InventoryScreenState extends State<InventoryScreen>
   Widget _buildLogRow(BuildContext context, ActivityLogData log) {
     final actionColors = {
       'Inventory Restock': success,
-      'Stock Adjustment': blueMain,
+      'Stock Adjustment': Theme.of(context).colorScheme.primary,
       'crate_update': const Color(0xFFF59E0B),
       'new_supplier': const Color(0xFF8B5CF6),
     };
-    final color = actionColors[log.action] ?? blueMain;
+    final color = actionColors[log.action] ?? Theme.of(context).colorScheme.primary;
 
     return Container(
       padding: EdgeInsets.all(context.getRSize(14)),
       decoration: BoxDecoration(
-        color: _cardBg,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: _border),
       ),
@@ -1748,14 +1747,14 @@ class _InventoryScreenState extends State<InventoryScreen>
             hintText: hint,
             hintStyle: TextStyle(color: _subtext),
             filled: true,
-            fillColor: _isDark ? dCard : lCard,
+            fillColor: Theme.of(context).cardColor,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
               borderSide: BorderSide.none,
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
-              borderSide: const BorderSide(color: blueMain, width: 2),
+              borderSide: BorderSide(color: Theme.of(context).colorScheme.primary, width: 2),
             ),
             contentPadding: const EdgeInsets.all(16),
           ),
@@ -1789,7 +1788,7 @@ class _InventoryScreenState extends State<InventoryScreen>
           padding: EdgeInsets.only(bottom: ctx.bottomInset),
           child: Container(
             decoration: BoxDecoration(
-              color: _isDark ? dSurface : lSurface,
+              color: Theme.of(context).colorScheme.surface,
               borderRadius: const BorderRadius.vertical(
                 top: Radius.circular(28),
               ),
@@ -1848,7 +1847,7 @@ class _InventoryScreenState extends State<InventoryScreen>
                   width: double.infinity,
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: blueMain,
+                      backgroundColor: Theme.of(context).colorScheme.primary,
                       foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(14),
@@ -1920,3 +1919,8 @@ class _StickyTabBarDelegate extends SliverPersistentHeaderDelegate {
     return child != oldDelegate.child;
   }
 }
+
+
+
+
+

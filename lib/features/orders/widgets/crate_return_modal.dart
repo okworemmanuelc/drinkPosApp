@@ -3,8 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 import '../../../core/database/app_database.dart';
-import '../../../core/theme/colors.dart';
-import '../../../core/theme/theme_notifier.dart';
+
 import '../../../core/utils/responsive.dart';
 import '../../../shared/widgets/pin_dialog.dart';
 
@@ -36,13 +35,11 @@ class _CrateReturnModalState extends State<CrateReturnModal> {
   List<_CrateGroupRow> _groups = [];
   bool _loading = true;
   bool _saving = false;
-
-  bool get _isDark => themeNotifier.value == ThemeMode.dark;
-  Color get _text => _isDark ? dText : lText;
-  Color get _subtext => _isDark ? dSubtext : lSubtext;
-  Color get _bg => _isDark ? dBg : lBg;
-  Color get _card => _isDark ? dCard : lCard;
-  Color get _border => _isDark ? dBorder : lBorder;
+  Color get _text => Theme.of(context).colorScheme.onSurface;
+  Color get _subtext => Theme.of(context).textTheme.bodySmall?.color ?? Theme.of(context).iconTheme.color!;
+  Color get _bg => Theme.of(context).scaffoldBackgroundColor;
+  Color get _card => Theme.of(context).cardColor;
+  Color get _border => Theme.of(context).dividerColor;
 
   @override
   void initState() {
@@ -269,7 +266,7 @@ class _CrateReturnModalState extends State<CrateReturnModal> {
                                           borderRadius:
                                               BorderRadius.circular(8),
                                           borderSide:
-                                              const BorderSide(color: blueMain),
+                                              BorderSide(color: Theme.of(context).colorScheme.primary),
                                         ),
                                       ),
                                     ),
@@ -317,7 +314,7 @@ class _CrateReturnModalState extends State<CrateReturnModal> {
                       child: ElevatedButton.icon(
                         onPressed: _saving ? null : _confirm,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: blueMain,
+                          backgroundColor: Theme.of(context).colorScheme.primary,
                           foregroundColor: Colors.white,
                           elevation: 0,
                           padding: EdgeInsets.symmetric(
@@ -373,3 +370,4 @@ class _CrateGroupRow {
     required this.controller,
   });
 }
+

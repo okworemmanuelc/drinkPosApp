@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import '../../../core/theme/colors.dart';
 import '../../../core/theme/design_tokens.dart';
 import '../../../core/utils/responsive.dart';
 import '../../../core/database/app_database.dart';
@@ -29,12 +28,12 @@ class _WarehouseDetailsScreenState extends State<WarehouseDetailsScreen> {
   StreamSubscription<List<ProductDataWithStock>>? _inventorySub;
   StreamSubscription<List<UserData>>? _staffSub;
 
-  bool get _isDark => Theme.of(context).brightness == Brightness.dark;
-  Color get _bg => _isDark ? dBg : lBg;
-  Color get _surface => _isDark ? dSurface : lSurface;
-  Color get _text => _isDark ? dText : lText;
-  Color get _subtext => _isDark ? dSubtext : lSubtext;
-  Color get _border => _isDark ? dBorder : lBorder;
+  
+  Color get _bg => Theme.of(context).scaffoldBackgroundColor;
+  Color get _surface => Theme.of(context).colorScheme.surface;
+  Color get _text => Theme.of(context).colorScheme.onSurface;
+  Color get _subtext => Theme.of(context).textTheme.bodySmall?.color ?? Theme.of(context).iconTheme.color!;
+  Color get _border => Theme.of(context).dividerColor;
 
   WarehouseData get _warehouse => _liveWarehouse ?? widget.warehouse;
 
@@ -130,15 +129,15 @@ class _WarehouseDetailsScreenState extends State<WarehouseDetailsScreen> {
     return Container(
       padding: EdgeInsets.all(rSize(context, 20)),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [blueMain, blueDark],
+        gradient: LinearGradient(
+          colors: [Theme.of(context).colorScheme.primary, Theme.of(context).colorScheme.secondary],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: blueMain.withValues(alpha: 0.3),
+            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
             blurRadius: 15,
             offset: const Offset(0, 8),
           ),
@@ -215,7 +214,7 @@ class _WarehouseDetailsScreenState extends State<WarehouseDetailsScreen> {
         _buildStatCard('Managers', managers.toString(),
             FontAwesomeIcons.userTie, const Color(0xFFA855F7)),
         _buildStatCard('Staff', regularStaff.toString(),
-            FontAwesomeIcons.userGroup, blueMain),
+            FontAwesomeIcons.userGroup, Theme.of(context).colorScheme.primary),
         _buildStatCard('Riders', riders.toString(),
             FontAwesomeIcons.motorcycle, AppColors.warning),
         _buildStatCard('Products', activeProducts.toString(),
@@ -367,7 +366,7 @@ class _WarehouseDetailsScreenState extends State<WarehouseDetailsScreen> {
                             ),
                             decoration: BoxDecoration(
                               color: isLow
-                                  ? AppColors.danger.withValues(alpha: 0.1)
+                                  ? Theme.of(context).colorScheme.error.withValues(alpha: 0.1)
                                   : AppColors.success.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(8),
                             ),
@@ -440,7 +439,7 @@ class _WarehouseDetailsScreenState extends State<WarehouseDetailsScreen> {
                   final isManager = member.roleTier >= 4;
                   final roleColor = isManager
                       ? const Color(0xFFA855F7)
-                      : blueMain;
+                      : Theme.of(context).colorScheme.primary;
                   return Container(
                     decoration: BoxDecoration(
                       border: Border(top: BorderSide(color: _border)),
@@ -540,7 +539,7 @@ class _WarehouseDetailsScreenState extends State<WarehouseDetailsScreen> {
                 'View Inventory',
                 'Check and manage stock',
                 FontAwesomeIcons.boxesStacked,
-                blueMain,
+                Theme.of(context).colorScheme.primary,
                 () {
                   navigationService.selectedWarehouseId.value =
                       widget.warehouse.id.toString();
@@ -615,3 +614,4 @@ class _WarehouseDetailsScreenState extends State<WarehouseDetailsScreen> {
     );
   }
 }
+

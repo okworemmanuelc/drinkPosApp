@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/theme/colors.dart';
-import '../../../core/theme/theme_notifier.dart';
+
 import '../../../core/utils/number_format.dart';
 import '../../../core/utils/responsive.dart';
 import '../../../shared/widgets/shared_scaffold.dart';
@@ -54,13 +54,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
   StreamSubscription? _expensesSub;
   StreamSubscription? _customersSub;
   StreamSubscription? _inventorySub;
-
-  bool get _isDark => themeNotifier.value == ThemeMode.dark;
-  Color get _bg => _isDark ? dBg : lBg;
-  Color get _surface => _isDark ? dSurface : lSurface;
-  Color get _text => _isDark ? dText : lText;
-  Color get _subtext => _isDark ? dSubtext : lSubtext;
-  Color get _border => _isDark ? dBorder : lBorder;
+  Color get _bg => Theme.of(context).scaffoldBackgroundColor;
+  Color get _surface => Theme.of(context).colorScheme.surface;
+  Color get _text => Theme.of(context).colorScheme.onSurface;
+  Color get _subtext => Theme.of(context).textTheme.bodySmall?.color ?? Theme.of(context).iconTheme.color!;
+  Color get _border => Theme.of(context).dividerColor;
 
   @override
   void initState() {
@@ -199,6 +197,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           (c.walletBalanceKobo < 0 ? c.walletBalanceKobo.abs() / 100.0 : 0),
     );
 
+    final themeNotifier = ValueNotifier<ThemeMode>(ThemeMode.system);
     return ValueListenableBuilder<ThemeMode>(
       valueListenable: themeNotifier,
       builder: (_, _, _) => SharedScaffold(
@@ -246,15 +245,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Container(
       padding: EdgeInsets.all(context.spacingL),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [blueMain, blueDark],
+        gradient: LinearGradient(
+          colors: [Theme.of(context).colorScheme.primary, Theme.of(context).colorScheme.secondary],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(context.radiusL),
         boxShadow: [
           BoxShadow(
-            color: blueMain.withValues(alpha: 0.3),
+            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
             blurRadius: 15,
             offset: const Offset(0, 8),
           ),
@@ -305,7 +304,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             onPressed: () => UserTipsModal.show(context),
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.white,
-              foregroundColor: blueMain,
+              foregroundColor: Theme.of(context).colorScheme.primary,
               elevation: 0,
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               shape: RoundedRectangleBorder(
@@ -370,14 +369,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.warehouse_outlined, size: context.getRSize(14), color: blueMain),
+          Icon(Icons.warehouse_outlined, size: context.getRSize(14), color: Theme.of(context).colorScheme.primary),
           SizedBox(width: context.getRSize(6)),
           Text(
             _lockedWarehouseName.isEmpty ? 'My Warehouse' : _lockedWarehouseName,
             style: TextStyle(
               fontSize: context.getRFontSize(13),
               fontWeight: FontWeight.w600,
-              color: blueMain,
+              color: Theme.of(context).colorScheme.primary,
             ),
           ),
           SizedBox(width: context.getRSize(4)),
@@ -427,7 +426,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           value: formatCurrency(sales),
           subtitle: 'Generated from $_selectedPeriod transactions',
           icon: FontAwesomeIcons.nairaSign,
-          color: blueMain,
+          color: Theme.of(context).colorScheme.primary,
           trend: sales > 0 ? 'Active' : 'No sales',
           isNeutral: true,
         ),
@@ -457,7 +456,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           value: formatCurrency(expenses),
           subtitle: 'Including operations & staff',
           icon: FontAwesomeIcons.fileInvoiceDollar,
-          color: danger,
+          color: Theme.of(context).colorScheme.error,
           trend: expenses > 0 ? 'Recorded' : 'None',
           isPositive: false,
           inverted: true,
@@ -468,7 +467,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           value: formatCurrency(_totalStockValue),
           subtitle: 'Estimated inventory worth',
           icon: FontAwesomeIcons.boxesStacked,
-          color: blueMain,
+          color: Theme.of(context).colorScheme.primary,
           trend: 'Live',
           isNeutral: true,
         ),
@@ -478,7 +477,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           value: 'Cr: ${formatCurrency(credit)}',
           subtitle: 'Debt: ${formatCurrency(debt)}',
           icon: FontAwesomeIcons.wallet,
-          color: blueMain,
+          color: Theme.of(context).colorScheme.primary,
           trend: 'Updated',
           isNeutral: true,
         ),
@@ -598,4 +597,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 }
+
+
 

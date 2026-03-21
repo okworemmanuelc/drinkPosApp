@@ -51,6 +51,11 @@ class NavigationService {
     warehouseLocked.value = false;
     lockedWarehouseId.value = null;
   }
+
+  /// Manually update the warehouse lock (e.g. for CEO switching locations in POS)
+  void setLockedWarehouse(int? id) {
+    lockedWarehouseId.value = id;
+  }
 }
 
 final navigationService = NavigationService();

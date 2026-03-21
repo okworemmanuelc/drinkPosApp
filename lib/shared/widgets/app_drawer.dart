@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import '../../core/theme/colors.dart';
-import '../../core/theme/theme_notifier.dart';
+
+import '../../core/theme/theme_settings_screen.dart';
 import '../../core/utils/responsive.dart';
 import '../../shared/services/navigation_service.dart';
 import '../../shared/services/auth_service.dart';
@@ -15,30 +15,22 @@ class AppDrawer extends StatelessWidget {
 
   const AppDrawer({super.key, required this.activeRoute});
 
-  bool get _isDark => themeNotifier.value == ThemeMode.dark;
-  Color get _surface => _isDark ? dSurface : lSurface;
-  Color get _text => _isDark ? dText : lText;
-  Color get _subtext => _isDark ? dSubtext : lSubtext;
-  Color get _border => _isDark ? dBorder : lBorder;
-  Color get _cardCol => _isDark ? dCard : lCard;
-
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<ThemeMode>(
-      valueListenable: themeNotifier,
-      builder: (_, _, _) => Drawer(
-        backgroundColor: _surface,
-        child: Column(
-          children: [
-            _buildHeader(context),
-            Expanded(child: _buildNavList(context)),
-          ],
-        ),
+    final t = Theme.of(context);
+    return Drawer(
+      backgroundColor: t.colorScheme.surface,
+      child: Column(
+        children: [
+          _buildHeader(context),
+          Expanded(child: _buildNavList(context)),
+        ],
       ),
     );
   }
 
   Widget _buildHeader(BuildContext context) {
+    final primary = Theme.of(context).colorScheme.primary;
     return Container(
       width: double.infinity,
       padding: EdgeInsets.fromLTRB(
@@ -47,9 +39,12 @@ class AppDrawer extends StatelessWidget {
         context.getRSize(20),
         context.getRSize(28),
       ),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [Color(0xFF0F172A), blueDark],
+          colors: [
+            Theme.of(context).scaffoldBackgroundColor,
+            primary.withValues(alpha: 0.3),
+          ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -64,7 +59,7 @@ class AppDrawer extends StatelessWidget {
               borderRadius: BorderRadius.circular(14),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFF2563EB).withValues(alpha: 0.4),
+                  color: primary.withValues(alpha: 0.4),
                   blurRadius: 16,
                   spreadRadius: 2,
                 ),
@@ -89,25 +84,25 @@ class AppDrawer extends StatelessWidget {
                 margin: const EdgeInsets.only(bottom: 12),
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.1),
+                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const SizedBox(
+                    SizedBox(
                       width: 10,
                       height: 10,
                       child: CircularProgressIndicator(
                         strokeWidth: 1.5,
-                        color: Color(0xFF60A5FA),
+                        color: Theme.of(context).colorScheme.primary,
                       ),
                     ),
                     const SizedBox(width: 8),
                     Text(
                       'Syncing $count file${count == 1 ? '' : 's'}…',
-                      style: const TextStyle(
-                        color: Color(0xFF93C5FD),
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.8),
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
                       ),
@@ -120,8 +115,8 @@ class AppDrawer extends StatelessWidget {
           Text(
             authService.currentUser?.name ?? 'John Cashier',
             style: TextStyle(
-              color: Colors.white,
-              fontSize: context.getRFontSize(18), // Responsive font
+              color: Theme.of(context).colorScheme.onSurface,
+              fontSize: context.getRFontSize(18),
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -132,13 +127,13 @@ class AppDrawer extends StatelessWidget {
               vertical: context.getRSize(4),
             ),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.15),
+              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(20),
             ),
             child: Text(
               'Terminal 01',
               style: TextStyle(
-                color: Colors.white,
+                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.8),
                 fontSize: context.getRFontSize(12),
                 fontWeight: FontWeight.w600,
               ),
@@ -150,6 +145,7 @@ class AppDrawer extends StatelessWidget {
   }
 
   Widget _buildNavList(BuildContext context) {
+    final t = Theme.of(context);
     return ListView(
       padding: EdgeInsets.symmetric(
         horizontal: context.getRSize(12),
@@ -221,7 +217,7 @@ class AppDrawer extends StatelessWidget {
           onTap: () => _navigateTo(context, 'staff'),
         ),
         SizedBox(height: context.getRSize(12)),
-        Divider(color: _border),
+        Divider(color: t.dividerColor),
         SizedBox(height: context.getRSize(12)),
         _navItem(
           context,
@@ -255,7 +251,7 @@ class AppDrawer extends StatelessWidget {
           },
         ),
         SizedBox(height: context.getRSize(12)),
-        Divider(color: _border),
+        Divider(color: t.dividerColor),
         SizedBox(height: context.getRSize(12)),
         _navItem(
           context,
@@ -263,17 +259,17 @@ class AppDrawer extends StatelessWidget {
           'Log Out',
           active: false,
           outlined: true,
-          iconColor: danger,
-          labelColor: danger,
+          iconColor: t.colorScheme.error,
+          labelColor: t.colorScheme.error,
           onTap: () {
             Navigator.pop(context); // close the drawer first
             authService.logout();   // clears the user → main.dart shows login screen
           },
         ),
         SizedBox(height: context.getRSize(12)),
-        Divider(color: _border),
+        Divider(color: t.dividerColor),
         SizedBox(height: context.getRSize(12)),
-        _buildThemeToggle(context),
+        _buildAppearanceTile(context),
         // Extra space for system navigation bar
         SizedBox(height: MediaQuery.of(context).padding.bottom + context.getRSize(20)),
       ],
@@ -282,9 +278,6 @@ class AppDrawer extends StatelessWidget {
 
   // ── Navigation logic — now uses NavigationService shell ────────────────────
   void _navigateTo(BuildContext context, String route) {
-    // Close the drawer only — MainLayout uses IndexedStack so no Navigator
-    // stack manipulation is needed. popUntil was previously popping all the
-    // way back to OnboardingScreen, causing a spurious "logout".
     Navigator.pop(context);
 
     if (route == 'dashboard') {
@@ -324,16 +317,22 @@ class AppDrawer extends StatelessWidget {
     Color? iconColor,
     Color? labelColor,
   }) {
+    final t = Theme.of(context);
+    final primary = t.colorScheme.primary;
+    final cardColor = t.cardColor;
+    final subtextColor = t.textTheme.bodySmall?.color ?? t.iconTheme.color!;
+    final textColor = t.colorScheme.onSurface;
+
     return Container(
       margin: EdgeInsets.only(bottom: context.getRSize(6)),
       decoration: outlined
           ? BoxDecoration(
-              border: Border.all(color: danger.withValues(alpha: 0.5)),
+              border: Border.all(color: t.colorScheme.error.withValues(alpha: 0.5)),
               borderRadius: BorderRadius.circular(14),
             )
           : null,
       child: Material(
-        color: active ? blueMain.withValues(alpha: 0.1) : Colors.transparent,
+        color: active ? primary.withValues(alpha: 0.1) : Colors.transparent,
         borderRadius: BorderRadius.circular(14),
         child: InkWell(
           borderRadius: BorderRadius.circular(14),
@@ -349,13 +348,13 @@ class AppDrawer extends StatelessWidget {
                   width: context.getRSize(36),
                   height: context.getRSize(36),
                   decoration: BoxDecoration(
-                    color: active ? blueMain.withValues(alpha: 0.2) : _cardCol,
+                    color: active ? primary.withValues(alpha: 0.2) : cardColor,
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Icon(
                     icon,
                     size: context.getRSize(16),
-                    color: iconColor ?? (active ? blueMain : _subtext),
+                    color: iconColor ?? (active ? primary : subtextColor),
                   ),
                 ),
                 SizedBox(width: context.getRSize(14)),
@@ -365,7 +364,7 @@ class AppDrawer extends StatelessWidget {
                     style: TextStyle(
                       fontWeight: active ? FontWeight.bold : FontWeight.w600,
                       fontSize: context.getRFontSize(14.5),
-                      color: labelColor ?? (active ? blueMain : _text),
+                      color: labelColor ?? (active ? primary : textColor),
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -376,8 +375,8 @@ class AppDrawer extends StatelessWidget {
                   Container(
                     width: context.getRSize(6),
                     height: context.getRSize(6),
-                    decoration: const BoxDecoration(
-                      color: blueMain,
+                    decoration: BoxDecoration(
+                      color: primary,
                       shape: BoxShape.circle,
                     ),
                   ),
@@ -390,173 +389,99 @@ class AppDrawer extends StatelessWidget {
     );
   }
 
-  Widget _buildThemeToggle(BuildContext context) {
-    return ValueListenableBuilder<ThemeMode>(
-      valueListenable: themeNotifier,
-      builder: (_, mode, _) {
-        final isSystem = mode == ThemeMode.system;
-        final dark = mode == ThemeMode.dark;
-        final label = isSystem
-            ? 'System Theme'
-            : dark
-            ? 'Dark Theme'
-            : 'Light Theme';
-        final icon = isSystem
-            ? FontAwesomeIcons.desktop
-            : dark
-            ? FontAwesomeIcons.moon
-            : FontAwesomeIcons.sun;
+  /// Appearance tile that navigates to the full Theme Settings screen.
+  Widget _buildAppearanceTile(BuildContext context) {
+    final t = Theme.of(context);
+    final primary = t.colorScheme.primary;
 
-        return Padding(
+    return Padding(
+      padding: EdgeInsets.symmetric(
+        horizontal: context.getRSize(16),
+        vertical: context.getRSize(12),
+      ),
+      child: GestureDetector(
+        onTap: () {
+          Navigator.pop(context); // close drawer
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => const ThemeSettingsScreen(),
+            ),
+          );
+        },
+        child: Container(
+          width: double.infinity,
           padding: EdgeInsets.symmetric(
             horizontal: context.getRSize(16),
-            vertical: context.getRSize(12),
+            vertical: context.getRSize(14),
           ),
-          child: Theme(
-            data: Theme.of(context).copyWith(
-              splashColor: Colors.transparent,
-              highlightColor: Colors.transparent,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [primary, primary.withValues(alpha: 0.7)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
-            child: PopupMenuButton<ThemeMode>(
-              initialValue: mode,
-              tooltip: 'Select Theme',
-              offset: Offset(0, context.getRSize(-160)), // roll to the upside
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(14),
+            boxShadow: [
+              BoxShadow(
+                color: primary.withValues(alpha: 0.3),
+                blurRadius: 8,
+                offset: const Offset(0, 4),
               ),
-              color: _surface,
-              elevation: 8,
-              onSelected: (ThemeMode newMode) {
-                themeNotifier.value = newMode;
-              },
-              itemBuilder: (context) => [
-                _buildThemeMenuItem(
-                  context,
-                  ThemeMode.light,
-                  'Light Theme',
-                  FontAwesomeIcons.sun,
-                  mode,
-                ),
-                _buildThemeMenuItem(
-                  context,
-                  ThemeMode.dark,
-                  'Dark Theme',
-                  FontAwesomeIcons.moon,
-                  mode,
-                ),
-                _buildThemeMenuItem(
-                  context,
-                  ThemeMode.system,
-                  'System Theme',
-                  FontAwesomeIcons.desktop,
-                  mode,
-                ),
-              ],
-              child: Container(
-                width: double.infinity,
-                padding: EdgeInsets.symmetric(
-                  horizontal: context.getRSize(16),
-                  vertical: context.getRSize(14),
-                ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: context.getRSize(32),
+                height: context.getRSize(32),
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [blueMain, blueDark],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(14),
-                  boxShadow: [
-                    BoxShadow(
-                      color: blueMain.withValues(alpha: 0.3),
-                      blurRadius: 8,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
+                  color: Colors.white.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(10),
                 ),
-                child: Row(
+                child: Center(
+                  child: Icon(
+                    FontAwesomeIcons.palette,
+                    size: context.getRSize(14),
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+              SizedBox(width: context.getRSize(14)),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      width: context.getRSize(32),
-                      height: context.getRSize(32),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Icon(
-                        icon,
-                        size: context.getRSize(14),
+                    Text(
+                      'Appearance',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: context.getRFontSize(14),
                         color: Colors.white,
                       ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    SizedBox(width: context.getRSize(14)),
-                    Expanded(
-                      child: Text(
-                        label,
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: context.getRFontSize(14.5),
-                          color: Colors.white,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                    Text(
+                      'Theme & Display',
+                      style: TextStyle(
+                        fontSize: context.getRFontSize(11),
+                        color: Colors.white.withValues(alpha: 0.7),
                       ),
-                    ),
-                    Icon(
-                      FontAwesomeIcons.chevronUp,
-                      size: context.getRSize(14),
-                      color: Colors.white.withValues(alpha: 0.8),
                     ),
                   ],
                 ),
               ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  PopupMenuItem<ThemeMode> _buildThemeMenuItem(
-    BuildContext context,
-    ThemeMode value,
-    String text,
-    IconData icon,
-    ThemeMode currentMode,
-  ) {
-    final isActive = value == currentMode;
-    return PopupMenuItem<ThemeMode>(
-      value: value,
-      child: SizedBox(
-        width: context.getRSize(180),
-        child: Row(
-          children: [
-            Icon(
-              icon,
-              size: context.getRSize(16),
-              color: isActive ? blueMain : _text,
-            ),
-            SizedBox(width: context.getRSize(12)),
-            Text(
-              text,
-              style: TextStyle(
-                color: isActive ? blueMain : _text,
-                fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
-                fontSize: context.getRFontSize(14),
-              ),
-            ),
-            const Spacer(),
-            if (isActive)
               Icon(
-                FontAwesomeIcons.circleCheck,
-                size: context.getRSize(16),
-                color: blueMain,
+                FontAwesomeIcons.chevronRight,
+                size: context.getRSize(14),
+                color: Colors.white.withValues(alpha: 0.8),
               ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
-
 }
 
 

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../../../core/theme/colors.dart';
-import '../../../../core/theme/theme_notifier.dart';
+
 import '../../../../core/utils/number_format.dart';
 import '../../../../core/utils/responsive.dart';
 import '../../../../shared/services/activity_log_service.dart';
@@ -56,13 +56,11 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
   List<ProductData> _allProducts = [];
   List<WarehouseData> _warehouses = [];
   WarehouseData? _selectedWarehouse;
-
-  bool get _isDark => themeNotifier.value == ThemeMode.dark;
-  Color get _surface => _isDark ? dSurface : lSurface;
-  Color get _text => _isDark ? dText : lText;
-  Color get _subtext => _isDark ? dSubtext : lSubtext;
-  Color get _border => _isDark ? dBorder : lBorder;
-  Color get _cardBg => _isDark ? dCard : lCard;
+  Color get _surface => Theme.of(context).colorScheme.surface;
+  Color get _text => Theme.of(context).colorScheme.onSurface;
+  Color get _subtext => Theme.of(context).textTheme.bodySmall?.color ?? Theme.of(context).iconTheme.color!;
+  Color get _border => Theme.of(context).dividerColor;
+  Color get _cardBg => Theme.of(context).cardColor;
 
   @override
   void initState() {
@@ -135,9 +133,9 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
     // Validate warehouse
     if (_selectedWarehouse == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text('Please select a destination warehouse.'),
-          backgroundColor: danger,
+          backgroundColor: Theme.of(context).colorScheme.error,
         ),
       );
       return;
@@ -147,36 +145,36 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
     for (var l in _lines) {
       if (l.selectedProduct == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Text('Select a product from the list for each item.'),
-            backgroundColor: danger,
+            backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );
         return;
       }
       if ((double.tryParse(l.qtyCtrl.text) ?? 0) <= 0) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Text('Quantity must be greater than 0 for each item.'),
-            backgroundColor: danger,
+            backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );
         return;
       }
       if (l.selectedSupplier == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Text('Please select a supplier for each item.'),
-            backgroundColor: danger,
+            backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );
         return;
       }
       if (l.selectedCategory == 'Glass Crates' && l.selectedCrateGroup == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Text('Select a Crate Company for Glass Crate items.'),
-            backgroundColor: danger,
+            backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );
         return;
@@ -328,7 +326,7 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(14),
-                    borderSide: const BorderSide(color: blueMain, width: 2),
+                    borderSide: BorderSide(color: Theme.of(context).colorScheme.primary, width: 2),
                   ),
                   contentPadding: const EdgeInsets.all(16),
                 ),
@@ -351,7 +349,7 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(14),
-                borderSide: const BorderSide(color: blueMain, width: 2),
+                borderSide: BorderSide(color: Theme.of(context).colorScheme.primary, width: 2),
               ),
               contentPadding: const EdgeInsets.all(16),
             ),
@@ -428,11 +426,11 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
                         SizedBox(height: context.getRSize(16)),
                         // ── WAREHOUSE SELECTOR ─────────────────────────────
                         if (_warehouses.isEmpty)
-                          const Text(
+                          Text(
                             'No warehouses found. Add a warehouse first.',
                             style: TextStyle(
                               fontSize: 13,
-                              color: danger,
+                              color: Theme.of(context).colorScheme.error,
                             ),
                           )
                         else
@@ -491,7 +489,7 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
                 Text(
                   'Item ${index + 1}',
                   style: TextStyle(
-                    color: blueMain,
+                    color: Theme.of(context).colorScheme.primary,
                     fontWeight: FontWeight.bold,
                     fontSize: context.getRFontSize(14),
                   ),
@@ -501,7 +499,7 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
                     onTap: () => _removeLine(index),
                     child: Icon(
                       FontAwesomeIcons.circleMinus,
-                      color: danger,
+                      color: Theme.of(context).colorScheme.error,
                       size: context.getRSize(18),
                     ),
                   ),
@@ -648,7 +646,7 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
                     style: TextStyle(fontWeight: FontWeight.bold),
                   ),
                   style: TextButton.styleFrom(
-                    foregroundColor: blueMain,
+                    foregroundColor: Theme.of(context).colorScheme.primary,
                     padding: EdgeInsets.symmetric(
                       horizontal: context.getRSize(16),
                       vertical: context.getRSize(12),
@@ -665,7 +663,7 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
               width: double.infinity,
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: blueMain,
+                  backgroundColor: Theme.of(context).colorScheme.primary,
                   foregroundColor: Colors.white,
                   padding: EdgeInsets.symmetric(vertical: context.getRSize(16)),
                   shape: RoundedRectangleBorder(
@@ -689,4 +687,5 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
     );
   }
 }
+
 

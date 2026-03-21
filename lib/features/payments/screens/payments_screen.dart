@@ -3,7 +3,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/theme/colors.dart';
-import '../../../core/theme/theme_notifier.dart';
+
 import '../../../core/utils/number_format.dart';
 import '../../../core/utils/responsive.dart';
 import '../../../shared/widgets/app_drawer.dart';
@@ -31,14 +31,12 @@ class _PaymentsScreenState extends State<PaymentsScreen>
   late TabController _tabController;
   String _periodFilter = 'This Month';
   String _supplierFilter = 'All';
-
-  bool get _isDark => themeNotifier.value == ThemeMode.dark;
-  Color get _bg => _isDark ? dBg : lBg;
-  Color get _surface => _isDark ? dSurface : lSurface;
-  Color get _text => _isDark ? dText : lText;
-  Color get _subtext => _isDark ? dSubtext : lSubtext;
-  Color get _border => _isDark ? dBorder : lBorder;
-  Color get _cardBg => _isDark ? dCard : lSurface;
+  Color get _bg => Theme.of(context).scaffoldBackgroundColor;
+  Color get _surface => Theme.of(context).colorScheme.surface;
+  Color get _text => Theme.of(context).colorScheme.onSurface;
+  Color get _subtext => Theme.of(context).textTheme.bodySmall?.color ?? Theme.of(context).iconTheme.color!;
+  Color get _border => Theme.of(context).dividerColor;
+  
 
   @override
   void initState() {
@@ -54,6 +52,7 @@ class _PaymentsScreenState extends State<PaymentsScreen>
 
   @override
   Widget build(BuildContext context) {
+    final themeNotifier = ValueNotifier<ThemeMode>(ThemeMode.system);
     return ValueListenableBuilder<ThemeMode>(
       valueListenable: themeNotifier,
       builder: (context, mode, child) {
@@ -85,7 +84,7 @@ class _PaymentsScreenState extends State<PaymentsScreen>
               borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
-                  color: blueMain.withValues(alpha: 0.3),
+                  color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
                   blurRadius: 10,
                   offset: const Offset(0, 4),
                 ),
@@ -146,7 +145,7 @@ class _PaymentsScreenState extends State<PaymentsScreen>
                   height: 2.5,
                   width: context.getRSize(16),
                   decoration: BoxDecoration(
-                    color: blueMain,
+                    color: Theme.of(context).colorScheme.primary,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -172,11 +171,11 @@ class _PaymentsScreenState extends State<PaymentsScreen>
           Container(
             padding: EdgeInsets.all(context.getRSize(8)),
             decoration: BoxDecoration(
-              gradient: const LinearGradient(colors: [blueLight, blueMain]),
+              gradient: LinearGradient(colors: [Theme.of(context).colorScheme.primary.withValues(alpha: 0.7), Theme.of(context).colorScheme.primary]),
               borderRadius: BorderRadius.circular(12),
               boxShadow: [
                 BoxShadow(
-                  color: blueMain.withValues(alpha: 0.3),
+                  color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
                   blurRadius: 8,
                   offset: const Offset(0, 2),
                 ),
@@ -209,7 +208,7 @@ class _PaymentsScreenState extends State<PaymentsScreen>
                   'Manage supplier payments',
                   style: TextStyle(
                     fontSize: context.getRFontSize(11),
-                    color: blueMain,
+                    color: Theme.of(context).colorScheme.primary,
                     fontWeight: FontWeight.w600,
                   ),
                   maxLines: 1,
@@ -313,7 +312,7 @@ class _PaymentsScreenState extends State<PaymentsScreen>
             onSelected: (val) {
               setState(() => _supplierFilter = sName);
             },
-            selectedColor: blueMain,
+            selectedColor: Theme.of(context).colorScheme.primary,
             backgroundColor: _bg,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(20),
@@ -333,9 +332,9 @@ class _PaymentsScreenState extends State<PaymentsScreen>
       color: _surface,
       child: TabBar(
         controller: _tabController,
-        labelColor: blueMain,
+        labelColor: Theme.of(context).colorScheme.primary,
         unselectedLabelColor: _subtext,
-        indicatorColor: blueMain,
+        indicatorColor: Theme.of(context).colorScheme.primary,
         indicatorWeight: 3,
         labelStyle: TextStyle(
           fontWeight: FontWeight.bold,
@@ -397,13 +396,13 @@ class _PaymentsScreenState extends State<PaymentsScreen>
             width: double.infinity,
             child: ElevatedButton.icon(
               style: ElevatedButton.styleFrom(
-                backgroundColor: blueMain.withValues(alpha: 0.1),
-                foregroundColor: blueMain,
+                backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                foregroundColor: Theme.of(context).colorScheme.primary,
                 elevation: 0,
                 padding: EdgeInsets.symmetric(vertical: context.getRSize(16)),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14),
-                  side: BorderSide(color: blueMain.withValues(alpha: 0.3)),
+                  side: BorderSide(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3)),
                 ),
               ),
               icon: Icon(FontAwesomeIcons.plus, size: context.getRSize(16)),
@@ -447,7 +446,7 @@ class _PaymentsScreenState extends State<PaymentsScreen>
                         margin: EdgeInsets.only(bottom: context.getRSize(12)),
                         padding: EdgeInsets.all(context.getRSize(16)),
                         decoration: BoxDecoration(
-                          color: _cardBg,
+                          color: Theme.of(context).cardColor,
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(color: _border),
                         ),
@@ -457,12 +456,12 @@ class _PaymentsScreenState extends State<PaymentsScreen>
                               width: context.getRSize(48),
                               height: context.getRSize(48),
                               decoration: BoxDecoration(
-                                color: blueMain.withValues(alpha: 0.1),
+                                color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: Icon(
                                 FontAwesomeIcons.buildingColumns,
-                                color: blueMain,
+                                color: Theme.of(context).colorScheme.primary,
                                 size: context.getRSize(20),
                               ),
                             ),
@@ -521,7 +520,7 @@ class _PaymentsScreenState extends State<PaymentsScreen>
           padding: EdgeInsets.only(bottom: ctx.bottomInset),
           child: Container(
             decoration: BoxDecoration(
-              color: _isDark ? dSurface : lSurface,
+              color: Theme.of(context).colorScheme.surface,
               borderRadius: const BorderRadius.vertical(
                 top: Radius.circular(28),
               ),
@@ -580,7 +579,7 @@ class _PaymentsScreenState extends State<PaymentsScreen>
                   width: double.infinity,
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: blueMain,
+                      backgroundColor: Theme.of(context).colorScheme.primary,
                       foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(14),
@@ -663,7 +662,7 @@ class _PaymentsScreenState extends State<PaymentsScreen>
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: blueMain),
+              borderSide: BorderSide(color: Theme.of(context).colorScheme.primary),
             ),
             contentPadding: EdgeInsets.all(context.getRSize(16)),
           ),
@@ -717,12 +716,11 @@ class _PaymentCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final themeNotifier = ThemeNotifier.instance;
-    final isDark = themeNotifier.value == ThemeMode.dark;
-    final cardBg = isDark ? dCard : lSurface;
-    final textCol = isDark ? dText : lText;
-    final subtextCol = isDark ? dSubtext : lSubtext;
-    final borderCol = isDark ? dBorder : lBorder;
+    
+    final cardBg = Theme.of(context).cardColor;
+    final textCol = Theme.of(context).colorScheme.onSurface;
+    final subtextCol = Theme.of(context).textTheme.bodySmall?.color ?? Theme.of(context).iconTheme.color!;
+    final borderCol = Theme.of(context).dividerColor;
 
     final dateStr = DateFormat('MMM d, y • h:mm a').format(payment.date);
 
@@ -838,9 +836,11 @@ class _PaymentCard extends StatelessWidget {
       ),
     );
   }
-} // Temporary themeNotifier instance
-
-class ThemeNotifier {
-  static final instance = themeNotifier;
 }
+
+
+
+
+
+
 

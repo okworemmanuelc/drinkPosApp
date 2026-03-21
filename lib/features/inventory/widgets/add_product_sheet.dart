@@ -2,8 +2,7 @@ import 'package:drift/drift.dart' as drift;
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../../core/database/app_database.dart';
-import '../../../core/theme/colors.dart';
-import '../../../core/theme/theme_notifier.dart';
+
 import '../../../shared/widgets/app_dropdown.dart';
 import '../../../core/utils/responsive.dart';
 
@@ -56,9 +55,6 @@ class _AddProductSheetState extends State<AddProductSheet> {
     '#334155',
     '#64748B',
   ];
-
-  bool get _isDark => themeNotifier.value == ThemeMode.dark;
-
   @override
   void initState() {
     super.initState();
@@ -284,11 +280,11 @@ class _AddProductSheetState extends State<AddProductSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final bg = _isDark ? dSurface : lSurface;
-    final card = _isDark ? dCard : lCard;
-    final textColor = _isDark ? dText : lText;
-    final subtext = _isDark ? dSubtext : lSubtext;
-    final border = _isDark ? dBorder : lBorder;
+    final bg = Theme.of(context).colorScheme.surface;
+    final card = Theme.of(context).cardColor;
+    final textColor = Theme.of(context).colorScheme.onSurface;
+    final subtext = Theme.of(context).textTheme.bodySmall?.color ?? Theme.of(context).iconTheme.color!;
+    final border = Theme.of(context).dividerColor;
 
     return Padding(
       padding: EdgeInsets.only(
@@ -328,12 +324,12 @@ class _AddProductSheetState extends State<AddProductSheet> {
                     width: 44,
                     height: 44,
                     decoration: BoxDecoration(
-                      color: blueMain.withValues(alpha: 0.12),
+                      color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Icon(
+                    child: Icon(
                       FontAwesomeIcons.boxOpen,
-                      color: blueMain,
+                      color: Theme.of(context).colorScheme.primary,
                       size: 18,
                     ),
                   ),
@@ -557,7 +553,7 @@ class _AddProductSheetState extends State<AddProductSheet> {
                             _suggestionTile(
                               label: 'Create "${_manufacturerCtrl.text.trim()}"',
                               icon: Icons.add_circle_outline,
-                              textColor: blueMain,
+                              textColor: Theme.of(context).colorScheme.primary,
                               card: card,
                               border: border,
                               onTap: () => _createNewManufacturer(
@@ -612,7 +608,7 @@ class _AddProductSheetState extends State<AddProductSheet> {
                             _suggestionTile(
                               label: 'Create "${_supplierCtrl.text.trim()}"',
                               icon: Icons.add_circle_outline,
-                              textColor: blueMain,
+                              textColor: Theme.of(context).colorScheme.primary,
                               card: card,
                               border: border,
                               onTap: () => _createNewSupplier(
@@ -693,7 +689,7 @@ class _AddProductSheetState extends State<AddProductSheet> {
                 width: double.infinity,
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: blueMain,
+                    backgroundColor: Theme.of(context).colorScheme.primary,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
@@ -784,7 +780,7 @@ class _AddProductSheetState extends State<AddProductSheet> {
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: blueMain, width: 2),
+              borderSide: BorderSide(color: Theme.of(context).colorScheme.primary, width: 2),
             ),
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 16,
@@ -833,7 +829,7 @@ class _AddProductSheetState extends State<AddProductSheet> {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: blueMain, width: 2),
+          borderSide: BorderSide(color: Theme.of(context).colorScheme.primary, width: 2),
         ),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
@@ -874,7 +870,7 @@ class _AddProductSheetState extends State<AddProductSheet> {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Row(
           children: [
-            Icon(icon, size: 16, color: blueMain),
+            Icon(icon, size: 16, color: Theme.of(context).colorScheme.primary),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
@@ -893,3 +889,4 @@ class _AddProductSheetState extends State<AddProductSheet> {
     );
   }
 }
+

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../services/notification_service.dart';
 import '../../core/utils/responsive.dart';
-import '../../core/theme/colors.dart';
 import 'notifications_modal.dart';
 
 class NotificationBell extends StatelessWidget {
@@ -10,6 +9,7 @@ class NotificationBell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = Theme.of(context);
     return ValueListenableBuilder(
       valueListenable: notificationService,
       builder: (context, notifications, _) {
@@ -28,7 +28,7 @@ class NotificationBell extends StatelessWidget {
                   child: Icon(
                     FontAwesomeIcons.bell,
                     size: context.getRSize(20),
-                    color: blueMain,
+                    color: t.colorScheme.primary,
                   ),
                 ),
                 if (unreadCount > 0)
@@ -37,8 +37,8 @@ class NotificationBell extends StatelessWidget {
                     right: context.getRSize(8),
                     child: Container(
                       padding: const EdgeInsets.all(2),
-                      decoration: const BoxDecoration(
-                        color: danger,
+                      decoration: BoxDecoration(
+                        color: t.colorScheme.error,
                         shape: BoxShape.circle,
                       ),
                       constraints: BoxConstraints(

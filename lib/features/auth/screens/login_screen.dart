@@ -579,10 +579,9 @@ class _UserPickerSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final surface = isDark ? dSurface : lSurface;
-    final textColor = isDark ? dText : lText;
-    final subtextColor = isDark ? dSubtext : lSubtext;
+    final surface = Theme.of(context).colorScheme.surface;
+    final textColor = Theme.of(context).colorScheme.onSurface;
+    final subtextColor = Theme.of(context).textTheme.bodySmall?.color ?? Theme.of(context).iconTheme.color!;
 
     return Container(
       decoration: BoxDecoration(

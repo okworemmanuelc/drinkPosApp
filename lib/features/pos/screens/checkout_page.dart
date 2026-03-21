@@ -17,7 +17,7 @@ import '../../../core/utils/logger.dart';
 import '../services/receipt_builder.dart';
 import '../../customers/data/models/customer.dart';
 import '../../../core/theme/colors.dart';
-import '../../../core/theme/theme_notifier.dart';
+
 import '../../../core/utils/number_format.dart';
 import '../../../core/utils/currency_input_formatter.dart';
 import '../../../shared/services/navigation_service.dart';
@@ -67,14 +67,12 @@ class _CheckoutPageState extends State<CheckoutPage> {
   String _currentOrderId = '';
 
   bool get _isWalkIn => widget.customer == null || widget.customer!.isWalkIn;
-
-  bool get _isDark => themeNotifier.value == ThemeMode.dark;
-  Color get _bg => _isDark ? dBg : lBg;
-  Color get _surface => _isDark ? dSurface : lSurface;
-  Color get _cardBg => _isDark ? dCard : lCard;
-  Color get _text => _isDark ? dText : lText;
-  Color get _subtext => _isDark ? dSubtext : lSubtext;
-  Color get _border => _isDark ? dBorder : lBorder;
+  Color get _bg => Theme.of(context).scaffoldBackgroundColor;
+  Color get _surface => Theme.of(context).colorScheme.surface;
+  Color get _cardBg => Theme.of(context).cardColor;
+  Color get _text => Theme.of(context).colorScheme.onSurface;
+  Color get _subtext => Theme.of(context).textTheme.bodySmall?.color ?? Theme.of(context).iconTheme.color!;
+  Color get _border => Theme.of(context).dividerColor;
 
   @override
   void initState() {
@@ -135,6 +133,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
   // ── build ──────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
+    final themeNotifier = ValueNotifier<ThemeMode>(ThemeMode.system);
     return ValueListenableBuilder<ThemeMode>(
       valueListenable: themeNotifier,
       builder: (_, mode, child) => Scaffold(
@@ -219,7 +218,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 Container(
                   padding: EdgeInsets.all(context.getRSize(10)),
                   decoration: BoxDecoration(
-                    color: blueMain.withValues(alpha: 0.12),
+                    color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Icon(
@@ -227,7 +226,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                         ? FontAwesomeIcons.userTag
                         : FontAwesomeIcons.user,
                     size: context.getRSize(16),
-                    color: blueMain,
+                    color: Theme.of(context).colorScheme.primary,
                   ),
                 ),
                 SizedBox(width: context.getRSize(14)),
@@ -305,9 +304,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 vertical: context.getRSize(12),
               ),
               decoration: BoxDecoration(
-                color: blueMain.withValues(alpha: 0.07),
+                color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.07),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: blueMain.withValues(alpha: 0.2)),
+                border: Border.all(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.2)),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -394,7 +393,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: [
                   BoxShadow(
-                    color: blueMain.withValues(alpha: 0.3),
+                    color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
                     blurRadius: 14,
                     offset: const Offset(0, 6),
                   ),
@@ -507,7 +506,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Checkout failed: ${e.toString()}'),
-            backgroundColor: danger,
+            backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );
       }
@@ -580,7 +579,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 child: _receiptButton(
                   'Print Receipt',
                   FontAwesomeIcons.print,
-                  blueMain,
+                  Theme.of(context).colorScheme.primary,
                   _printReceipt,
                 ),
               ),
@@ -609,7 +608,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: context.getRFontSize(14),
-                  color: blueMain,
+                  color: Theme.of(context).colorScheme.primary,
                 ),
               ),
             ),
@@ -895,7 +894,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
     final int lineTotal = (price * qty).toInt();
 
     final rawColor = item['color'];
-    Color itemColor = blueMain;
+    Color itemColor = Theme.of(context).colorScheme.primary;
     if (rawColor is Color) {
       itemColor = rawColor;
     } else if (rawColor is String && rawColor.isNotEmpty) {
@@ -909,7 +908,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
           int.parse(hex.startsWith('0x') ? hex : '0xFF$hex', radix: 16),
         );
       } catch (_) {
-        itemColor = blueMain;
+        itemColor = Theme.of(context).colorScheme.primary;
       }
     }
 
@@ -1039,7 +1038,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
           color: disabled
               ? _border.withValues(alpha: 0.10)
               : active
-              ? blueMain.withValues(alpha: 0.08)
+              ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.08)
               : _surface,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
@@ -1153,7 +1152,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
-              borderSide: const BorderSide(color: blueMain, width: 2),
+              borderSide: BorderSide(color: Theme.of(context).colorScheme.primary, width: 2),
             ),
             contentPadding: EdgeInsets.all(context.getRSize(16)),
           ),
@@ -1162,3 +1161,5 @@ class _CheckoutPageState extends State<CheckoutPage> {
     );
   }
 }
+
+

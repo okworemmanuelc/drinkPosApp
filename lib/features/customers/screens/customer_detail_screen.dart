@@ -6,7 +6,7 @@ import 'package:intl/intl.dart';
 
 import '../../../core/database/app_database.dart';
 import '../../../core/theme/colors.dart';
-import '../../../core/theme/theme_notifier.dart';
+
 import '../../../core/utils/number_format.dart';
 import '../../../core/utils/responsive.dart';
 import '../../inventory/data/models/crate_group.dart';
@@ -105,16 +105,17 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final themeNotifier = ValueNotifier<ThemeMode>(ThemeMode.system);
     return ValueListenableBuilder<ThemeMode>(
       valueListenable: themeNotifier,
       builder: (_, mode, _) {
-        final isDark = mode == ThemeMode.dark;
-        final bgCol = isDark ? dBg : lBg;
-        final surfaceCol = isDark ? dSurface : lSurface;
-        final textCol = isDark ? dText : lText;
-        final subtextCol = isDark ? dSubtext : lSubtext;
-        final borderCol = isDark ? dBorder : lBorder;
-        final cardCol = isDark ? dCard : lCard;
+        
+        final bgCol = Theme.of(context).scaffoldBackgroundColor;
+        final surfaceCol = Theme.of(context).colorScheme.surface;
+        final textCol = Theme.of(context).colorScheme.onSurface;
+        final subtextCol = Theme.of(context).textTheme.bodySmall?.color ?? Theme.of(context).iconTheme.color!;
+        final borderCol = Theme.of(context).dividerColor;
+        final cardCol = Theme.of(context).cardColor;
 
         // First frame: show a lightweight skeleton so the screen opens instantly.
         if (!_contentReady) {
@@ -122,9 +123,9 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
             backgroundColor: bgCol,
             appBar: _buildAppBar(context, surfaceCol, textCol, borderCol),
             bottomNavigationBar: const SharedBottomNavBar(),
-            body: const Center(
+            body: Center(
               child: CircularProgressIndicator(
-                color: blueMain,
+                color: Theme.of(context).colorScheme.primary,
                 strokeWidth: 2,
               ),
             ),
@@ -213,11 +214,11 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
             children: [
               CircleAvatar(
                 radius: context.getRSize(40),
-                backgroundColor: blueMain.withValues(alpha: 0.1),
+                backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
                 child: Text(
                   _customer.name.isNotEmpty ? _customer.name.substring(0, 1).toUpperCase() : '?',
                   style: TextStyle(
-                    color: blueMain,
+                    color: Theme.of(context).colorScheme.primary,
                     fontSize: context.getRFontSize(32),
                     fontWeight: FontWeight.bold,
                   ),
@@ -265,16 +266,16 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                   vertical: context.getRSize(4),
                 ),
                 decoration: BoxDecoration(
-                  color: blueMain.withValues(alpha: 0.1),
+                  color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: blueMain.withValues(alpha: 0.2)),
+                  border: Border.all(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.2)),
                 ),
                 child: Text(
                   _customer.customerGroup.name.toUpperCase(),
                   style: TextStyle(
                     fontSize: context.getRFontSize(10),
                     fontWeight: FontWeight.w800,
-                    color: blueMain,
+                    color: Theme.of(context).colorScheme.primary,
                     letterSpacing: 0.5,
                   ),
                 ),
@@ -396,13 +397,13 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
             icon: Container(
               padding: EdgeInsets.all(context.getRSize(6)),
               decoration: BoxDecoration(
-                color: blueMain.withValues(alpha: 0.1),
+                color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
               child: Icon(
                 FontAwesomeIcons.sliders,
                 size: context.getRSize(12),
-                color: blueMain,
+                color: Theme.of(context).colorScheme.primary,
               ),
             ),
             onPressed: () => _showSetWalletLimitDialog(context),
@@ -484,13 +485,13 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                           Container(
                             padding: EdgeInsets.all(context.getRSize(10)),
                             decoration: BoxDecoration(
-                              color: blueMain.withValues(alpha: 0.1),
+                              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
                               shape: BoxShape.circle,
                             ),
                             child: Icon(
                               FontAwesomeIcons.fileInvoice,
                               size: context.getRSize(14),
-                              color: blueMain,
+                              color: Theme.of(context).colorScheme.primary,
                             ),
                           ),
                           SizedBox(width: context.getRSize(12)),
@@ -546,7 +547,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                   child: Text(
                     'View More',
                     style: TextStyle(
-                      color: blueMain,
+                      color: Theme.of(context).colorScheme.primary,
                       fontWeight: FontWeight.bold,
                       fontSize: context.getRFontSize(13),
                     ),
@@ -669,7 +670,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                             onSelected: (val) {
                               setDialogState(() => selectedFilter = f);
                             },
-                            selectedColor: blueMain,
+                            selectedColor: Theme.of(context).colorScheme.primary,
                             backgroundColor: Colors.transparent,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(20),
@@ -724,13 +725,13 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                                             context.getRSize(10),
                                           ),
                                           decoration: BoxDecoration(
-                                            color: blueMain.withValues(alpha: 0.1),
+                                            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
                                             shape: BoxShape.circle,
                                           ),
                                           child: Icon(
                                             FontAwesomeIcons.fileInvoice,
                                             size: context.getRSize(14),
-                                            color: blueMain,
+                                            color: Theme.of(context).colorScheme.primary,
                                           ),
                                         ),
                                         SizedBox(width: context.getRSize(12)),
@@ -794,9 +795,8 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (modalCtx) {
-        final isDark = themeNotifier.value == ThemeMode.dark;
-        final bgCol = isDark ? dSurface : lSurface;
-        final borderCol = isDark ? dBorder : lBorder;
+        final bgCol = Theme.of(context).colorScheme.surface;
+        final borderCol = Theme.of(context).dividerColor;
 
         return Padding(
           padding: EdgeInsets.only(
@@ -881,18 +881,18 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                 icon: Icon(
                   FontAwesomeIcons.plus,
                   size: context.getRSize(14),
-                  color: blueMain,
+                  color: Theme.of(context).colorScheme.primary,
                 ),
                 label: Text(
                   'Fund Wallet',
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: context.getRFontSize(13),
-                    color: blueMain,
+                    color: Theme.of(context).colorScheme.primary,
                   ),
                 ),
                 style: TextButton.styleFrom(
-                  backgroundColor: blueMain.withValues(alpha: 0.1),
+                  backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
                   padding: EdgeInsets.symmetric(
                     horizontal: context.getRSize(12),
                     vertical: context.getRSize(6),
@@ -1015,7 +1015,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                   child: Text(
                     'View Full Ledger',
                     style: TextStyle(
-                      color: blueMain,
+                      color: Theme.of(context).colorScheme.primary,
                       fontWeight: FontWeight.bold,
                       fontSize: context.getRFontSize(13),
                     ),
@@ -1139,7 +1139,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                             onSelected: (val) {
                               setDialogState(() => selectedFilter = f);
                             },
-                            selectedColor: blueMain,
+                            selectedColor: Theme.of(context).colorScheme.primary,
                             backgroundColor: Colors.transparent,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(20),
@@ -1300,10 +1300,10 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                 style: TextButton.styleFrom(
                   backgroundColor: outstandingCrates.isEmpty
                       ? null
-                      : blueMain.withValues(alpha: 0.1),
+                      : Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
                   foregroundColor: outstandingCrates.isEmpty
                       ? subtextCol
-                      : blueMain,
+                      : Theme.of(context).colorScheme.primary,
                   padding: EdgeInsets.symmetric(
                     horizontal: context.getRSize(12),
                     vertical: context.getRSize(6),
@@ -1372,7 +1372,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                           vertical: context.getRSize(4),
                         ),
                         decoration: BoxDecoration(
-                          color: danger.withValues(alpha: 0.1),
+                          color: Theme.of(context).colorScheme.error.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
@@ -1380,7 +1380,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                           style: TextStyle(
                             fontSize: context.getRFontSize(13),
                             fontWeight: FontWeight.bold,
-                            color: danger,
+                            color: Theme.of(context).colorScheme.error,
                           ),
                         ),
                       ),
@@ -1417,12 +1417,11 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (modalCtx) {
-        final isDark = themeNotifier.value == ThemeMode.dark;
-        final bgCol = isDark ? dSurface : lSurface;
-        final borderCol = isDark ? dBorder : lBorder;
-        final cardCol = isDark ? dCard : lCard;
-        final textCol = isDark ? dText : lText;
-        final subtextCol = isDark ? dSubtext : lSubtext;
+        final bgCol = Theme.of(context).colorScheme.surface;
+        final borderCol = Theme.of(context).dividerColor;
+        final cardCol = Theme.of(context).cardColor;
+        final textCol = Theme.of(context).colorScheme.onSurface;
+        final subtextCol = Theme.of(context).textTheme.bodySmall?.color ?? Theme.of(context).iconTheme.color!;
 
         return Padding(
           padding: EdgeInsets.only(bottom: modalCtx.bottomInset),
@@ -1509,8 +1508,8 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                               ),
                               focusedBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(14),
-                                borderSide: const BorderSide(
-                                  color: blueMain,
+                                borderSide: BorderSide(
+                                  color: Theme.of(context).colorScheme.primary,
                                   width: 2,
                                 ),
                               ),
@@ -1555,8 +1554,8 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                               ),
                               focusedBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(14),
-                                borderSide: const BorderSide(
-                                  color: blueMain,
+                                borderSide: BorderSide(
+                                  color: Theme.of(context).colorScheme.primary,
                                   width: 2,
                                 ),
                               ),
@@ -1575,7 +1574,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                     width: double.infinity,
                     child: ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: blueMain,
+                        backgroundColor: Theme.of(context).colorScheme.primary,
                         foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(14),
@@ -1634,12 +1633,11 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (modalCtx) {
-        final isDark = themeNotifier.value == ThemeMode.dark;
-        final bgCol = isDark ? dSurface : lSurface;
-        final borderCol = isDark ? dBorder : lBorder;
-        final cardCol = isDark ? dCard : lCard;
-        final textCol = isDark ? dText : lText;
-        final subtextCol = isDark ? dSubtext : lSubtext;
+        final bgCol = Theme.of(context).colorScheme.surface;
+        final borderCol = Theme.of(context).dividerColor;
+        final cardCol = Theme.of(context).cardColor;
+        final textCol = Theme.of(context).colorScheme.onSurface;
+        final subtextCol = Theme.of(context).textTheme.bodySmall?.color ?? Theme.of(context).iconTheme.color!;
 
         return StatefulBuilder(
           builder: (dialogCtx, setDialogState) {
@@ -1770,8 +1768,8 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                                               focusedBorder: OutlineInputBorder(
                                                 borderRadius:
                                                     BorderRadius.circular(14),
-                                                borderSide: const BorderSide(
-                                                  color: blueMain,
+                                                borderSide: BorderSide(
+                                                  color: Theme.of(context).colorScheme.primary,
                                                   width: 2,
                                                 ),
                                               ),
@@ -1796,9 +1794,9 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                                         left: modalCtx.getRSize(4),
                                       ),
                                       child: IconButton(
-                                        icon: const Icon(
+                                        icon: Icon(
                                           Icons.remove_circle,
-                                          color: danger,
+                                          color: Theme.of(context).colorScheme.error,
                                         ),
                                         onPressed: rows.length > 1
                                             ? () => setDialogState(
@@ -1821,20 +1819,20 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                                   });
                                 });
                               },
-                              icon: const Icon(
+                              icon: Icon(
                                 FontAwesomeIcons.plus,
                                 size: 14,
-                                color: blueMain,
+                                color: Theme.of(context).colorScheme.primary,
                               ),
-                              label: const Text(
+                              label: Text(
                                 'Add Row',
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
-                                  color: blueMain,
+                                  color: Theme.of(context).colorScheme.primary,
                                 ),
                               ),
                               style: TextButton.styleFrom(
-                                backgroundColor: blueMain.withValues(alpha: 0.1),
+                                backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12),
                                 ),
@@ -1855,7 +1853,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                         width: double.infinity,
                         child: ElevatedButton(
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: blueMain,
+                            backgroundColor: Theme.of(context).colorScheme.primary,
                             foregroundColor: Colors.white,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(14),
@@ -1920,12 +1918,11 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (modalCtx) {
-        final isDark = themeNotifier.value == ThemeMode.dark;
-        final surfaceCol = isDark ? dSurface : lSurface;
-        final textCol = isDark ? dText : lText;
-        final subtextCol = isDark ? dSubtext : lSubtext;
-        final borderCol = isDark ? dBorder : lBorder;
-        final cardCol = isDark ? dCard : lCard;
+        final surfaceCol = Theme.of(context).colorScheme.surface;
+        final textCol = Theme.of(context).colorScheme.onSurface;
+        final subtextCol = Theme.of(context).textTheme.bodySmall?.color ?? Theme.of(context).iconTheme.color!;
+        final borderCol = Theme.of(context).dividerColor;
+        final cardCol = Theme.of(context).cardColor;
 
         final limitCtrl = TextEditingController(
           text: _customer.walletLimit.abs().toStringAsFixed(0),
@@ -1966,13 +1963,13 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                     Container(
                       padding: EdgeInsets.all(modalCtx.getRSize(10)),
                       decoration: BoxDecoration(
-                        color: blueMain.withValues(alpha: 0.1),
+                        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
                         shape: BoxShape.circle,
                       ),
                       child: Icon(
                         FontAwesomeIcons.sliders,
                         size: modalCtx.getRSize(16),
-                        color: blueMain,
+                        color: Theme.of(context).colorScheme.primary,
                       ),
                     ),
                     SizedBox(width: modalCtx.getRSize(14)),
@@ -2021,7 +2018,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(14),
-                      borderSide: const BorderSide(color: blueMain, width: 2),
+                      borderSide: BorderSide(color: Theme.of(context).colorScheme.primary, width: 2),
                     ),
                   ),
                 ),
@@ -2044,7 +2041,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                       Navigator.pop(modalCtx);
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: blueMain,
+                      backgroundColor: Theme.of(context).colorScheme.primary,
                       foregroundColor: Colors.white,
                       padding: EdgeInsets.symmetric(
                         vertical: modalCtx.getRSize(16),
@@ -2071,5 +2068,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
     );
   }
 }
+
+
 
 

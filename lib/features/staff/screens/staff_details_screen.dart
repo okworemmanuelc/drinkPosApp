@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import '../../../core/theme/colors.dart';
 import '../../../core/theme/design_tokens.dart';
 import '../../../core/utils/responsive.dart';
 import '../../../core/database/app_database.dart';
@@ -27,12 +26,12 @@ class StaffDetailsScreen extends StatefulWidget {
 }
 
 class _StaffDetailsScreenState extends State<StaffDetailsScreen> {
-  bool get _isDark => Theme.of(context).brightness == Brightness.dark;
-  Color get _bg => _isDark ? dBg : lBg;
-  Color get _surface => _isDark ? dSurface : lSurface;
-  Color get _text => _isDark ? dText : lText;
-  Color get _subtext => _isDark ? dSubtext : lSubtext;
-  Color get _border => _isDark ? dBorder : lBorder;
+  
+  Color get _bg => Theme.of(context).scaffoldBackgroundColor;
+  Color get _surface => Theme.of(context).colorScheme.surface;
+  Color get _text => Theme.of(context).colorScheme.onSurface;
+  Color get _subtext => Theme.of(context).textTheme.bodySmall?.color ?? Theme.of(context).iconTheme.color!;
+  Color get _border => Theme.of(context).dividerColor;
   List<OrderData> _staffOrders = [];
   StreamSubscription<List<OrderData>>? _ordersSub;
   bool _contentReady = false;
@@ -61,7 +60,7 @@ class _StaffDetailsScreenState extends State<StaffDetailsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final avatarColor = _parseColor(widget.user.avatarColor) ?? blueMain;
+    final avatarColor = _parseColor(widget.user.avatarColor) ?? Theme.of(context).colorScheme.primary;
     final warehouseName = widget.warehouses
         .firstWhere((w) => w.id == widget.user.warehouseId,
             orElse: () => const WarehouseData(id: -1, name: 'Unassigned'))
@@ -85,7 +84,7 @@ class _StaffDetailsScreenState extends State<StaffDetailsScreen> {
             subtitle: widget.user.role.toUpperCase(),
           ),
         ),
-        body: const Center(child: CircularProgressIndicator(color: blueMain)),
+        body: Center(child: CircularProgressIndicator(color: Theme.of(context).colorScheme.primary)),
       );
     }
 
@@ -259,7 +258,7 @@ class _StaffDetailsScreenState extends State<StaffDetailsScreen> {
                 SnackBar(content: Text('Role updated to ${newRole.label}')),
               );
             },
-            style: ElevatedButton.styleFrom(backgroundColor: blueMain),
+            style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
             child: const Text('Change Role', style: TextStyle(color: Colors.white)),
           ),
         ],
@@ -282,7 +281,7 @@ class _StaffDetailsScreenState extends State<StaffDetailsScreen> {
       childAspectRatio: 1.2,
       children: [
         _statCard('Total Orders', orders.length.toString(),
-            FontAwesomeIcons.receipt, blueMain),
+            FontAwesomeIcons.receipt, Theme.of(context).colorScheme.primary),
         _statCard('Completed', completed.length.toString(),
             FontAwesomeIcons.checkDouble, AppColors.success),
         _statCard('Sales Volume', formatCurrency(totalSales),
@@ -389,4 +388,5 @@ class _StaffDetailsScreenState extends State<StaffDetailsScreen> {
     }
   }
 }
+
 

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 import '../../../core/theme/colors.dart';
-import '../../../core/theme/theme_notifier.dart';
+
 import '../../../core/utils/responsive.dart';
 import '../../../shared/services/activity_log_service.dart';
 import '../../inventory/data/inventory_data.dart';
@@ -28,14 +28,12 @@ class _StockTransferScreenState extends State<StockTransferScreen> {
   final TextEditingController _productCtrl = TextEditingController();
   final TextEditingController _priceCtrl = TextEditingController();
   final TextEditingController _qtyCtrl = TextEditingController();
-
-  bool get _isDark => themeNotifier.value == ThemeMode.dark;
-  Color get _bg => _isDark ? dBg : lBg;
-  Color get _surface => _isDark ? dSurface : lSurface;
-  Color get _text => _isDark ? dText : lText;
-  Color get _subtext => _isDark ? dSubtext : lSubtext;
-  Color get _border => _isDark ? dBorder : lBorder;
-  Color get _cardBg => _isDark ? dCard : lCard;
+  Color get _bg => Theme.of(context).scaffoldBackgroundColor;
+  Color get _surface => Theme.of(context).colorScheme.surface;
+  Color get _text => Theme.of(context).colorScheme.onSurface;
+  Color get _subtext => Theme.of(context).textTheme.bodySmall?.color ?? Theme.of(context).iconTheme.color!;
+  Color get _border => Theme.of(context).dividerColor;
+  Color get _cardBg => Theme.of(context).cardColor;
 
   @override
   void initState() {
@@ -155,7 +153,7 @@ class _StockTransferScreenState extends State<StockTransferScreen> {
   void _showError(String msg) {
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(SnackBar(content: Text(msg), backgroundColor: danger));
+    ).showSnackBar(SnackBar(content: Text(msg), backgroundColor: Theme.of(context).colorScheme.error));
   }
 
   InputDecoration _inputDeco(String hint) {
@@ -170,7 +168,7 @@ class _StockTransferScreenState extends State<StockTransferScreen> {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: blueMain, width: 2),
+        borderSide: BorderSide(color: Theme.of(context).colorScheme.primary, width: 2),
       ),
       contentPadding: const EdgeInsets.all(16),
     );
@@ -228,7 +226,7 @@ class _StockTransferScreenState extends State<StockTransferScreen> {
                 borderRadius: BorderRadius.circular(14),
                 boxShadow: [
                   BoxShadow(
-                    color: blueMain.withValues(alpha: 0.3),
+                    color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
                     blurRadius: 10,
                     offset: const Offset(0, 4),
                   ),
@@ -278,7 +276,7 @@ class _StockTransferScreenState extends State<StockTransferScreen> {
           Text(
             'Warehouse Details',
             style: TextStyle(
-              color: blueMain,
+              color: Theme.of(context).colorScheme.primary,
               fontWeight: FontWeight.bold,
               fontSize: context.getRFontSize(14),
             ),
@@ -332,7 +330,7 @@ class _StockTransferScreenState extends State<StockTransferScreen> {
           Text(
             'Product & Quantity',
             style: TextStyle(
-              color: blueMain,
+              color: Theme.of(context).colorScheme.primary,
               fontWeight: FontWeight.bold,
               fontSize: context.getRFontSize(14),
             ),
@@ -401,13 +399,13 @@ class _StockTransferScreenState extends State<StockTransferScreen> {
                                     vertical: 2,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: blueMain.withValues(alpha: 0.1),
+                                    color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: Text(
                                     '${stock.toInt()} in stock',
-                                    style: const TextStyle(
-                                      color: blueMain,
+                                    style: TextStyle(
+                                      color: Theme.of(context).colorScheme.primary,
                                       fontSize: 12,
                                       fontWeight: FontWeight.bold,
                                     ),
@@ -521,4 +519,5 @@ class _StockTransferScreenState extends State<StockTransferScreen> {
     );
   }
 }
+
 

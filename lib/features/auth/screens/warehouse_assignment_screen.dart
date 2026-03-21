@@ -3,7 +3,6 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../../core/database/app_database.dart';
-import '../../../core/theme/colors.dart';
 import '../../../shared/services/auth_service.dart';
 
 class WarehouseAssignmentScreen extends StatefulWidget {
@@ -69,7 +68,7 @@ class _WarehouseAssignmentScreenState extends State<WarehouseAssignmentScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final text = Colors.white;
+    const text = Colors.white;
     final subtext = Colors.white.withValues(alpha: 0.8);
 
     return Scaffold(
@@ -132,7 +131,7 @@ class _WarehouseAssignmentScreenState extends State<WarehouseAssignmentScreen> {
                       borderRadius: 16,
                       child: Column(
                         children: [
-                          Text(
+                          const Text(
                             'Waiting for Assignment',
                             style: TextStyle(
                               fontSize: 24,
@@ -174,7 +173,7 @@ class _WarehouseAssignmentScreenState extends State<WarehouseAssignmentScreen> {
                           const SizedBox(height: 16),
                           Text(
                             _formatDuration(_timeLeft),
-                            style: TextStyle(
+                            style: const TextStyle(
                               fontSize: 48,
                               fontWeight: FontWeight.w300,
                               fontFamily: 'monospace',
@@ -210,7 +209,7 @@ class _WarehouseAssignmentScreenState extends State<WarehouseAssignmentScreen> {
                       icon: const Icon(FontAwesomeIcons.rightFromBracket, size: 14),
                       label: const Text('Log Out'),
                       style: TextButton.styleFrom(
-                        foregroundColor: danger,
+                        foregroundColor: Theme.of(context).colorScheme.error,
                         backgroundColor: Colors.white.withValues(alpha: 0.1),
                         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                         shape: RoundedRectangleBorder(

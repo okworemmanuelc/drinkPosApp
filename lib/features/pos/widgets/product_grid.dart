@@ -180,11 +180,11 @@ class _ProductCardState extends State<_ProductCard>
                     width: 30,
                     height: 30,
                     decoration: BoxDecoration(
-                      color: blueMain,
+                      color: Theme.of(context).colorScheme.primary,
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: blueMain.withValues(alpha: 0.55),
+                          color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.55),
                           blurRadius: 10,
                           spreadRadius: 1,
                         ),
@@ -255,7 +255,7 @@ class _ProductCardState extends State<_ProductCard>
                   boxShadow: [
                     BoxShadow(
                       color: inCart
-                          ? blueMain.withValues(alpha: 0.15)
+                          ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.15)
                           : Colors.black.withValues(alpha: 0.02),
                       blurRadius: 10,
                       offset: const Offset(0, 4),
@@ -269,7 +269,7 @@ class _ProductCardState extends State<_ProductCard>
                       child: Container(
                         width: double.infinity,
                         decoration: BoxDecoration(
-                          color: blueMain.withValues(alpha: 0.05),
+                          color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.05),
                           borderRadius: const BorderRadius.vertical(
                               top: Radius.circular(16)),
                         ),
@@ -277,7 +277,7 @@ class _ProductCardState extends State<_ProductCard>
                           child: Icon(
                             FontAwesomeIcons.beerMugEmpty,
                             size: context.getRSize(32),
-                            color: blueMain.withValues(alpha: 0.4),
+                            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.4),
                           ),
                         ),
                       ),
@@ -303,7 +303,7 @@ class _ProductCardState extends State<_ProductCard>
                             style: TextStyle(
                               fontSize: context.getRFontSize(13),
                               fontWeight: FontWeight.w800,
-                              color: blueMain,
+                              color: Theme.of(context).colorScheme.primary,
                             ),
                           ),
                           SizedBox(height: context.getRSize(8)),
@@ -324,7 +324,7 @@ class _ProductCardState extends State<_ProductCard>
                                 Icon(
                                   FontAwesomeIcons.triangleExclamation,
                                   size: context.getRSize(10),
-                                  color: danger,
+                                  color: Theme.of(context).colorScheme.error,
                                 ),
                             ],
                           ),
@@ -347,11 +347,11 @@ class _ProductCardState extends State<_ProductCard>
                   width: context.getRSize(30),
                   height: context.getRSize(30),
                   decoration: BoxDecoration(
-                    color: blueMain,
+                    color: Theme.of(context).colorScheme.primary,
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
-                        color: blueMain.withValues(alpha: 0.45),
+                        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.45),
                         blurRadius: 8,
                         offset: const Offset(0, 2),
                       ),

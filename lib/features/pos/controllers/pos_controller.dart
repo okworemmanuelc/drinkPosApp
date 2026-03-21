@@ -14,6 +14,7 @@ class PosController extends ChangeNotifier {
   CustomerGroup selectedGroup = CustomerGroup.retailer;
   String searchQuery = '';
   bool isSearching = false;
+  String? currentWarehouseName;
   
   StreamSubscription? _productsSub;
   Timer? _debounce;
@@ -54,8 +55,13 @@ class PosController extends ChangeNotifier {
     
     final warehouseId = navigationService.lockedWarehouseId.value;
     
-    // If we have a warehouse lock, only watch products for that warehouse
     if (warehouseId != null) {
+      // Fetch warehouse name
+      database.warehousesDao.getWarehouse(warehouseId).then((w) {
+        currentWarehouseName = w?.name;
+        notifyListeners();
+      });
+
       _productsSub = database.inventoryDao
           .watchProductDatasWithStockByWarehouse(warehouseId)
           .listen((data) {
@@ -63,6 +69,7 @@ class PosController extends ChangeNotifier {
         notifyListeners();
       });
     } else {
+      currentWarehouseName = null;
       _productsSub = database.inventoryDao
           .watchProductsByCategory(selectedCategoryId)
           .listen((data) {

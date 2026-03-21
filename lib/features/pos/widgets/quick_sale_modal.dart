@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import '../../../core/theme/colors.dart';
 import '../../../core/utils/responsive.dart';
 import '../../../shared/services/cart_service.dart';
 
@@ -63,7 +62,7 @@ class _QuickSaleModalState extends State<QuickSaleModal> {
         ),
         ElevatedButton(
           style: ElevatedButton.styleFrom(
-            backgroundColor: blueMain,
+            backgroundColor: Theme.of(context).colorScheme.primary,
             foregroundColor: Colors.white,
             padding: EdgeInsets.symmetric(horizontal: context.getRSize(24), vertical: context.getRSize(12)),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -76,16 +75,16 @@ class _QuickSaleModalState extends State<QuickSaleModal> {
                 'subtitle': 'Quick Sale',
                 'price': double.tryParse(_priceCtrl.text) ?? 0.0,
                 'icon': FontAwesomeIcons.bolt,
-                'color': blueMain,
+                'color': Theme.of(context).colorScheme.primary,
                 'category': 'Other',
               };
               cartService.addItem(product, qty: double.tryParse(_qtyCtrl.text) ?? 1.0);
               Navigator.pop(context);
             } else {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
+                SnackBar(
                   content: Text('Item Name, Quantity, and Price are required.'),
-                  backgroundColor: danger,
+                  backgroundColor: Theme.of(context).colorScheme.error,
                 ),
               );
             }
@@ -110,10 +109,12 @@ class _QuickSaleModalState extends State<QuickSaleModal> {
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: blueMain, width: 2),
+          borderSide: BorderSide(color: Theme.of(context).colorScheme.primary, width: 2),
         ),
         contentPadding: EdgeInsets.symmetric(horizontal: context.getRSize(16), vertical: context.getRSize(12)),
       ),
     );
   }
 }
+
+

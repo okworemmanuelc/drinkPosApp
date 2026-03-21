@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../core/theme/colors.dart';
+
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 class AppDropdown<T> extends StatelessWidget {
@@ -26,13 +26,11 @@ class AppDropdown<T> extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    
-    // Standardized colors from InventoryScreen
-    final fillColor = isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9);
-    final textColor = isDark ? Colors.white : const Color(0xFF0F172A);
-    final subtextColor = isDark ? Colors.white60 : Colors.black45;
-    final dropdownColor = isDark ? const Color(0xFF1E293B) : Colors.white;
+    final t = Theme.of(context);
+    final fillColor = t.cardColor;
+    final textColor = t.colorScheme.onSurface;
+    final subtextColor = t.textTheme.bodySmall?.color ?? t.iconTheme.color!;
+    final dropdownColor = t.colorScheme.surface;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -94,7 +92,7 @@ class AppDropdown<T> extends StatelessWidget {
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
-              borderSide: const BorderSide(color: blueMain, width: 2),
+              borderSide: BorderSide(color: t.colorScheme.primary, width: 2),
             ),
             errorBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),

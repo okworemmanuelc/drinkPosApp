@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:intl/intl.dart';
 import '../../core/theme/colors.dart';
-import '../../core/theme/theme_notifier.dart';
+
 import '../../core/utils/responsive.dart';
 import '../models/activity_log.dart';
 import '../services/activity_log_service.dart';
@@ -43,16 +43,17 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final themeNotifier = ValueNotifier<ThemeMode>(ThemeMode.system);
     return ValueListenableBuilder<ThemeMode>(
       valueListenable: themeNotifier,
       builder: (_, mode, _) {
-        final isDark = mode == ThemeMode.dark;
-        final bgCol = isDark ? dBg : lBg;
-        final surfaceCol = isDark ? dSurface : lSurface;
-        final textCol = isDark ? dText : lText;
-        final subtextCol = isDark ? dSubtext : lSubtext;
-        final borderCol = isDark ? dBorder : lBorder;
-        final cardCol = isDark ? dCard : lCard;
+        
+        final bgCol = Theme.of(context).scaffoldBackgroundColor;
+        final surfaceCol = Theme.of(context).colorScheme.surface;
+        final textCol = Theme.of(context).colorScheme.onSurface;
+        final subtextCol = Theme.of(context).textTheme.bodySmall?.color ?? Theme.of(context).iconTheme.color!;
+        final borderCol = Theme.of(context).dividerColor;
+        final cardCol = Theme.of(context).cardColor;
 
         return Scaffold(
           backgroundColor: bgCol,
@@ -451,4 +452,8 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
     return DateFormat('MMM d').format(timestamp);
   }
 }
+
+
+
+
 

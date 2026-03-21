@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 import '../../../core/theme/colors.dart';
-import '../../../core/theme/theme_notifier.dart';
+
 import '../../../core/utils/number_format.dart';
 import '../../../core/utils/responsive.dart';
 import '../../../shared/widgets/app_drawer.dart';
@@ -20,16 +20,15 @@ class DeliveriesScreen extends StatefulWidget {
 
 class _DeliveriesScreenState extends State<DeliveriesScreen> {
   String _filter = 'All';
-
-  bool get _isDark => themeNotifier.value == ThemeMode.dark;
-  Color get _bg => _isDark ? dBg : lBg;
-  Color get _surface => _isDark ? dSurface : lSurface;
-  Color get _text => _isDark ? dText : lText;
-  Color get _subtext => _isDark ? dSubtext : lSubtext;
-  Color get _border => _isDark ? dBorder : lBorder;
+  Color get _bg => Theme.of(context).scaffoldBackgroundColor;
+  Color get _surface => Theme.of(context).colorScheme.surface;
+  Color get textCol => Theme.of(context).colorScheme.onSurface;
+  Color get subtextCol => Theme.of(context).textTheme.bodySmall?.color ?? Theme.of(context).iconTheme.color!;
+  Color get borderCol => Theme.of(context).dividerColor;
 
   @override
   Widget build(BuildContext context) {
+    final themeNotifier = ValueNotifier<ThemeMode>(ThemeMode.system);
     return ValueListenableBuilder<ThemeMode>(
       valueListenable: themeNotifier,
       builder: (context, mode, child) {
@@ -66,7 +65,7 @@ class _DeliveriesScreenState extends State<DeliveriesScreen> {
               borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
-                  color: blueMain.withValues(alpha: 0.3),
+                  color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
                   blurRadius: 10,
                   offset: const Offset(0, 4),
                 ),
@@ -106,7 +105,7 @@ class _DeliveriesScreenState extends State<DeliveriesScreen> {
     return AppBar(
       backgroundColor: _surface,
       elevation: 0,
-      iconTheme: IconThemeData(color: _text),
+      iconTheme: IconThemeData(color: textCol),
       leading: Builder(
         builder: (ctx) => InkWell(
           borderRadius: BorderRadius.circular(12),
@@ -121,7 +120,7 @@ class _DeliveriesScreenState extends State<DeliveriesScreen> {
                   height: 2.5,
                   width: context.getRSize(22),
                   decoration: BoxDecoration(
-                    color: _text,
+                    color: textCol,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -129,7 +128,7 @@ class _DeliveriesScreenState extends State<DeliveriesScreen> {
                   height: 2.5,
                   width: context.getRSize(16),
                   decoration: BoxDecoration(
-                    color: blueMain,
+                    color: Theme.of(context).colorScheme.primary,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -137,7 +136,7 @@ class _DeliveriesScreenState extends State<DeliveriesScreen> {
                   height: 2.5,
                   width: context.getRSize(22),
                   decoration: BoxDecoration(
-                    color: _text,
+                    color: textCol,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -149,7 +148,7 @@ class _DeliveriesScreenState extends State<DeliveriesScreen> {
       title: Text(
         'Deliveries',
         style: TextStyle(
-          color: _text,
+          color: textCol,
           fontSize: context.getRFontSize(18),
           fontWeight: FontWeight.bold,
         ),
@@ -183,7 +182,7 @@ class _DeliveriesScreenState extends State<DeliveriesScreen> {
               f,
               style: TextStyle(
                 fontSize: context.getRFontSize(12),
-                color: isSelected ? Colors.white : _text,
+                color: isSelected ? Colors.white : textCol,
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
               ),
             ),
@@ -191,12 +190,12 @@ class _DeliveriesScreenState extends State<DeliveriesScreen> {
             onSelected: (val) {
               setState(() => _filter = f);
             },
-            selectedColor: blueMain,
+            selectedColor: Theme.of(context).colorScheme.primary,
             backgroundColor: _surface,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(20),
               side: BorderSide(
-                color: isSelected ? Colors.transparent : _border,
+                color: isSelected ? Colors.transparent : borderCol,
               ),
             ),
             showCheckmark: false,
@@ -229,13 +228,13 @@ class _DeliveriesScreenState extends State<DeliveriesScreen> {
           Icon(
             FontAwesomeIcons.boxOpen,
             size: context.getRSize(48),
-            color: _border,
+            color: borderCol,
           ),
           SizedBox(height: context.getRSize(16)),
           Text(
             'No deliveries yet',
             style: TextStyle(
-              color: _subtext,
+              color: subtextCol,
               fontSize: context.getRFontSize(16),
               fontWeight: FontWeight.w600,
             ),
@@ -282,7 +281,7 @@ class _DeliveriesScreenState extends State<DeliveriesScreen> {
             child: Text(
               item,
               style: TextStyle(
-                color: _subtext,
+                color: subtextCol,
                 fontWeight: FontWeight.bold,
                 fontSize: context.getRFontSize(14),
               ),
@@ -302,14 +301,12 @@ class _DeliveryCard extends StatelessWidget {
 
   const _DeliveryCard({required this.delivery});
 
-  bool get _isDark => themeNotifier.value == ThemeMode.dark;
-  Color get _text => _isDark ? dText : lText;
-  Color get _subtext => _isDark ? dSubtext : lSubtext;
-  Color get _border => _isDark ? dBorder : lBorder;
-  Color get _cardBg => _isDark ? dCard : lCard;
-
   @override
   Widget build(BuildContext context) {
+    final textCol = Theme.of(context).colorScheme.onSurface;
+    final subtextCol = Theme.of(context).textTheme.bodySmall?.color ?? Theme.of(context).iconTheme.color!;
+    final borderCol = Theme.of(context).dividerColor;
+    final cardCol = Theme.of(context).cardColor;
     final isPending = delivery.status == 'pending';
     final statusColor = isPending ? const Color(0xFFF59E0B) : success;
 
@@ -327,9 +324,9 @@ class _DeliveryCard extends StatelessWidget {
     return Container(
       margin: EdgeInsets.only(bottom: context.getRSize(12)),
       decoration: BoxDecoration(
-        color: _cardBg,
+        color: cardCol,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _border),
+        border: Border.all(color: borderCol),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.03),
@@ -352,13 +349,13 @@ class _DeliveryCard extends StatelessWidget {
                     Icon(
                       FontAwesomeIcons.truck,
                       size: context.getRSize(14),
-                      color: _subtext,
+                      color: subtextCol,
                     ),
                     SizedBox(width: context.getRSize(8)),
                     Text(
                       '$dateStr$timeStr',
                       style: TextStyle(
-                        color: _subtext,
+                        color: subtextCol,
                         fontSize: context.getRFontSize(13),
                         fontWeight: FontWeight.w600,
                       ),
@@ -389,14 +386,14 @@ class _DeliveryCard extends StatelessWidget {
               ],
             ),
             SizedBox(height: context.getRSize(12)),
-            Divider(height: 1, color: _border),
+            Divider(height: 1, color: borderCol),
             SizedBox(height: context.getRSize(12)),
 
             // Items Summary
             Text(
               '${delivery.items.length} Product(s)',
               style: TextStyle(
-                color: _text,
+                color: textCol,
                 fontWeight: FontWeight.bold,
                 fontSize: context.getRFontSize(14),
               ),
@@ -408,7 +405,7 @@ class _DeliveryCard extends StatelessWidget {
                 child: Text(
                   '${item.quantity.toInt()}x ${item.productName}',
                   style: TextStyle(
-                    color: _subtext,
+                    color: subtextCol,
                     fontSize: context.getRFontSize(13),
                   ),
                   maxLines: 1,
@@ -420,14 +417,14 @@ class _DeliveryCard extends StatelessWidget {
               Text(
                 '...and ${delivery.items.length - 3} more',
                 style: TextStyle(
-                  color: _subtext,
+                  color: subtextCol,
                   fontSize: context.getRFontSize(12),
                   fontStyle: FontStyle.italic,
                 ),
               ),
 
             SizedBox(height: context.getRSize(12)),
-            Divider(height: 1, color: _border),
+            Divider(height: 1, color: borderCol),
             SizedBox(height: context.getRSize(12)),
 
             // Total Value
@@ -437,14 +434,14 @@ class _DeliveryCard extends StatelessWidget {
                 Text(
                   'Total Value',
                   style: TextStyle(
-                    color: _subtext,
+                    color: subtextCol,
                     fontSize: context.getRFontSize(13),
                   ),
                 ),
                 Text(
                   formatCurrency(delivery.totalValue),
                   style: TextStyle(
-                    color: _text,
+                    color: textCol,
                     fontWeight: FontWeight.w800,
                     fontSize: context.getRFontSize(15),
                   ),
@@ -457,4 +454,7 @@ class _DeliveryCard extends StatelessWidget {
     );
   }
 }
+
+
+
 

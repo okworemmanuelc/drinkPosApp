@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 import '../../../core/theme/colors.dart';
-import '../../../core/theme/theme_notifier.dart';
+
 import '../../../core/utils/number_format.dart';
 import '../../../core/utils/responsive.dart';
 import '../../../shared/widgets/app_drawer.dart';
@@ -22,16 +22,17 @@ class CustomersScreen extends StatefulWidget {
 class _CustomersScreenState extends State<CustomersScreen> {
   @override
   Widget build(BuildContext context) {
+    final themeNotifier = ValueNotifier<ThemeMode>(ThemeMode.system);
     return ValueListenableBuilder<ThemeMode>(
       valueListenable: themeNotifier,
       builder: (_, mode, _) {
-        final isDark = mode == ThemeMode.dark;
-        final bgCol = isDark ? dBg : lBg;
-        final surfaceCol = isDark ? dSurface : lSurface;
-        final textCol = isDark ? dText : lText;
-        final subtextCol = isDark ? dSubtext : lSubtext;
-        final borderCol = isDark ? dBorder : lBorder;
-        final cardCol = isDark ? dCard : lCard;
+        
+        final bgCol = Theme.of(context).scaffoldBackgroundColor;
+        final surfaceCol = Theme.of(context).colorScheme.surface;
+        final textCol = Theme.of(context).colorScheme.onSurface;
+        final subtextCol = Theme.of(context).textTheme.bodySmall?.color ?? Theme.of(context).iconTheme.color!;
+        final borderCol = Theme.of(context).dividerColor;
+        final cardCol = Theme.of(context).cardColor;
 
         return Scaffold(
           backgroundColor: bgCol,
@@ -80,7 +81,7 @@ class _CustomersScreenState extends State<CustomersScreen> {
               borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
-                  color: blueMain.withValues(alpha: 0.3),
+                  color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
                   blurRadius: 10,
                   offset: const Offset(0, 4),
                 ),
@@ -149,7 +150,7 @@ class _CustomersScreenState extends State<CustomersScreen> {
                   height: 2.5,
                   width: context.getRSize(16),
                   decoration: BoxDecoration(
-                    color: blueMain,
+                    color: Theme.of(context).colorScheme.primary,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -171,11 +172,11 @@ class _CustomersScreenState extends State<CustomersScreen> {
           Container(
             padding: EdgeInsets.all(context.getRSize(8)),
             decoration: BoxDecoration(
-              gradient: const LinearGradient(colors: [blueLight, blueMain]),
+              gradient: LinearGradient(colors: [Theme.of(context).colorScheme.primary.withValues(alpha: 0.7), Theme.of(context).colorScheme.primary]),
               borderRadius: BorderRadius.circular(12),
               boxShadow: [
                 BoxShadow(
-                  color: blueMain.withValues(alpha: 0.3),
+                  color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
                   blurRadius: 8,
                   offset: const Offset(0, 2),
                 ),
@@ -208,7 +209,7 @@ class _CustomersScreenState extends State<CustomersScreen> {
                   'Client Management',
                   style: TextStyle(
                     fontSize: context.getRFontSize(11),
-                    color: blueMain,
+                    color: Theme.of(context).colorScheme.primary,
                     fontWeight: FontWeight.w600,
                   ),
                   maxLines: 1,
@@ -266,11 +267,11 @@ class _CustomersScreenState extends State<CustomersScreen> {
             children: [
               CircleAvatar(
                 radius: context.getRSize(24),
-                backgroundColor: blueMain.withValues(alpha: 0.1),
+                backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
                 child: Text(
                   customer.name.isNotEmpty ? customer.name.substring(0, 1).toUpperCase() : '?',
                   style: TextStyle(
-                    color: blueMain,
+                    color: Theme.of(context).colorScheme.primary,
                     fontWeight: FontWeight.bold,
                     fontSize: context.getRFontSize(18),
                   ),
@@ -308,16 +309,16 @@ class _CustomersScreenState extends State<CustomersScreen> {
                         vertical: context.getRSize(2),
                       ),
                       decoration: BoxDecoration(
-                        color: blueMain.withValues(alpha: 0.1),
+                        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: blueMain.withValues(alpha: 0.2)),
+                        border: Border.all(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.2)),
                       ),
                       child: Text(
                         customer.customerGroup.name.toUpperCase(),
                         style: TextStyle(
                           fontSize: context.getRFontSize(9),
                           fontWeight: FontWeight.w800,
-                          color: blueMain,
+                          color: Theme.of(context).colorScheme.primary,
                           letterSpacing: 0.2,
                         ),
                       ),
@@ -354,4 +355,6 @@ class _CustomersScreenState extends State<CustomersScreen> {
     );
   }
 }
+
+
 

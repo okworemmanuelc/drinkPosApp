@@ -3,7 +3,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/theme/colors.dart';
-import '../../../core/theme/theme_notifier.dart';
+
 import '../../../core/utils/number_format.dart';
 import '../../../core/utils/responsive.dart';
 import '../../../shared/services/activity_log_service.dart';
@@ -44,13 +44,11 @@ class _AddPaymentSheetState extends State<AddPaymentSheet> {
   DateTime _selectedDate = DateTime.now();
   String? _selectedDeliveryId;
   Supplier? _selectedSupplier;
-
-  bool get _isDark => themeNotifier.value == ThemeMode.dark;
-  Color get _surface => _isDark ? dSurface : lSurface;
-  Color get _cardBg => _isDark ? dCard : lCard;
-  Color get _text => _isDark ? dText : lText;
-  Color get _subtext => _isDark ? dSubtext : lSubtext;
-  Color get _border => _isDark ? dBorder : lBorder;
+  Color get _surface => Theme.of(context).colorScheme.surface;
+  Color get _cardBg => Theme.of(context).cardColor;
+  Color get _text => Theme.of(context).colorScheme.onSurface;
+  Color get _subtext => Theme.of(context).textTheme.bodySmall?.color ?? Theme.of(context).iconTheme.color!;
+  Color get _border => Theme.of(context).dividerColor;
 
   @override
   void dispose() {
@@ -68,11 +66,12 @@ class _AddPaymentSheetState extends State<AddPaymentSheet> {
       firstDate: DateTime(2000),
       lastDate: DateTime(2100),
       builder: (context, child) {
+        final isDark = Theme.of(context).brightness == Brightness.dark;
         return Theme(
           data: Theme.of(context).copyWith(
-            colorScheme: _isDark
-                ? const ColorScheme.dark(primary: blueMain, surface: dSurface)
-                : const ColorScheme.light(primary: blueMain, surface: lSurface),
+            colorScheme: isDark
+                ? ColorScheme.dark(primary: Theme.of(context).colorScheme.primary, surface: dSurface)
+                : ColorScheme.light(primary: Theme.of(context).colorScheme.primary, surface: lSurface),
           ),
           child: child!,
         );
@@ -119,7 +118,7 @@ class _AddPaymentSheetState extends State<AddPaymentSheet> {
               ),
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: blueMain,
+                  backgroundColor: Theme.of(context).colorScheme.primary,
                   foregroundColor: Colors.white,
                 ),
                 onPressed: () => Navigator.pop(ctx, true),
@@ -183,7 +182,7 @@ class _AddPaymentSheetState extends State<AddPaymentSheet> {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: blueMain, width: 2),
+        borderSide: BorderSide(color: Theme.of(context).colorScheme.primary, width: 2),
       ),
       contentPadding: EdgeInsets.all(context.getRSize(16)),
     );
@@ -254,15 +253,15 @@ class _AddPaymentSheetState extends State<AddPaymentSheet> {
                                 width: context.getRSize(44),
                                 height: context.getRSize(44),
                                 decoration: BoxDecoration(
-                                  gradient: const LinearGradient(
-                                    colors: [blueLight, blueMain],
+                                  gradient: LinearGradient(
+                                    colors: [Theme.of(context).colorScheme.primary.withValues(alpha: 0.7), Theme.of(context).colorScheme.primary],
                                     begin: Alignment.topLeft,
                                     end: Alignment.bottomRight,
                                   ),
                                   borderRadius: BorderRadius.circular(12),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: blueMain.withValues(alpha: 0.3),
+                                      color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
                                       blurRadius: 8,
                                       offset: const Offset(0, 2),
                                     ),
@@ -290,7 +289,7 @@ class _AddPaymentSheetState extends State<AddPaymentSheet> {
                                     'Log outgoing funds',
                                     style: TextStyle(
                                       fontSize: context.getRFontSize(13),
-                                      color: blueMain,
+                                      color: Theme.of(context).colorScheme.primary,
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),
@@ -499,7 +498,7 @@ class _AddPaymentSheetState extends State<AddPaymentSheet> {
                           borderRadius: BorderRadius.circular(16),
                           boxShadow: [
                             BoxShadow(
-                              color: blueMain.withValues(alpha: 0.3),
+                              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
                               blurRadius: 10,
                               offset: const Offset(0, 4),
                             ),
@@ -539,4 +538,6 @@ class _AddPaymentSheetState extends State<AddPaymentSheet> {
     );
   }
 }
+
+
 
