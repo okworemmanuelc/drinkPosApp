@@ -700,8 +700,10 @@ class _WarehouseCardState extends State<_WarehouseCard> {
   Color get _surface => _isDark ? dSurface : lSurface;
   Color get _text => _isDark ? dText : lText;
   Color get _subtext => _isDark ? dSubtext : lSubtext;
-  Color get _border => _isDark ? dBorder : lBorder;
-  Color get _card => _isDark ? dCard : lCard;
+  // Stronger border for card edges and dividers — more visible in light mode
+  Color get _strongBorder => _isDark ? dBorder : const Color(0xFFCBD5E1);
+  // Subtle blue-tinted stripe for stats/actions section in light mode
+  Color get _stripe => _isDark ? dCard : const Color(0xFFF0F6FF);
 
   @override
   void initState() {
@@ -737,12 +739,12 @@ class _WarehouseCardState extends State<_WarehouseCard> {
       decoration: BoxDecoration(
         color: _surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _border),
+        border: Border.all(color: _strongBorder),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            color: Colors.black.withValues(alpha: _isDark ? 0.2 : 0.07),
+            blurRadius: _isDark ? 10 : 16,
+            offset: const Offset(0, 3),
           ),
         ],
       ),
@@ -812,7 +814,7 @@ class _WarehouseCardState extends State<_WarehouseCard> {
                     ),
                   ),
                   Icon(FontAwesomeIcons.chevronRight,
-                      size: rSize(context, 13), color: _border),
+                      size: rSize(context, 13), color: _subtext),
                 ],
               ),
             ),
@@ -821,8 +823,8 @@ class _WarehouseCardState extends State<_WarehouseCard> {
           // Stats row
           Container(
             decoration: BoxDecoration(
-              color: _card,
-              border: Border(top: BorderSide(color: _border)),
+              color: _stripe,
+              border: Border(top: BorderSide(color: _strongBorder)),
             ),
             child: Row(
               children: [
@@ -834,7 +836,7 @@ class _WarehouseCardState extends State<_WarehouseCard> {
                     color: blueMain,
                   ),
                 ),
-                Container(width: 1, height: 36, color: _border),
+                Container(width: 1, height: 36, color: _strongBorder),
                 Expanded(
                   child: _statCell(
                     icon: FontAwesomeIcons.tag,
@@ -843,7 +845,7 @@ class _WarehouseCardState extends State<_WarehouseCard> {
                     color: AppColors.success,
                   ),
                 ),
-                Container(width: 1, height: 36, color: _border),
+                Container(width: 1, height: 36, color: _strongBorder),
                 Expanded(
                   child: _statCell(
                     icon: FontAwesomeIcons.userGroup,
@@ -859,8 +861,8 @@ class _WarehouseCardState extends State<_WarehouseCard> {
           // Actions row
           Container(
             decoration: BoxDecoration(
-              color: _card,
-              border: Border(top: BorderSide(color: _border)),
+              color: _stripe,
+              border: Border(top: BorderSide(color: _strongBorder)),
               borderRadius:
                   const BorderRadius.vertical(bottom: Radius.circular(16)),
             ),
@@ -874,7 +876,7 @@ class _WarehouseCardState extends State<_WarehouseCard> {
                     onTap: widget.onStaff,
                   ),
                 ),
-                Container(width: 1, height: 36, color: _border),
+                Container(width: 1, height: 36, color: _strongBorder),
                 Expanded(
                   child: _actionButton(
                     icon: FontAwesomeIcons.penToSquare,
@@ -883,7 +885,7 @@ class _WarehouseCardState extends State<_WarehouseCard> {
                     onTap: widget.onEdit,
                   ),
                 ),
-                Container(width: 1, height: 36, color: _border),
+                Container(width: 1, height: 36, color: _strongBorder),
                 Expanded(
                   child: _actionButton(
                     icon: FontAwesomeIcons.trash,

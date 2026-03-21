@@ -11,6 +11,7 @@ Ribaplus POS is a modern Flutter-based Point of Sale application designed specif
 - **Cart Deposit UX**: Cart screen now shows two separate deposit fields — a read-only "Crate Deposit" (auto-computed from glass items) and an editable "Deposit Paid" (manually entered). Totals section is always anchored to the bottom of the screen via `SliverFillRemaining`.
 - **First-Run UX Fix**: Awaited the database warmup query (`SELECT 1`) in `main.dart` to ensure `onCreate` migrations (30+ tables) complete before the login screen appears, eliminating the "first-run hang".
 - **Premium Splash & Login**: Implemented a custom native splash screen and a high-end **glassmorphism** login UI using `BackdropFilter` and shared branding assets (`auth_bg.png`, high-res logo).
+- **Navigation UX**: Suppressed bottom navigation selection highlights when on non-nav screens (Customers, Staff, etc.) to maintain visual context.
 
 ## 🛠 Tech Stack
 
