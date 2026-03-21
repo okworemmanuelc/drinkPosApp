@@ -605,7 +605,7 @@ class AppDatabase extends _$AppDatabase {
         const UsersCompanion(
           name: Value('Cashier'),
           role: Value('cashier'),
-          roleTier: Value(1),
+          roleTier: Value(2),
           pin: Value('2222'),
           avatarColor: Value('#10B981'), // green
         ),
@@ -615,7 +615,7 @@ class AppDatabase extends _$AppDatabase {
         const UsersCompanion(
           name: Value('Stock Keeper'),
           role: Value('stock_keeper'),
-          roleTier: Value(1),
+          roleTier: Value(3),
           pin: Value('3333'),
           avatarColor: Value('#F59E0B'), // amber
         ),
@@ -639,8 +639,8 @@ class AppDatabase extends _$AppDatabase {
     await batch((b) {
       b.insert(users, const UsersCompanion(name: Value('CEO'), role: Value('CEO'), roleTier: Value(5), pin: Value('0000'), avatarColor: Value('#8B5CF6')));
       b.insert(users, const UsersCompanion(name: Value('Manager'), role: Value('manager'), roleTier: Value(4), pin: Value('1111'), avatarColor: Value('#3B82F6')));
-      b.insert(users, const UsersCompanion(name: Value('Cashier'), role: Value('cashier'), roleTier: Value(1), pin: Value('2222'), avatarColor: Value('#10B981')));
-      b.insert(users, const UsersCompanion(name: Value('Stock Keeper'), role: Value('stock_keeper'), roleTier: Value(1), pin: Value('3333'), avatarColor: Value('#F59E0B')));
+      b.insert(users, const UsersCompanion(name: Value('Cashier'), role: Value('cashier'), roleTier: Value(2), pin: Value('2222'), avatarColor: Value('#10B981')));
+      b.insert(users, const UsersCompanion(name: Value('Stock Keeper'), role: Value('stock_keeper'), roleTier: Value(3), pin: Value('3333'), avatarColor: Value('#F59E0B')));
       b.insert(users, const UsersCompanion(name: Value('Rider'), role: Value('rider'), roleTier: Value(1), pin: Value('4444'), avatarColor: Value('#EF4444')));
     });
   }

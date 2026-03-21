@@ -30,7 +30,7 @@ class _LoginScreenState extends State<LoginScreen>
     super.initState();
     _checkAnim = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 600),
+      duration: const Duration(milliseconds: 350),
     );
     // Scale goes from 0 → 1 with a bouncy feel
     _checkScale = CurvedAnimation(parent: _checkAnim, curve: Curves.elasticOut);
@@ -114,8 +114,9 @@ class _LoginScreenState extends State<LoginScreen>
     });
     _checkAnim.forward();
     // Wait for animation to finish (600ms) + brief pause (400ms) then open app
-    Future.delayed(const Duration(milliseconds: 1000), () {
-      if (mounted) authService.setCurrentUser(user);
+    Future.delayed(const Duration(milliseconds: 500), () {
+      if (!mounted) return;
+      authService.setCurrentUser(user); // main.dart listener switches the screen
     });
   }
 
@@ -176,25 +177,17 @@ class _LoginScreenState extends State<LoginScreen>
                       textColor: Colors.white,
                       subtextColor: Colors.white.withValues(alpha: 0.7),
                     )
-                  : Stack(
-                      children: [
-                        _PinPad(
-                          key: const ValueKey('pinpad'),
-                          pin: _pin,
-                          checking: _checking,
-                          errorMessage: _errorMessage,
-                          bg: bg,
-                          surface: Colors.white.withValues(alpha: 0.1),
-                          textColor: Colors.white,
-                          subtextColor: Colors.white.withValues(alpha: 0.6),
-                          onDigit: _onDigit,
-                          onBackspace: _onBackspace,
-                        ),
-                        if (_checking)
-                          Positioned.fill(
-                            child: _CheckingOverlay(),
-                          ),
-                      ],
+                  : _PinPad(
+                      key: const ValueKey('pinpad'),
+                      pin: _pin,
+                      checking: _checking,
+                      errorMessage: _errorMessage,
+                      bg: bg,
+                      surface: Colors.white.withValues(alpha: 0.1),
+                      textColor: Colors.white,
+                      subtextColor: Colors.white.withValues(alpha: 0.6),
+                      onDigit: _onDigit,
+                      onBackspace: _onBackspace,
                     ),
             ),
           ),
@@ -677,60 +670,3 @@ class _UserPickerSheet extends StatelessWidget {
   }
 }
 
-// ── Glassy "Please wait" overlay during PIN check ──────────────────────────
-
-class _CheckingOverlay extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(30),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 30),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.05),
-              borderRadius: BorderRadius.circular(30),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.1),
-                width: 1,
-              ),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const SizedBox(
-                  width: 40,
-                  height: 40,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 3,
-                    valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
-                  ),
-                ),
-                const SizedBox(height: 24),
-                const Text(
-                  'PLEASE WAIT',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 2,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Authenticating...',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.white.withValues(alpha: 0.5),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}

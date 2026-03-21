@@ -60,7 +60,6 @@ dependencies:
   rxdart: 0.28.0
   flutter_svg: ^2.2.4
   google_fonts: ^8.0.2
-
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -73,7 +72,6 @@ dev_dependencies:
   flutter_lints: ^3.0.0
   drift_dev: ^2.11.0
   build_runner: ^2.4.6
-  flutter_native_splash: ^2.3.1
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -118,12 +116,3 @@ flutter:
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
 
-flutter_native_splash:
-  color: "#050505"
-  background_image: "assets/images/auth_bg.png"
-  image: "assets/images/ribaplus_logo.png"
-  android_12:
-    image: "assets/images/ribaplus_logo.png"
-    color: "#050505"
-  android: true
-  ios: true

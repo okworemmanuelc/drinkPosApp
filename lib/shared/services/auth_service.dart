@@ -27,8 +27,10 @@ class AuthService extends ValueNotifier<UserData?> {
       value = user;
       navigationService.applyUserWarehouseLock(user.roleTier, user.warehouseId);
 
-      // Staff (below manager) always land on the POS tab on login
-      if (user.roleTier < 4) {
+      // Managers and above → Dashboard (index 0), everyone else → POS (index 1)
+      if (user.roleTier >= 4) {
+        navigationService.setIndex(0);
+      } else {
         navigationService.setIndex(1);
       }
 

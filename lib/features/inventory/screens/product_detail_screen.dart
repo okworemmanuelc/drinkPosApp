@@ -323,36 +323,35 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   ),
                 ),
                 SizedBox(height: context.getRSize(14)),
-                _nameController.text.isEmpty
-                    ? Text(
-                        widget.item.productName,
-                        style: TextStyle(
-                          fontSize: context.getRFontSize(24),
-                          fontWeight: FontWeight.w800,
-                          color: Colors.white,
-                          letterSpacing: -0.5,
-                        ),
-                      )
-                    : ConstrainedBox(
-                        constraints: BoxConstraints(maxWidth: context.screenWidth * 0.8),
-                        child: TextField(
-                          controller: _nameController,
-                          readOnly: !_canEdit,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: context.getRFontSize(24),
-                            fontWeight: FontWeight.w800,
-                            color: Colors.white,
-                            letterSpacing: -0.5,
-                          ),
-                          decoration: const InputDecoration(
-                            border: InputBorder.none,
-                            hintText: 'Product Name',
-                            hintStyle: TextStyle(color: Colors.white60),
-                          ),
-                          onChanged: (v) => setState(() {}),
-                        ),
-                      ),
+                ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: context.screenWidth * 0.8),
+                  child: TextField(
+                    controller: _nameController,
+                    readOnly: !_canEdit,
+                    textAlign: TextAlign.center,
+                    cursorColor: Colors.white,
+                    style: TextStyle(
+                      fontSize: context.getRFontSize(24),
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
+                      letterSpacing: -0.5,
+                    ),
+                    decoration: const InputDecoration(
+                      border: InputBorder.none,
+                      focusedBorder: InputBorder.none,
+                      enabledBorder: InputBorder.none,
+                      errorBorder: InputBorder.none,
+                      disabledBorder: InputBorder.none,
+                      contentPadding: EdgeInsets.zero,
+                      isDense: true,
+                      hintText: 'Product Name',
+                      hintStyle: TextStyle(color: Colors.white60),
+                      filled: true,
+                      fillColor: Colors.transparent,
+                    ),
+                    onChanged: (v) => setState(() {}),
+                  ),
+                ),
                 SizedBox(height: context.getRSize(6)),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -521,7 +520,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 ),
                 child: TextField(
                   controller: _emptyCrateValueController,
-                  readOnly: !_canEdit,
+                  readOnly: true,
                   keyboardType: TextInputType.number,
                   textAlign: TextAlign.end,
                   style: TextStyle(

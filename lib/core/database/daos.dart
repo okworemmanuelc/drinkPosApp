@@ -67,6 +67,11 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> with _$CatalogDaoMixin {
         return product.retailPriceKobo;
     }
   }
+
+  /// Bulk updates the empty crate value for all products of a manufacturer.
+  Future<void> updateManufacturerEmptyCrateValue(int manufacturerId, int valueKobo) =>
+      (update(products)..where((t) => t.manufacturerId.equals(manufacturerId)))
+          .write(ProductsCompanion(emptyCrateValueKobo: Value(valueKobo)));
 }
 
 @DriftAccessor(tables: [Products, Inventory, Warehouses, CrateGroups, Manufacturers, Categories])
