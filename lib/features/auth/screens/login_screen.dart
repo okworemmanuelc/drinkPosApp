@@ -146,18 +146,20 @@ class _LoginScreenState extends State<LoginScreen>
         children: [
           // ── Background Image ──────────────────────────────────────────
           Positioned.fill(
-            child: Image.asset(
-              'assets/images/auth_bg.png',
+            child: Image.network(
+              'https://images.unsplash.com/photo-1543007630-9710e4a00a20?auto=format&fit=crop&q=80&w=1935&ixlib=rb-4.0.3',
               fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) =>
+                  Container(color: Colors.black),
             ),
           ),
           
           // ── Glass Blur Layer ──────────────────────────────────────────
           Positioned.fill(
             child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+              filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
               child: Container(
-                color: Colors.black.withValues(alpha: 0.3),
+                color: Colors.black.withValues(alpha: 0.45),
               ),
             ),
           ),
@@ -175,17 +177,25 @@ class _LoginScreenState extends State<LoginScreen>
                       textColor: Colors.white,
                       subtextColor: Colors.white.withValues(alpha: 0.7),
                     )
-                  : _PinPad(
-                      key: const ValueKey('pinpad'),
-                      pin: _pin,
-                      checking: _checking,
-                      errorMessage: _errorMessage,
-                      bg: bg,
-                      surface: Colors.white.withValues(alpha: 0.1),
-                      textColor: Colors.white,
-                      subtextColor: Colors.white.withValues(alpha: 0.6),
-                      onDigit: _onDigit,
-                      onBackspace: _onBackspace,
+                  : Stack(
+                      children: [
+                        _PinPad(
+                          key: const ValueKey('pinpad'),
+                          pin: _pin,
+                          checking: _checking,
+                          errorMessage: _errorMessage,
+                          bg: bg,
+                          surface: Colors.white.withValues(alpha: 0.1),
+                          textColor: Colors.white,
+                          subtextColor: Colors.white.withValues(alpha: 0.6),
+                          onDigit: _onDigit,
+                          onBackspace: _onBackspace,
+                        ),
+                        if (_checking)
+                          Positioned.fill(
+                            child: _CheckingOverlay(),
+                          ),
+                      ],
                     ),
             ),
           ),
@@ -475,12 +485,8 @@ class _PinPad extends StatelessWidget {
             const SizedBox(height: 32),
 
             // ── Loading indicator while checking PIN ─────────────────────
-            if (checking)
-              const SizedBox(
-                height: 24,
-                width: 24,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
+            // Removed the old small loader here as we use the overlay
+
           ],
         ),
       ),
@@ -669,5 +675,63 @@ class _UserPickerSheet extends StatelessWidget {
       default:
         return role;
     }
+  }
+}
+
+// ── Glassy "Please wait" overlay during PIN check ──────────────────────────
+
+class _CheckingOverlay extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(30),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 30),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.05),
+              borderRadius: BorderRadius.circular(30),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.1),
+                width: 1,
+              ),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(
+                  width: 40,
+                  height: 40,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 3,
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                const Text(
+                  'PLEASE WAIT',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 2,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Authenticating...',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.white.withValues(alpha: 0.5),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
