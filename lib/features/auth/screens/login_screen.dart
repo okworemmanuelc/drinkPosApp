@@ -1,6 +1,5 @@
-import 'dart:async';
+import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import '../../../core/database/app_database.dart';
 import '../../../core/theme/colors.dart';
 import '../../../shared/services/auth_service.dart';
@@ -139,40 +138,58 @@ class _LoginScreenState extends State<LoginScreen>
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bg = isDark ? dBg : lBg;
-    final surface = isDark ? dSurface : lSurface;
-    final textColor = isDark ? dText : lText;
-    final subtextColor = isDark ? dSubtext : lSubtext;
+    const bg = Colors.transparent; 
 
     return Scaffold(
-      backgroundColor: bg,
-      body: SafeArea(
-        child: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 300),
-          child: _loginSuccess
-              ? _SuccessOverlay(
-                  key: const ValueKey('success'),
-                  user: _loggedInUser!,
-                  checkScale: _checkScale,
-                  checkFade: _checkFade,
-                  bg: bg,
-                  textColor: textColor,
-                  subtextColor: subtextColor,
-                )
-              : _PinPad(
-                  key: const ValueKey('pinpad'),
-                  pin: _pin,
-                  checking: _checking,
-                  errorMessage: _errorMessage,
-                  bg: bg,
-                  surface: surface,
-                  textColor: textColor,
-                  subtextColor: subtextColor,
-                  onDigit: _onDigit,
-                  onBackspace: _onBackspace,
-                ),
-        ),
+      backgroundColor: Colors.black, // fallback
+      body: Stack(
+        children: [
+          // ── Background Image ──────────────────────────────────────────
+          Positioned.fill(
+            child: Image.asset(
+              'assets/images/auth_bg.png',
+              fit: BoxFit.cover,
+            ),
+          ),
+          
+          // ── Glass Blur Layer ──────────────────────────────────────────
+          Positioned.fill(
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+              child: Container(
+                color: Colors.black.withValues(alpha: 0.3),
+              ),
+            ),
+          ),
+
+          SafeArea(
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 300),
+              child: _loginSuccess
+                  ? _SuccessOverlay(
+                      key: const ValueKey('success'),
+                      user: _loggedInUser!,
+                      checkScale: _checkScale,
+                      checkFade: _checkFade,
+                      bg: bg,
+                      textColor: Colors.white,
+                      subtextColor: Colors.white.withValues(alpha: 0.7),
+                    )
+                  : _PinPad(
+                      key: const ValueKey('pinpad'),
+                      pin: _pin,
+                      checking: _checking,
+                      errorMessage: _errorMessage,
+                      bg: bg,
+                      surface: Colors.white.withValues(alpha: 0.1),
+                      textColor: Colors.white,
+                      subtextColor: Colors.white.withValues(alpha: 0.6),
+                      onDigit: _onDigit,
+                      onBackspace: _onBackspace,
+                    ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -363,7 +380,7 @@ class _PinPad extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             // ── Logo ────────────────────────────────────────────────────
-            SvgPicture.asset('assets/images/logo.svg', height: 80),
+            Image.asset('assets/images/ribaplus_logo.png', height: 100),
             const SizedBox(height: 12),
             Text(
               'Ribaplus POS',
@@ -392,9 +409,9 @@ class _PinPad extends StatelessWidget {
                   height: 18,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: filled ? blueMain : Colors.transparent,
+                    color: filled ? blueMain : Colors.white.withValues(alpha: 0.1),
                     border: Border.all(
-                      color: filled ? blueMain : subtextColor,
+                      color: filled ? blueMain : Colors.white.withValues(alpha: 0.4),
                       width: 2,
                     ),
                   ),
@@ -410,9 +427,10 @@ class _PinPad extends StatelessWidget {
                   ? Text(
                       errorMessage!,
                       style: const TextStyle(
-                        color: danger,
+                        color: Colors.white,
                         fontSize: 13,
-                        fontWeight: FontWeight.w500,
+                        backgroundColor: Colors.redAccent,
+                        fontWeight: FontWeight.w600,
                       ),
                     )
                   : null,
@@ -506,26 +524,41 @@ class _KeyButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: surface,
-      borderRadius: BorderRadius.circular(16),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: SizedBox(
-          width: 80,
-          height: 80,
-          child: Center(
-            child: icon != null
-                ? Icon(icon, color: textColor, size: 26)
-                : Text(
-                    label!,
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.w600,
-                      color: textColor,
-                    ),
-                  ),
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(20),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.2),
+              width: 1,
+            ),
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: onTap,
+              borderRadius: BorderRadius.circular(20),
+              child: SizedBox(
+                width: 80,
+                height: 80,
+                child: Center(
+                  child: icon != null
+                      ? Icon(icon, color: textColor, size: 26)
+                      : Text(
+                          label!,
+                          style: TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.w600,
+                            color: textColor,
+                          ),
+                        ),
+                ),
+              ),
+            ),
           ),
         ),
       ),

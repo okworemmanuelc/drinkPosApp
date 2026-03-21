@@ -1174,11 +1174,10 @@ class _CartScreenState extends State<CartScreen>
                           ],
                         ),
                       )
-                    : SingleChildScrollView(
-                        child: Column(
-                          children: [
-                            // ── Cart item list ──
-                            ListView.separated(
+                    : CustomScrollView(
+                        slivers: [
+                          SliverToBoxAdapter(
+                            child: ListView.separated(
                               shrinkWrap: true,
                               physics: const NeverScrollableScrollPhysics(),
                               padding: EdgeInsets.symmetric(
@@ -1320,6 +1319,13 @@ class _CartScreenState extends State<CartScreen>
                                 );
                               },
                             ),
+                          ),
+                          SliverFillRemaining(
+                            hasScrollBody: false,
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
                             // ── Totals section ──
                             Container(
                               padding: EdgeInsets.fromLTRB(
@@ -1797,8 +1803,10 @@ class _CartScreenState extends State<CartScreen>
                                 ],
                               ),
                             ),
-                          ],
-                        ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
               ),
             ],

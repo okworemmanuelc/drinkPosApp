@@ -16,8 +16,10 @@ void main() async {
     const SystemUiOverlayStyle(statusBarColor: Colors.transparent),
   );
 
-  // Warm up the DB isolate immediately — runs in background while Flutter renders
-  database.customSelect('SELECT 1').get().ignore();
+  // Ensure the DB is fully initialized (tables + seed data) before rendering.
+  // On first run this triggers onCreate which can take a moment, but Flutter's
+  // native splash screen covers the wait. Prevents login from hanging.
+  await database.customSelect('SELECT 1').get();
 
   runApp(const RibaplusPosApp());
 }
