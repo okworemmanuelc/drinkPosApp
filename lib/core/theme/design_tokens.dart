@@ -22,10 +22,11 @@ extension DesignTokenExtension on BuildContext {
 }
 
 class AppColors {
-  // Brand Colors
-  static const Color primary = Color(0xFF2563EB);
-  static const Color primaryLight = Color(0xFF60A5FA);
-  static const Color primaryDark = Color(0xFF1D4ED8);
+  // Brand Colors (Amber Ribaplus)
+  static const Color primary = Color(0xFFF5A623);
+  static const Color primaryLight = Color(0x59F5A623);
+  static const Color primaryDark = Color(0xFFFF7A00);
+  static const Color contrastAmber = Color(0xFFD97706);
   
   // Neutral Colors (Light)
   static const Color lBg = Color(0xFFF8FAFC);

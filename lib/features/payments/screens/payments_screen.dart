@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/widgets/amber_fab.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:intl/intl.dart';
 
@@ -74,44 +75,11 @@ class _PaymentsScreenState extends State<PaymentsScreen>
               ),
             ],
           ),
-          floatingActionButton: Container(
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [blueLight, blueDark],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: FloatingActionButton.extended(
-              heroTag: 'payments_fab',
-              onPressed: () => AddPaymentSheet.show(context),
-              backgroundColor: Colors.transparent,
-              elevation: 0,
-              icon: Icon(
-                FontAwesomeIcons.plus,
-                size: context.getRSize(16),
-                color: Colors.white,
-              ),
-              label: Text(
-                'Add Payment',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: context.getRFontSize(14),
-                ),
-              ),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-            ),
+          floatingActionButton: AmberFAB(
+            heroTag: 'payments_fab',
+            onPressed: () => AddPaymentSheet.show(context),
+            icon: FontAwesomeIcons.plus,
+            label: 'Add Payment',
           ),
         );
       },

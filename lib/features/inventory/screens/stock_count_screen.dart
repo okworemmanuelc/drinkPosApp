@@ -14,7 +14,9 @@ class _DisplayItem {
   final String? warehouseName;
   final int? rowIndex;
   bool get isHeader => warehouseName != null;
-  const _DisplayItem.header(String name) : warehouseName = name, rowIndex = null;
+  const _DisplayItem.header(String name)
+    : warehouseName = name,
+      rowIndex = null;
   const _DisplayItem.row(int idx) : warehouseName = null, rowIndex = idx;
 }
 
@@ -37,7 +39,9 @@ class _StockCountScreenState extends State<StockCountScreen> {
   Color get _bg => Theme.of(context).scaffoldBackgroundColor;
   Color get _surface => Theme.of(context).colorScheme.surface;
   Color get _text => Theme.of(context).colorScheme.onSurface;
-  Color get _subtext => Theme.of(context).textTheme.bodySmall?.color ?? Theme.of(context).iconTheme.color!;
+  Color get _subtext =>
+      Theme.of(context).textTheme.bodySmall?.color ??
+      Theme.of(context).iconTheme.color!;
   Color get _border => Theme.of(context).dividerColor;
   Color get _card => Theme.of(context).cardColor;
 
@@ -56,14 +60,17 @@ class _StockCountScreenState extends State<StockCountScreen> {
   }
 
   Future<void> _loadProducts() async {
-    final items = await database.inventoryDao
-        .getProductsStockPerWarehouse(warehouseId: widget.warehouseId);
+    final items = await database.inventoryDao.getProductsStockPerWarehouse(
+      warehouseId: widget.warehouseId,
+    );
     if (!mounted) return;
     setState(() {
       _items = items;
       _controllers.clear();
       for (final item in items) {
-        _controllers.add(TextEditingController(text: item.totalStock.toString()));
+        _controllers.add(
+          TextEditingController(text: item.totalStock.toString()),
+        );
       }
       _loading = false;
     });
@@ -214,10 +221,15 @@ class _StockCountScreenState extends State<StockCountScreen> {
                 Expanded(
                   child: ListView.separated(
                     controller: scrollCtrl,
-                    padding: EdgeInsets.symmetric(vertical: context.getRSize(8)),
+                    padding: EdgeInsets.symmetric(
+                      vertical: context.getRSize(8),
+                    ),
                     itemCount: dates.length,
-                    separatorBuilder: (_, __) =>
-                        Divider(color: _border, height: 1, indent: context.getRSize(20)),
+                    separatorBuilder: (_, __) => Divider(
+                      color: _border,
+                      height: 1,
+                      indent: context.getRSize(20),
+                    ),
                     itemBuilder: (ctx, i) {
                       final dateKey = dates[i];
                       final dayLogs = grouped[dateKey]!;
@@ -232,7 +244,9 @@ class _StockCountScreenState extends State<StockCountScreen> {
                         leading: Container(
                           padding: EdgeInsets.all(context.getRSize(10)),
                           decoration: BoxDecoration(
-                            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.08),
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.primary.withValues(alpha: 0.08),
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: Icon(
@@ -277,7 +291,10 @@ class _StockCountScreenState extends State<StockCountScreen> {
   }
 
   void _showDayDetail(
-      BuildContext context, String dateLabel, List<ActivityLogData> logs) {
+    BuildContext context,
+    String dateLabel,
+    List<ActivityLogData> logs,
+  ) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -337,7 +354,9 @@ class _StockCountScreenState extends State<StockCountScreen> {
                         vertical: context.getRSize(4),
                       ),
                       decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.primary.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Text(
@@ -362,17 +381,22 @@ class _StockCountScreenState extends State<StockCountScreen> {
                     horizontal: context.getRSize(16),
                   ),
                   itemCount: logs.length,
-                  separatorBuilder: (_, __) => SizedBox(height: context.getRSize(8)),
+                  separatorBuilder: (_, __) =>
+                      SizedBox(height: context.getRSize(8)),
                   itemBuilder: (ctx, i) {
                     final log = logs[i];
                     // Detect positive/negative adjustment from description
-                    final isPositive = log.description.contains('adjusted by +');
-                    final isNegative = log.description.contains('adjusted by -');
+                    final isPositive = log.description.contains(
+                      'adjusted by +',
+                    );
+                    final isNegative = log.description.contains(
+                      'adjusted by -',
+                    );
                     final accentColor = isPositive
                         ? success
                         : isNegative
-                            ? danger
-                            : _subtext;
+                        ? danger
+                        : _subtext;
 
                     return Container(
                       padding: EdgeInsets.all(context.getRSize(12)),
@@ -436,8 +460,18 @@ class _StockCountScreenState extends State<StockCountScreen> {
 
   String _formatDate(DateTime date) {
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     return '${months[date.month - 1]} ${date.day}, ${date.year}';
   }
@@ -500,7 +534,7 @@ class _StockCountScreenState extends State<StockCountScreen> {
             if (!_loading)
               _saving
                   ? Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 16),
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: Center(
                         child: SizedBox(
                           width: 20,
@@ -533,28 +567,28 @@ class _StockCountScreenState extends State<StockCountScreen> {
                 ),
               )
             : _items.isEmpty
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          FontAwesomeIcons.boxOpen,
-                          size: context.getRSize(48),
-                          color: _subtext.withValues(alpha: 0.4),
-                        ),
-                        SizedBox(height: context.getRSize(16)),
-                        Text(
-                          'No products found',
-                          style: TextStyle(
-                            color: _subtext,
-                            fontSize: context.getRFontSize(16),
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
+            ? Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      FontAwesomeIcons.boxOpen,
+                      size: context.getRSize(48),
+                      color: _subtext.withValues(alpha: 0.4),
                     ),
-                  )
-                : _buildTable(context),
+                    SizedBox(height: context.getRSize(16)),
+                    Text(
+                      'No products found',
+                      style: TextStyle(
+                        color: _subtext,
+                        fontSize: context.getRFontSize(16),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            : _buildTable(context),
       ),
     );
   }
@@ -578,7 +612,8 @@ class _StockCountScreenState extends State<StockCountScreen> {
         Expanded(
           child: ListView.builder(
             padding: EdgeInsets.only(
-              bottom: context.getRSize(24) + MediaQuery.of(context).padding.bottom,
+              bottom:
+                  context.getRSize(24) + MediaQuery.of(context).padding.bottom,
             ),
             itemCount: displayItems.length,
             itemBuilder: (_, idx) {
@@ -640,7 +675,9 @@ class _StockCountScreenState extends State<StockCountScreen> {
           Container(
             padding: EdgeInsets.all(context.getRSize(6)),
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+              color: Theme.of(
+                context,
+              ).colorScheme.primary.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(
@@ -674,8 +711,8 @@ class _StockCountScreenState extends State<StockCountScreen> {
         final diffColor = diff > 0
             ? success
             : diff < 0
-                ? danger
-                : _subtext;
+            ? danger
+            : _subtext;
         final diffLabel = diff == 0 ? '—' : (diff > 0 ? '+$diff' : '$diff');
 
         return Container(
@@ -750,7 +787,10 @@ class _StockCountScreenState extends State<StockCountScreen> {
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide(color: Theme.of(context).colorScheme.primary, width: 1.5),
+                      borderSide: BorderSide(
+                        color: Theme.of(context).colorScheme.primary,
+                        width: 1.5,
+                      ),
                     ),
                   ),
                   onChanged: (_) => setRowState(() {}),
@@ -775,5 +815,3 @@ class _StockCountScreenState extends State<StockCountScreen> {
     );
   }
 }
-
-

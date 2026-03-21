@@ -58,7 +58,9 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
   WarehouseData? _selectedWarehouse;
   Color get _surface => Theme.of(context).colorScheme.surface;
   Color get _text => Theme.of(context).colorScheme.onSurface;
-  Color get _subtext => Theme.of(context).textTheme.bodySmall?.color ?? Theme.of(context).iconTheme.color!;
+  Color get _subtext =>
+      Theme.of(context).textTheme.bodySmall?.color ??
+      Theme.of(context).iconTheme.color!;
   Color get _border => Theme.of(context).dividerColor;
   Color get _cardBg => Theme.of(context).cardColor;
 
@@ -77,7 +79,9 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
   }
 
   Future<void> _loadProducts() async {
-    final products = await database.catalogDao.watchAvailableProductDatas().first;
+    final products = await database.catalogDao
+        .watchAvailableProductDatas()
+        .first;
     if (mounted) setState(() => _allProducts = products);
   }
 
@@ -134,7 +138,7 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
     if (_selectedWarehouse == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Please select a destination warehouse.'),
+          content: const Text('Please select a destination warehouse.'),
           backgroundColor: Theme.of(context).colorScheme.error,
         ),
       );
@@ -146,7 +150,9 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
       if (l.selectedProduct == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Select a product from the list for each item.'),
+            content: const Text(
+              'Select a product from the list for each item.',
+            ),
             backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );
@@ -155,7 +161,9 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
       if ((double.tryParse(l.qtyCtrl.text) ?? 0) <= 0) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Quantity must be greater than 0 for each item.'),
+            content: const Text(
+              'Quantity must be greater than 0 for each item.',
+            ),
             backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );
@@ -164,16 +172,19 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
       if (l.selectedSupplier == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Please select a supplier for each item.'),
+            content: const Text('Please select a supplier for each item.'),
             backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );
         return;
       }
-      if (l.selectedCategory == 'Glass Crates' && l.selectedCrateGroup == null) {
+      if (l.selectedCategory == 'Glass Crates' &&
+          l.selectedCrateGroup == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Select a Crate Company for Glass Crate items.'),
+            content: const Text(
+              'Select a Crate Company for Glass Crate items.',
+            ),
             backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );
@@ -244,7 +255,8 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          '${totalQty.toInt()} units added to ${_selectedWarehouse!.name}.'),
+          '${totalQty.toInt()} units added to ${_selectedWarehouse!.name}.',
+        ),
         backgroundColor: success,
       ),
     );
@@ -278,15 +290,18 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
                 return const Iterable<ProductData>.empty();
               }
               final q = textEditingValue.text.toLowerCase();
-              return _allProducts.where((p) => p.name.toLowerCase().contains(q));
+              return _allProducts.where(
+                (p) => p.name.toLowerCase().contains(q),
+              );
             },
             onSelected: (ProductData selection) {
               setState(() {
                 line.selectedProduct = selection;
                 line.productCtrl.text = selection.name;
                 line.selectedCategory = 'Other';
-                line.retailPriceCtrl.text =
-                    (selection.retailPriceKobo / 100).round().toString();
+                line.retailPriceCtrl.text = (selection.retailPriceKobo / 100)
+                    .round()
+                    .toString();
 
                 // Map crateGroupId to a loaded CrateGroupData
                 if (selection.crateGroupId != null) {
@@ -303,44 +318,63 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
                 }
               });
             },
-            fieldViewBuilder: (context, controller, focusNode, onEditingComplete) {
-              if (controller.text.isEmpty && line.productCtrl.text.isNotEmpty) {
-                controller.text = line.productCtrl.text;
-              }
-              controller.addListener(() {
-                line.productCtrl.text = controller.text;
-              });
-              return TextField(
-                controller: controller,
-                focusNode: focusNode,
-                onEditingComplete: onEditingComplete,
-                style: TextStyle(fontSize: 14, color: _text, fontWeight: FontWeight.bold),
-                decoration: InputDecoration(
-                  hintText: hint,
-                  hintStyle: TextStyle(color: _subtext, fontWeight: FontWeight.normal),
-                  filled: true,
-                  fillColor: _cardBg,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: BorderSide.none,
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: BorderSide(color: Theme.of(context).colorScheme.primary, width: 2),
-                  ),
-                  contentPadding: const EdgeInsets.all(16),
-                ),
-              );
-            },
+            fieldViewBuilder:
+                (context, controller, focusNode, onEditingComplete) {
+                  if (controller.text.isEmpty &&
+                      line.productCtrl.text.isNotEmpty) {
+                    controller.text = line.productCtrl.text;
+                  }
+                  controller.addListener(() {
+                    line.productCtrl.text = controller.text;
+                  });
+                  return TextField(
+                    controller: controller,
+                    focusNode: focusNode,
+                    onEditingComplete: onEditingComplete,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: _text,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    decoration: InputDecoration(
+                      hintText: hint,
+                      hintStyle: TextStyle(
+                        color: _subtext,
+                        fontWeight: FontWeight.normal,
+                      ),
+                      filled: true,
+                      fillColor: _cardBg,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: BorderSide.none,
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: BorderSide(
+                          color: Theme.of(context).colorScheme.primary,
+                          width: 2,
+                        ),
+                      ),
+                      contentPadding: const EdgeInsets.all(16),
+                    ),
+                  );
+                },
           )
         else
           TextField(
             controller: ctrl,
             keyboardType: isNumber ? TextInputType.number : TextInputType.text,
-            style: TextStyle(fontSize: 14, color: _text, fontWeight: FontWeight.bold),
+            style: TextStyle(
+              fontSize: 14,
+              color: _text,
+              fontWeight: FontWeight.bold,
+            ),
             decoration: InputDecoration(
               hintText: hint,
-              hintStyle: TextStyle(color: _subtext, fontWeight: FontWeight.normal),
+              hintStyle: TextStyle(
+                color: _subtext,
+                fontWeight: FontWeight.normal,
+              ),
               filled: true,
               fillColor: _cardBg,
               border: OutlineInputBorder(
@@ -349,7 +383,10 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide(color: Theme.of(context).colorScheme.primary, width: 2),
+                borderSide: BorderSide(
+                  color: Theme.of(context).colorScheme.primary,
+                  width: 2,
+                ),
               ),
               contentPadding: const EdgeInsets.all(16),
             ),
@@ -357,7 +394,6 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
       ],
     );
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -381,8 +417,9 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
             child: Container(
               decoration: BoxDecoration(
                 color: _surface,
-                borderRadius:
-                    const BorderRadius.vertical(top: Radius.circular(28)),
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(28),
+                ),
               ),
               child: Column(
                 children: [
@@ -438,12 +475,15 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
                             labelText: 'DESTINATION WAREHOUSE *',
                             value: _selectedWarehouse,
                             items: _warehouses
-                                .map((w) => DropdownMenuItem(
-                                      value: w,
-                                      child: Text(w.name),
-                                    ))
+                                .map(
+                                  (w) => DropdownMenuItem(
+                                    value: w,
+                                    child: Text(w.name),
+                                  ),
+                                )
                                 .toList(),
-                            onChanged: (v) => setState(() => _selectedWarehouse = v),
+                            onChanged: (v) =>
+                                setState(() => _selectedWarehouse = v),
                           ),
                         SizedBox(height: context.getRSize(16)),
                       ],
@@ -524,9 +564,12 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
             AppDropdown<String>(
               labelText: 'Category',
               value: line.selectedCategory,
-              items: ['Glass Crates', 'Cans & PET', 'Kegs', 'Other']
-                  .map((c) => DropdownMenuItem(value: c, child: Text(c)))
-                  .toList(),
+              items: [
+                'Glass Crates',
+                'Cans & PET',
+                'Kegs',
+                'Other',
+              ].map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
               onChanged: (v) => setState(() => line.selectedCategory = v!),
             ),
 
@@ -567,12 +610,7 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
 
             const SizedBox(height: 12),
 
-            _inputField(
-              'Qty *',
-              line.qtyCtrl,
-              '0',
-              isNumber: true,
-            ),
+            _inputField('Qty *', line.qtyCtrl, '0', isNumber: true),
 
             SizedBox(height: context.getRSize(16)),
             Align(
@@ -592,7 +630,11 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
     );
   }
 
-  Widget _buildSummaryBar(BuildContext context, double grandTotal, ScrollController scrollController) {
+  Widget _buildSummaryBar(
+    BuildContext context,
+    double grandTotal,
+    ScrollController scrollController,
+  ) {
     return Container(
       padding: EdgeInsets.fromLTRB(
         context.getRSize(16),
@@ -687,5 +729,3 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
     );
   }
 }
-
-

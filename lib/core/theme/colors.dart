@@ -33,6 +33,7 @@ const Color success = Color(0xFF10B981);
 
 // Brand Colors (shared across light & dark)
 const Color amberPrimary = Color(0xFFF5A623);
+const Color amberPrimaryDark = Color(0xFFD97706); // Darker amber for better contrast on white
 const Color amberDark = Color(0xFFFF7A00);
 const Color amberGlow = Color(0x59F5A623); // rgba(245,166,35,0.35)
 const Color dangerRed = Color(0xFFFF3B30);

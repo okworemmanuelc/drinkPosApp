@@ -14,6 +14,7 @@ import '../../features/staff/screens/staff_screen.dart';
 import '../../features/pos/screens/cart_screen.dart';
 import '../../features/deliveries/screens/deliveries_screen.dart';
 import '../../shared/widgets/activity_log_screen.dart';
+import '../../shared/services/auth_service.dart';
 import '../../shared/services/cart_service.dart';
 import '../../shared/services/navigation_service.dart';
 import '../../shared/services/order_service.dart';
@@ -169,102 +170,155 @@ class _MainLayoutState extends State<MainLayout> {
                   const RepaintBoundary(child: ActivityLogScreen()), // 11
                 ],
               ),
-              bottomNavigationBar: () {
-                final bool isNavTab = [0, 1, 2, 3, 9].contains(currentIndex);
-                final int navIndex = currentIndex == 0
-                    ? 0
-                    : (currentIndex == 1
-                        ? 1
+              bottomNavigationBar: ValueListenableBuilder(
+                valueListenable: authService,
+                builder: (context, user, _) {
+                  final isCashier = (user?.roleTier ?? 1) < 4;
+                  final iconColor = t.textTheme.bodySmall?.color ?? t.iconTheme.color!;
+
+                  if (isCashier) {
+                    // Cashier nav: POS(1), Stock(2), Orders(3), Cart(9)
+                    final bool isNavTab = [1, 2, 3, 9].contains(currentIndex);
+                    final int navIndex = currentIndex == 1
+                        ? 0
                         : (currentIndex == 2
-                            ? 2
-                            : (currentIndex == 3
-                                ? 3
-                                : (currentIndex == 9 ? 4 : 0))));
+                            ? 1
+                            : (currentIndex == 3 ? 2 : (currentIndex == 9 ? 3 : 0)));
 
-                final iconColor = t.textTheme.bodySmall?.color ?? t.iconTheme.color!;
+                    return BottomNavigationBar(
+                      currentIndex: navIndex,
+                      selectedItemColor: isNavTab ? t.colorScheme.primary : iconColor,
+                      unselectedItemColor: iconColor,
+                      onTap: (index) {
+                        switch (index) {
+                          case 0: navigationService.setIndex(1); break;
+                          case 1: navigationService.setIndex(2); break;
+                          case 2: navigationService.setIndex(3); break;
+                          case 3: navigationService.setIndex(9); break;
+                        }
+                      },
+                      type: BottomNavigationBarType.fixed,
+                      items: [
+                        BottomNavigationBarItem(
+                          icon: const Icon(Icons.point_of_sale_outlined),
+                          activeIcon: Icon(isNavTab ? Icons.point_of_sale : Icons.point_of_sale_outlined),
+                          label: 'POS',
+                        ),
+                        BottomNavigationBarItem(
+                          icon: const Icon(Icons.inventory_2_outlined),
+                          activeIcon: Icon(isNavTab ? Icons.inventory_2 : Icons.inventory_2_outlined),
+                          label: 'Stock',
+                        ),
+                        BottomNavigationBarItem(
+                          icon: Badge(
+                            label: Text(_pendingOrderCount.toString()),
+                            isLabelVisible: _pendingOrderCount > 0,
+                            backgroundColor: t.colorScheme.error,
+                            child: const Icon(Icons.receipt_long_outlined),
+                          ),
+                          activeIcon: Badge(
+                            label: Text(_pendingOrderCount.toString()),
+                            isLabelVisible: _pendingOrderCount > 0,
+                            backgroundColor: t.colorScheme.error,
+                            child: Icon(isNavTab ? Icons.receipt_long : Icons.receipt_long_outlined),
+                          ),
+                          label: 'Orders',
+                        ),
+                        BottomNavigationBarItem(
+                          icon: Badge(
+                            label: Text(cart.length.toString()),
+                            isLabelVisible: cart.isNotEmpty,
+                            backgroundColor: t.colorScheme.error,
+                            child: const Icon(Icons.shopping_cart_outlined),
+                          ),
+                          activeIcon: Badge(
+                            label: Text(cart.length.toString()),
+                            isLabelVisible: cart.isNotEmpty,
+                            backgroundColor: t.colorScheme.error,
+                            child: Icon(isNavTab ? Icons.shopping_cart : Icons.shopping_cart_outlined),
+                          ),
+                          label: 'Cart',
+                        ),
+                      ],
+                    );
+                  }
 
-                return BottomNavigationBar(
-                  currentIndex: navIndex,
-                  selectedItemColor: isNavTab ? t.colorScheme.primary : iconColor,
-                  unselectedItemColor: iconColor,
-                  onTap: (index) {
-                    switch (index) {
-                      case 0:
-                        navigationService.setIndex(0);
-                        break;
-                      case 1:
-                        navigationService.setIndex(1);
-                        break;
-                      case 2:
-                        navigationService.setIndex(2);
-                        break;
-                      case 3:
-                        navigationService.setIndex(3);
-                        break;
-                      case 4:
-                        navigationService.setIndex(9);
-                        break;
-                    }
-                  },
-                  type: BottomNavigationBarType.fixed,
-                  items: [
-                    BottomNavigationBarItem(
-                      icon: const Icon(Icons.dashboard_outlined),
-                      activeIcon: Icon(
-                          isNavTab ? Icons.dashboard : Icons.dashboard_outlined),
-                      label: 'Home',
-                    ),
-                    BottomNavigationBarItem(
-                      icon: const Icon(Icons.point_of_sale_outlined),
-                      activeIcon: Icon(isNavTab
-                          ? Icons.point_of_sale
-                          : Icons.point_of_sale_outlined),
-                      label: 'POS',
-                    ),
-                    BottomNavigationBarItem(
-                      icon: const Icon(Icons.inventory_2_outlined),
-                      activeIcon: Icon(isNavTab
-                          ? Icons.inventory_2
-                          : Icons.inventory_2_outlined),
-                      label: 'Stock',
-                    ),
-                    BottomNavigationBarItem(
-                      icon: Badge(
-                        label: Text(_pendingOrderCount.toString()),
-                        isLabelVisible: _pendingOrderCount > 0,
-                        backgroundColor: t.colorScheme.error,
-                        child: const Icon(Icons.receipt_long_outlined),
+                  // Manager / CEO nav: Home(0), POS(1), Stock(2), Orders(3), Cart(9)
+                  final bool isNavTab = [0, 1, 2, 3, 9].contains(currentIndex);
+                  final int navIndex = currentIndex == 0
+                      ? 0
+                      : (currentIndex == 1
+                          ? 1
+                          : (currentIndex == 2
+                              ? 2
+                              : (currentIndex == 3
+                                  ? 3
+                                  : (currentIndex == 9 ? 4 : 0))));
+
+                  return BottomNavigationBar(
+                    currentIndex: navIndex,
+                    selectedItemColor: isNavTab ? t.colorScheme.primary : iconColor,
+                    unselectedItemColor: iconColor,
+                    onTap: (index) {
+                      switch (index) {
+                        case 0: navigationService.setIndex(0); break;
+                        case 1: navigationService.setIndex(1); break;
+                        case 2: navigationService.setIndex(2); break;
+                        case 3: navigationService.setIndex(3); break;
+                        case 4: navigationService.setIndex(9); break;
+                      }
+                    },
+                    type: BottomNavigationBarType.fixed,
+                    items: [
+                      BottomNavigationBarItem(
+                        icon: const Icon(Icons.dashboard_outlined),
+                        activeIcon: Icon(isNavTab ? Icons.dashboard : Icons.dashboard_outlined),
+                        label: 'Home',
                       ),
-                      activeIcon: Badge(
-                        label: Text(_pendingOrderCount.toString()),
-                        isLabelVisible: _pendingOrderCount > 0,
-                        backgroundColor: t.colorScheme.error,
-                        child: Icon(isNavTab
-                            ? Icons.receipt_long
-                            : Icons.receipt_long_outlined),
+                      BottomNavigationBarItem(
+                        icon: const Icon(Icons.point_of_sale_outlined),
+                        activeIcon: Icon(isNavTab ? Icons.point_of_sale : Icons.point_of_sale_outlined),
+                        label: 'POS',
                       ),
-                      label: 'Orders',
-                    ),
-                    BottomNavigationBarItem(
-                      icon: Badge(
-                        label: Text(cart.length.toString()),
-                        isLabelVisible: cart.isNotEmpty,
-                        backgroundColor: t.colorScheme.error,
-                        child: const Icon(Icons.shopping_cart_outlined),
+                      BottomNavigationBarItem(
+                        icon: const Icon(Icons.inventory_2_outlined),
+                        activeIcon: Icon(isNavTab ? Icons.inventory_2 : Icons.inventory_2_outlined),
+                        label: 'Stock',
                       ),
-                      activeIcon: Badge(
-                        label: Text(cart.length.toString()),
-                        isLabelVisible: cart.isNotEmpty,
-                        backgroundColor: t.colorScheme.error,
-                        child: Icon(isNavTab
-                            ? Icons.shopping_cart
-                            : Icons.shopping_cart_outlined),
+                      BottomNavigationBarItem(
+                        icon: Badge(
+                          label: Text(_pendingOrderCount.toString()),
+                          isLabelVisible: _pendingOrderCount > 0,
+                          backgroundColor: t.colorScheme.error,
+                          child: const Icon(Icons.receipt_long_outlined),
+                        ),
+                        activeIcon: Badge(
+                          label: Text(_pendingOrderCount.toString()),
+                          isLabelVisible: _pendingOrderCount > 0,
+                          backgroundColor: t.colorScheme.error,
+                          child: Icon(isNavTab ? Icons.receipt_long : Icons.receipt_long_outlined),
+                        ),
+                        label: 'Orders',
                       ),
-                      label: 'Cart',
-                    ),
-                  ],
-                );
-              }(),
+                      BottomNavigationBarItem(
+                        icon: Badge(
+                          label: Text(cart.length.toString()),
+                          isLabelVisible: cart.isNotEmpty,
+                          backgroundColor: t.colorScheme.error,
+                          child: const Icon(Icons.shopping_cart_outlined),
+                        ),
+                        activeIcon: Badge(
+                          label: Text(cart.length.toString()),
+                          isLabelVisible: cart.isNotEmpty,
+                          backgroundColor: t.colorScheme.error,
+                          child: Icon(isNavTab ? Icons.shopping_cart : Icons.shopping_cart_outlined),
+                        ),
+                        label: 'Cart',
+                      ),
+                    ],
+                  );
+                },
+              ),
             ),
           ),
         );

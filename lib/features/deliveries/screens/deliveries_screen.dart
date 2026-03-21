@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/widgets/amber_fab.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 import '../../../core/theme/colors.dart';
@@ -55,46 +56,11 @@ class _DeliveriesScreenState extends State<DeliveriesScreen> {
               ),
             ],
           ),
-          floatingActionButton: Container(
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [blueLight, blueDark],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: FloatingActionButton.extended(
-              heroTag: 'deliveries_fab',
-              onPressed: () {
-                ReceiveDeliverySheet.show(context);
-              },
-              backgroundColor: Colors.transparent,
-              elevation: 0,
-              icon: Icon(
-                FontAwesomeIcons.truckRampBox,
-                size: context.getRSize(16),
-                color: Colors.white,
-              ),
-              label: Text(
-                'Receive Delivery',
-                style: TextStyle(
-                  fontSize: context.getRFontSize(15),
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-              ),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-            ),
+          floatingActionButton: AmberFAB(
+            heroTag: 'deliveries_fab',
+            onPressed: () => ReceiveDeliverySheet.show(context),
+            icon: FontAwesomeIcons.truckRampBox,
+            label: 'Receive Delivery',
           ),
         );
       },

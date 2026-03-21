@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import '../../../core/widgets/amber_fab.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../../core/theme/colors.dart';
 
@@ -228,39 +229,26 @@ class _PosHomeScreenState extends State<PosHomeScreen> {
             ? totalQty.toInt().toString()
             : totalQty.toStringAsFixed(1);
 
-        return FloatingActionButton.extended(
-          backgroundColor: Theme.of(context).colorScheme.primary,
+        return AmberFAB(
           onPressed: () {
             navigationService.setIndex(9); // 9 corresponds to Cart tab
           },
-          icon: const Icon(FontAwesomeIcons.cartShopping, color: Colors.white, size: 18),
-          label: Row(
-            children: [
-              const Text(
-                'Go to Cart',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
-                ),
+          icon: FontAwesomeIcons.cartShopping,
+          label: 'Go to Cart',
+          trailing: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              badgeText,
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.primary,
+                fontWeight: FontWeight.bold,
+                fontSize: 12,
               ),
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  badgeText,
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.primary,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12,
-                  ),
-                ),
-              ),
-            ],
+            ),
           ),
         );
       },

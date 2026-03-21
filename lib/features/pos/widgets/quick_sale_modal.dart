@@ -50,26 +50,49 @@ class _QuickSaleModalState extends State<QuickSaleModal> {
         children: [
           _modalField(_nameCtrl, 'Item Name', FontAwesomeIcons.tag),
           SizedBox(height: context.getRSize(12)),
-          _modalField(_qtyCtrl, 'Quantity', FontAwesomeIcons.cubes, isNumber: true),
+          _modalField(
+            _qtyCtrl,
+            'Quantity',
+            FontAwesomeIcons.cubes,
+            isNumber: true,
+          ),
           SizedBox(height: context.getRSize(12)),
-          _modalField(_priceCtrl, 'Price Per Unit', FontAwesomeIcons.nairaSign, isNumber: true),
+          _modalField(
+            _priceCtrl,
+            'Price Per Unit',
+            FontAwesomeIcons.nairaSign,
+            isNumber: true,
+          ),
         ],
       ),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: Text('Cancel', style: TextStyle(color: widget.subtextCol, fontWeight: FontWeight.w600)),
+          child: Text(
+            'Cancel',
+            style: TextStyle(
+              color: widget.subtextCol,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
         ),
         ElevatedButton(
           style: ElevatedButton.styleFrom(
             backgroundColor: Theme.of(context).colorScheme.primary,
             foregroundColor: Colors.white,
-            padding: EdgeInsets.symmetric(horizontal: context.getRSize(24), vertical: context.getRSize(12)),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            padding: EdgeInsets.symmetric(
+              horizontal: context.getRSize(24),
+              vertical: context.getRSize(12),
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
             elevation: 0,
           ),
           onPressed: () {
-            if (_nameCtrl.text.isNotEmpty && _qtyCtrl.text.isNotEmpty && _priceCtrl.text.isNotEmpty) {
+            if (_nameCtrl.text.isNotEmpty &&
+                _qtyCtrl.text.isNotEmpty &&
+                _priceCtrl.text.isNotEmpty) {
               final product = {
                 'name': _nameCtrl.text,
                 'subtitle': 'Quick Sale',
@@ -78,43 +101,72 @@ class _QuickSaleModalState extends State<QuickSaleModal> {
                 'color': Theme.of(context).colorScheme.primary,
                 'category': 'Other',
               };
-              cartService.addItem(product, qty: double.tryParse(_qtyCtrl.text) ?? 1.0);
+              cartService.addItem(
+                product,
+                qty: double.tryParse(_qtyCtrl.text) ?? 1.0,
+              );
               Navigator.pop(context);
             } else {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text('Item Name, Quantity, and Price are required.'),
+                  content: const Text(
+                    'Item Name, Quantity, and Price are required.',
+                  ),
                   backgroundColor: Theme.of(context).colorScheme.error,
                 ),
               );
             }
           },
-          child: const Text('Send to Cart', style: TextStyle(fontWeight: FontWeight.bold)),
+          child: const Text(
+            'Send to Cart',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
         ),
       ],
     );
   }
 
-  Widget _modalField(TextEditingController ctrl, String hint, IconData icon, {bool isNumber = false}) {
+  Widget _modalField(
+    TextEditingController ctrl,
+    String hint,
+    IconData icon, {
+    bool isNumber = false,
+  }) {
     return TextField(
       controller: ctrl,
-      keyboardType: isNumber ? const TextInputType.numberWithOptions(decimal: true) : TextInputType.text,
-      style: TextStyle(color: widget.textCol, fontSize: context.getRFontSize(14)),
+      keyboardType: isNumber
+          ? const TextInputType.numberWithOptions(decimal: true)
+          : TextInputType.text,
+      style: TextStyle(
+        color: widget.textCol,
+        fontSize: context.getRFontSize(14),
+      ),
       decoration: InputDecoration(
         hintText: hint,
         hintStyle: TextStyle(color: widget.subtextCol),
-        prefixIcon: Icon(icon, size: context.getRSize(16), color: widget.subtextCol),
+        prefixIcon: Icon(
+          icon,
+          size: context.getRSize(16),
+          color: widget.subtextCol,
+        ),
         filled: true,
         fillColor: widget.cardCol,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide.none,
+        ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Theme.of(context).colorScheme.primary, width: 2),
+          borderSide: BorderSide(
+            color: Theme.of(context).colorScheme.primary,
+            width: 2,
+          ),
         ),
-        contentPadding: EdgeInsets.symmetric(horizontal: context.getRSize(16), vertical: context.getRSize(12)),
+        contentPadding: EdgeInsets.symmetric(
+          horizontal: context.getRSize(16),
+          vertical: context.getRSize(12),
+        ),
       ),
     );
   }
 }
-
-

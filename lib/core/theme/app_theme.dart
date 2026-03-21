@@ -272,7 +272,7 @@ class AppTheme {
       ),
       bottomNavigationBarTheme: const BottomNavigationBarThemeData(
         backgroundColor: alSurface,
-        selectedItemColor: amberPrimary,
+        selectedItemColor: amberPrimaryDark,
         unselectedItemColor: alTextSecondary,
         showSelectedLabels: true,
         showUnselectedLabels: true,
@@ -287,7 +287,7 @@ class AppTheme {
       dividerColor: alBorder,
       chipTheme: ChipThemeData(
         backgroundColor: alSurface2,
-        selectedColor: amberPrimary,
+        selectedColor: amberPrimaryDark,
         labelStyle: GoogleFonts.dmSans(
           fontSize: 13, fontWeight: FontWeight.w600, color: alTextPrimary,
         ),
@@ -337,12 +337,18 @@ class AppTheme {
       ),
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: alSurface,
-        indicatorColor: amberPrimary.withValues(alpha: 0.15),
+        indicatorColor: amberPrimaryDark.withValues(alpha: 0.15),
         labelTextStyle: WidgetStatePropertyAll(
           GoogleFonts.dmSans(fontSize: 12, fontWeight: FontWeight.w600),
         ),
       ),
       dividerTheme: const DividerThemeData(color: alBorder, thickness: 1),
+      floatingActionButtonTheme: FloatingActionButtonThemeData(
+        backgroundColor: amberPrimary,
+        foregroundColor: Colors.black,
+        elevation: 0,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      ),
       pageTransitionsTheme: const PageTransitionsTheme(
         builders: {
           TargetPlatform.android: CupertinoPageTransitionsBuilder(),
@@ -503,6 +509,12 @@ class AppTheme {
         ),
       ),
       dividerTheme: const DividerThemeData(color: adBorder, thickness: 1),
+      floatingActionButtonTheme: FloatingActionButtonThemeData(
+        backgroundColor: amberPrimary,
+        foregroundColor: Colors.black,
+        elevation: 0,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      ),
       pageTransitionsTheme: const PageTransitionsTheme(
         builders: {
           TargetPlatform.android: CupertinoPageTransitionsBuilder(),

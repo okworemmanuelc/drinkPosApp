@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import '../../../core/widgets/amber_fab.dart';
 import '../../../shared/widgets/shared_scaffold.dart';
 import '../../../shared/widgets/menu_button.dart';
 import '../../../shared/widgets/app_bar_header.dart';
@@ -511,39 +512,10 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
             SizedBox(width: rSize(context, 8)),
           ],
         ),
-        floatingActionButton: Container(
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [blueLight, blueDark],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: FloatingActionButton.extended(
-            heroTag: 'warehouse_fab',
-            onPressed: () => _showAddSheet(context),
-            backgroundColor: Colors.transparent,
-            elevation: 0,
-            icon: const Icon(Icons.add_rounded, color: Colors.white),
-            label: const Text(
-              'Add Warehouse',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-            ),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-          ),
+        floatingActionButton: AmberFAB(
+          onPressed: () => _showAddSheet(context),
+          icon: Icons.add_rounded,
+          label: 'Add Warehouse',
         ),
         body: Builder(
           builder: (context) {

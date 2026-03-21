@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
+import '../../../core/widgets/amber_fab.dart';
 import 'package:flutter/services.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
@@ -114,13 +115,10 @@ class _StaffScreenState extends State<StaffScreen> {
           floatingActionButton: RoleGuard(
             minTier: 4,
             fallback: const SizedBox.shrink(),
-            child: FloatingActionButton.extended(
+            child: AmberFAB(
               onPressed: () => _showStaffSheet(context),
-              backgroundColor: Theme.of(context).colorScheme.primary,
-              icon: const Icon(FontAwesomeIcons.plus, size: 16, color: Colors.white),
-              label: const Text('Add Staff',
-                  style: TextStyle(
-                      color: Colors.white, fontWeight: FontWeight.bold)),
+              icon: FontAwesomeIcons.plus,
+              label: 'Add Staff',
             ),
           ),
         );

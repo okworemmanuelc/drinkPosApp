@@ -83,7 +83,9 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
   Color get _surface => Theme.of(context).colorScheme.surface;
   Color get _cardBg => Theme.of(context).cardColor;
   Color get _text => Theme.of(context).colorScheme.onSurface;
-  Color get _subtext => Theme.of(context).textTheme.bodySmall?.color ?? Theme.of(context).iconTheme.color!;
+  Color get _subtext =>
+      Theme.of(context).textTheme.bodySmall?.color ??
+      Theme.of(context).iconTheme.color!;
   Color get _border => Theme.of(context).dividerColor;
 
   @override
@@ -128,7 +130,7 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
     if (isOthers && desc.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Description is required for "Others" category.'),
+          content: const Text('Description is required for "Others" category.'),
           backgroundColor: Theme.of(context).colorScheme.error,
           behavior: SnackBarBehavior.floating,
         ),
@@ -140,7 +142,7 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
     if (needsReceipt && _receiptFile == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
+          content: const Text(
             'Receipt upload is required for expenses of 20,000 and above.',
           ),
           backgroundColor: Theme.of(context).colorScheme.error,
@@ -151,16 +153,18 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
     }
 
     final amtKobo = (amount * 100).toInt();
-    
-    await database.expensesDao.addExpense(ExpensesCompanion.insert(
-      category: Value(_selectedCategory),
-      amountKobo: amtKobo,
-      description: desc,
-      paymentMethod: Value(_paymentMethod),
-      recordedBy: Value(_recordedByCtrl.text),
-      reference: Value(_refCtrl.text),
-      timestamp: Value(_selectedDate),
-    ));
+
+    await database.expensesDao.addExpense(
+      ExpensesCompanion.insert(
+        category: Value(_selectedCategory),
+        amountKobo: amtKobo,
+        description: desc,
+        paymentMethod: Value(_paymentMethod),
+        recordedBy: Value(_recordedByCtrl.text),
+        reference: Value(_refCtrl.text),
+        timestamp: Value(_selectedDate),
+      ),
+    );
 
     await activityLogService.logAction(
       'Expense Recorded',
@@ -183,7 +187,10 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: BorderSide(color: Theme.of(context).colorScheme.error, width: 2),
+        borderSide: BorderSide(
+          color: Theme.of(context).colorScheme.error,
+          width: 2,
+        ),
       ),
       contentPadding: EdgeInsets.all(context.getRSize(16)),
     );
@@ -255,7 +262,8 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
                                 decoration: BoxDecoration(
                                   gradient: LinearGradient(
                                     colors: [
-                                      Theme.of(context).colorScheme.error.withValues(alpha: 0.8),
+                                      Theme.of(context).colorScheme.error
+                                          .withValues(alpha: 0.8),
                                       danger,
                                     ],
                                     begin: Alignment.topLeft,
@@ -264,7 +272,8 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
                                   borderRadius: BorderRadius.circular(12),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: Theme.of(context).colorScheme.error.withValues(alpha: 0.3),
+                                      color: Theme.of(context).colorScheme.error
+                                          .withValues(alpha: 0.3),
                                       blurRadius: 8,
                                       offset: const Offset(0, 2),
                                     ),
@@ -292,7 +301,9 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
                                     'Log operating costs',
                                     style: TextStyle(
                                       fontSize: context.getRFontSize(13),
-                                      color: Theme.of(context).colorScheme.error,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.error,
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),
@@ -338,7 +349,9 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
                                     setState(() => _selectedCategory = cat);
                                   }
                                 },
-                                selectedColor: Theme.of(context).colorScheme.error,
+                                selectedColor: Theme.of(
+                                  context,
+                                ).colorScheme.error,
                                 backgroundColor: _cardBg,
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(20),
@@ -467,7 +480,8 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
                                   borderRadius: BorderRadius.circular(14),
                                   border: Border.all(
                                     color: _receiptFile == null
-                                        ? Theme.of(context).colorScheme.error.withValues(alpha: 0.5)
+                                        ? Theme.of(context).colorScheme.error
+                                              .withValues(alpha: 0.5)
                                         : success,
                                     width: 1,
                                   ),
@@ -555,14 +569,21 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
                         width: double.infinity,
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
-                            colors: [Theme.of(context).colorScheme.error.withValues(alpha: 0.8), danger],
+                            colors: [
+                              Theme.of(
+                                context,
+                              ).colorScheme.error.withValues(alpha: 0.8),
+                              danger,
+                            ],
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                           ),
                           borderRadius: BorderRadius.circular(16),
                           boxShadow: [
                             BoxShadow(
-                              color: Theme.of(context).colorScheme.error.withValues(alpha: 0.3),
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.error.withValues(alpha: 0.3),
                               blurRadius: 10,
                               offset: const Offset(0, 4),
                             ),
@@ -602,6 +623,3 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
     );
   }
 }
-
-
-
