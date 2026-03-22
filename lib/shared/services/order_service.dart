@@ -15,6 +15,7 @@ class OrderService {
     required String paymentType,
     int? staffId,
     int? warehouseId,
+    int crateDepositPaidKobo = 0,
   }) async {
     final resolvedWarehouseId = warehouseId ?? 1;
 
@@ -29,6 +30,7 @@ class OrderService {
       createdAt: Value(DateTime.now()),
       staffId: Value(staffId ?? 1),
       warehouseId: Value(resolvedWarehouseId),
+      crateDepositPaidKobo: Value(crateDepositPaidKobo),
     );
 
     final items = cart.map((item) {

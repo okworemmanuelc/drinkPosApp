@@ -155,6 +155,7 @@ class Orders extends Table {
   TextColumn get barcode => text().nullable()();
   IntColumn get staffId => integer().nullable().references(Users, #id)();
   IntColumn get warehouseId => integer().nullable().references(Warehouses, #id)();
+  IntColumn get crateDepositPaidKobo => integer().withDefault(const Constant(0))();
 }
 
 // 10. Order Items
@@ -501,7 +502,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 25;
+  int get schemaVersion => 26;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -550,6 +551,11 @@ class AppDatabase extends _$AppDatabase {
               // Version 25: Add warehouseId to Orders and Expenses for per-warehouse filtering.
               try { await m.addColumn(orders, orders.warehouseId); } catch (_) {}
               try { await m.addColumn(expenses, expenses.warehouseId); } catch (_) {}
+            }
+
+            if (from < 26) {
+              // Version 26: Add crateDepositPaidKobo to Orders for crate deposit tracking.
+              try { await m.addColumn(orders, orders.crateDepositPaidKobo); } catch (_) {}
             }
 
             // Fallback: Create any other new tables that do not yet exist

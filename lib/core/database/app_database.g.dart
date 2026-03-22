@@ -4952,6 +4952,17 @@ class $OrdersTable extends Orders with TableInfo<$OrdersTable, OrderData> {
       'REFERENCES warehouses (id)',
     ),
   );
+  static const VerificationMeta _crateDepositPaidKoboMeta =
+      const VerificationMeta('crateDepositPaidKobo');
+  @override
+  late final GeneratedColumn<int> crateDepositPaidKobo = GeneratedColumn<int>(
+    'crate_deposit_paid_kobo',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -4971,6 +4982,7 @@ class $OrdersTable extends Orders with TableInfo<$OrdersTable, OrderData> {
     barcode,
     staffId,
     warehouseId,
+    crateDepositPaidKobo,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -5123,6 +5135,15 @@ class $OrdersTable extends Orders with TableInfo<$OrdersTable, OrderData> {
         ),
       );
     }
+    if (data.containsKey('crate_deposit_paid_kobo')) {
+      context.handle(
+        _crateDepositPaidKoboMeta,
+        crateDepositPaidKobo.isAcceptableOrUnknown(
+          data['crate_deposit_paid_kobo']!,
+          _crateDepositPaidKoboMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -5200,6 +5221,10 @@ class $OrdersTable extends Orders with TableInfo<$OrdersTable, OrderData> {
         DriftSqlType.int,
         data['${effectivePrefix}warehouse_id'],
       ),
+      crateDepositPaidKobo: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}crate_deposit_paid_kobo'],
+      )!,
     );
   }
 
@@ -5227,6 +5252,7 @@ class OrderData extends DataClass implements Insertable<OrderData> {
   final String? barcode;
   final int? staffId;
   final int? warehouseId;
+  final int crateDepositPaidKobo;
   const OrderData({
     required this.id,
     required this.orderNumber,
@@ -5245,6 +5271,7 @@ class OrderData extends DataClass implements Insertable<OrderData> {
     this.barcode,
     this.staffId,
     this.warehouseId,
+    required this.crateDepositPaidKobo,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -5280,6 +5307,7 @@ class OrderData extends DataClass implements Insertable<OrderData> {
     if (!nullToAbsent || warehouseId != null) {
       map['warehouse_id'] = Variable<int>(warehouseId);
     }
+    map['crate_deposit_paid_kobo'] = Variable<int>(crateDepositPaidKobo);
     return map;
   }
 
@@ -5316,6 +5344,7 @@ class OrderData extends DataClass implements Insertable<OrderData> {
       warehouseId: warehouseId == null && nullToAbsent
           ? const Value.absent()
           : Value(warehouseId),
+      crateDepositPaidKobo: Value(crateDepositPaidKobo),
     );
   }
 
@@ -5344,6 +5373,9 @@ class OrderData extends DataClass implements Insertable<OrderData> {
       barcode: serializer.fromJson<String?>(json['barcode']),
       staffId: serializer.fromJson<int?>(json['staffId']),
       warehouseId: serializer.fromJson<int?>(json['warehouseId']),
+      crateDepositPaidKobo: serializer.fromJson<int>(
+        json['crateDepositPaidKobo'],
+      ),
     );
   }
   @override
@@ -5367,6 +5399,7 @@ class OrderData extends DataClass implements Insertable<OrderData> {
       'barcode': serializer.toJson<String?>(barcode),
       'staffId': serializer.toJson<int?>(staffId),
       'warehouseId': serializer.toJson<int?>(warehouseId),
+      'crateDepositPaidKobo': serializer.toJson<int>(crateDepositPaidKobo),
     };
   }
 
@@ -5388,6 +5421,7 @@ class OrderData extends DataClass implements Insertable<OrderData> {
     Value<String?> barcode = const Value.absent(),
     Value<int?> staffId = const Value.absent(),
     Value<int?> warehouseId = const Value.absent(),
+    int? crateDepositPaidKobo,
   }) => OrderData(
     id: id ?? this.id,
     orderNumber: orderNumber ?? this.orderNumber,
@@ -5408,6 +5442,7 @@ class OrderData extends DataClass implements Insertable<OrderData> {
     barcode: barcode.present ? barcode.value : this.barcode,
     staffId: staffId.present ? staffId.value : this.staffId,
     warehouseId: warehouseId.present ? warehouseId.value : this.warehouseId,
+    crateDepositPaidKobo: crateDepositPaidKobo ?? this.crateDepositPaidKobo,
   );
   OrderData copyWithCompanion(OrdersCompanion data) {
     return OrderData(
@@ -5450,6 +5485,9 @@ class OrderData extends DataClass implements Insertable<OrderData> {
       warehouseId: data.warehouseId.present
           ? data.warehouseId.value
           : this.warehouseId,
+      crateDepositPaidKobo: data.crateDepositPaidKobo.present
+          ? data.crateDepositPaidKobo.value
+          : this.crateDepositPaidKobo,
     );
   }
 
@@ -5472,7 +5510,8 @@ class OrderData extends DataClass implements Insertable<OrderData> {
           ..write('cancellationReason: $cancellationReason, ')
           ..write('barcode: $barcode, ')
           ..write('staffId: $staffId, ')
-          ..write('warehouseId: $warehouseId')
+          ..write('warehouseId: $warehouseId, ')
+          ..write('crateDepositPaidKobo: $crateDepositPaidKobo')
           ..write(')'))
         .toString();
   }
@@ -5496,6 +5535,7 @@ class OrderData extends DataClass implements Insertable<OrderData> {
     barcode,
     staffId,
     warehouseId,
+    crateDepositPaidKobo,
   );
   @override
   bool operator ==(Object other) =>
@@ -5517,7 +5557,8 @@ class OrderData extends DataClass implements Insertable<OrderData> {
           other.cancellationReason == this.cancellationReason &&
           other.barcode == this.barcode &&
           other.staffId == this.staffId &&
-          other.warehouseId == this.warehouseId);
+          other.warehouseId == this.warehouseId &&
+          other.crateDepositPaidKobo == this.crateDepositPaidKobo);
 }
 
 class OrdersCompanion extends UpdateCompanion<OrderData> {
@@ -5538,6 +5579,7 @@ class OrdersCompanion extends UpdateCompanion<OrderData> {
   final Value<String?> barcode;
   final Value<int?> staffId;
   final Value<int?> warehouseId;
+  final Value<int> crateDepositPaidKobo;
   const OrdersCompanion({
     this.id = const Value.absent(),
     this.orderNumber = const Value.absent(),
@@ -5556,6 +5598,7 @@ class OrdersCompanion extends UpdateCompanion<OrderData> {
     this.barcode = const Value.absent(),
     this.staffId = const Value.absent(),
     this.warehouseId = const Value.absent(),
+    this.crateDepositPaidKobo = const Value.absent(),
   });
   OrdersCompanion.insert({
     this.id = const Value.absent(),
@@ -5575,6 +5618,7 @@ class OrdersCompanion extends UpdateCompanion<OrderData> {
     this.barcode = const Value.absent(),
     this.staffId = const Value.absent(),
     this.warehouseId = const Value.absent(),
+    this.crateDepositPaidKobo = const Value.absent(),
   }) : orderNumber = Value(orderNumber),
        totalAmountKobo = Value(totalAmountKobo),
        netAmountKobo = Value(netAmountKobo),
@@ -5598,6 +5642,7 @@ class OrdersCompanion extends UpdateCompanion<OrderData> {
     Expression<String>? barcode,
     Expression<int>? staffId,
     Expression<int>? warehouseId,
+    Expression<int>? crateDepositPaidKobo,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -5617,6 +5662,8 @@ class OrdersCompanion extends UpdateCompanion<OrderData> {
       if (barcode != null) 'barcode': barcode,
       if (staffId != null) 'staff_id': staffId,
       if (warehouseId != null) 'warehouse_id': warehouseId,
+      if (crateDepositPaidKobo != null)
+        'crate_deposit_paid_kobo': crateDepositPaidKobo,
     });
   }
 
@@ -5638,6 +5685,7 @@ class OrdersCompanion extends UpdateCompanion<OrderData> {
     Value<String?>? barcode,
     Value<int?>? staffId,
     Value<int?>? warehouseId,
+    Value<int>? crateDepositPaidKobo,
   }) {
     return OrdersCompanion(
       id: id ?? this.id,
@@ -5657,6 +5705,7 @@ class OrdersCompanion extends UpdateCompanion<OrderData> {
       barcode: barcode ?? this.barcode,
       staffId: staffId ?? this.staffId,
       warehouseId: warehouseId ?? this.warehouseId,
+      crateDepositPaidKobo: crateDepositPaidKobo ?? this.crateDepositPaidKobo,
     );
   }
 
@@ -5714,6 +5763,11 @@ class OrdersCompanion extends UpdateCompanion<OrderData> {
     if (warehouseId.present) {
       map['warehouse_id'] = Variable<int>(warehouseId.value);
     }
+    if (crateDepositPaidKobo.present) {
+      map['crate_deposit_paid_kobo'] = Variable<int>(
+        crateDepositPaidKobo.value,
+      );
+    }
     return map;
   }
 
@@ -5736,7 +5790,8 @@ class OrdersCompanion extends UpdateCompanion<OrderData> {
           ..write('cancellationReason: $cancellationReason, ')
           ..write('barcode: $barcode, ')
           ..write('staffId: $staffId, ')
-          ..write('warehouseId: $warehouseId')
+          ..write('warehouseId: $warehouseId, ')
+          ..write('crateDepositPaidKobo: $crateDepositPaidKobo')
           ..write(')'))
         .toString();
   }
@@ -22397,6 +22452,7 @@ typedef $$OrdersTableCreateCompanionBuilder =
       Value<String?> barcode,
       Value<int?> staffId,
       Value<int?> warehouseId,
+      Value<int> crateDepositPaidKobo,
     });
 typedef $$OrdersTableUpdateCompanionBuilder =
     OrdersCompanion Function({
@@ -22417,6 +22473,7 @@ typedef $$OrdersTableUpdateCompanionBuilder =
       Value<String?> barcode,
       Value<int?> staffId,
       Value<int?> warehouseId,
+      Value<int> crateDepositPaidKobo,
     });
 
 final class $$OrdersTableReferences
@@ -22620,6 +22677,11 @@ class $$OrdersTableFilterComposer
 
   ColumnFilters<String> get barcode => $composableBuilder(
     column: $table.barcode,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get crateDepositPaidKobo => $composableBuilder(
+    column: $table.crateDepositPaidKobo,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -22849,6 +22911,11 @@ class $$OrdersTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get crateDepositPaidKobo => $composableBuilder(
+    column: $table.crateDepositPaidKobo,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$CustomersTableOrderingComposer get customerId {
     final $$CustomersTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -22987,6 +23054,11 @@ class $$OrdersTableAnnotationComposer
 
   GeneratedColumn<String> get barcode =>
       $composableBuilder(column: $table.barcode, builder: (column) => column);
+
+  GeneratedColumn<int> get crateDepositPaidKobo => $composableBuilder(
+    column: $table.crateDepositPaidKobo,
+    builder: (column) => column,
+  );
 
   $$CustomersTableAnnotationComposer get customerId {
     final $$CustomersTableAnnotationComposer composer = $composerBuilder(
@@ -23189,6 +23261,7 @@ class $$OrdersTableTableManager
                 Value<String?> barcode = const Value.absent(),
                 Value<int?> staffId = const Value.absent(),
                 Value<int?> warehouseId = const Value.absent(),
+                Value<int> crateDepositPaidKobo = const Value.absent(),
               }) => OrdersCompanion(
                 id: id,
                 orderNumber: orderNumber,
@@ -23207,6 +23280,7 @@ class $$OrdersTableTableManager
                 barcode: barcode,
                 staffId: staffId,
                 warehouseId: warehouseId,
+                crateDepositPaidKobo: crateDepositPaidKobo,
               ),
           createCompanionCallback:
               ({
@@ -23227,6 +23301,7 @@ class $$OrdersTableTableManager
                 Value<String?> barcode = const Value.absent(),
                 Value<int?> staffId = const Value.absent(),
                 Value<int?> warehouseId = const Value.absent(),
+                Value<int> crateDepositPaidKobo = const Value.absent(),
               }) => OrdersCompanion.insert(
                 id: id,
                 orderNumber: orderNumber,
@@ -23245,6 +23320,7 @@ class $$OrdersTableTableManager
                 barcode: barcode,
                 staffId: staffId,
                 warehouseId: warehouseId,
+                crateDepositPaidKobo: crateDepositPaidKobo,
               ),
           withReferenceMapper: (p0) => p0
               .map(

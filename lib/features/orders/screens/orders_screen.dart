@@ -338,11 +338,9 @@ class _OrdersScreenState extends State<OrdersScreen>
       );
     }
 
-    // 3. If the order has glass items and a customer, open the crate return modal
-    final hasGlassItems = orderWithItems.items.any(
-      (i) => i.product.crateGroupId != null,
-    );
-    if (hasGlassItems && order.customerId != null && mounted) {
+    // 3. If the order has a customer, let the modal decide whether to open
+    // (CrateReturnModal.show handles the glass-items and deposit-paid guards internally)
+    if (order.customerId != null && mounted) {
       await CrateReturnModal.show(context, orderWithItems);
     }
   }

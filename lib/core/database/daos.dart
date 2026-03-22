@@ -809,6 +809,43 @@ class CustomersDao extends DatabaseAccessor<AppDatabase> with _$CustomersDaoMixi
     }
   }
 
+  /// Records returned crates for a customer/group pair.
+  /// A negative balance means the customer has returned more than they owe (credit).
+  /// Each call reduces the outstanding by [returnedQty].
+  Future<void> recordCrateReturn(
+    int customerId,
+    int crateGroupId,
+    int returnedQty,
+  ) async {
+    final existing = await (select(customerCrateBalances)
+          ..where(
+            (t) =>
+                t.customerId.equals(customerId) &
+                t.crateGroupId.equals(crateGroupId),
+          ))
+        .getSingleOrNull();
+
+    if (existing != null) {
+      await (update(customerCrateBalances)
+            ..where(
+              (t) =>
+                  t.customerId.equals(customerId) &
+                  t.crateGroupId.equals(crateGroupId),
+            ))
+          .write(CustomerCrateBalancesCompanion(
+            balance: Value(existing.balance - returnedQty),
+          ));
+    } else {
+      await into(customerCrateBalances).insert(
+        CustomerCrateBalancesCompanion(
+          customerId: Value(customerId),
+          crateGroupId: Value(crateGroupId),
+          balance: Value(-returnedQty),
+        ),
+      );
+    }
+  }
+
   Stream<Map<String, int>> watchCrateBalance(int customerId) => Stream.value({});
 
   Future<int> getWalletBalance(String walletId) async {

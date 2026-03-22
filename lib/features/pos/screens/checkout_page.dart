@@ -486,6 +486,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
         paymentType: _paymentLabel,
         staffId: authService.currentUser?.id ?? 1,
         warehouseId: authService.currentUser?.warehouseId,
+        crateDepositPaidKobo: (widget.crateDeposit * 100).round(),
       );
 
       // ── Success Flow ────────────────────────────────────────────────
