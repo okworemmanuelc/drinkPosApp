@@ -961,6 +961,15 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                                   color: subtextCol,
                                 ),
                               ),
+                              if (txn.referenceId != null && txn.referenceId!.isNotEmpty)
+                                Text(
+                                  txn.referenceId!,
+                                  style: TextStyle(
+                                    fontSize: context.getRFontSize(10),
+                                    color: subtextCol,
+                                    fontStyle: FontStyle.italic,
+                                  ),
+                                ),
                             ],
                           ),
                         ),
@@ -1205,6 +1214,15 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                                                 color: subtextCol,
                                               ),
                                             ),
+                                            if (txn.referenceId != null && txn.referenceId!.isNotEmpty)
+                                              Text(
+                                                txn.referenceId!,
+                                                style: TextStyle(
+                                                  fontSize: context.getRFontSize(10),
+                                                  color: subtextCol,
+                                                  fontStyle: FontStyle.italic,
+                                                ),
+                                              ),
                                           ],
                                         ),
                                       ),

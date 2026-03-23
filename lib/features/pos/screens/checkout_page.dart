@@ -476,6 +476,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
         staffId: authService.currentUser?.id ?? 1,
         warehouseId: authService.currentUser?.warehouseId,
         crateDepositPaidKobo: (widget.crateDeposit * 100).round(),
+        paymentSubType: _isWalletPayment ? 'wallet' : 'cash',
       );
 
       // ── Success Flow ────────────────────────────────────────────────

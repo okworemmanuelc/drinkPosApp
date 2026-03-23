@@ -579,22 +579,7 @@ class OrdersDao extends DatabaseAccessor<AppDatabase> with _$OrdersDaoMixin {
         await into(orderItems).insert(item.copyWith(orderId: Value(orderId)));
       }
 
-      // 4. Update Wallet if there's a balance remaining (Debit/Credit Sale)
-      if (customerId != null) {
-        final remainingBalance = totalAmountKobo - amountPaidKobo;
-        if (remainingBalance > 0) {
-          // This is a debit to the customer (they owe more)
-          await (db.customersDao).updateWalletBalance(
-            customerId: customerId,
-            deltaKobo: remainingBalance,
-            type: 'debit',
-            referenceType: 'order_payment',
-            referenceId: orderNo,
-            staffId: staffId,
-            note: 'Balance from order $orderNo',
-          );
-        }
-      }
+      // Wallet transactions are handled by OrderService._recordWalletTransactions()
 
       return orderNo;
     });
@@ -766,6 +751,49 @@ class CustomersDao extends DatabaseAccessor<AppDatabase> with _$CustomersDaoMixi
         type: type,
         amountKobo: deltaKobo.abs(),
         referenceType: referenceType,
+        referenceId: Value(referenceId),
+        performedBy: staffId,
+        createdAt: Value(DateTime.now()),
+      ));
+    });
+  }
+
+  /// Records a single wallet transaction for a customer.
+  /// [type] is 'credit' or 'debit'. Credits increase the balance; debits decrease it.
+  /// [note] is stored as referenceType and displayed as the transaction label in the UI.
+  Future<void> recordWalletTransaction({
+    required int customerId,
+    required int amountKobo,
+    required String type,
+    required String referenceId,
+    required int staffId,
+    String note = 'order_payment',
+  }) async {
+    return transaction(() async {
+      final wallet = await (select(customerWallets)
+            ..where((t) => t.customerId.equals(customerId)))
+          .getSingleOrNull();
+      if (wallet == null) throw Exception('Customer wallet not found');
+
+      // Update the cached balance on the Customers row
+      final customer = await findById(customerId);
+      if (customer != null) {
+        final newBalance = customer.walletBalanceKobo +
+            (type == 'credit' ? amountKobo : -amountKobo);
+        await (update(customers)..where((t) => t.id.equals(customerId)))
+            .write(CustomersCompanion(walletBalanceKobo: Value(newBalance)));
+      }
+
+      // txnId encodes type + referenceId to avoid timestamp collisions when
+      // two entries are created for the same order (Full Cash, Partial Cash).
+      final txnId =
+          'txn-${DateTime.now().microsecondsSinceEpoch}-$type-$referenceId';
+      await into(walletTransactions).insert(WalletTransactionsCompanion.insert(
+        txnId: txnId,
+        walletId: wallet.walletId,
+        type: type,
+        amountKobo: amountKobo,
+        referenceType: note,
         referenceId: Value(referenceId),
         performedBy: staffId,
         createdAt: Value(DateTime.now()),
