@@ -12,8 +12,11 @@ import '../../../core/utils/currency_input_formatter.dart';
 import '../../../core/database/app_database.dart';
 import '../../../shared/services/auth_service.dart';
 import '../../../core/utils/constants.dart';
+import '../../../core/utils/notifications.dart';
 import 'package:file_picker/file_picker.dart';
-import '../../../shared/widgets/fluid_menu.dart';
+import '../../../shared/widgets/app_button.dart';
+import '../../../shared/widgets/app_dropdown.dart';
+import '../../../shared/widgets/app_input.dart';
 
 class AddExpenseSheet extends StatefulWidget {
   const AddExpenseSheet({super.key});
@@ -128,26 +131,15 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
     final desc = _descCtrl.text.trim();
 
     if (isOthers && desc.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Description is required for "Others" category.'),
-          backgroundColor: Theme.of(context).colorScheme.error,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      AppNotification.showError(context, 'Description is required for "Others" category.');
       return;
     }
 
     final needsReceipt = amount >= largeExpenseThreshold;
     if (needsReceipt && _receiptFile == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text(
-            'Receipt upload is required for expenses of 20,000 and above.',
-          ),
-          backgroundColor: Theme.of(context).colorScheme.error,
-          behavior: SnackBarBehavior.floating,
-        ),
+      AppNotification.showError(
+        context,
+        'Receipt upload is required for expenses of 20,000 and above.',
       );
       return;
     }
@@ -176,40 +168,7 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
     if (mounted) Navigator.pop(context);
   }
 
-  InputDecoration _inputDeco(String hint) {
-    return InputDecoration(
-      hintText: hint,
-      hintStyle: TextStyle(color: _subtext),
-      filled: true,
-      fillColor: _cardBg,
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: BorderSide.none,
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: BorderSide(
-          color: Theme.of(context).colorScheme.error,
-          width: 2,
-        ),
-      ),
-      contentPadding: EdgeInsets.all(context.getRSize(16)),
-    );
-  }
 
-  Widget _buildLabel(String text) {
-    return Padding(
-      padding: EdgeInsets.only(bottom: context.getRSize(8)),
-      child: Text(
-        text,
-        style: TextStyle(
-          fontSize: context.getRFontSize(12),
-          fontWeight: FontWeight.w700,
-          color: _subtext,
-        ),
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -327,7 +286,17 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
                         ),
                         children: [
                           // Categories
-                          _buildLabel('Category'),
+                          Padding(
+                            padding: EdgeInsets.only(bottom: context.getRSize(8)),
+                            child: Text(
+                              'Category',
+                              style: TextStyle(
+                                fontSize: context.getRFontSize(12),
+                                fontWeight: FontWeight.w700,
+                                color: _subtext,
+                              ),
+                            ),
+                          ),
                           Wrap(
                             spacing: context.getRSize(8),
                             runSpacing: context.getRSize(8),
@@ -369,17 +338,12 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
                           SizedBox(height: context.getRSize(20)),
 
                           // Amount
-                          _buildLabel('Amount'),
-                          TextFormField(
+                          AppInput(
+                            labelText: 'Amount',
                             controller: _amountCtrl,
                             keyboardType: TextInputType.number,
                             inputFormatters: [CurrencyInputFormatter()],
-                            style: TextStyle(
-                              fontSize: context.getRFontSize(14),
-                              fontWeight: FontWeight.bold,
-                              color: _text,
-                            ),
-                            decoration: _inputDeco('0.00'),
+                            hintText: '0.00',
                             validator: (v) => v == null || v.trim().isEmpty
                                 ? 'Amount is required'
                                 : null,
@@ -387,11 +351,11 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
                           SizedBox(height: context.getRSize(16)),
 
                           // Payment Method
-                          FluidMenu<String>(
-                            label: 'Payment Method',
+                          AppDropdown<String>(
+                            labelText: 'Payment Method',
                             value: _paymentMethod,
                             items: ['Cash', 'Transfer', 'POS', 'Credit']
-                                .map((e) => FluidMenuItem(value: e, label: e))
+                                .map((e) => DropdownMenuItem(value: e, child: Text(e)))
                                 .toList(),
                             onChanged: (val) {
                               if (val != null) {
@@ -401,76 +365,48 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
                           ),
                           SizedBox(height: context.getRSize(16)),
 
-                          // Date Field
-                          _buildLabel('Date'),
-                          InkWell(
+                          AppInput(
+                            labelText: 'Date',
+                            readOnly: true,
                             onTap: _pickDate,
-                            child: Container(
-                              padding: EdgeInsets.all(context.getRSize(16)),
-                              decoration: BoxDecoration(
-                                color: _cardBg,
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                              child: Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    DateFormat(
-                                      'MMM d, y',
-                                    ).format(_selectedDate),
-                                    style: TextStyle(
-                                      fontSize: context.getRFontSize(14),
-                                      fontWeight: FontWeight.bold,
-                                      color: _text,
-                                    ),
-                                  ),
-                                  Icon(
-                                    FontAwesomeIcons.calendar,
-                                    size: context.getRSize(16),
-                                    color: _subtext,
-                                  ),
-                                ],
-                              ),
+                            controller: TextEditingController(
+                              text: DateFormat('MMM d, y').format(_selectedDate),
+                            ),
+                            suffixIcon: Icon(
+                              FontAwesomeIcons.calendar,
+                              size: context.getRSize(16),
+                              color: _subtext,
                             ),
                           ),
                           SizedBox(height: context.getRSize(16)),
 
-                          // Description
-                          _buildLabel(
-                            'Description ${_selectedCategory == "Others" ? "(Required)" : "(Optional)"}',
-                          ),
-                          TextFormField(
+                          AppInput(
+                            labelText: 'Description ${_selectedCategory == "Others" ? "(Required)" : "(Optional)"}',
                             controller: _descCtrl,
                             maxLines: 2,
-                            style: TextStyle(
-                              fontSize: context.getRFontSize(14),
-                              fontWeight: FontWeight.bold,
-                              color: _text,
-                            ),
-                            decoration: _inputDeco(
-                              'What was this expense for?',
-                            ),
+                            hintText: 'What was this expense for?',
                           ),
                           SizedBox(height: context.getRSize(16)),
 
-                          // Reference
-                          _buildLabel('Reference / Receipt No. (Optional)'),
-                          TextFormField(
+                          AppInput(
+                            labelText: 'Reference / Receipt No. (Optional)',
                             controller: _refCtrl,
-                            style: TextStyle(
-                              fontSize: context.getRFontSize(14),
-                              fontWeight: FontWeight.bold,
-                              color: _text,
-                            ),
-                            decoration: _inputDeco('e.g. REC-0912...'),
+                            hintText: 'e.g. REC-0912...',
                           ),
                           SizedBox(height: context.getRSize(16)),
 
                           // Receipt Upload (Large Expenses)
                           if (_currentAmount >= largeExpenseThreshold) ...[
-                            _buildLabel(
-                              'Receipt (Required for large expenses)',
+                            Padding(
+                              padding: EdgeInsets.only(bottom: context.getRSize(8)),
+                              child: Text(
+                                'Receipt (Required for large expenses)',
+                                style: TextStyle(
+                                  fontSize: context.getRFontSize(12),
+                                  fontWeight: FontWeight.w700,
+                                  color: _subtext,
+                                ),
+                              ),
                             ),
                             InkWell(
                               onTap: _pickReceipt,
@@ -541,17 +477,11 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
                             SizedBox(height: context.getRSize(16)),
                           ],
 
-                          // Recorded By
-                          _buildLabel('Recorded By'),
-                          TextFormField(
+                          AppInput(
+                            labelText: 'Recorded By',
                             controller: _recordedByCtrl,
                             enabled: false,
-                            style: TextStyle(
-                              fontSize: context.getRFontSize(14),
-                              fontWeight: FontWeight.bold,
-                              color: _text.withValues(alpha: 0.7),
-                            ),
-                            decoration: _inputDeco('Name of staff'),
+                            hintText: 'Name of staff',
                           ),
                           SizedBox(height: context.getRSize(24)),
                         ],
@@ -566,52 +496,10 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
                         context.getRSize(20),
                         context.bottomInset + context.getRSize(16),
                       ),
-                      child: Container(
-                        width: double.infinity,
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              Theme.of(
-                                context,
-                              ).colorScheme.error.withValues(alpha: 0.8),
-                              danger,
-                            ],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          borderRadius: BorderRadius.circular(16),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.error.withValues(alpha: 0.3),
-                              blurRadius: 10,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.transparent,
-                            foregroundColor: Colors.white,
-                            shadowColor: Colors.transparent,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            padding: EdgeInsets.symmetric(
-                              vertical: context.getRSize(16),
-                            ),
-                            elevation: 0,
-                          ),
-                          onPressed: _submit,
-                          child: Text(
-                            'Save Expense',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: context.getRFontSize(15),
-                            ),
-                          ),
-                        ),
+                      child: AppButton(
+                        text: 'Save Expense',
+                        variant: AppButtonVariant.danger,
+                        onPressed: _submit,
                       ),
                     ),
                   ],

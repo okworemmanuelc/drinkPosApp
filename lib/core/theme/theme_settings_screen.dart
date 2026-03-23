@@ -33,34 +33,74 @@ class ThemeSettingsScreen extends StatelessWidget {
                 ),
               ),
               SizedBox(height: context.getRSize(12)),
-              Row(
+              Column(
                 children: [
-                  Expanded(
-                    child: _DesignSystemCard(
-                      label: 'Blue Classic',
-                      swatchColors: const [blueMain, blueDark, blueLight],
-                      isActive:
-                          themeController.designSystem == DesignSystem.blue,
-                      activeColor: blueMain,
-                      onTap: () =>
-                          themeController.setDesignSystem(DesignSystem.blue),
-                    ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _DesignSystemCard(
+                          label: 'Blue Classic',
+                          swatchColors: const [blueMain, blueDark, blueLight],
+                          isActive: themeController.designSystem ==
+                              DesignSystem.blue,
+                          activeColor: blueMain,
+                          onTap: () => themeController
+                              .setDesignSystem(DesignSystem.blue),
+                        ),
+                      ),
+                      SizedBox(width: context.getRSize(12)),
+                      Expanded(
+                        child: _DesignSystemCard(
+                          label: 'Amber Ribaplus',
+                          swatchColors: const [
+                            amberPrimary,
+                            amberDark,
+                            Color(0xFFFFBF4A),
+                          ],
+                          isActive: themeController.designSystem ==
+                              DesignSystem.amber,
+                          activeColor: amberPrimary,
+                          onTap: () => themeController
+                              .setDesignSystem(DesignSystem.amber),
+                        ),
+                      ),
+                    ],
                   ),
-                  SizedBox(width: context.getRSize(12)),
-                  Expanded(
-                    child: _DesignSystemCard(
-                      label: 'Amber Ribaplus',
-                      swatchColors: const [
-                        amberPrimary,
-                        amberDark,
-                        Color(0xFFFFBF4A),
-                      ],
-                      isActive:
-                          themeController.designSystem == DesignSystem.amber,
-                      activeColor: amberPrimary,
-                      onTap: () =>
-                          themeController.setDesignSystem(DesignSystem.amber),
-                    ),
+                  SizedBox(height: context.getRSize(12)),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _DesignSystemCard(
+                          label: 'Purple Violet',
+                          swatchColors: const [
+                            purplePrimary,
+                            purpleDark,
+                            Color(0xFFA78BFA),
+                          ],
+                          isActive: themeController.designSystem ==
+                              DesignSystem.purple,
+                          activeColor: purplePrimary,
+                          onTap: () => themeController
+                              .setDesignSystem(DesignSystem.purple),
+                        ),
+                      ),
+                      SizedBox(width: context.getRSize(12)),
+                      Expanded(
+                        child: _DesignSystemCard(
+                          label: 'Green Forest',
+                          swatchColors: const [
+                            greenPrimary,
+                            greenDark,
+                            Color(0xFF6EE7B7),
+                          ],
+                          isActive: themeController.designSystem ==
+                              DesignSystem.green,
+                          activeColor: greenPrimary,
+                          onTap: () => themeController
+                              .setDesignSystem(DesignSystem.green),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),

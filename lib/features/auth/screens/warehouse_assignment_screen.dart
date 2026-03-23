@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../../core/database/app_database.dart';
 import '../../../shared/services/auth_service.dart';
+import '../../../shared/widgets/app_button.dart';
 
 class WarehouseAssignmentScreen extends StatefulWidget {
   final UserData user;
@@ -204,21 +205,12 @@ class _WarehouseAssignmentScreenState extends State<WarehouseAssignmentScreen> {
                     ),
                     const SizedBox(height: 24),
                     
-                    TextButton.icon(
+                    AppButton(
+                      text: 'Log Out',
+                      icon: FontAwesomeIcons.rightFromBracket,
+                      variant: AppButtonVariant.ghost,
+                      isFullWidth: false,
                       onPressed: () => authService.logout(),
-                      icon: const Icon(FontAwesomeIcons.rightFromBracket, size: 14),
-                      label: const Text('Log Out'),
-                      style: TextButton.styleFrom(
-                        foregroundColor: Theme.of(context).colorScheme.error,
-                        backgroundColor: Colors.white.withValues(alpha: 0.1),
-                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          side: BorderSide(
-                            color: Colors.white.withValues(alpha: 0.2),
-                          ),
-                        ),
-                      ),
                     ),
                   ],
                 ),

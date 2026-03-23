@@ -3,6 +3,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../core/theme/colors.dart';
 
 import '../../core/utils/responsive.dart';
+import '../../shared/widgets/app_button.dart';
 
 class UserTipsModal extends StatefulWidget {
   const UserTipsModal({super.key});
@@ -96,7 +97,7 @@ class _UserTipsModalState extends State<UserTipsModal> {
               child: Row(
                 children: [
                   Text(
-                    'Ribaplus POS Pro Tips',
+                    'Reebaplus POS Pro Tips',
                     style: TextStyle(
                       fontSize: context.getRFontSize(22),
                       fontWeight: FontWeight.w900,
@@ -201,22 +202,20 @@ class _UserTipsModalState extends State<UserTipsModal> {
                 children: [
                   if (_currentPage > 0)
                     Expanded(
-                      child: OutlinedButton(
+                      child: AppButton(
+                        text: 'Back',
+                        variant: AppButtonVariant.outline,
                         onPressed: () => _pageController.previousPage(
                           duration: const Duration(milliseconds: 300),
                           curve: Curves.easeInOut,
                         ),
-                        style: OutlinedButton.styleFrom(
-                          padding: EdgeInsets.symmetric(vertical: context.getRSize(14)),
-                          side: BorderSide(color: Theme.of(context).dividerColor),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                        ),
-                        child: Text('Back', style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.bold, fontSize: context.getRFontSize(14))),
                       ),
                     ),
                   if (_currentPage > 0) SizedBox(width: context.getRSize(16)),
                   Expanded(
-                    child: ElevatedButton(
+                    child: AppButton(
+                      text: _currentPage < _tips.length - 1 ? 'Next Tip' : 'Got it!',
+                      variant: AppButtonVariant.primary,
                       onPressed: () {
                         if (_currentPage < _tips.length - 1) {
                           _pageController.nextPage(
@@ -227,17 +226,6 @@ class _UserTipsModalState extends State<UserTipsModal> {
                           Navigator.pop(context);
                         }
                       },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: blueMain,
-                        foregroundColor: Colors.white,
-                        padding: EdgeInsets.symmetric(vertical: context.getRSize(14)),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                        elevation: 0,
-                      ),
-                      child: Text(
-                        _currentPage < _tips.length - 1 ? 'Next Tip' : 'Got it!',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: context.getRFontSize(16)),
-                      ),
                     ),
                   ),
                 ],

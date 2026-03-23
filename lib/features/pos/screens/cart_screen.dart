@@ -13,12 +13,18 @@ import '../../../core/utils/stock_calculator.dart';
 import '../../../core/utils/currency_input_formatter.dart';
 import '../../customers/data/services/customer_service.dart';
 import '../../../core/database/app_database.dart';
+import '../../../shared/services/auth_service.dart';
 import '../../../shared/services/cart_service.dart';
+import '../../../shared/services/navigation_service.dart';
 import '../../../shared/widgets/shared_scaffold.dart';
 import '../../../shared/widgets/menu_button.dart';
 import '../../../shared/widgets/app_bar_header.dart';
 import '../../../shared/widgets/notification_bell.dart';
 import 'checkout_page.dart';
+import '../../../shared/widgets/app_input.dart';
+import '../../../shared/widgets/app_dropdown.dart';
+import '../../../shared/widgets/app_button.dart';
+import '../../../core/utils/notifications.dart';
 
 class CartScreen extends StatefulWidget {
   final List<Map<String, dynamic>> cart;
@@ -45,6 +51,9 @@ class _CartScreenState extends State<CartScreen>
   late double _crateDeposit;
   Customer? _activeCustomer;
   List<CrateGroupData> _crateGroups = [];
+  List<ManufacturerData> _manufacturers = [];
+  List<CategoryData> _categories = [];
+  List<WarehouseData> _warehouses = [];
 
   // ── Clear animation ──
   late AnimationController _clearCtrl;
@@ -62,8 +71,6 @@ class _CartScreenState extends State<CartScreen>
     Color(0xFFF97316),
   ];
 
-  Color _crateColor(CrateGroupData cg) => _cgColors[cg.id % _cgColors.length];
-
   @override
   void initState() {
     super.initState();
@@ -73,17 +80,32 @@ class _CartScreenState extends State<CartScreen>
       vsync: this,
       duration: const Duration(milliseconds: 480),
     );
+    cartService.addListener(_onCartChanged);
     cartService.activeCustomer.addListener(_onActiveCustomerChanged);
+    database.select(database.warehouses).get().then((ws) {
+      if (mounted) setState(() => _warehouses = ws);
+    });
     database.select(database.crateGroups).watch().listen((data) {
       if (mounted) setState(() => _crateGroups = data);
+    });
+    database.select(database.manufacturers).watch().listen((data) {
+      if (mounted) setState(() => _manufacturers = data);
+    });
+    database.select(database.categories).watch().listen((data) {
+      if (mounted) setState(() => _categories = data);
     });
   }
 
   @override
   void dispose() {
+    cartService.removeListener(_onCartChanged);
     cartService.activeCustomer.removeListener(_onActiveCustomerChanged);
     _clearCtrl.dispose();
     super.dispose();
+  }
+
+  void _onCartChanged() {
+    if (mounted) setState(() {});
   }
 
   void _onActiveCustomerChanged() {
@@ -91,10 +113,10 @@ class _CartScreenState extends State<CartScreen>
   }
 
   Future<void> _clearWithAnimation() async {
-    if (widget.cart.isEmpty) return;
+    if (cartService.value.isEmpty) return;
     setState(() {
       _isClearing = true;
-      _animatingItems = List<Map<String, dynamic>>.from(widget.cart);
+      _animatingItems = List<Map<String, dynamic>>.from(cartService.value);
     });
     _clearCtrl.reset();
     await _clearCtrl.forward();
@@ -103,10 +125,8 @@ class _CartScreenState extends State<CartScreen>
   }
 
   Future<void> _saveCurrentCart() async {
-    if (widget.cart.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Cannot save an empty cart')),
-      );
+    if (cartService.value.isEmpty) {
+      AppNotification.showError(context, 'Cannot save an empty cart');
       return;
     }
 
@@ -115,29 +135,31 @@ class _CartScreenState extends State<CartScreen>
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Save Cart'),
-        content: TextField(
+        content: AppInput(
           controller: nameController,
           autofocus: true,
-          decoration: const InputDecoration(
-            labelText: 'Cart Name',
-            hintText: 'e.g. Morning Order',
-          ),
+          labelText: 'Cart Name',
+          hintText: 'e.g. Morning Order',
         ),
         actions: [
-          TextButton(
+          AppButton(
+            text: 'Cancel',
+            variant: AppButtonVariant.ghost,
+            isFullWidth: false,
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
           ),
-          ElevatedButton(
+          AppButton(
+            text: 'Save',
+            variant: AppButtonVariant.primary,
+            isFullWidth: false,
             onPressed: () => Navigator.pop(context, nameController.text),
-            child: const Text('Save'),
           ),
         ],
       ),
     );
 
     if (name != null && name.isNotEmpty) {
-      final cartJson = jsonEncode(widget.cart);
+      final cartJson = jsonEncode(cartService.value);
       await database.ordersDao.saveCart(SavedCartsCompanion.insert(
         name: name,
         customerId: drift.Value(_activeCustomer?.id),
@@ -146,9 +168,9 @@ class _CartScreenState extends State<CartScreen>
       ));
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Cart saved successfully')),
-        );
+      if (mounted) {
+        AppNotification.showSuccess(context, 'Cart saved successfully');
+      }
       }
     }
   }
@@ -228,9 +250,7 @@ class _CartScreenState extends State<CartScreen>
                             }
                             cartService.loadCart(items, customer);
                             Navigator.pop(modalCtx);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Cart loaded')),
-                            );
+                            AppNotification.showSuccess(context, 'Cart loaded');
                           },
                         );
                       },
@@ -252,12 +272,26 @@ class _CartScreenState extends State<CartScreen>
   Color get _border => Theme.of(context).dividerColor;
 
   void _showChangeCustomerModal() {
+    final user = authService.currentUser;
+    final roleTier = user?.roleTier ?? 0;
+    final isManagerOrAbove = roleTier >= 4;
+
+    // Default picker warehouse based on role
+    int? defaultPickerWarehouseId;
+    if (roleTier >= 5) {
+      defaultPickerWarehouseId = navigationService.lockedWarehouseId.value;
+    } else {
+      // Manager or staff: default to their own warehouse
+      defaultPickerWarehouseId = user?.warehouseId;
+    }
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (modalCtx) {
         String searchQuery = '';
+        int? pickerWarehouseId = defaultPickerWarehouseId;
         return GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTap: () => Navigator.pop(modalCtx),
@@ -270,14 +304,6 @@ class _CartScreenState extends State<CartScreen>
             builder: (context, scrollController) {
               return StatefulBuilder(
                 builder: (dialogCtx, setDialogState) {
-                  final customers = customerService.getAll().where((c) {
-                    if (searchQuery.isEmpty) return true;
-                    final q = searchQuery.toLowerCase();
-                    final nameMatch = c.name.toLowerCase().contains(q);
-                    final phoneMatch =
-                        c.phone?.toLowerCase().contains(q) ?? false;
-                    return nameMatch || phoneMatch;
-                  }).toList();
 
                   return GestureDetector(
                     onTap: () {}, // Prevent tap from reaching the barrier
@@ -328,25 +354,23 @@ class _CartScreenState extends State<CartScreen>
                                 Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    TextButton.icon(
-                                      style: TextButton.styleFrom(
-                                        backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
-                                      ),
+                                    AppButton(
+                                      text: 'New',
+                                      variant: AppButtonVariant.secondary,
+                                      isFullWidth: false,
+                                      height: modalCtx.getRSize(36),
+                                      icon: FontAwesomeIcons.userPlus,
                                       onPressed: () {
                                         Navigator.pop(modalCtx);
-                                        AddCustomerSheet.show(context);
+                                        AddCustomerSheet.show(
+                                          context,
+                                          onCustomerAdded: (newCustomer) {
+                                            setState(() => _activeCustomer = newCustomer);
+                                            widget.onCustomerChanged(newCustomer);
+                                            cartService.setActiveCustomer(newCustomer);
+                                          },
+                                        );
                                       },
-                                      icon: Icon(
-                                        FontAwesomeIcons.userPlus,
-                                        size: modalCtx.getRSize(14),
-                                      ),
-                                      label: Text(
-                                        'New',
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: modalCtx.getRFontSize(13),
-                                        ),
-                                      ),
                                     ),
                                     SizedBox(width: modalCtx.getRSize(8)),
                                     IconButton(
@@ -358,64 +382,111 @@ class _CartScreenState extends State<CartScreen>
                               ],
                             ),
                           ),
+                          // ── Warehouse filter (managers and CEO only) ──
+                          if (isManagerOrAbove && _warehouses.isNotEmpty)
+                            Padding(
+                              padding: EdgeInsets.fromLTRB(
+                                modalCtx.getRSize(20),
+                                modalCtx.getRSize(4),
+                                modalCtx.getRSize(20),
+                                0,
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    FontAwesomeIcons.warehouse,
+                                    size: modalCtx.getRSize(12),
+                                    color: _subtext,
+                                  ),
+                                  SizedBox(width: modalCtx.getRSize(6)),
+                                  Expanded(
+                                    child: AppDropdown<int?>(
+                                      value: pickerWarehouseId,
+                                      items: [
+                                        DropdownMenuItem<int?>(
+                                          value: null,
+                                          child: Text(
+                                            'All Warehouses',
+                                            style: TextStyle(
+                                              fontSize: modalCtx.getRFontSize(13),
+                                              fontWeight: FontWeight.w600,
+                                              color: Theme.of(context).colorScheme.primary,
+                                            ),
+                                          ),
+                                        ),
+                                        ..._warehouses.map(
+                                          (w) => DropdownMenuItem<int?>(
+                                            value: w.id,
+                                            child: Text(
+                                              w.name,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: TextStyle(
+                                                fontSize: modalCtx.getRFontSize(13),
+                                                fontWeight: FontWeight.w600,
+                                                color: Theme.of(context).colorScheme.primary,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                      onChanged: (id) => setDialogState(() => pickerWarehouseId = id),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                           Padding(
                             padding: EdgeInsets.symmetric(
                               horizontal: modalCtx.getRSize(20),
                               vertical: modalCtx.getRSize(8),
                             ),
-                            child: TextField(
+                            child: AppInput(
                               onChanged: (v) {
                                 setDialogState(() {
                                   searchQuery = v;
                                 });
                               },
-                              style: TextStyle(
-                                color: _text,
-                                fontSize: modalCtx.getRFontSize(14),
+                              hintText: 'Search customers...',
+                              prefixIcon: Icon(
+                                FontAwesomeIcons.magnifyingGlass,
+                                size: modalCtx.getRSize(16),
+                                color: _subtext,
                               ),
-                              decoration: InputDecoration(
-                                hintText: 'Search customers...',
-                                hintStyle: TextStyle(color: _subtext),
-                                prefixIcon: Icon(
-                                  FontAwesomeIcons.magnifyingGlass,
-                                  size: modalCtx.getRSize(16),
-                                  color: _subtext,
-                                ),
-                                filled: true,
-                                fillColor: Theme.of(context).cardColor,
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                  borderSide: BorderSide.none,
-                                ),
-                                focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                  borderSide: BorderSide(
-                                    color: Theme.of(context).colorScheme.primary,
-                                    width: 2,
-                                  ),
-                                ),
-                                contentPadding: EdgeInsets.symmetric(
-                                  horizontal: modalCtx.getRSize(16),
-                                  vertical: modalCtx.getRSize(12),
-                                ),
-                              ),
+                              fillColor: Theme.of(context).cardColor,
                             ),
                           ),
                           Expanded(
-                            child: ListView(
-                              controller: scrollController,
-                              padding: EdgeInsets.fromLTRB(
-                                modalCtx.getRSize(20),
-                                0,
-                                modalCtx.getRSize(20),
-                                modalCtx.bottomInset + 20,
-                              ),
-                              children: [
-                                _buildCustomerTile(null, modalCtx),
-                                ...customers.map(
-                                  (c) => _buildCustomerTile(c, modalCtx),
-                                ),
-                              ],
+                            child: ValueListenableBuilder<List<Customer>>(
+                              valueListenable: customerService,
+                              builder: (_, allCustomers, __) {
+                                final customers = allCustomers.where((c) {
+                                  // Warehouse filter
+                                  if (pickerWarehouseId != null &&
+                                      c.warehouseId != pickerWarehouseId) {
+                                    return false;
+                                  }
+                                  // Search filter
+                                  if (searchQuery.isEmpty) return true;
+                                  final q = searchQuery.toLowerCase();
+                                  return c.name.toLowerCase().contains(q) ||
+                                      (c.phone?.toLowerCase().contains(q) ?? false);
+                                }).toList();
+                                return ListView(
+                                  controller: scrollController,
+                                  padding: EdgeInsets.fromLTRB(
+                                    modalCtx.getRSize(20),
+                                    0,
+                                    modalCtx.getRSize(20),
+                                    modalCtx.bottomInset + 20,
+                                  ),
+                                  children: [
+                                    _buildCustomerTile(null, modalCtx),
+                                    ...customers.map(
+                                      (c) => _buildCustomerTile(c, modalCtx),
+                                    ),
+                                  ],
+                                );
+                              },
                             ),
                           ),
                         ],
@@ -568,34 +639,17 @@ class _CartScreenState extends State<CartScreen>
                 }
               }),
               Expanded(
-                child: TextField(
+                child: AppInput(
                   controller: qtyCtrl,
                   keyboardType: const TextInputType.numberWithOptions(
                     decimal: true,
                   ),
                   textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: ctx.getRFontSize(22),
-                    fontWeight: FontWeight.bold,
-                    color: _text,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide(color: _border),
                   ),
-                  decoration: InputDecoration(
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
-                      borderSide: BorderSide(color: _border),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
-                      borderSide: BorderSide(color: _border),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
-                      borderSide: BorderSide(color: Theme.of(context).colorScheme.primary, width: 2),
-                    ),
-                    contentPadding: EdgeInsets.symmetric(
-                      vertical: ctx.getRSize(16),
-                    ),
-                  ),
+                  fillColor: Colors.transparent,
                 ),
               ),
               _qtyBtn(ctx, FontAwesomeIcons.plus, () {
@@ -606,34 +660,20 @@ class _CartScreenState extends State<CartScreen>
           ),
           actionsAlignment: MainAxisAlignment.spaceBetween,
           actions: [
-            TextButton.icon(
+            AppButton(
+              text: 'Remove',
+              variant: AppButtonVariant.danger,
+              isFullWidth: false,
+              icon: FontAwesomeIcons.trash,
               onPressed: () {
                 cartService.removeItem(item['name']);
                 Navigator.pop(dCtx);
               },
-              icon: Icon(
-                FontAwesomeIcons.trash,
-                color: Theme.of(context).colorScheme.error,
-                size: ctx.getRSize(15),
-              ),
-              label: Text(
-                'Remove',
-                style: TextStyle(color: Theme.of(context).colorScheme.error, fontWeight: FontWeight.bold),
-              ),
             ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Theme.of(context).colorScheme.primary,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                padding: EdgeInsets.symmetric(
-                  horizontal: ctx.getRSize(24),
-                  vertical: ctx.getRSize(14),
-                ),
-                elevation: 0,
-              ),
+            AppButton(
+              text: 'Save',
+              variant: AppButtonVariant.primary,
+              isFullWidth: false,
               onPressed: () {
                 cartService.updateQty(
                   item['name'],
@@ -641,10 +681,6 @@ class _CartScreenState extends State<CartScreen>
                 );
                 Navigator.pop(dCtx);
               },
-              child: const Text(
-                'Save',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
             ),
           ],
         ),
@@ -756,112 +792,39 @@ class _CartScreenState extends State<CartScreen>
                         ),
                       ),
                       SizedBox(height: context.getRSize(20)),
-                      TextField(
+                      AppInput(
                         controller: ctrl,
                         keyboardType: TextInputType.number,
                         inputFormatters: [CurrencyInputFormatter()],
                         autofocus: true,
-                        style: TextStyle(
-                          fontSize: context.getRFontSize(20),
-                          fontWeight: FontWeight.bold,
-                          color: _text,
-                        ),
-                        decoration: InputDecoration(
-                          prefixText: '₦ ',
-                          prefixStyle: TextStyle(
-                            fontSize: context.getRFontSize(20),
-                            fontWeight: FontWeight.bold,
-                            color: _text,
-                          ),
-                          hintText: '0',
-                          hintStyle: TextStyle(
-                            fontSize: context.getRFontSize(20),
-                            fontWeight: FontWeight.bold,
-                            color: _subtext.withValues(alpha: 0.4),
-                          ),
-                          filled: true,
-                          fillColor: Theme.of(context).cardColor,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(14),
-                            borderSide: BorderSide.none,
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(14),
-                            borderSide:
-                                BorderSide(color: Theme.of(context).colorScheme.primary, width: 2),
-                          ),
-                          contentPadding: EdgeInsets.symmetric(
-                            horizontal: context.getRSize(16),
-                            vertical: context.getRSize(16),
-                          ),
+                        prefixText: '₦ ',
+                        hintText: '0',
+                        fillColor: Theme.of(context).cardColor,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: BorderSide.none,
                         ),
                       ),
                       SizedBox(height: context.getRSize(24)),
                       Row(
                         children: [
                           Expanded(
-                            child: GestureDetector(
-                              onTap: () => Navigator.pop(sheetCtx),
-                              child: Container(
-                                padding: EdgeInsets.symmetric(
-                                  vertical: context.getRSize(16),
-                                ),
-                                decoration: BoxDecoration(
-                                  color: _bg,
-                                  borderRadius: BorderRadius.circular(14),
-                                  border: Border.all(color: _border),
-                                ),
-                                child: Center(
-                                  child: Text(
-                                    'Cancel',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: context.getRFontSize(15),
-                                      color: _subtext,
-                                    ),
-                                  ),
-                                ),
-                              ),
+                            child: AppButton(
+                              text: 'Cancel',
+                              variant: AppButtonVariant.ghost,
+                              onPressed: () => Navigator.pop(sheetCtx),
                             ),
                           ),
                           SizedBox(width: context.getRSize(12)),
                           Expanded(
-                            child: GestureDetector(
-                              onTap: () {
+                            child: AppButton(
+                              text: 'Confirm',
+                              variant: AppButtonVariant.primary,
+                              onPressed: () {
                                 final val = parseCurrency(ctrl.text);
                                 setState(() => _crateDeposit = val);
                                 Navigator.pop(sheetCtx);
                               },
-                              child: Container(
-                                padding: EdgeInsets.symmetric(
-                                  vertical: context.getRSize(16),
-                                ),
-                                decoration: BoxDecoration(
-                                  gradient: const LinearGradient(
-                                    colors: [blueLight, blueDark],
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
-                                  ),
-                                  borderRadius: BorderRadius.circular(14),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
-                                      blurRadius: 10,
-                                      offset: const Offset(0, 4),
-                                    ),
-                                  ],
-                                ),
-                                child: Center(
-                                  child: Text(
-                                    'Confirm',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: context.getRFontSize(15),
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                ),
-                              ),
                             ),
                           ),
                         ],
@@ -908,7 +871,7 @@ class _CartScreenState extends State<CartScreen>
 
   @override
   Widget build(BuildContext context) {
-    final cartItems = List<Map<String, dynamic>>.from(widget.cart);
+    final cartItems = List<Map<String, dynamic>>.from(cartService.value);
     cartItems.sort((a, b) => b['qty'].compareTo(a['qty']));
     final sub = cartItems.fold<double>(
       0.0,
@@ -921,27 +884,32 @@ class _CartScreenState extends State<CartScreen>
     );
 
     // ── Glass detection & crate deposit computation ──
-    // A glass item is any cart item with a crateGroupId OR a product-level
-    // emptyCrateValueKobo > 0 (covers products not yet linked to a group).
+    // Only items in "Glass Crates" or "Kegs" categories generate a crate deposit.
+    final depositCatIds = _categories
+        .where((c) => c.name == 'Glass Crates' || c.name == 'Kegs')
+        .map((c) => c.id)
+        .toSet();
     final glassItems = cartItems
-        .where((i) =>
-            i['crateGroupId'] != null ||
-            ((i['emptyCrateValueKobo'] ?? 0) as num) > 0)
+        .where((i) => depositCatIds.contains(i['category']))
         .toList();
     final hasGlass = glassItems.isNotEmpty;
 
     // Compute aggregate deposit across items
     double computedDeposit = 0;
     final List<_CrateDepositLine> depositLines = [];
-    final Map<int, double> groupAmounts = {};
+    // Keyed by manufacturerId for display labels
+    final Map<int, double> mfrAmounts = {};
+    final Map<int, double> mfrQtys = {};
+    final Map<int, String> mfrNames = {};
+    // Keyed by crateGroupId for customer credit calculation
     final Map<int, double> groupQtys = {};
-    final Map<int, String> groupNames = {};
-    // Tracks items with no crateGroupId, keyed by product name
+    // Tracks items with no manufacturerId, keyed by product name
     final Map<String, double> ungroupedAmounts = {};
     final Map<String, double> ungroupedQtys = {};
 
     for (final item in glassItems) {
       final groupId = item['crateGroupId'] as int?;
+      final mfrId = item['manufacturerId'] as int?;
       final productValue = (item['emptyCrateValueKobo'] ?? 0) as num;
       final qty = (item['qty'] as num).toDouble();
 
@@ -960,11 +928,17 @@ class _CartScreenState extends State<CartScreen>
       final amount = qty * depositPerCrate;
       computedDeposit += amount;
 
+      // Track by crateGroupId for customer credit
       if (groupId != null) {
         groupQtys[groupId] = (groupQtys[groupId] ?? 0) + qty;
-        groupAmounts[groupId] = (groupAmounts[groupId] ?? 0) + amount;
-        final cg = _crateGroups.where((g) => g.id == groupId).firstOrNull;
-        groupNames[groupId] = cg?.name ?? (item['name'] as String);
+      }
+
+      // Group by manufacturer for display
+      if (mfrId != null) {
+        mfrQtys[mfrId] = (mfrQtys[mfrId] ?? 0) + qty;
+        mfrAmounts[mfrId] = (mfrAmounts[mfrId] ?? 0) + amount;
+        final mfr = _manufacturers.where((m) => m.id == mfrId).firstOrNull;
+        mfrNames[mfrId] = mfr?.name ?? (item['name'] as String);
       } else {
         final label = item['name'] as String;
         ungroupedQtys[label] = (ungroupedQtys[label] ?? 0) + qty;
@@ -972,14 +946,16 @@ class _CartScreenState extends State<CartScreen>
       }
     }
 
-    for (final groupId in groupQtys.keys) {
-      final cg = _crateGroups.where((g) => g.id == groupId).firstOrNull;
+    final sortedMfrIds = mfrQtys.keys.toList()
+      ..sort((a, b) => (mfrNames[a] ?? '').compareTo(mfrNames[b] ?? ''));
+
+    for (final mfrId in sortedMfrIds) {
       depositLines.add(
         _CrateDepositLine(
-          label: groupNames[groupId]!,
-          color: cg != null ? _crateColor(cg) : Theme.of(context).colorScheme.primary,
-          qty: groupQtys[groupId]!,
-          amount: groupAmounts[groupId]!,
+          label: mfrNames[mfrId]!,
+          color: _cgColors[mfrId % _cgColors.length],
+          qty: mfrQtys[mfrId]!,
+          amount: mfrAmounts[mfrId]!,
         ),
       );
     }
@@ -1369,76 +1345,6 @@ class _CartScreenState extends State<CartScreen>
                               child: Column(
                                 children: [
                                   _totalRow('Subtotal', sub, small: true),
-                                  if (hasGlass) ...[
-                                    SizedBox(height: context.getRSize(8)),
-                                    // ── Crate Deposit (informational / greyed out) ──
-                                    Opacity(
-                                      opacity: 0.5,
-                                      child: Container(
-                                        width: double.infinity,
-                                        padding: EdgeInsets.symmetric(
-                                          horizontal: context.getRSize(16),
-                                          vertical: context.getRSize(12),
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: Theme.of(context).cardColor,
-                                          borderRadius: BorderRadius.circular(14),
-                                          border: Border.all(color: _border),
-                                        ),
-                                        child: Row(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.spaceBetween,
-                                          children: [
-                                            Row(
-                                              children: [
-                                                Icon(
-                                                  FontAwesomeIcons.beerMugEmpty,
-                                                  size: context.getRSize(13),
-                                                  color: _subtext,
-                                                ),
-                                                SizedBox(
-                                                  width: context.getRSize(8),
-                                                ),
-                                                Column(
-                                                  crossAxisAlignment:
-                                                      CrossAxisAlignment.start,
-                                                  children: [
-                                                    Text(
-                                                      'Crate Deposit',
-                                                      style: TextStyle(
-                                                        fontSize: context
-                                                            .getRFontSize(13),
-                                                        fontWeight:
-                                                            FontWeight.w600,
-                                                        color: _subtext,
-                                                      ),
-                                                    ),
-                                                    Text(
-                                                      'suggested · not charged',
-                                                      style: TextStyle(
-                                                        fontSize: context
-                                                            .getRFontSize(10),
-                                                        color: _subtext,
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ],
-                                            ),
-                                            Text(
-                                              formatCurrency(computedDeposit),
-                                              style: TextStyle(
-                                                fontSize:
-                                                    context.getRFontSize(14),
-                                                fontWeight: FontWeight.w700,
-                                                color: _subtext,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                  ],
                                   SizedBox(height: context.getRSize(8)),
                                   if (hasGlass) ...[
                                     // ── Empty Crates section ──
@@ -1709,66 +1615,31 @@ class _CartScreenState extends State<CartScreen>
                                   Row(
                                     children: [
                                       Expanded(
-                                        child: OutlinedButton.icon(
-                                          style: OutlinedButton.styleFrom(
-                                            padding: EdgeInsets.symmetric(
-                                              vertical: context.getRSize(12),
-                                            ),
-                                            side: BorderSide(color: Theme.of(context).colorScheme.primary),
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius: BorderRadius.circular(12),
-                                            ),
-                                          ),
+                                        child: AppButton(
+                                          text: 'Save Cart',
+                                          variant: AppButtonVariant.outline,
+                                          icon: FontAwesomeIcons.floppyDisk,
                                           onPressed: _saveCurrentCart,
-                                          icon: Icon(
-                                            FontAwesomeIcons.floppyDisk,
-                                            size: context.getRSize(14),
-                                            color: Theme.of(context).colorScheme.primary,
-                                          ),
-                                          label: Text(
-                                            'Save Cart',
-                                            style: TextStyle(
-                                              color: Theme.of(context).colorScheme.primary,
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: context.getRFontSize(13),
-                                            ),
-                                          ),
                                         ),
                                       ),
                                       SizedBox(width: context.getRSize(12)),
                                       Expanded(
-                                        child: OutlinedButton.icon(
-                                          style: OutlinedButton.styleFrom(
-                                            padding: EdgeInsets.symmetric(
-                                              vertical: context.getRSize(12),
-                                            ),
-                                            side: BorderSide(color: Theme.of(context).colorScheme.primary),
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius: BorderRadius.circular(12),
-                                            ),
-                                          ),
+                                        child: AppButton(
+                                          text: 'Recall',
+                                          variant: AppButtonVariant.outline,
+                                          icon: FontAwesomeIcons.clockRotateLeft,
                                           onPressed: _viewSavedCarts,
-                                          icon: Icon(
-                                            FontAwesomeIcons.clockRotateLeft,
-                                            size: context.getRSize(14),
-                                            color: Theme.of(context).colorScheme.primary,
-                                          ),
-                                          label: Text(
-                                            'Recall',
-                                            style: TextStyle(
-                                              color: Theme.of(context).colorScheme.primary,
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: context.getRFontSize(13),
-                                            ),
-                                          ),
                                         ),
                                       ),
                                     ],
                                   ),
                                   SizedBox(height: context.getRSize(16)),
                                   // ── Proceed to Checkout ──
-                                  GestureDetector(
-                                    onTap: () {
+                                  AppButton(
+                                    text: 'Proceed to Checkout',
+                                    variant: AppButtonVariant.primary,
+                                    icon: FontAwesomeIcons.checkToSlot,
+                                    onPressed: () {
                                       Navigator.push(
                                         context,
                                         MaterialPageRoute(
@@ -1787,49 +1658,6 @@ class _CartScreenState extends State<CartScreen>
                                         ),
                                       );
                                     },
-                                    child: Container(
-                                      width: double.infinity,
-                                      padding: EdgeInsets.symmetric(
-                                        vertical: context.getRSize(18),
-                                      ),
-                                      decoration: BoxDecoration(
-                                        gradient: const LinearGradient(
-                                          colors: [blueLight, blueDark],
-                                          begin: Alignment.topLeft,
-                                          end: Alignment.bottomRight,
-                                        ),
-                                        borderRadius: BorderRadius.circular(16),
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
-                                            blurRadius: 14,
-                                            offset: const Offset(0, 6),
-                                          ),
-                                        ],
-                                      ),
-                                      child: Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        children: [
-                                          Icon(
-                                            FontAwesomeIcons.checkToSlot,
-                                            color: Colors.white,
-                                            size: context.getRSize(18),
-                                          ),
-                                          SizedBox(width: context.getRSize(10)),
-                                          Text(
-                                            'Proceed to Checkout',
-                                            style: TextStyle(
-                                              color: Colors.white,
-                                              fontSize: context.getRFontSize(
-                                                16,
-                                              ),
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
                                   ),
                                 ],
                               ),

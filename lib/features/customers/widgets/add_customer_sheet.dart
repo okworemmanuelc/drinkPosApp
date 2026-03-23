@@ -1,23 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
-import '../../../core/theme/colors.dart';
 import '../../../core/utils/responsive.dart';
 import '../../../core/database/app_database.dart';
 import '../../../shared/services/auth_service.dart';
 import '../data/models/customer.dart';
 import '../data/services/customer_service.dart';
-import '../../../shared/widgets/fluid_menu.dart';
+import '../../../shared/widgets/app_button.dart';
+import '../../../shared/widgets/app_input.dart';
+import '../../../shared/widgets/app_dropdown.dart';
 
 class AddCustomerSheet extends StatefulWidget {
-  const AddCustomerSheet({super.key});
+  final void Function(Customer)? onCustomerAdded;
 
-  static void show(BuildContext context) {
+  const AddCustomerSheet({super.key, this.onCustomerAdded});
+
+  static void show(BuildContext context, {void Function(Customer)? onCustomerAdded}) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => const AddCustomerSheet(),
+      builder: (_) => AddCustomerSheet(onCustomerAdded: onCustomerAdded),
     );
   }
 
@@ -48,9 +51,7 @@ class _AddCustomerSheetState extends State<AddCustomerSheet> {
     }
   }
   Color get _surface => Theme.of(context).colorScheme.surface;
-  Color get _cardBg => Theme.of(context).cardColor;
   Color get _text => Theme.of(context).colorScheme.onSurface;
-  Color get _subtext => Theme.of(context).textTheme.bodySmall?.color ?? Theme.of(context).iconTheme.color!;
   Color get _border => Theme.of(context).dividerColor;
 
   @override
@@ -62,69 +63,16 @@ class _AddCustomerSheetState extends State<AddCustomerSheet> {
     super.dispose();
   }
 
-  Widget _inputField(
-    String label,
-    TextEditingController controller,
-    String hint, {
-    TextInputType keyboardType = TextInputType.text,
-    bool required = true,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: context.getRFontSize(12),
-            fontWeight: FontWeight.w700,
-            color: _subtext,
-          ),
-        ),
-        SizedBox(height: context.getRSize(8)),
-        TextFormField(
-          controller: controller,
-          keyboardType: keyboardType,
-          style: TextStyle(
-            fontSize: context.getRFontSize(14),
-            fontWeight: FontWeight.bold,
-            color: _text,
-          ),
-          decoration: InputDecoration(
-            hintText: hint,
-            hintStyle: TextStyle(color: _subtext),
-            filled: true,
-            fillColor: _cardBg,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: BorderSide.none,
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: BorderSide(color: Theme.of(context).colorScheme.primary, width: 2),
-            ),
-            contentPadding: EdgeInsets.all(context.getRSize(16)),
-          ),
-          validator: (v) {
-            if (required && (v == null || v.trim().isEmpty)) {
-              return 'This field is required';
-            }
-            return null;
-          },
-        ),
-        SizedBox(height: context.getRSize(16)),
-      ],
-    );
-  }
 
   Widget _groupDropdown() {
     return Column(
       children: [
-        FluidMenu<CustomerGroup>(
-          label: 'Customer Group',
+        AppDropdown<CustomerGroup>(
+          labelText: 'Customer Group',
           value: _selectedGroup,
           items: const [
-            FluidMenuItem(value: CustomerGroup.retailer, label: 'Retailer'),
-            FluidMenuItem(value: CustomerGroup.wholesaler, label: 'Wholesaler'),
+            DropdownMenuItem(value: CustomerGroup.retailer, child: Text('Retailer')),
+            DropdownMenuItem(value: CustomerGroup.wholesaler, child: Text('Wholesaler')),
           ],
           onChanged: (val) {
             if (val != null) setState(() => _selectedGroup = val);
@@ -135,63 +83,6 @@ class _AddCustomerSheetState extends State<AddCustomerSheet> {
     );
   }
 
-  Widget _warehouseDropdown() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Assign to Warehouse',
-          style: TextStyle(
-            fontSize: context.getRFontSize(12),
-            fontWeight: FontWeight.w700,
-            color: _subtext,
-          ),
-        ),
-        SizedBox(height: context.getRSize(8)),
-        Container(
-          decoration: BoxDecoration(
-            color: _cardBg,
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: DropdownButtonFormField<int>(
-            initialValue: _selectedWarehouseId,
-            hint: Text(
-              'Select warehouse',
-              style: TextStyle(color: _subtext, fontSize: context.getRFontSize(14)),
-            ),
-            decoration: InputDecoration(
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide.none,
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide(color: Theme.of(context).colorScheme.primary, width: 2),
-              ),
-              contentPadding: EdgeInsets.all(context.getRSize(16)),
-              filled: true,
-              fillColor: _cardBg,
-            ),
-            dropdownColor: _cardBg,
-            style: TextStyle(
-              fontSize: context.getRFontSize(14),
-              fontWeight: FontWeight.bold,
-              color: _text,
-            ),
-            items: _warehouses.map((wh) {
-              return DropdownMenuItem<int>(
-                value: wh.id,
-                child: Text(wh.name),
-              );
-            }).toList(),
-            onChanged: (val) => setState(() => _selectedWarehouseId = val),
-            validator: (v) => v == null ? 'Please select a warehouse' : null,
-          ),
-        ),
-        SizedBox(height: context.getRSize(16)),
-      ],
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -303,29 +194,46 @@ class _AddCustomerSheetState extends State<AddCustomerSheet> {
                           context.getRSize(20),
                         ),
                         children: [
-                          _inputField(
-                            'Customer Name',
-                            _nameCtrl,
-                            'e.g. John Doe',
+                          AppInput(
+                            labelText: 'Customer Name',
+                            controller: _nameCtrl,
+                            hintText: 'e.g. John Doe',
+                            validator: (v) => (v == null || v.trim().isEmpty) ? 'This field is required' : null,
                           ),
                           _groupDropdown(),
-                          if (_isCeo) _warehouseDropdown(),
-                          _inputField(
-                            'Address',
-                            _addressCtrl,
-                            'e.g. 123 Main Street',
+                          if (_isCeo) ...[
+                            AppDropdown<int>(
+                              labelText: 'Assign to Warehouse',
+                              value: _selectedWarehouseId,
+                              hintText: 'Select warehouse',
+                              items: _warehouses.map((wh) {
+                                return DropdownMenuItem<int>(
+                                  value: wh.id,
+                                  child: Text(wh.name),
+                                );
+                              }).toList(),
+                              onChanged: (val) => setState(() => _selectedWarehouseId = val),
+                              validator: (v) => v == null ? 'Please select a warehouse' : null,
+                            ),
+                            SizedBox(height: context.getRSize(16)),
+                          ],
+                          AppInput(
+                            labelText: 'Address',
+                            controller: _addressCtrl,
+                            hintText: 'e.g. 123 Main Street',
+                            validator: (v) => (v == null || v.trim().isEmpty) ? 'This field is required' : null,
                           ),
-                          _inputField(
-                            'Google Maps Location',
-                            _locationCtrl,
-                            'e.g. Plus Code or Link',
+                          AppInput(
+                            labelText: 'Google Maps Location',
+                            controller: _locationCtrl,
+                            hintText: 'e.g. Plus Code or Link',
+                            validator: (v) => (v == null || v.trim().isEmpty) ? 'This field is required' : null,
                           ),
-                          _inputField(
-                            'Phone Number (Optional)',
-                            _phoneCtrl,
-                            'e.g. 08012345678',
+                          AppInput(
+                            labelText: 'Phone Number (Optional)',
+                            controller: _phoneCtrl,
+                            hintText: 'e.g. 08012345678',
                             keyboardType: TextInputType.phone,
-                            required: false,
                           ),
                         ],
                       ),
@@ -341,67 +249,36 @@ class _AddCustomerSheetState extends State<AddCustomerSheet> {
                             context.bottomInset + 16,
                           ),
                         ),
-                      child: Container(
-                        width: double.infinity,
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [blueLight, blueDark],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          borderRadius: BorderRadius.circular(16),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
-                              blurRadius: 10,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.transparent,
-                            foregroundColor: Colors.white,
-                            shadowColor: Colors.transparent,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            padding: EdgeInsets.symmetric(
-                              vertical: context.getRSize(16),
-                            ),
-                            elevation: 0,
-                          ),
-                          onPressed: () {
-                            if (_formKey.currentState!.validate()) {
-                              // CEO picks warehouse manually; others use their own warehouseId
-                              final warehouseId = _isCeo
-                                  ? _selectedWarehouseId
-                                  : authService.currentUser?.warehouseId;
+                      child: AppButton(
+                        text: 'Save Customer',
+                        variant: AppButtonVariant.primary,
+                        onPressed: () async {
+                          if (_formKey.currentState!.validate()) {
+                            // CEO picks warehouse manually; others use their own warehouseId
+                            final warehouseId = _isCeo
+                                ? _selectedWarehouseId
+                                : authService.currentUser?.warehouseId;
 
-                              final newCustomer = Customer(
-                                id: 0, // Database will generate this
-                                name: _nameCtrl.text.trim(),
-                                addressText: _addressCtrl.text.trim(),
-                                googleMapsLocation: _locationCtrl.text.trim(),
-                                phone: _phoneCtrl.text.trim().isEmpty
-                                    ? null
-                                    : _phoneCtrl.text.trim(),
-                                customerGroup: _selectedGroup,
-                                isWalkIn: false,
-                                warehouseId: warehouseId,
-                              );
-                              customerService.addCustomer(newCustomer);
-                              Navigator.pop(context);
+                            final newCustomer = Customer(
+                              id: 0, // Database will generate this
+                              name: _nameCtrl.text.trim(),
+                              addressText: _addressCtrl.text.trim(),
+                              googleMapsLocation: _locationCtrl.text.trim(),
+                              phone: _phoneCtrl.text.trim().isEmpty
+                                  ? null
+                                  : _phoneCtrl.text.trim(),
+                              customerGroup: _selectedGroup,
+                              isWalkIn: false,
+                              warehouseId: warehouseId,
+                            );
+                            final saved = await customerService.addCustomer(newCustomer);
+                            if (!context.mounted) return;
+                            Navigator.pop(context);
+                            if (saved != null) {
+                              widget.onCustomerAdded?.call(saved);
                             }
-                          },
-                          child: Text(
-                            'Save Customer',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: context.getRFontSize(15),
-                            ),
-                          ),
-                        ),
+                          }
+                        },
                       ),
                     ),
                   ],

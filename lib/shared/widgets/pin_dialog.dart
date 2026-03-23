@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/database/app_database.dart';
+import '../../shared/widgets/app_button.dart';
 
 import '../../shared/services/auth_service.dart';
 
@@ -196,15 +197,11 @@ class _PinDialogState extends State<PinDialog> {
                 child: CircularProgressIndicator(strokeWidth: 2),
               )
             else
-              TextButton(
+              AppButton(
+                text: 'Cancel',
+                variant: AppButtonVariant.ghost,
+                isFullWidth: false,
                 onPressed: () => Navigator.pop(context, null),
-                child: Text(
-                  'Cancel',
-                  style: TextStyle(
-                    color: subtextColor,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
               ),
           ],
         ),

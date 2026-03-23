@@ -1,5 +1,5 @@
 import 'package:flutter/foundation.dart';
-import 'package:ribaplus_pos/features/deliveries/data/models/delivery.dart';
+import 'package:reebaplus_pos/features/deliveries/data/models/delivery.dart';
 import '../../../../shared/services/notification_service.dart';
 
 class DeliveryService extends ValueNotifier<List<Delivery>> {

@@ -65,18 +65,24 @@ class AppTheme {
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
       fillColor: lCard,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         borderSide: BorderSide.none,
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         borderSide: BorderSide.none,
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: blueMain, width: 1.5),
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: blueMain, width: 2.0),
       ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: danger, width: 1.5),
+      ),
+      hintStyle: const TextStyle(color: lSubtext, fontSize: 13, fontWeight: FontWeight.w400),
     ),
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
@@ -154,18 +160,24 @@ class AppTheme {
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
       fillColor: dCard,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         borderSide: BorderSide.none,
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         borderSide: BorderSide.none,
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: blueMain, width: 1.5),
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: blueMain, width: 2.0),
       ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: danger, width: 1.5),
+      ),
+      hintStyle: const TextStyle(color: dSubtext, fontSize: 13, fontWeight: FontWeight.w400),
     ),
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
@@ -252,7 +264,7 @@ class AppTheme {
       scaffoldBackgroundColor: alBg,
       primaryColor: amberPrimary,
       colorScheme: const ColorScheme.light(
-        primary: amberPrimary,
+        primary: contrastAmber, // Use high-contrast amber for light theme
         secondary: amberDark,
         surface: alSurface,
         onSurface: alTextPrimary,
@@ -303,18 +315,24 @@ class AppTheme {
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: alSurface2,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide.none,
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide.none,
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: amberPrimary, width: 1.5),
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: amberPrimary, width: 2.0),
         ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: dangerRed, width: 1.5),
+        ),
+        hintStyle: const TextStyle(color: alTextSecondary, fontSize: 13, fontWeight: FontWeight.w400),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
@@ -469,18 +487,24 @@ class AppTheme {
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: adSurface2,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide.none,
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide.none,
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: amberPrimary, width: 1.5),
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: amberPrimary, width: 2.0),
         ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: dangerRed, width: 1.5),
+        ),
+        hintStyle: const TextStyle(color: adTextSecondary, fontSize: 13, fontWeight: FontWeight.w400),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
@@ -523,6 +547,542 @@ class AppTheme {
           TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
           TargetPlatform.linux: CupertinoPageTransitionsBuilder(),
         },
+      ),
+    );
+  }
+
+  static ThemeData purpleLight() {
+    final base = ThemeData(
+      useMaterial3: true,
+      brightness: Brightness.light,
+    );
+    final textTheme = _dmSans(base.textTheme).copyWith(
+      displayLarge: GoogleFonts.dmSans(
+        fontSize: 32, fontWeight: FontWeight.w700, color: plTextPrimary,
+      ),
+      displayMedium: GoogleFonts.dmSans(
+        fontSize: 28, fontWeight: FontWeight.w700, color: plTextPrimary,
+      ),
+      displaySmall: GoogleFonts.dmSans(
+        fontSize: 24, fontWeight: FontWeight.w600, color: plTextPrimary,
+      ),
+      headlineLarge: GoogleFonts.dmSans(
+        fontSize: 22, fontWeight: FontWeight.w600, color: plTextPrimary,
+      ),
+      headlineMedium: GoogleFonts.dmSans(
+        fontSize: 20, fontWeight: FontWeight.w600, color: plTextPrimary,
+      ),
+      headlineSmall: GoogleFonts.dmSans(
+        fontSize: 18, fontWeight: FontWeight.w600, color: plTextPrimary,
+      ),
+      titleLarge: GoogleFonts.dmSans(
+        fontSize: 16, fontWeight: FontWeight.w600, color: plTextPrimary,
+      ),
+      titleMedium: GoogleFonts.dmSans(
+        fontSize: 14, fontWeight: FontWeight.w600, color: plTextPrimary,
+      ),
+      titleSmall: GoogleFonts.dmSans(
+        fontSize: 13, fontWeight: FontWeight.w500, color: plTextSecondary,
+      ),
+      bodyLarge: GoogleFonts.dmSans(
+        fontSize: 16, fontWeight: FontWeight.w400, color: plTextPrimary,
+      ),
+      bodyMedium: GoogleFonts.dmSans(
+        fontSize: 14, fontWeight: FontWeight.w400, color: plTextPrimary,
+      ),
+      bodySmall: GoogleFonts.dmSans(
+        fontSize: 12, fontWeight: FontWeight.w400, color: plTextSecondary,
+      ),
+      labelLarge: GoogleFonts.dmSans(
+        fontSize: 14, fontWeight: FontWeight.w600, color: plTextPrimary,
+      ),
+      labelMedium: GoogleFonts.dmSans(
+        fontSize: 12, fontWeight: FontWeight.w600, color: plTextPrimary,
+      ),
+      labelSmall: GoogleFonts.dmSans(
+        fontSize: 11, fontWeight: FontWeight.w500, color: plTextSecondary,
+      ),
+    );
+
+    return base.copyWith(
+      scaffoldBackgroundColor: plBg,
+      primaryColor: purplePrimary,
+      colorScheme: const ColorScheme.light(
+        primary: purplePrimary,
+        secondary: purpleDark,
+        surface: plSurface,
+        onSurface: plTextPrimary,
+        error: dangerRed,
+      ),
+      appBarTheme: const AppBarTheme(
+        backgroundColor: plSurface,
+        foregroundColor: plTextPrimary,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        centerTitle: false,
+        toolbarHeight: kToolbarHeight + 12,
+        surfaceTintColor: Colors.transparent,
+        shape: Border(
+          bottom: BorderSide(color: plBorder, width: 1),
+        ),
+      ),
+      bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+        backgroundColor: plSurface,
+        selectedItemColor: purplePrimaryDark,
+        unselectedItemColor: plTextSecondary,
+        showSelectedLabels: true,
+        showUnselectedLabels: true,
+        type: BottomNavigationBarType.fixed,
+      ),
+      cardColor: plSurface,
+      cardTheme: CardThemeData(
+        color: plSurface,
+        elevation: 0,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      ),
+      dividerColor: plBorder,
+      chipTheme: ChipThemeData(
+        backgroundColor: plSurface2,
+        selectedColor: purplePrimaryDark,
+        labelStyle: GoogleFonts.dmSans(
+          fontSize: 13, fontWeight: FontWeight.w600, color: plTextPrimary,
+        ),
+        secondaryLabelStyle: GoogleFonts.dmSans(
+          fontSize: 13, fontWeight: FontWeight.w600, color: Colors.black,
+        ),
+        side: BorderSide.none,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      ),
+      iconTheme: const IconThemeData(color: plTextSecondary),
+      textTheme: textTheme,
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: plSurface2,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide.none,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide.none,
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: purplePrimary, width: 2.0),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: dangerRed, width: 1.5),
+        ),
+        hintStyle: const TextStyle(color: plTextSecondary, fontSize: 13, fontWeight: FontWeight.w400),
+      ),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: purplePrimary,
+          foregroundColor: Colors.white,
+          minimumSize: const Size.fromHeight(48),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          elevation: 0,
+        ),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(foregroundColor: purplePrimary),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          foregroundColor: purplePrimary,
+          side: const BorderSide(color: purplePrimary),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      ),
+      navigationBarTheme: NavigationBarThemeData(
+        backgroundColor: plSurface,
+        indicatorColor: purplePrimaryDark.withValues(alpha: 0.15),
+        labelTextStyle: WidgetStatePropertyAll(
+          GoogleFonts.dmSans(fontSize: 12, fontWeight: FontWeight.w600),
+        ),
+      ),
+      dividerTheme: const DividerThemeData(color: plBorder, thickness: 1),
+      floatingActionButtonTheme: FloatingActionButtonThemeData(
+        backgroundColor: purplePrimary,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      ),
+      pageTransitionsTheme: const PageTransitionsTheme(
+        builders: {
+          TargetPlatform.android: CupertinoPageTransitionsBuilder(),
+          TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+          TargetPlatform.windows: CupertinoPageTransitionsBuilder(),
+          TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
+          TargetPlatform.linux: CupertinoPageTransitionsBuilder(),
+        },
+      ),
+    );
+  }
+
+  static ThemeData purpleDarkTheme() {
+    final base = ThemeData(
+      useMaterial3: true,
+      brightness: Brightness.dark,
+    );
+    final textTheme = _dmSans(base.textTheme).copyWith(
+      displayLarge: GoogleFonts.dmSans(
+        fontSize: 32, fontWeight: FontWeight.w700, color: pdTextPrimary,
+      ),
+      displayMedium: GoogleFonts.dmSans(
+        fontSize: 28, fontWeight: FontWeight.w700, color: pdTextPrimary,
+      ),
+      displaySmall: GoogleFonts.dmSans(
+        fontSize: 24, fontWeight: FontWeight.w600, color: pdTextPrimary,
+      ),
+      headlineLarge: GoogleFonts.dmSans(
+        fontSize: 22, fontWeight: FontWeight.w600, color: pdTextPrimary,
+      ),
+      headlineMedium: GoogleFonts.dmSans(
+        fontSize: 20, fontWeight: FontWeight.w600, color: pdTextPrimary,
+      ),
+      headlineSmall: GoogleFonts.dmSans(
+        fontSize: 18, fontWeight: FontWeight.w600, color: pdTextPrimary,
+      ),
+      titleLarge: GoogleFonts.dmSans(
+        fontSize: 16, fontWeight: FontWeight.w600, color: pdTextPrimary,
+      ),
+      titleMedium: GoogleFonts.dmSans(
+        fontSize: 14, fontWeight: FontWeight.w600, color: pdTextPrimary,
+      ),
+      titleSmall: GoogleFonts.dmSans(
+        fontSize: 13, fontWeight: FontWeight.w500, color: pdTextSecondary,
+      ),
+      bodyLarge: GoogleFonts.dmSans(
+        fontSize: 16, fontWeight: FontWeight.w400, color: pdTextPrimary,
+      ),
+      bodyMedium: GoogleFonts.dmSans(
+        fontSize: 14, fontWeight: FontWeight.w400, color: pdTextPrimary,
+      ),
+      bodySmall: GoogleFonts.dmSans(
+        fontSize: 12, fontWeight: FontWeight.w400, color: pdTextSecondary,
+      ),
+      labelLarge: GoogleFonts.dmSans(
+        fontSize: 14, fontWeight: FontWeight.w600, color: pdTextPrimary,
+      ),
+      labelMedium: GoogleFonts.dmSans(
+        fontSize: 12, fontWeight: FontWeight.w600, color: pdTextPrimary,
+      ),
+      labelSmall: GoogleFonts.dmSans(
+        fontSize: 11, fontWeight: FontWeight.w500, color: pdTextSecondary,
+      ),
+    );
+
+    return base.copyWith(
+      scaffoldBackgroundColor: pdBg,
+      primaryColor: purplePrimary,
+      colorScheme: const ColorScheme.dark(
+        primary: purplePrimary,
+        secondary: purpleDark,
+        surface: pdSurface,
+        onSurface: pdTextPrimary,
+        error: dangerRed,
+      ),
+      appBarTheme: const AppBarTheme(
+        backgroundColor: pdSurface,
+        foregroundColor: pdTextPrimary,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        centerTitle: false,
+        toolbarHeight: kToolbarHeight + 12,
+        surfaceTintColor: Colors.transparent,
+        shape: Border(
+          bottom: BorderSide(color: pdBorder, width: 1),
+        ),
+      ),
+      bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+        backgroundColor: pdSurface,
+        selectedItemColor: purplePrimary,
+        unselectedItemColor: pdTextSecondary,
+        showSelectedLabels: true,
+        showUnselectedLabels: true,
+        type: BottomNavigationBarType.fixed,
+      ),
+      cardColor: pdSurface2,
+      cardTheme: CardThemeData(
+        color: pdSurface,
+        elevation: 0,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      ),
+      dividerColor: pdBorder,
+      chipTheme: ChipThemeData(
+        backgroundColor: pdSurface2,
+        selectedColor: purplePrimary,
+        labelStyle: GoogleFonts.dmSans(
+          fontSize: 13, fontWeight: FontWeight.w600, color: pdTextPrimary,
+        ),
+        secondaryLabelStyle: GoogleFonts.dmSans(
+          fontSize: 13, fontWeight: FontWeight.w600, color: Colors.black,
+        ),
+        side: BorderSide.none,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      ),
+      iconTheme: const IconThemeData(color: pdTextSecondary),
+      textTheme: textTheme,
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: pdSurface2,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide.none,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide.none,
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: purplePrimary, width: 2.0),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: dangerRed, width: 1.5),
+        ),
+        hintStyle: const TextStyle(color: pdTextSecondary, fontSize: 13, fontWeight: FontWeight.w400),
+      ),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: purplePrimary,
+          foregroundColor: Colors.white,
+          minimumSize: const Size.fromHeight(48),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          elevation: 0,
+        ),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(foregroundColor: purplePrimary),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          foregroundColor: purplePrimary,
+          side: const BorderSide(color: purplePrimary),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      ),
+      navigationBarTheme: NavigationBarThemeData(
+        backgroundColor: pdSurface,
+        indicatorColor: purplePrimary.withValues(alpha: 0.15),
+        labelTextStyle: WidgetStatePropertyAll(
+          GoogleFonts.dmSans(fontSize: 12, fontWeight: FontWeight.w600),
+        ),
+      ),
+      dividerTheme: const DividerThemeData(color: pdBorder, thickness: 1),
+      floatingActionButtonTheme: FloatingActionButtonThemeData(
+        backgroundColor: purplePrimary,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      ),
+      pageTransitionsTheme: const PageTransitionsTheme(
+        builders: {
+          TargetPlatform.android: CupertinoPageTransitionsBuilder(),
+          TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+          TargetPlatform.windows: CupertinoPageTransitionsBuilder(),
+          TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
+          TargetPlatform.linux: CupertinoPageTransitionsBuilder(),
+        },
+      ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // GREEN FOREST
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  static ThemeData greenLight() {
+    final base = ThemeData(
+      useMaterial3: true,
+      brightness: Brightness.light,
+    );
+    final textTheme = _dmSans(base.textTheme).copyWith(
+      displayLarge: GoogleFonts.dmSans(fontSize: 32, fontWeight: FontWeight.w700, color: glTextPrimary),
+      displayMedium: GoogleFonts.dmSans(fontSize: 28, fontWeight: FontWeight.w700, color: glTextPrimary),
+      displaySmall: GoogleFonts.dmSans(fontSize: 24, fontWeight: FontWeight.w600, color: glTextPrimary),
+      headlineLarge: GoogleFonts.dmSans(fontSize: 22, fontWeight: FontWeight.w600, color: glTextPrimary),
+      bodyLarge: GoogleFonts.dmSans(fontSize: 16, fontWeight: FontWeight.w400, color: glTextPrimary),
+      bodyMedium: GoogleFonts.dmSans(fontSize: 14, fontWeight: FontWeight.w400, color: glTextPrimary),
+      bodySmall: GoogleFonts.dmSans(fontSize: 12, fontWeight: FontWeight.w400, color: glTextSecondary),
+    );
+
+    return base.copyWith(
+      scaffoldBackgroundColor: glBg,
+      primaryColor: greenPrimary,
+      colorScheme: const ColorScheme.light(
+        primary: greenPrimary,
+        secondary: greenDark,
+        surface: glSurface,
+        onSurface: glTextPrimary,
+        error: dangerRed,
+      ),
+      appBarTheme: const AppBarTheme(
+        backgroundColor: glSurface,
+        foregroundColor: glTextPrimary,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        centerTitle: false,
+        toolbarHeight: kToolbarHeight + 12,
+        surfaceTintColor: Colors.transparent,
+        shape: Border(bottom: BorderSide(color: glBorder, width: 1)),
+      ),
+      bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+        backgroundColor: glSurface,
+        selectedItemColor: greenPrimaryDark,
+        unselectedItemColor: glTextSecondary,
+        showSelectedLabels: true,
+        showUnselectedLabels: true,
+        type: BottomNavigationBarType.fixed,
+      ),
+      cardColor: glSurface,
+      cardTheme: CardThemeData(
+        color: glSurface,
+        elevation: 0,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      ),
+      dividerColor: glBorder,
+      chipTheme: ChipThemeData(
+        backgroundColor: glSurface2,
+        selectedColor: greenPrimaryDark,
+        labelStyle: GoogleFonts.dmSans(fontSize: 13, fontWeight: FontWeight.w600, color: glTextPrimary),
+        side: BorderSide.none,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      ),
+      iconTheme: const IconThemeData(color: glTextSecondary),
+      textTheme: textTheme,
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: glSurface2,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide.none,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide.none,
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: greenPrimary, width: 2.0),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: dangerRed, width: 1.5),
+        ),
+        hintStyle: const TextStyle(color: glTextSecondary, fontSize: 13, fontWeight: FontWeight.w400),
+      ),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: greenPrimary,
+          foregroundColor: Colors.white,
+          minimumSize: const Size.fromHeight(48),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          elevation: 0,
+        ),
+      ),
+    );
+  }
+
+  static ThemeData greenDarkTheme() {
+    final base = ThemeData(
+      useMaterial3: true,
+      brightness: Brightness.dark,
+    );
+    final textTheme = _dmSans(base.textTheme).copyWith(
+      displayLarge: GoogleFonts.dmSans(fontSize: 32, fontWeight: FontWeight.w700, color: gdTextPrimary),
+      displayMedium: GoogleFonts.dmSans(fontSize: 28, fontWeight: FontWeight.w700, color: gdTextPrimary),
+      displaySmall: GoogleFonts.dmSans(fontSize: 24, fontWeight: FontWeight.w600, color: gdTextPrimary),
+      headlineLarge: GoogleFonts.dmSans(fontSize: 22, fontWeight: FontWeight.w600, color: gdTextPrimary),
+      bodyLarge: GoogleFonts.dmSans(fontSize: 16, fontWeight: FontWeight.w400, color: gdTextPrimary),
+      bodyMedium: GoogleFonts.dmSans(fontSize: 14, fontWeight: FontWeight.w400, color: gdTextPrimary),
+      bodySmall: GoogleFonts.dmSans(fontSize: 12, fontWeight: FontWeight.w400, color: gdTextSecondary),
+    );
+
+    return base.copyWith(
+      scaffoldBackgroundColor: gdBg,
+      primaryColor: greenPrimary,
+      colorScheme: const ColorScheme.dark(
+        primary: greenPrimary,
+        secondary: greenDark,
+        surface: gdSurface,
+        onSurface: gdTextPrimary,
+        error: dangerRed,
+      ),
+      appBarTheme: const AppBarTheme(
+        backgroundColor: gdSurface,
+        foregroundColor: gdTextPrimary,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        centerTitle: false,
+        toolbarHeight: kToolbarHeight + 12,
+        surfaceTintColor: Colors.transparent,
+        shape: Border(bottom: BorderSide(color: gdBorder, width: 1)),
+      ),
+      bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+        backgroundColor: gdSurface,
+        selectedItemColor: greenPrimary,
+        unselectedItemColor: gdTextSecondary,
+        showSelectedLabels: true,
+        showUnselectedLabels: true,
+        type: BottomNavigationBarType.fixed,
+      ),
+      cardColor: gdSurface2,
+      cardTheme: CardThemeData(
+        color: gdSurface,
+        elevation: 0,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      ),
+      dividerColor: gdBorder,
+      chipTheme: ChipThemeData(
+        backgroundColor: gdSurface2,
+        selectedColor: greenPrimary,
+        labelStyle: GoogleFonts.dmSans(fontSize: 13, fontWeight: FontWeight.w600, color: gdTextPrimary),
+        side: BorderSide.none,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      ),
+      iconTheme: const IconThemeData(color: gdTextSecondary),
+      textTheme: textTheme,
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: gdSurface2,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide.none,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide.none,
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: greenPrimary, width: 2.0),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: dangerRed, width: 1.5),
+        ),
+        hintStyle: const TextStyle(color: gdTextSecondary, fontSize: 13, fontWeight: FontWeight.w400),
+      ),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: greenPrimary,
+          foregroundColor: Colors.white,
+          minimumSize: const Size.fromHeight(48),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          elevation: 0,
+        ),
       ),
     );
   }

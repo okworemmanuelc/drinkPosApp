@@ -20,8 +20,11 @@ class CategoryFilterBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: context.getRSize(50),
-      margin: EdgeInsets.only(bottom: context.getRSize(16)),
+      height: context.getRSize(38),
+      margin: EdgeInsets.only(
+        top: context.getRSize(8),
+        bottom: context.getRSize(16),
+      ),
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         padding: EdgeInsets.symmetric(horizontal: context.getRSize(16)),
@@ -66,8 +69,8 @@ class _CategoryChip extends StatelessWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         padding: EdgeInsets.symmetric(
-          horizontal: context.getRSize(20),
-          vertical: context.getRSize(8),
+          horizontal: context.getRSize(16),
+          vertical: context.getRSize(6),
         ),
         decoration: BoxDecoration(
           color: isSelected ? blueMain : Colors.transparent,

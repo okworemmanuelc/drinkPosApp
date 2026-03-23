@@ -281,6 +281,9 @@ class InventoryDao extends DatabaseAccessor<AppDatabase> with _$InventoryDaoMixi
     });
   }
 
+  Stream<List<CategoryData>> watchAllCategories() =>
+    (select(categories)..orderBy([(t) => OrderingTerm.asc(t.name)])).watch();
+
   Stream<List<CrateGroupData>> watchAllCrateGroups() => select(crateGroups).watch();
   Future<List<CrateGroupData>> getAllCrateGroups() => select(crateGroups).get();
 
@@ -454,14 +457,25 @@ class ManufacturerCrateStats {
 @DriftAccessor(tables: [Orders, OrderItems, Products, Customers, SavedCarts, Categories])
 class OrdersDao extends DatabaseAccessor<AppDatabase> with _$OrdersDaoMixin {
   OrdersDao(super.db);
-  Stream<List<OrderData>> watchPendingOrders() => (select(orders)..where((t) => t.status.equals('pending'))).watch();
-  Stream<List<OrderData>> watchAllOrders() => select(orders).watch();
+  Future<OrderData?> findById(int id) => (select(orders)..where((t) => t.id.equals(id))).getSingleOrNull();
+  Stream<List<OrderData>> watchPendingOrders() => (select(orders)
+        ..where((t) => t.status.equals('pending'))
+        ..orderBy([(t) => OrderingTerm.desc(t.createdAt)]))
+      .watch();
+  Stream<List<OrderData>> watchAllOrders() =>
+      (select(orders)..orderBy([(t) => OrderingTerm.desc(t.createdAt)])).watch();
   Stream<List<OrderData>> watchOrdersByWarehouse(int? warehouseId) {
-    if (warehouseId == null) return select(orders).watch();
-    return (select(orders)..where((t) => t.warehouseId.equals(warehouseId))).watch();
+    if (warehouseId == null) {
+      return (select(orders)..orderBy([(t) => OrderingTerm.desc(t.createdAt)]))
+          .watch();
+    }
+    return (select(orders)
+          ..where((t) => t.warehouseId.equals(warehouseId))
+          ..orderBy([(t) => OrderingTerm.desc(t.createdAt)]))
+        .watch();
   }
   Stream<List<OrderWithItems>> watchAllOrdersWithItems({int? warehouseId}) {
-    final query = select(orders);
+    final query = select(orders)..orderBy([(t) => OrderingTerm.desc(t.createdAt)]);
     if (warehouseId != null) {
       query.where((t) => t.warehouseId.equals(warehouseId));
     }
@@ -487,8 +501,14 @@ class OrdersDao extends DatabaseAccessor<AppDatabase> with _$OrdersDaoMixin {
       return result;
     });
   }
-  Stream<List<OrderData>> watchCompletedOrders() => (select(orders)..where((t) => t.status.equals('completed'))).watch();
-  Stream<List<OrderData>> watchCancelledOrders() => (select(orders)..where((t) => t.status.equals('cancelled'))).watch();
+  Stream<List<OrderData>> watchCompletedOrders() => (select(orders)
+        ..where((t) => t.status.equals('completed'))
+        ..orderBy([(t) => OrderingTerm.desc(t.createdAt)]))
+      .watch();
+  Stream<List<OrderData>> watchCancelledOrders() => (select(orders)
+        ..where((t) => t.status.equals('cancelled'))
+        ..orderBy([(t) => OrderingTerm.desc(t.createdAt)]))
+      .watch();
   Future<void> markCompleted(int orderId, int staffId) async {
     await transaction(() async {
       // 1. Move order to completed
@@ -581,10 +601,10 @@ class OrdersDao extends DatabaseAccessor<AppDatabase> with _$OrdersDaoMixin {
   }
 
   Future<String> generateOrderNumber() async {
-    final count = await (select(orders)).get();
-    final nextId = count.length + 1;
-    final dateStr = DateFormat('yyMMdd').format(DateTime.now());
-    return 'ORD-$dateStr-${nextId.toString().padLeft(4, '0')}';
+    final now = DateTime.now();
+    final datePart = DateFormat('yyMMddHHmmss').format(now); // 12 digits
+    final randomPart = (Random().nextInt(9000) + 1000).toString(); // 4 digits (ensuring 4 digits)
+    return '$datePart$randomPart';
   }
 
   /// Returns units sold and revenue for this product today, this week, this month.
@@ -694,16 +714,18 @@ class CustomersDao extends DatabaseAccessor<AppDatabase> with _$CustomersDaoMixi
   Future<CustomerData?> findById(int id) => (select(customers)..where((t) => t.id.equals(id))).getSingleOrNull();
   Future<CustomerData?> findByPhone(String phone) => (select(customers)..where((t) => t.phone.equals(phone))).getSingleOrNull();
   
-  Future<void> addCustomer(CustomersCompanion customer) async {
+  Future<int> addCustomer(CustomersCompanion customer) async {
     return transaction(() async {
       final customerId = await into(customers).insert(customer);
-      
+
       // Every customer must have a wallet
       final walletId = _generateUuid();
       await into(customerWallets).insert(CustomerWalletsCompanion.insert(
         walletId: walletId,
         customerId: customerId,
       ));
+
+      return customerId;
     });
   }
 
@@ -949,6 +971,7 @@ class WarehousesDao extends DatabaseAccessor<AppDatabase> with _$WarehousesDaoMi
   Stream<List<UserData>> watchStaffByWarehouse(int warehouseId) => (select(users)..where((t) => t.warehouseId.equals(warehouseId))).watch();
   Future<void> assignStaffToWarehouse(int userId, int? warehouseId) => (update(users)..where((t) => t.id.equals(userId))).write(UsersCompanion(warehouseId: Value(warehouseId)));
   Stream<Map<int, int>> watchWarehouseStaffCounts() => Stream.value({});
+  Future<UserData?> getUserById(int id) => (select(users)..where((t) => t.id.equals(id))).getSingleOrNull();
 }
 
 @DriftAccessor(tables: [Notifications])
@@ -1078,6 +1101,35 @@ class StockTransferDao extends DatabaseAccessor<AppDatabase> with _$StockTransfe
       }
     });
   }
+}
+
+@DriftAccessor(tables: [PendingCrateReturns])
+class PendingCrateReturnsDao extends DatabaseAccessor<AppDatabase>
+    with _$PendingCrateReturnsDaoMixin {
+  PendingCrateReturnsDao(super.db);
+
+  Future<int> createPendingReturn({
+    required int orderId,
+    required int customerId,
+    required int staffId,
+    required String returnDataJson,
+  }) =>
+      into(pendingCrateReturns).insert(
+        PendingCrateReturnsCompanion.insert(
+          orderId: orderId,
+          customerId: customerId,
+          staffId: staffId,
+          returnDataJson: returnDataJson,
+        ),
+      );
+
+  Future<PendingCrateReturnData?> getById(int id) =>
+      (select(pendingCrateReturns)..where((t) => t.id.equals(id)))
+          .getSingleOrNull();
+
+  Future<void> updateStatus(int id, String newStatus) =>
+      (update(pendingCrateReturns)..where((t) => t.id.equals(id)))
+          .write(PendingCrateReturnsCompanion(status: Value(newStatus)));
 }
 
 extension CustomerDataExtension on CustomerData {

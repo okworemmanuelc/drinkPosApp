@@ -1,9 +1,10 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../../../core/database/app_database.dart';
-import '../../../core/theme/colors.dart';
+
 import '../../../shared/services/auth_service.dart';
 import '../../../core/utils/responsive.dart';
+import '../../../core/utils/notifications.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -15,8 +16,12 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen>
     with SingleTickerProviderStateMixin {
   String _pin = '';
-  String? _errorMessage;
   bool _checking = false;
+
+  // ── DB readiness gate ──────────────────────────────────────────────────────
+  // Start as true if main.dart warmup already confirmed the DB is ready.
+  // This prevents the overlay from ever showing on normal (non-first-run) launches.
+  bool _dbReady = dbReady;
 
   // ── Success animation state ────────────────────────────────────────────────
   bool _loginSuccess = false;
@@ -41,6 +46,22 @@ class _LoginScreenState extends State<LoginScreen>
         curve: const Interval(0.0, 0.5, curve: Curves.easeIn),
       ),
     );
+    _waitForDb();
+  }
+
+  /// Checks if the DB is ready before allowing PIN entry.
+  /// If main.dart's warmup already confirmed readiness, skips the wait entirely.
+  /// Only fires a DB query when main.dart timed out (rare — slow first install).
+  void _waitForDb() {
+    // Already ready (main.dart warmup succeeded) — nothing to do.
+    if (_dbReady) return;
+    // main.dart timed out — DB is still initializing in the background. Wait for it.
+    database.customSelect('SELECT 1').get().then((_) {
+      if (mounted) setState(() => _dbReady = true);
+    }).catchError((_) {
+      // Fail open — let the PIN query handle any real DB error itself.
+      if (mounted) setState(() => _dbReady = true);
+    });
   }
 
   @override
@@ -52,19 +73,17 @@ class _LoginScreenState extends State<LoginScreen>
   // ── PIN input helpers ──────────────────────────────────────────────────────
 
   void _onDigit(String digit) {
-    if (_pin.length >= 4 || _checking || _loginSuccess) return;
+    if (!_dbReady || _pin.length >= 4 || _checking || _loginSuccess) return;
     setState(() {
       _pin += digit;
-      _errorMessage = null;
     });
     if (_pin.length == 4) _submit();
   }
 
   void _onBackspace() {
-    if (_pin.isEmpty || _checking || _loginSuccess) return;
+    if (!_dbReady || _pin.isEmpty || _checking || _loginSuccess) return;
     setState(() {
       _pin = _pin.substring(0, _pin.length - 1);
-      _errorMessage = null;
     });
   }
 
@@ -78,9 +97,9 @@ class _LoginScreenState extends State<LoginScreen>
       if (!mounted) return;
       setState(() {
         _pin = '';
-        _errorMessage = 'Login failed. Please try again.';
         _checking = false;
       });
+      if (mounted) AppNotification.showError(context, 'Login failed. Please try again.');
       return;
     }
 
@@ -89,9 +108,9 @@ class _LoginScreenState extends State<LoginScreen>
     if (matches.isEmpty) {
       setState(() {
         _pin = '';
-        _errorMessage = 'Wrong PIN. Please try again.';
         _checking = false;
       });
+      if (mounted) AppNotification.showError(context, 'Wrong PIN. Please try again.');
       return;
     }
 
@@ -181,7 +200,6 @@ class _LoginScreenState extends State<LoginScreen>
                       key: const ValueKey('pinpad'),
                       pin: _pin,
                       checking: _checking,
-                      errorMessage: _errorMessage,
                       bg: bg,
                       surface: Colors.white.withValues(alpha: 0.1),
                       textColor: Colors.white,
@@ -191,6 +209,27 @@ class _LoginScreenState extends State<LoginScreen>
                     ),
             ),
           ),
+
+          // ── DB Readiness Gate ─────────────────────────────────────────
+          // Shown only on first-run while the DB is still initializing.
+          // Prevents the user from entering a PIN that would hang.
+          if (!_dbReady)
+            Positioned.fill(
+              child: Container(
+                color: Colors.black.withValues(alpha: 0.65),
+                child: const Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    CircularProgressIndicator(color: Colors.white),
+                    SizedBox(height: 16),
+                    Text(
+                      'Setting up, please wait…',
+                      style: TextStyle(color: Colors.white70, fontSize: 14),
+                    ),
+                  ],
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -217,17 +256,17 @@ class _SuccessOverlay extends StatelessWidget {
     required this.subtextColor,
   });
 
-  Color _hexColor(String hex) {
+  Color _hexColor(BuildContext context, String hex) {
     try {
       return Color(int.parse(hex.replaceFirst('#', '0xFF')));
     } catch (_) {
-      return blueMain;
+      return Theme.of(context).colorScheme.primary;
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final avatarColor = _hexColor(user.avatarColor);
+    final avatarColor = _hexColor(context, user.avatarColor);
 
     return Center(
       child: FadeTransition(
@@ -266,7 +305,7 @@ class _SuccessOverlay extends StatelessWidget {
             ),
             const SizedBox(height: 6),
             Text(
-              'Opening Ribaplus POS...',
+              'Opening Reebaplus POS...',
               style: TextStyle(
                 fontSize: 14,
                 color: subtextColor,
@@ -352,7 +391,6 @@ class _LoadingDotsState extends State<_LoadingDots>
 class _PinPad extends StatelessWidget {
   final String pin;
   final bool checking;
-  final String? errorMessage;
   final Color bg;
   final Color surface;
   final Color textColor;
@@ -364,7 +402,6 @@ class _PinPad extends StatelessWidget {
     super.key,
     required this.pin,
     required this.checking,
-    required this.errorMessage,
     required this.bg,
     required this.surface,
     required this.textColor,
@@ -382,10 +419,10 @@ class _PinPad extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             // ── Logo ────────────────────────────────────────────────────
-            Image.asset('assets/images/ribaplus_logo.png', height: 100),
+            Image.asset('assets/images/reebaplus_logo.png', height: 100),
             const SizedBox(height: 12),
             Text(
-              'Ribaplus POS',
+              'Reebaplus POS',
               style: TextStyle(
                 fontSize: 22,
                 fontWeight: FontWeight.w700,
@@ -411,9 +448,9 @@ class _PinPad extends StatelessWidget {
                   height: 18,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: filled ? blueMain : Colors.white.withValues(alpha: 0.1),
+                    color: filled ? Theme.of(context).colorScheme.primary : Colors.white.withValues(alpha: 0.1),
                     border: Border.all(
-                      color: filled ? blueMain : Colors.white.withValues(alpha: 0.4),
+                      color: filled ? Theme.of(context).colorScheme.primary : Colors.white.withValues(alpha: 0.4),
                       width: 2,
                     ),
                   ),
@@ -423,20 +460,7 @@ class _PinPad extends StatelessWidget {
             const SizedBox(height: 16),
 
             // ── Error message ────────────────────────────────────────────
-            SizedBox(
-              height: 20,
-              child: errorMessage != null
-                  ? Text(
-                      errorMessage!,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 13,
-                        backgroundColor: Colors.redAccent,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    )
-                  : null,
-            ),
+            const SizedBox(height: 20),
             const SizedBox(height: 24),
 
             // ── Numeric keypad ───────────────────────────────────────────
@@ -618,7 +642,7 @@ class _UserPickerSheet extends StatelessWidget {
             (u) => ListTile(
               contentPadding: EdgeInsets.zero,
               leading: CircleAvatar(
-                backgroundColor: _hexColor(u.avatarColor),
+                backgroundColor: _hexColor(context, u.avatarColor),
                 child: Text(
                   u.name.isNotEmpty ? u.name[0].toUpperCase() : '?',
                   style: const TextStyle(
@@ -644,11 +668,11 @@ class _UserPickerSheet extends StatelessWidget {
     );
   }
 
-  Color _hexColor(String hex) {
+  Color _hexColor(BuildContext context, String hex) {
     try {
       return Color(int.parse(hex.replaceFirst('#', '0xFF')));
     } catch (_) {
-      return blueMain;
+      return Theme.of(context).colorScheme.primary;
     }
   }
 

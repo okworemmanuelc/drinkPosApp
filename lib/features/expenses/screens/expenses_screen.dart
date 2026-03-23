@@ -13,11 +13,12 @@ import '../data/models/expense.dart';
 import '../widgets/add_expense_sheet.dart';
 import '../../../core/utils/constants.dart';
 import '../../../shared/widgets/notification_bell.dart';
-import '../../../shared/widgets/fluid_menu.dart';
+import '../../../shared/widgets/app_dropdown.dart';
 import '../../../core/database/app_database.dart';
 
 class ExpensesScreen extends StatefulWidget {
-  const ExpensesScreen({super.key});
+  final String? initialPeriod;
+  const ExpensesScreen({super.key, this.initialPeriod});
 
   @override
   State<ExpensesScreen> createState() => _ExpensesScreenState();
@@ -39,6 +40,9 @@ class _ExpensesScreenState extends State<ExpensesScreen>
   @override
   void initState() {
     super.initState();
+    if (widget.initialPeriod != null) {
+      _periodFilter = widget.initialPeriod!;
+    }
     _tabController = TabController(length: 2, vsync: this);
     _expensesSub = database.expensesDao.watchAll().listen((list) {
       if (mounted) setState(() => _allExpenses = list);
@@ -286,7 +290,7 @@ class _ExpensesScreenState extends State<ExpensesScreen>
                     ),
                   ],
                 ),
-                FluidMenu<String>(
+                AppDropdown<String>(
                   value: _periodFilter,
                   width: context.getRSize(130),
                   items: [
@@ -296,7 +300,7 @@ class _ExpensesScreenState extends State<ExpensesScreen>
                     'This Year',
                     'All Time',
                   ].map((String val) {
-                    return FluidMenuItem<String>(value: val, label: val);
+                    return DropdownMenuItem<String>(value: val, child: Text(val));
                   }).toList(),
                   onChanged: (val) {
                     if (val != null) setState(() => _periodFilter = val);

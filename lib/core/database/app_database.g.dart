@@ -5880,6 +5880,18 @@ class $OrderItemsTable extends OrderItems
     type: DriftSqlType.int,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _buyingPriceKoboMeta = const VerificationMeta(
+    'buyingPriceKobo',
+  );
+  @override
+  late final GeneratedColumn<int> buyingPriceKobo = GeneratedColumn<int>(
+    'buying_price_kobo',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
   static const VerificationMeta _totalKoboMeta = const VerificationMeta(
     'totalKobo',
   );
@@ -5910,6 +5922,7 @@ class $OrderItemsTable extends OrderItems
     warehouseId,
     quantity,
     unitPriceKobo,
+    buyingPriceKobo,
     totalKobo,
     priceSnapshot,
   ];
@@ -5974,6 +5987,15 @@ class $OrderItemsTable extends OrderItems
     } else if (isInserting) {
       context.missing(_unitPriceKoboMeta);
     }
+    if (data.containsKey('buying_price_kobo')) {
+      context.handle(
+        _buyingPriceKoboMeta,
+        buyingPriceKobo.isAcceptableOrUnknown(
+          data['buying_price_kobo']!,
+          _buyingPriceKoboMeta,
+        ),
+      );
+    }
     if (data.containsKey('total_kobo')) {
       context.handle(
         _totalKoboMeta,
@@ -6024,6 +6046,10 @@ class $OrderItemsTable extends OrderItems
         DriftSqlType.int,
         data['${effectivePrefix}unit_price_kobo'],
       )!,
+      buyingPriceKobo: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}buying_price_kobo'],
+      )!,
       totalKobo: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}total_kobo'],
@@ -6048,6 +6074,7 @@ class OrderItemData extends DataClass implements Insertable<OrderItemData> {
   final int warehouseId;
   final int quantity;
   final int unitPriceKobo;
+  final int buyingPriceKobo;
   final int totalKobo;
   final String? priceSnapshot;
   const OrderItemData({
@@ -6057,6 +6084,7 @@ class OrderItemData extends DataClass implements Insertable<OrderItemData> {
     required this.warehouseId,
     required this.quantity,
     required this.unitPriceKobo,
+    required this.buyingPriceKobo,
     required this.totalKobo,
     this.priceSnapshot,
   });
@@ -6069,6 +6097,7 @@ class OrderItemData extends DataClass implements Insertable<OrderItemData> {
     map['warehouse_id'] = Variable<int>(warehouseId);
     map['quantity'] = Variable<int>(quantity);
     map['unit_price_kobo'] = Variable<int>(unitPriceKobo);
+    map['buying_price_kobo'] = Variable<int>(buyingPriceKobo);
     map['total_kobo'] = Variable<int>(totalKobo);
     if (!nullToAbsent || priceSnapshot != null) {
       map['price_snapshot'] = Variable<String>(priceSnapshot);
@@ -6084,6 +6113,7 @@ class OrderItemData extends DataClass implements Insertable<OrderItemData> {
       warehouseId: Value(warehouseId),
       quantity: Value(quantity),
       unitPriceKobo: Value(unitPriceKobo),
+      buyingPriceKobo: Value(buyingPriceKobo),
       totalKobo: Value(totalKobo),
       priceSnapshot: priceSnapshot == null && nullToAbsent
           ? const Value.absent()
@@ -6103,6 +6133,7 @@ class OrderItemData extends DataClass implements Insertable<OrderItemData> {
       warehouseId: serializer.fromJson<int>(json['warehouseId']),
       quantity: serializer.fromJson<int>(json['quantity']),
       unitPriceKobo: serializer.fromJson<int>(json['unitPriceKobo']),
+      buyingPriceKobo: serializer.fromJson<int>(json['buyingPriceKobo']),
       totalKobo: serializer.fromJson<int>(json['totalKobo']),
       priceSnapshot: serializer.fromJson<String?>(json['priceSnapshot']),
     );
@@ -6117,6 +6148,7 @@ class OrderItemData extends DataClass implements Insertable<OrderItemData> {
       'warehouseId': serializer.toJson<int>(warehouseId),
       'quantity': serializer.toJson<int>(quantity),
       'unitPriceKobo': serializer.toJson<int>(unitPriceKobo),
+      'buyingPriceKobo': serializer.toJson<int>(buyingPriceKobo),
       'totalKobo': serializer.toJson<int>(totalKobo),
       'priceSnapshot': serializer.toJson<String?>(priceSnapshot),
     };
@@ -6129,6 +6161,7 @@ class OrderItemData extends DataClass implements Insertable<OrderItemData> {
     int? warehouseId,
     int? quantity,
     int? unitPriceKobo,
+    int? buyingPriceKobo,
     int? totalKobo,
     Value<String?> priceSnapshot = const Value.absent(),
   }) => OrderItemData(
@@ -6138,6 +6171,7 @@ class OrderItemData extends DataClass implements Insertable<OrderItemData> {
     warehouseId: warehouseId ?? this.warehouseId,
     quantity: quantity ?? this.quantity,
     unitPriceKobo: unitPriceKobo ?? this.unitPriceKobo,
+    buyingPriceKobo: buyingPriceKobo ?? this.buyingPriceKobo,
     totalKobo: totalKobo ?? this.totalKobo,
     priceSnapshot: priceSnapshot.present
         ? priceSnapshot.value
@@ -6155,6 +6189,9 @@ class OrderItemData extends DataClass implements Insertable<OrderItemData> {
       unitPriceKobo: data.unitPriceKobo.present
           ? data.unitPriceKobo.value
           : this.unitPriceKobo,
+      buyingPriceKobo: data.buyingPriceKobo.present
+          ? data.buyingPriceKobo.value
+          : this.buyingPriceKobo,
       totalKobo: data.totalKobo.present ? data.totalKobo.value : this.totalKobo,
       priceSnapshot: data.priceSnapshot.present
           ? data.priceSnapshot.value
@@ -6171,6 +6208,7 @@ class OrderItemData extends DataClass implements Insertable<OrderItemData> {
           ..write('warehouseId: $warehouseId, ')
           ..write('quantity: $quantity, ')
           ..write('unitPriceKobo: $unitPriceKobo, ')
+          ..write('buyingPriceKobo: $buyingPriceKobo, ')
           ..write('totalKobo: $totalKobo, ')
           ..write('priceSnapshot: $priceSnapshot')
           ..write(')'))
@@ -6185,6 +6223,7 @@ class OrderItemData extends DataClass implements Insertable<OrderItemData> {
     warehouseId,
     quantity,
     unitPriceKobo,
+    buyingPriceKobo,
     totalKobo,
     priceSnapshot,
   );
@@ -6198,6 +6237,7 @@ class OrderItemData extends DataClass implements Insertable<OrderItemData> {
           other.warehouseId == this.warehouseId &&
           other.quantity == this.quantity &&
           other.unitPriceKobo == this.unitPriceKobo &&
+          other.buyingPriceKobo == this.buyingPriceKobo &&
           other.totalKobo == this.totalKobo &&
           other.priceSnapshot == this.priceSnapshot);
 }
@@ -6209,6 +6249,7 @@ class OrderItemsCompanion extends UpdateCompanion<OrderItemData> {
   final Value<int> warehouseId;
   final Value<int> quantity;
   final Value<int> unitPriceKobo;
+  final Value<int> buyingPriceKobo;
   final Value<int> totalKobo;
   final Value<String?> priceSnapshot;
   const OrderItemsCompanion({
@@ -6218,6 +6259,7 @@ class OrderItemsCompanion extends UpdateCompanion<OrderItemData> {
     this.warehouseId = const Value.absent(),
     this.quantity = const Value.absent(),
     this.unitPriceKobo = const Value.absent(),
+    this.buyingPriceKobo = const Value.absent(),
     this.totalKobo = const Value.absent(),
     this.priceSnapshot = const Value.absent(),
   });
@@ -6228,6 +6270,7 @@ class OrderItemsCompanion extends UpdateCompanion<OrderItemData> {
     required int warehouseId,
     required int quantity,
     required int unitPriceKobo,
+    this.buyingPriceKobo = const Value.absent(),
     required int totalKobo,
     this.priceSnapshot = const Value.absent(),
   }) : orderId = Value(orderId),
@@ -6243,6 +6286,7 @@ class OrderItemsCompanion extends UpdateCompanion<OrderItemData> {
     Expression<int>? warehouseId,
     Expression<int>? quantity,
     Expression<int>? unitPriceKobo,
+    Expression<int>? buyingPriceKobo,
     Expression<int>? totalKobo,
     Expression<String>? priceSnapshot,
   }) {
@@ -6253,6 +6297,7 @@ class OrderItemsCompanion extends UpdateCompanion<OrderItemData> {
       if (warehouseId != null) 'warehouse_id': warehouseId,
       if (quantity != null) 'quantity': quantity,
       if (unitPriceKobo != null) 'unit_price_kobo': unitPriceKobo,
+      if (buyingPriceKobo != null) 'buying_price_kobo': buyingPriceKobo,
       if (totalKobo != null) 'total_kobo': totalKobo,
       if (priceSnapshot != null) 'price_snapshot': priceSnapshot,
     });
@@ -6265,6 +6310,7 @@ class OrderItemsCompanion extends UpdateCompanion<OrderItemData> {
     Value<int>? warehouseId,
     Value<int>? quantity,
     Value<int>? unitPriceKobo,
+    Value<int>? buyingPriceKobo,
     Value<int>? totalKobo,
     Value<String?>? priceSnapshot,
   }) {
@@ -6275,6 +6321,7 @@ class OrderItemsCompanion extends UpdateCompanion<OrderItemData> {
       warehouseId: warehouseId ?? this.warehouseId,
       quantity: quantity ?? this.quantity,
       unitPriceKobo: unitPriceKobo ?? this.unitPriceKobo,
+      buyingPriceKobo: buyingPriceKobo ?? this.buyingPriceKobo,
       totalKobo: totalKobo ?? this.totalKobo,
       priceSnapshot: priceSnapshot ?? this.priceSnapshot,
     );
@@ -6301,6 +6348,9 @@ class OrderItemsCompanion extends UpdateCompanion<OrderItemData> {
     if (unitPriceKobo.present) {
       map['unit_price_kobo'] = Variable<int>(unitPriceKobo.value);
     }
+    if (buyingPriceKobo.present) {
+      map['buying_price_kobo'] = Variable<int>(buyingPriceKobo.value);
+    }
     if (totalKobo.present) {
       map['total_kobo'] = Variable<int>(totalKobo.value);
     }
@@ -6319,6 +6369,7 @@ class OrderItemsCompanion extends UpdateCompanion<OrderItemData> {
           ..write('warehouseId: $warehouseId, ')
           ..write('quantity: $quantity, ')
           ..write('unitPriceKobo: $unitPriceKobo, ')
+          ..write('buyingPriceKobo: $buyingPriceKobo, ')
           ..write('totalKobo: $totalKobo, ')
           ..write('priceSnapshot: $priceSnapshot')
           ..write(')'))
@@ -15839,6 +15890,472 @@ class SavedCartsCompanion extends UpdateCompanion<SavedCartData> {
   }
 }
 
+class $PendingCrateReturnsTable extends PendingCrateReturns
+    with TableInfo<$PendingCrateReturnsTable, PendingCrateReturnData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $PendingCrateReturnsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _orderIdMeta = const VerificationMeta(
+    'orderId',
+  );
+  @override
+  late final GeneratedColumn<int> orderId = GeneratedColumn<int>(
+    'order_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES orders (id)',
+    ),
+  );
+  static const VerificationMeta _customerIdMeta = const VerificationMeta(
+    'customerId',
+  );
+  @override
+  late final GeneratedColumn<int> customerId = GeneratedColumn<int>(
+    'customer_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES customers (id)',
+    ),
+  );
+  static const VerificationMeta _staffIdMeta = const VerificationMeta(
+    'staffId',
+  );
+  @override
+  late final GeneratedColumn<int> staffId = GeneratedColumn<int>(
+    'staff_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES users (id)',
+    ),
+  );
+  static const VerificationMeta _returnDataJsonMeta = const VerificationMeta(
+    'returnDataJson',
+  );
+  @override
+  late final GeneratedColumn<String> returnDataJson = GeneratedColumn<String>(
+    'return_data_json',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _statusMeta = const VerificationMeta('status');
+  @override
+  late final GeneratedColumn<String> status = GeneratedColumn<String>(
+    'status',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('pending'),
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    orderId,
+    customerId,
+    staffId,
+    returnDataJson,
+    status,
+    createdAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'pending_crate_returns';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<PendingCrateReturnData> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('order_id')) {
+      context.handle(
+        _orderIdMeta,
+        orderId.isAcceptableOrUnknown(data['order_id']!, _orderIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_orderIdMeta);
+    }
+    if (data.containsKey('customer_id')) {
+      context.handle(
+        _customerIdMeta,
+        customerId.isAcceptableOrUnknown(data['customer_id']!, _customerIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_customerIdMeta);
+    }
+    if (data.containsKey('staff_id')) {
+      context.handle(
+        _staffIdMeta,
+        staffId.isAcceptableOrUnknown(data['staff_id']!, _staffIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_staffIdMeta);
+    }
+    if (data.containsKey('return_data_json')) {
+      context.handle(
+        _returnDataJsonMeta,
+        returnDataJson.isAcceptableOrUnknown(
+          data['return_data_json']!,
+          _returnDataJsonMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_returnDataJsonMeta);
+    }
+    if (data.containsKey('status')) {
+      context.handle(
+        _statusMeta,
+        status.isAcceptableOrUnknown(data['status']!, _statusMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  PendingCrateReturnData map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return PendingCrateReturnData(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      orderId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}order_id'],
+      )!,
+      customerId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}customer_id'],
+      )!,
+      staffId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}staff_id'],
+      )!,
+      returnDataJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}return_data_json'],
+      )!,
+      status: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}status'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $PendingCrateReturnsTable createAlias(String alias) {
+    return $PendingCrateReturnsTable(attachedDatabase, alias);
+  }
+}
+
+class PendingCrateReturnData extends DataClass
+    implements Insertable<PendingCrateReturnData> {
+  final int id;
+  final int orderId;
+  final int customerId;
+  final int staffId;
+  final String returnDataJson;
+  final String status;
+  final DateTime createdAt;
+  const PendingCrateReturnData({
+    required this.id,
+    required this.orderId,
+    required this.customerId,
+    required this.staffId,
+    required this.returnDataJson,
+    required this.status,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['order_id'] = Variable<int>(orderId);
+    map['customer_id'] = Variable<int>(customerId);
+    map['staff_id'] = Variable<int>(staffId);
+    map['return_data_json'] = Variable<String>(returnDataJson);
+    map['status'] = Variable<String>(status);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  PendingCrateReturnsCompanion toCompanion(bool nullToAbsent) {
+    return PendingCrateReturnsCompanion(
+      id: Value(id),
+      orderId: Value(orderId),
+      customerId: Value(customerId),
+      staffId: Value(staffId),
+      returnDataJson: Value(returnDataJson),
+      status: Value(status),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory PendingCrateReturnData.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return PendingCrateReturnData(
+      id: serializer.fromJson<int>(json['id']),
+      orderId: serializer.fromJson<int>(json['orderId']),
+      customerId: serializer.fromJson<int>(json['customerId']),
+      staffId: serializer.fromJson<int>(json['staffId']),
+      returnDataJson: serializer.fromJson<String>(json['returnDataJson']),
+      status: serializer.fromJson<String>(json['status']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'orderId': serializer.toJson<int>(orderId),
+      'customerId': serializer.toJson<int>(customerId),
+      'staffId': serializer.toJson<int>(staffId),
+      'returnDataJson': serializer.toJson<String>(returnDataJson),
+      'status': serializer.toJson<String>(status),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  PendingCrateReturnData copyWith({
+    int? id,
+    int? orderId,
+    int? customerId,
+    int? staffId,
+    String? returnDataJson,
+    String? status,
+    DateTime? createdAt,
+  }) => PendingCrateReturnData(
+    id: id ?? this.id,
+    orderId: orderId ?? this.orderId,
+    customerId: customerId ?? this.customerId,
+    staffId: staffId ?? this.staffId,
+    returnDataJson: returnDataJson ?? this.returnDataJson,
+    status: status ?? this.status,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  PendingCrateReturnData copyWithCompanion(PendingCrateReturnsCompanion data) {
+    return PendingCrateReturnData(
+      id: data.id.present ? data.id.value : this.id,
+      orderId: data.orderId.present ? data.orderId.value : this.orderId,
+      customerId: data.customerId.present
+          ? data.customerId.value
+          : this.customerId,
+      staffId: data.staffId.present ? data.staffId.value : this.staffId,
+      returnDataJson: data.returnDataJson.present
+          ? data.returnDataJson.value
+          : this.returnDataJson,
+      status: data.status.present ? data.status.value : this.status,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PendingCrateReturnData(')
+          ..write('id: $id, ')
+          ..write('orderId: $orderId, ')
+          ..write('customerId: $customerId, ')
+          ..write('staffId: $staffId, ')
+          ..write('returnDataJson: $returnDataJson, ')
+          ..write('status: $status, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    orderId,
+    customerId,
+    staffId,
+    returnDataJson,
+    status,
+    createdAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is PendingCrateReturnData &&
+          other.id == this.id &&
+          other.orderId == this.orderId &&
+          other.customerId == this.customerId &&
+          other.staffId == this.staffId &&
+          other.returnDataJson == this.returnDataJson &&
+          other.status == this.status &&
+          other.createdAt == this.createdAt);
+}
+
+class PendingCrateReturnsCompanion
+    extends UpdateCompanion<PendingCrateReturnData> {
+  final Value<int> id;
+  final Value<int> orderId;
+  final Value<int> customerId;
+  final Value<int> staffId;
+  final Value<String> returnDataJson;
+  final Value<String> status;
+  final Value<DateTime> createdAt;
+  const PendingCrateReturnsCompanion({
+    this.id = const Value.absent(),
+    this.orderId = const Value.absent(),
+    this.customerId = const Value.absent(),
+    this.staffId = const Value.absent(),
+    this.returnDataJson = const Value.absent(),
+    this.status = const Value.absent(),
+    this.createdAt = const Value.absent(),
+  });
+  PendingCrateReturnsCompanion.insert({
+    this.id = const Value.absent(),
+    required int orderId,
+    required int customerId,
+    required int staffId,
+    required String returnDataJson,
+    this.status = const Value.absent(),
+    this.createdAt = const Value.absent(),
+  }) : orderId = Value(orderId),
+       customerId = Value(customerId),
+       staffId = Value(staffId),
+       returnDataJson = Value(returnDataJson);
+  static Insertable<PendingCrateReturnData> custom({
+    Expression<int>? id,
+    Expression<int>? orderId,
+    Expression<int>? customerId,
+    Expression<int>? staffId,
+    Expression<String>? returnDataJson,
+    Expression<String>? status,
+    Expression<DateTime>? createdAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (orderId != null) 'order_id': orderId,
+      if (customerId != null) 'customer_id': customerId,
+      if (staffId != null) 'staff_id': staffId,
+      if (returnDataJson != null) 'return_data_json': returnDataJson,
+      if (status != null) 'status': status,
+      if (createdAt != null) 'created_at': createdAt,
+    });
+  }
+
+  PendingCrateReturnsCompanion copyWith({
+    Value<int>? id,
+    Value<int>? orderId,
+    Value<int>? customerId,
+    Value<int>? staffId,
+    Value<String>? returnDataJson,
+    Value<String>? status,
+    Value<DateTime>? createdAt,
+  }) {
+    return PendingCrateReturnsCompanion(
+      id: id ?? this.id,
+      orderId: orderId ?? this.orderId,
+      customerId: customerId ?? this.customerId,
+      staffId: staffId ?? this.staffId,
+      returnDataJson: returnDataJson ?? this.returnDataJson,
+      status: status ?? this.status,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (orderId.present) {
+      map['order_id'] = Variable<int>(orderId.value);
+    }
+    if (customerId.present) {
+      map['customer_id'] = Variable<int>(customerId.value);
+    }
+    if (staffId.present) {
+      map['staff_id'] = Variable<int>(staffId.value);
+    }
+    if (returnDataJson.present) {
+      map['return_data_json'] = Variable<String>(returnDataJson.value);
+    }
+    if (status.present) {
+      map['status'] = Variable<String>(status.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PendingCrateReturnsCompanion(')
+          ..write('id: $id, ')
+          ..write('orderId: $orderId, ')
+          ..write('customerId: $customerId, ')
+          ..write('staffId: $staffId, ')
+          ..write('returnDataJson: $returnDataJson, ')
+          ..write('status: $status, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -15888,6 +16405,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $WalletTransactionsTable walletTransactions =
       $WalletTransactionsTable(this);
   late final $SavedCartsTable savedCarts = $SavedCartsTable(this);
+  late final $PendingCrateReturnsTable pendingCrateReturns =
+      $PendingCrateReturnsTable(this);
   late final Index idxProductsCategoryId = Index(
     'idx_products_category_id',
     'CREATE INDEX idx_products_category_id ON products (category_id)',
@@ -15916,6 +16435,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final StockTransferDao stockTransferDao = StockTransferDao(
     this as AppDatabase,
   );
+  late final PendingCrateReturnsDao pendingCrateReturnsDao =
+      PendingCrateReturnsDao(this as AppDatabase);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -15955,6 +16476,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     customerWallets,
     walletTransactions,
     savedCarts,
+    pendingCrateReturns,
     idxProductsCategoryId,
     idxProductsName,
   ];
@@ -17790,6 +18312,33 @@ final class $$UsersTableReferences
       manager.$state.copyWith(prefetchedData: cache),
     );
   }
+
+  static MultiTypedResultKey<
+    $PendingCrateReturnsTable,
+    List<PendingCrateReturnData>
+  >
+  _pendingCrateReturnsRefsTable(_$AppDatabase db) =>
+      MultiTypedResultKey.fromTable(
+        db.pendingCrateReturns,
+        aliasName: $_aliasNameGenerator(
+          db.users.id,
+          db.pendingCrateReturns.staffId,
+        ),
+      );
+
+  $$PendingCrateReturnsTableProcessedTableManager get pendingCrateReturnsRefs {
+    final manager = $$PendingCrateReturnsTableTableManager(
+      $_db,
+      $_db.pendingCrateReturns,
+    ).filter((f) => f.staffId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(
+      _pendingCrateReturnsRefsTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
 }
 
 class $$UsersTableFilterComposer extends Composer<_$AppDatabase, $UsersTable> {
@@ -18021,6 +18570,31 @@ class $$UsersTableFilterComposer extends Composer<_$AppDatabase, $UsersTable> {
           }) => $$WalletTransactionsTableFilterComposer(
             $db: $db,
             $table: $db.walletTransactions,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> pendingCrateReturnsRefs(
+    Expression<bool> Function($$PendingCrateReturnsTableFilterComposer f) f,
+  ) {
+    final $$PendingCrateReturnsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.pendingCrateReturns,
+      getReferencedColumn: (t) => t.staffId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PendingCrateReturnsTableFilterComposer(
+            $db: $db,
+            $table: $db.pendingCrateReturns,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -18347,6 +18921,32 @@ class $$UsersTableAnnotationComposer
         );
     return f(composer);
   }
+
+  Expression<T> pendingCrateReturnsRefs<T extends Object>(
+    Expression<T> Function($$PendingCrateReturnsTableAnnotationComposer a) f,
+  ) {
+    final $$PendingCrateReturnsTableAnnotationComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.id,
+          referencedTable: $db.pendingCrateReturns,
+          getReferencedColumn: (t) => t.staffId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$PendingCrateReturnsTableAnnotationComposer(
+                $db: $db,
+                $table: $db.pendingCrateReturns,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return f(composer);
+  }
 }
 
 class $$UsersTableTableManager
@@ -18370,6 +18970,7 @@ class $$UsersTableTableManager
             bool customerWalletTransactionsRefs,
             bool stockTransactionsRefs,
             bool walletTransactionsRefs,
+            bool pendingCrateReturnsRefs,
           })
         > {
   $$UsersTableTableManager(_$AppDatabase db, $UsersTable table)
@@ -18454,6 +19055,7 @@ class $$UsersTableTableManager
                 customerWalletTransactionsRefs = false,
                 stockTransactionsRefs = false,
                 walletTransactionsRefs = false,
+                pendingCrateReturnsRefs = false,
               }) {
                 return PrefetchHooks(
                   db: db,
@@ -18465,6 +19067,7 @@ class $$UsersTableTableManager
                       db.customerWalletTransactions,
                     if (stockTransactionsRefs) db.stockTransactions,
                     if (walletTransactionsRefs) db.walletTransactions,
+                    if (pendingCrateReturnsRefs) db.pendingCrateReturns,
                   ],
                   addJoins:
                       <
@@ -18622,6 +19225,27 @@ class $$UsersTableTableManager
                               ),
                           typedResults: items,
                         ),
+                      if (pendingCrateReturnsRefs)
+                        await $_getPrefetchedData<
+                          UserData,
+                          $UsersTable,
+                          PendingCrateReturnData
+                        >(
+                          currentTable: table,
+                          referencedTable: $$UsersTableReferences
+                              ._pendingCrateReturnsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$UsersTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).pendingCrateReturnsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.staffId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
                     ];
                   },
                 );
@@ -18650,6 +19274,7 @@ typedef $$UsersTableProcessedTableManager =
         bool customerWalletTransactionsRefs,
         bool stockTransactionsRefs,
         bool walletTransactionsRefs,
+        bool pendingCrateReturnsRefs,
       })
     >;
 typedef $$CategoriesTableCreateCompanionBuilder =
@@ -21656,6 +22281,33 @@ final class $$CustomersTableReferences
       manager.$state.copyWith(prefetchedData: cache),
     );
   }
+
+  static MultiTypedResultKey<
+    $PendingCrateReturnsTable,
+    List<PendingCrateReturnData>
+  >
+  _pendingCrateReturnsRefsTable(_$AppDatabase db) =>
+      MultiTypedResultKey.fromTable(
+        db.pendingCrateReturns,
+        aliasName: $_aliasNameGenerator(
+          db.customers.id,
+          db.pendingCrateReturns.customerId,
+        ),
+      );
+
+  $$PendingCrateReturnsTableProcessedTableManager get pendingCrateReturnsRefs {
+    final manager = $$PendingCrateReturnsTableTableManager(
+      $_db,
+      $_db.pendingCrateReturns,
+    ).filter((f) => f.customerId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(
+      _pendingCrateReturnsRefsTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
 }
 
 class $$CustomersTableFilterComposer
@@ -21859,6 +22511,31 @@ class $$CustomersTableFilterComposer
           }) => $$SavedCartsTableFilterComposer(
             $db: $db,
             $table: $db.savedCarts,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> pendingCrateReturnsRefs(
+    Expression<bool> Function($$PendingCrateReturnsTableFilterComposer f) f,
+  ) {
+    final $$PendingCrateReturnsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.pendingCrateReturns,
+      getReferencedColumn: (t) => t.customerId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PendingCrateReturnsTableFilterComposer(
+            $db: $db,
+            $table: $db.pendingCrateReturns,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -22151,6 +22828,32 @@ class $$CustomersTableAnnotationComposer
     );
     return f(composer);
   }
+
+  Expression<T> pendingCrateReturnsRefs<T extends Object>(
+    Expression<T> Function($$PendingCrateReturnsTableAnnotationComposer a) f,
+  ) {
+    final $$PendingCrateReturnsTableAnnotationComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.id,
+          referencedTable: $db.pendingCrateReturns,
+          getReferencedColumn: (t) => t.customerId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$PendingCrateReturnsTableAnnotationComposer(
+                $db: $db,
+                $table: $db.pendingCrateReturns,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return f(composer);
+  }
 }
 
 class $$CustomersTableTableManager
@@ -22173,6 +22876,7 @@ class $$CustomersTableTableManager
             bool customerWalletTransactionsRefs,
             bool customerWalletsRefs,
             bool savedCartsRefs,
+            bool pendingCrateReturnsRefs,
           })
         > {
   $$CustomersTableTableManager(_$AppDatabase db, $CustomersTable table)
@@ -22254,6 +22958,7 @@ class $$CustomersTableTableManager
                 customerWalletTransactionsRefs = false,
                 customerWalletsRefs = false,
                 savedCartsRefs = false,
+                pendingCrateReturnsRefs = false,
               }) {
                 return PrefetchHooks(
                   db: db,
@@ -22264,6 +22969,7 @@ class $$CustomersTableTableManager
                       db.customerWalletTransactions,
                     if (customerWalletsRefs) db.customerWallets,
                     if (savedCartsRefs) db.savedCarts,
+                    if (pendingCrateReturnsRefs) db.pendingCrateReturns,
                   ],
                   addJoins:
                       <
@@ -22404,6 +23110,27 @@ class $$CustomersTableTableManager
                               ),
                           typedResults: items,
                         ),
+                      if (pendingCrateReturnsRefs)
+                        await $_getPrefetchedData<
+                          CustomerData,
+                          $CustomersTable,
+                          PendingCrateReturnData
+                        >(
+                          currentTable: table,
+                          referencedTable: $$CustomersTableReferences
+                              ._pendingCrateReturnsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$CustomersTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).pendingCrateReturnsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.customerId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
                     ];
                   },
                 );
@@ -22431,6 +23158,7 @@ typedef $$CustomersTableProcessedTableManager =
         bool customerWalletTransactionsRefs,
         bool customerWalletsRefs,
         bool savedCartsRefs,
+        bool pendingCrateReturnsRefs,
       })
     >;
 typedef $$OrdersTableCreateCompanionBuilder =
@@ -22594,6 +23322,33 @@ final class $$OrdersTableReferences
 
     final cache = $_typedResult.readTableOrNull(
       _customerWalletTransactionsRefsTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<
+    $PendingCrateReturnsTable,
+    List<PendingCrateReturnData>
+  >
+  _pendingCrateReturnsRefsTable(_$AppDatabase db) =>
+      MultiTypedResultKey.fromTable(
+        db.pendingCrateReturns,
+        aliasName: $_aliasNameGenerator(
+          db.orders.id,
+          db.pendingCrateReturns.orderId,
+        ),
+      );
+
+  $$PendingCrateReturnsTableProcessedTableManager get pendingCrateReturnsRefs {
+    final manager = $$PendingCrateReturnsTableTableManager(
+      $_db,
+      $_db.pendingCrateReturns,
+    ).filter((f) => f.orderId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(
+      _pendingCrateReturnsRefsTable($_db),
     );
     return ProcessedTableManager(
       manager.$state.copyWith(prefetchedData: cache),
@@ -22828,6 +23583,31 @@ class $$OrdersTableFilterComposer
                     $removeJoinBuilderFromRootComposer,
               ),
         );
+    return f(composer);
+  }
+
+  Expression<bool> pendingCrateReturnsRefs(
+    Expression<bool> Function($$PendingCrateReturnsTableFilterComposer f) f,
+  ) {
+    final $$PendingCrateReturnsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.pendingCrateReturns,
+      getReferencedColumn: (t) => t.orderId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PendingCrateReturnsTableFilterComposer(
+            $db: $db,
+            $table: $db.pendingCrateReturns,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
     return f(composer);
   }
 }
@@ -23207,6 +23987,32 @@ class $$OrdersTableAnnotationComposer
         );
     return f(composer);
   }
+
+  Expression<T> pendingCrateReturnsRefs<T extends Object>(
+    Expression<T> Function($$PendingCrateReturnsTableAnnotationComposer a) f,
+  ) {
+    final $$PendingCrateReturnsTableAnnotationComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.id,
+          referencedTable: $db.pendingCrateReturns,
+          getReferencedColumn: (t) => t.orderId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$PendingCrateReturnsTableAnnotationComposer(
+                $db: $db,
+                $table: $db.pendingCrateReturns,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return f(composer);
+  }
 }
 
 class $$OrdersTableTableManager
@@ -23229,6 +24035,7 @@ class $$OrdersTableTableManager
             bool orderItemsRefs,
             bool deliveryReceiptsRefs,
             bool customerWalletTransactionsRefs,
+            bool pendingCrateReturnsRefs,
           })
         > {
   $$OrdersTableTableManager(_$AppDatabase db, $OrdersTable table)
@@ -23336,6 +24143,7 @@ class $$OrdersTableTableManager
                 orderItemsRefs = false,
                 deliveryReceiptsRefs = false,
                 customerWalletTransactionsRefs = false,
+                pendingCrateReturnsRefs = false,
               }) {
                 return PrefetchHooks(
                   db: db,
@@ -23344,6 +24152,7 @@ class $$OrdersTableTableManager
                     if (deliveryReceiptsRefs) db.deliveryReceipts,
                     if (customerWalletTransactionsRefs)
                       db.customerWalletTransactions,
+                    if (pendingCrateReturnsRefs) db.pendingCrateReturns,
                   ],
                   addJoins:
                       <
@@ -23468,6 +24277,27 @@ class $$OrdersTableTableManager
                               ),
                           typedResults: items,
                         ),
+                      if (pendingCrateReturnsRefs)
+                        await $_getPrefetchedData<
+                          OrderData,
+                          $OrdersTable,
+                          PendingCrateReturnData
+                        >(
+                          currentTable: table,
+                          referencedTable: $$OrdersTableReferences
+                              ._pendingCrateReturnsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$OrdersTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).pendingCrateReturnsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.orderId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
                     ];
                   },
                 );
@@ -23495,6 +24325,7 @@ typedef $$OrdersTableProcessedTableManager =
         bool orderItemsRefs,
         bool deliveryReceiptsRefs,
         bool customerWalletTransactionsRefs,
+        bool pendingCrateReturnsRefs,
       })
     >;
 typedef $$OrderItemsTableCreateCompanionBuilder =
@@ -23505,6 +24336,7 @@ typedef $$OrderItemsTableCreateCompanionBuilder =
       required int warehouseId,
       required int quantity,
       required int unitPriceKobo,
+      Value<int> buyingPriceKobo,
       required int totalKobo,
       Value<String?> priceSnapshot,
     });
@@ -23516,6 +24348,7 @@ typedef $$OrderItemsTableUpdateCompanionBuilder =
       Value<int> warehouseId,
       Value<int> quantity,
       Value<int> unitPriceKobo,
+      Value<int> buyingPriceKobo,
       Value<int> totalKobo,
       Value<String?> priceSnapshot,
     });
@@ -23602,6 +24435,11 @@ class $$OrderItemsTableFilterComposer
 
   ColumnFilters<int> get unitPriceKobo => $composableBuilder(
     column: $table.unitPriceKobo,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get buyingPriceKobo => $composableBuilder(
+    column: $table.buyingPriceKobo,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -23709,6 +24547,11 @@ class $$OrderItemsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get buyingPriceKobo => $composableBuilder(
+    column: $table.buyingPriceKobo,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get totalKobo => $composableBuilder(
     column: $table.totalKobo,
     builder: (column) => ColumnOrderings(column),
@@ -23806,6 +24649,11 @@ class $$OrderItemsTableAnnotationComposer
 
   GeneratedColumn<int> get unitPriceKobo => $composableBuilder(
     column: $table.unitPriceKobo,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get buyingPriceKobo => $composableBuilder(
+    column: $table.buyingPriceKobo,
     builder: (column) => column,
   );
 
@@ -23925,6 +24773,7 @@ class $$OrderItemsTableTableManager
                 Value<int> warehouseId = const Value.absent(),
                 Value<int> quantity = const Value.absent(),
                 Value<int> unitPriceKobo = const Value.absent(),
+                Value<int> buyingPriceKobo = const Value.absent(),
                 Value<int> totalKobo = const Value.absent(),
                 Value<String?> priceSnapshot = const Value.absent(),
               }) => OrderItemsCompanion(
@@ -23934,6 +24783,7 @@ class $$OrderItemsTableTableManager
                 warehouseId: warehouseId,
                 quantity: quantity,
                 unitPriceKobo: unitPriceKobo,
+                buyingPriceKobo: buyingPriceKobo,
                 totalKobo: totalKobo,
                 priceSnapshot: priceSnapshot,
               ),
@@ -23945,6 +24795,7 @@ class $$OrderItemsTableTableManager
                 required int warehouseId,
                 required int quantity,
                 required int unitPriceKobo,
+                Value<int> buyingPriceKobo = const Value.absent(),
                 required int totalKobo,
                 Value<String?> priceSnapshot = const Value.absent(),
               }) => OrderItemsCompanion.insert(
@@ -23954,6 +24805,7 @@ class $$OrderItemsTableTableManager
                 warehouseId: warehouseId,
                 quantity: quantity,
                 unitPriceKobo: unitPriceKobo,
+                buyingPriceKobo: buyingPriceKobo,
                 totalKobo: totalKobo,
                 priceSnapshot: priceSnapshot,
               ),
@@ -32780,6 +33632,560 @@ typedef $$SavedCartsTableProcessedTableManager =
       SavedCartData,
       PrefetchHooks Function({bool customerId})
     >;
+typedef $$PendingCrateReturnsTableCreateCompanionBuilder =
+    PendingCrateReturnsCompanion Function({
+      Value<int> id,
+      required int orderId,
+      required int customerId,
+      required int staffId,
+      required String returnDataJson,
+      Value<String> status,
+      Value<DateTime> createdAt,
+    });
+typedef $$PendingCrateReturnsTableUpdateCompanionBuilder =
+    PendingCrateReturnsCompanion Function({
+      Value<int> id,
+      Value<int> orderId,
+      Value<int> customerId,
+      Value<int> staffId,
+      Value<String> returnDataJson,
+      Value<String> status,
+      Value<DateTime> createdAt,
+    });
+
+final class $$PendingCrateReturnsTableReferences
+    extends
+        BaseReferences<
+          _$AppDatabase,
+          $PendingCrateReturnsTable,
+          PendingCrateReturnData
+        > {
+  $$PendingCrateReturnsTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $OrdersTable _orderIdTable(_$AppDatabase db) => db.orders.createAlias(
+    $_aliasNameGenerator(db.pendingCrateReturns.orderId, db.orders.id),
+  );
+
+  $$OrdersTableProcessedTableManager get orderId {
+    final $_column = $_itemColumn<int>('order_id')!;
+
+    final manager = $$OrdersTableTableManager(
+      $_db,
+      $_db.orders,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_orderIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static $CustomersTable _customerIdTable(_$AppDatabase db) =>
+      db.customers.createAlias(
+        $_aliasNameGenerator(
+          db.pendingCrateReturns.customerId,
+          db.customers.id,
+        ),
+      );
+
+  $$CustomersTableProcessedTableManager get customerId {
+    final $_column = $_itemColumn<int>('customer_id')!;
+
+    final manager = $$CustomersTableTableManager(
+      $_db,
+      $_db.customers,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_customerIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static $UsersTable _staffIdTable(_$AppDatabase db) => db.users.createAlias(
+    $_aliasNameGenerator(db.pendingCrateReturns.staffId, db.users.id),
+  );
+
+  $$UsersTableProcessedTableManager get staffId {
+    final $_column = $_itemColumn<int>('staff_id')!;
+
+    final manager = $$UsersTableTableManager(
+      $_db,
+      $_db.users,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_staffIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$PendingCrateReturnsTableFilterComposer
+    extends Composer<_$AppDatabase, $PendingCrateReturnsTable> {
+  $$PendingCrateReturnsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get returnDataJson => $composableBuilder(
+    column: $table.returnDataJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$OrdersTableFilterComposer get orderId {
+    final $$OrdersTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.orderId,
+      referencedTable: $db.orders,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$OrdersTableFilterComposer(
+            $db: $db,
+            $table: $db.orders,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$CustomersTableFilterComposer get customerId {
+    final $$CustomersTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.customerId,
+      referencedTable: $db.customers,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$CustomersTableFilterComposer(
+            $db: $db,
+            $table: $db.customers,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$UsersTableFilterComposer get staffId {
+    final $$UsersTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.staffId,
+      referencedTable: $db.users,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$UsersTableFilterComposer(
+            $db: $db,
+            $table: $db.users,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$PendingCrateReturnsTableOrderingComposer
+    extends Composer<_$AppDatabase, $PendingCrateReturnsTable> {
+  $$PendingCrateReturnsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get returnDataJson => $composableBuilder(
+    column: $table.returnDataJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$OrdersTableOrderingComposer get orderId {
+    final $$OrdersTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.orderId,
+      referencedTable: $db.orders,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$OrdersTableOrderingComposer(
+            $db: $db,
+            $table: $db.orders,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$CustomersTableOrderingComposer get customerId {
+    final $$CustomersTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.customerId,
+      referencedTable: $db.customers,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$CustomersTableOrderingComposer(
+            $db: $db,
+            $table: $db.customers,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$UsersTableOrderingComposer get staffId {
+    final $$UsersTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.staffId,
+      referencedTable: $db.users,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$UsersTableOrderingComposer(
+            $db: $db,
+            $table: $db.users,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$PendingCrateReturnsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $PendingCrateReturnsTable> {
+  $$PendingCrateReturnsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get returnDataJson => $composableBuilder(
+    column: $table.returnDataJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get status =>
+      $composableBuilder(column: $table.status, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  $$OrdersTableAnnotationComposer get orderId {
+    final $$OrdersTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.orderId,
+      referencedTable: $db.orders,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$OrdersTableAnnotationComposer(
+            $db: $db,
+            $table: $db.orders,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$CustomersTableAnnotationComposer get customerId {
+    final $$CustomersTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.customerId,
+      referencedTable: $db.customers,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$CustomersTableAnnotationComposer(
+            $db: $db,
+            $table: $db.customers,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$UsersTableAnnotationComposer get staffId {
+    final $$UsersTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.staffId,
+      referencedTable: $db.users,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$UsersTableAnnotationComposer(
+            $db: $db,
+            $table: $db.users,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$PendingCrateReturnsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $PendingCrateReturnsTable,
+          PendingCrateReturnData,
+          $$PendingCrateReturnsTableFilterComposer,
+          $$PendingCrateReturnsTableOrderingComposer,
+          $$PendingCrateReturnsTableAnnotationComposer,
+          $$PendingCrateReturnsTableCreateCompanionBuilder,
+          $$PendingCrateReturnsTableUpdateCompanionBuilder,
+          (PendingCrateReturnData, $$PendingCrateReturnsTableReferences),
+          PendingCrateReturnData,
+          PrefetchHooks Function({bool orderId, bool customerId, bool staffId})
+        > {
+  $$PendingCrateReturnsTableTableManager(
+    _$AppDatabase db,
+    $PendingCrateReturnsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$PendingCrateReturnsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$PendingCrateReturnsTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$PendingCrateReturnsTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<int> orderId = const Value.absent(),
+                Value<int> customerId = const Value.absent(),
+                Value<int> staffId = const Value.absent(),
+                Value<String> returnDataJson = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+              }) => PendingCrateReturnsCompanion(
+                id: id,
+                orderId: orderId,
+                customerId: customerId,
+                staffId: staffId,
+                returnDataJson: returnDataJson,
+                status: status,
+                createdAt: createdAt,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required int orderId,
+                required int customerId,
+                required int staffId,
+                required String returnDataJson,
+                Value<String> status = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+              }) => PendingCrateReturnsCompanion.insert(
+                id: id,
+                orderId: orderId,
+                customerId: customerId,
+                staffId: staffId,
+                returnDataJson: returnDataJson,
+                status: status,
+                createdAt: createdAt,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$PendingCrateReturnsTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback:
+              ({orderId = false, customerId = false, staffId = false}) {
+                return PrefetchHooks(
+                  db: db,
+                  explicitlyWatchedTables: [],
+                  addJoins:
+                      <
+                        T extends TableManagerState<
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic
+                        >
+                      >(state) {
+                        if (orderId) {
+                          state =
+                              state.withJoin(
+                                    currentTable: table,
+                                    currentColumn: table.orderId,
+                                    referencedTable:
+                                        $$PendingCrateReturnsTableReferences
+                                            ._orderIdTable(db),
+                                    referencedColumn:
+                                        $$PendingCrateReturnsTableReferences
+                                            ._orderIdTable(db)
+                                            .id,
+                                  )
+                                  as T;
+                        }
+                        if (customerId) {
+                          state =
+                              state.withJoin(
+                                    currentTable: table,
+                                    currentColumn: table.customerId,
+                                    referencedTable:
+                                        $$PendingCrateReturnsTableReferences
+                                            ._customerIdTable(db),
+                                    referencedColumn:
+                                        $$PendingCrateReturnsTableReferences
+                                            ._customerIdTable(db)
+                                            .id,
+                                  )
+                                  as T;
+                        }
+                        if (staffId) {
+                          state =
+                              state.withJoin(
+                                    currentTable: table,
+                                    currentColumn: table.staffId,
+                                    referencedTable:
+                                        $$PendingCrateReturnsTableReferences
+                                            ._staffIdTable(db),
+                                    referencedColumn:
+                                        $$PendingCrateReturnsTableReferences
+                                            ._staffIdTable(db)
+                                            .id,
+                                  )
+                                  as T;
+                        }
+
+                        return state;
+                      },
+                  getPrefetchedDataCallback: (items) async {
+                    return [];
+                  },
+                );
+              },
+        ),
+      );
+}
+
+typedef $$PendingCrateReturnsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $PendingCrateReturnsTable,
+      PendingCrateReturnData,
+      $$PendingCrateReturnsTableFilterComposer,
+      $$PendingCrateReturnsTableOrderingComposer,
+      $$PendingCrateReturnsTableAnnotationComposer,
+      $$PendingCrateReturnsTableCreateCompanionBuilder,
+      $$PendingCrateReturnsTableUpdateCompanionBuilder,
+      (PendingCrateReturnData, $$PendingCrateReturnsTableReferences),
+      PendingCrateReturnData,
+      PrefetchHooks Function({bool orderId, bool customerId, bool staffId})
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -32856,4 +34262,6 @@ class $AppDatabaseManager {
       $$WalletTransactionsTableTableManager(_db, _db.walletTransactions);
   $$SavedCartsTableTableManager get savedCarts =>
       $$SavedCartsTableTableManager(_db, _db.savedCarts);
+  $$PendingCrateReturnsTableTableManager get pendingCrateReturns =>
+      $$PendingCrateReturnsTableTableManager(_db, _db.pendingCrateReturns);
 }

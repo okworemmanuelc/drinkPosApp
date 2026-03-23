@@ -9,6 +9,8 @@ import '../../../shared/widgets/shared_scaffold.dart';
 import '../../../shared/widgets/shared_bottom_nav_bar.dart';
 import '../../../shared/widgets/app_bar_header.dart';
 import '../../../shared/widgets/role_guard.dart';
+import '../../../core/utils/notifications.dart';
+import '../../../shared/widgets/app_button.dart';
 import 'staff_constants.dart';
 
 class StaffDetailsScreen extends StatefulWidget {
@@ -245,21 +247,19 @@ class _StaffDetailsScreenState extends State<StaffDetailsScreen> {
         title: Text('Confirm Role Change', style: TextStyle(color: _text)),
         content: Text('Are you sure you want to change ${widget.user.name}\'s role to ${newRole.label}?', style: TextStyle(color: _subtext)),
         actions: [
-          TextButton(
+          AppButton(
+            text: 'Cancel',
+            variant: AppButtonVariant.ghost,
+            size: AppButtonSize.small,
             onPressed: () => Navigator.pop(context),
-            child: Text('Cancel', style: TextStyle(color: _subtext)),
           ),
-          ElevatedButton(
+          AppButton(
+            text: 'Change Role',
             onPressed: () async {
-              final messenger = ScaffoldMessenger.of(context);
               Navigator.pop(context);
               // Stub — no DB write in this version
-              messenger.showSnackBar(
-                SnackBar(content: Text('Role updated to ${newRole.label}')),
-              );
+              AppNotification.showSuccess(context, 'Role updated to ${newRole.label}');
             },
-            style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
-            child: const Text('Change Role', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),

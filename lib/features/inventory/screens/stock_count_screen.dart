@@ -9,6 +9,8 @@ import '../../../core/utils/responsive.dart';
 import '../../../core/widgets/app_fab.dart';
 import '../../../shared/services/activity_log_service.dart';
 import '../../../shared/widgets/shared_bottom_nav_bar.dart';
+import '../../../shared/widgets/app_input.dart';
+import '../../../core/utils/notifications.dart';
 
 // Flat display-list item: either a warehouse section header or a row index.
 class _DisplayItem {
@@ -114,16 +116,14 @@ class _StockCountScreenState extends State<StockCountScreen> {
     if (!mounted) return;
     setState(() => _saving = false);
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          adjustedCount == 0
-              ? 'No changes — all counts matched.'
-              : '$adjustedCount product${adjustedCount == 1 ? '' : 's'} adjusted.',
-        ),
-        backgroundColor: adjustedCount == 0 ? null : success,
-      ),
-    );
+    if (adjustedCount == 0) {
+      AppNotification.showSuccess(context, 'No changes — all counts matched.');
+    } else {
+      AppNotification.showSuccess(
+        context,
+        '$adjustedCount product${adjustedCount == 1 ? '' : 's'} adjusted.',
+      );
+    }
 
     Navigator.pop(context);
   }
@@ -756,41 +756,17 @@ class _StockCountScreenState extends State<StockCountScreen> {
               ),
               SizedBox(
                 width: context.getRSize(72),
-                child: TextField(
+                child: AppInput(
                   controller: _controllers[i],
-                  textAlign: TextAlign.center,
                   keyboardType: TextInputType.number,
                   inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                  style: TextStyle(
-                    color: _text,
-                    fontSize: context.getRFontSize(13),
-                    fontWeight: FontWeight.w700,
-                  ),
-                  decoration: InputDecoration(
-                    isDense: true,
-                    contentPadding: EdgeInsets.symmetric(
-                      horizontal: context.getRSize(6),
-                      vertical: context.getRSize(8),
-                    ),
-                    filled: true,
-                    fillColor: _surface,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide(color: _border),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide(color: _border),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide(
-                        color: Theme.of(context).colorScheme.primary,
-                        width: 1.5,
-                      ),
-                    ),
-                  ),
                   onChanged: (_) => setRowState(() {}),
+                  textAlign: TextAlign.center,
+                  contentPadding: EdgeInsets.symmetric(
+                    horizontal: context.getRSize(6),
+                    vertical: context.getRSize(8),
+                  ),
+                  fillColor: _surface,
                 ),
               ),
               SizedBox(

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:intl/intl.dart';
@@ -5,8 +6,9 @@ import '../services/notification_service.dart';
 import '../models/notification.dart';
 import '../../core/utils/responsive.dart';
 import '../../core/theme/colors.dart';
-
 import '../../core/database/app_database.dart';
+import '../../features/orders/screens/crate_return_approval_screen.dart';
+import '../../shared/widgets/app_button.dart';
 
 class NotificationsModal extends StatelessWidget {
   const NotificationsModal({super.key});
@@ -37,8 +39,9 @@ class NotificationsModal extends StatelessWidget {
             child: Container(
               decoration: BoxDecoration(
                 color: Theme.of(context).colorScheme.surface,
-                borderRadius:
-                    const BorderRadius.vertical(top: Radius.circular(28)),
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(28),
+                ),
               ),
               child: Column(
                 children: [
@@ -56,14 +59,14 @@ class NotificationsModal extends StatelessWidget {
                   ),
                   // Header
                   _buildHeader(context),
-                   
+
                   // Sync Status Banner
                   StreamBuilder<int>(
                     stream: database.syncDao.watchPendingCount(),
                     builder: (context, snap) {
                       final count = snap.data ?? 0;
                       if (count == 0) return const SizedBox.shrink();
-                       
+
                       return Container(
                         width: double.infinity,
                         margin: EdgeInsets.symmetric(
@@ -77,7 +80,9 @@ class NotificationsModal extends StatelessWidget {
                         decoration: BoxDecoration(
                           color: blueMain.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: blueMain.withValues(alpha: 0.2)),
+                          border: Border.all(
+                            color: blueMain.withValues(alpha: 0.2),
+                          ),
                         ),
                         child: Row(
                           children: [
@@ -103,7 +108,13 @@ class NotificationsModal extends StatelessWidget {
                             Text(
                               'Background',
                               style: TextStyle(
-                                color: Theme.of(context).textTheme.bodySmall?.color ?? Theme.of(context).iconTheme.color!.withValues(alpha: 0.6),
+                                color:
+                                    Theme.of(
+                                      context,
+                                    ).textTheme.bodySmall?.color ??
+                                    Theme.of(
+                                      context,
+                                    ).iconTheme.color!.withValues(alpha: 0.6),
                                 fontSize: context.getRFontSize(11),
                                 fontWeight: FontWeight.w500,
                               ),
@@ -113,7 +124,7 @@ class NotificationsModal extends StatelessWidget {
                       );
                     },
                   ),
-                   
+
                   Divider(height: 1, color: Theme.of(context).dividerColor),
                   // List
                   Expanded(
@@ -170,18 +181,15 @@ class NotificationsModal extends StatelessWidget {
               ),
             ],
           ),
-          TextButton(
+          AppButton(
+            text: 'Dismiss All',
+            variant: AppButtonVariant.danger,
+            isFullWidth: false,
+            height: context.getRSize(36),
+            padding: EdgeInsets.symmetric(horizontal: context.getRSize(12)),
             onPressed: () {
               notificationService.clearAll();
             },
-            child: Text(
-              'Dismiss All',
-              style: TextStyle(
-                color: danger,
-                fontWeight: FontWeight.bold,
-                fontSize: context.getRFontSize(14),
-              ),
-            ),
           ),
         ],
       ),
@@ -202,7 +210,9 @@ class NotificationsModal extends StatelessWidget {
           Text(
             'No notifications yet',
             style: TextStyle(
-              color: Theme.of(context).textTheme.bodySmall?.color ?? Theme.of(context).iconTheme.color!,
+              color:
+                  Theme.of(context).textTheme.bodySmall?.color ??
+                  Theme.of(context).iconTheme.color!,
               fontSize: context.getRFontSize(16),
               fontWeight: FontWeight.w600,
             ),
@@ -222,70 +232,141 @@ class _NotificationCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final Color cardBg = Theme.of(context).cardColor;
     final Color textCol = Theme.of(context).colorScheme.onSurface;
-    final Color subtextCol = Theme.of(context).textTheme.bodySmall?.color ?? Theme.of(context).iconTheme.color!;
+    final Color subtextCol =
+        Theme.of(context).textTheme.bodySmall?.color ??
+        Theme.of(context).iconTheme.color!;
     final Color borderCol = Theme.of(context).dividerColor;
 
     final IconData icon = _getIconForType(notification.type);
     final Color iconColor = _getColorForType(notification.type);
 
-    return Container(
-      padding: EdgeInsets.all(context.getRSize(16)),
-      decoration: BoxDecoration(
-        color: cardBg,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: borderCol),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: EdgeInsets.all(context.getRSize(10)),
-            decoration: BoxDecoration(
-              color: iconColor.withValues(alpha: 0.1),
-              shape: BoxShape.circle,
+    return GestureDetector(
+      onTap: notification.type == 'product_update'
+          ? () => _showProductUpdateSummary(context, notification)
+          : notification.type == 'crate_short_return'
+              ? () => _openCrateReturnApproval(context, notification)
+              : null,
+      child: Container(
+        padding: EdgeInsets.all(context.getRSize(16)),
+        decoration: BoxDecoration(
+          color: cardBg,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: borderCol),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: EdgeInsets.all(context.getRSize(10)),
+              decoration: BoxDecoration(
+                color: iconColor.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: iconColor, size: context.getRSize(16)),
             ),
-            child: Icon(
-              icon,
-              color: iconColor,
-              size: context.getRSize(16),
-            ),
-          ),
-          SizedBox(width: context.getRSize(14)),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  notification.message,
-                  style: TextStyle(
-                    color: textCol,
-                    fontSize: context.getRFontSize(14),
-                    fontWeight: FontWeight.w600,
+            SizedBox(width: context.getRSize(14)),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    notification.message,
+                    style: TextStyle(
+                      color: textCol,
+                      fontSize: context.getRFontSize(14),
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
-                ),
-                SizedBox(height: context.getRSize(4)),
-                Text(
-                  DateFormat('MMM d, h:mm a').format(notification.timestamp),
-                  style: TextStyle(
-                    color: subtextCol,
-                    fontSize: context.getRFontSize(12),
+                  SizedBox(height: context.getRSize(4)),
+                  Text(
+                    DateFormat('MMM d, h:mm a').format(notification.timestamp),
+                    style: TextStyle(
+                      color: subtextCol,
+                      fontSize: context.getRFontSize(12),
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-          IconButton(
-            icon: Icon(
-              Icons.close,
-              size: context.getRSize(18),
-              color: subtextCol,
+            IconButton(
+              icon: Icon(
+                Icons.close,
+                size: context.getRSize(18),
+                color: subtextCol,
+              ),
+              onPressed: () {
+                notificationService.deleteNotification(notification.id);
+              },
             ),
-            onPressed: () {
-              notificationService.deleteNotification(notification.id);
-            },
+          ],
+        ),
+      ), // Container
+    ); // GestureDetector
+  }
+
+  void _showProductUpdateSummary(
+    BuildContext context,
+    NotificationModel notification,
+  ) {
+    notificationService.markAsRead(notification.id);
+    Map<String, dynamic> data = {};
+    try {
+      data =
+          jsonDecode(notification.linkedRecordId ?? '{}')
+              as Map<String, dynamic>;
+    } catch (_) {}
+
+    final product = data['product'] as String? ?? 'Unknown product';
+    final manager = data['manager'] as String? ?? 'Unknown';
+    final summary = data['summary'] as String? ?? notification.message;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(
+              FontAwesomeIcons.penToSquare,
+              size: 16,
+              color: Color(0xFFF5A623),
+            ),
+            SizedBox(width: 8),
+            Text('Product Update'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _summaryRow(ctx, 'Product', product),
+            const SizedBox(height: 8),
+            _summaryRow(ctx, 'Updated by', manager),
+            const SizedBox(height: 12),
+            Text(summary, style: const TextStyle(fontSize: 14)),
+          ],
+        ),
+        actions: [
+          AppButton(
+            text: 'Dismiss',
+            variant: AppButtonVariant.ghost,
+            isFullWidth: false,
+            onPressed: () => Navigator.pop(ctx),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _summaryRow(BuildContext context, String label, String value) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '$label: ',
+          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+        ),
+        Expanded(child: Text(value, style: const TextStyle(fontSize: 13))),
+      ],
     );
   }
 
@@ -301,6 +382,14 @@ class _NotificationCard extends StatelessWidget {
         return FontAwesomeIcons.truckRampBox;
       case 'failed_transaction':
         return FontAwesomeIcons.circleExclamation;
+      case 'product_update':
+        return FontAwesomeIcons.penToSquare;
+      case 'crate_short_return':
+        return FontAwesomeIcons.boxOpen;
+      case 'crate_return_approved':
+        return FontAwesomeIcons.circleCheck;
+      case 'crate_return_rejected':
+        return FontAwesomeIcons.circleXmark;
       default:
         return FontAwesomeIcons.bell;
     }
@@ -318,13 +407,33 @@ class _NotificationCard extends StatelessWidget {
         return blueMain;
       case 'failed_transaction':
         return danger;
+      case 'product_update':
+        return const Color(0xFFF5A623);
+      case 'crate_short_return':
+        return const Color(0xFFF5A623);
+      case 'crate_return_approved':
+        return success;
+      case 'crate_return_rejected':
+        return danger;
       default:
         return blueMain;
     }
   }
+
+  void _openCrateReturnApproval(
+      BuildContext context, NotificationModel notification) {
+    final pendingReturnId = int.tryParse(notification.linkedRecordId ?? '');
+    final notifId = int.tryParse(notification.id);
+    if (pendingReturnId == null || notifId == null) return;
+    notificationService.markAsRead(notification.id);
+    Navigator.pop(context);
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => CrateReturnApprovalScreen(
+          pendingReturnId: pendingReturnId,
+          notificationId: notifId,
+        ),
+      ),
+    );
+  }
 }
-
-
-
-
-

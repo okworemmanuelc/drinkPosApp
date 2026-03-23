@@ -129,6 +129,10 @@ class PosController extends ChangeNotifier {
           if (selectedManufacturerId == 'All') return true;
           return item.product.manufacturerId?.toString() == selectedManufacturerId;
         })
+        .where((item) {
+          if (selectedCategoryId == null) return true;
+          return item.product.categoryId == selectedCategoryId;
+        })
         .toList();
 
     if (searchQuery.isNotEmpty) {

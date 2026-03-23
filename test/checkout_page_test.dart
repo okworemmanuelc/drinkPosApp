@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:ribaplus_pos/features/pos/screens/checkout_page.dart';
-import 'package:ribaplus_pos/features/customers/data/models/customer.dart';
+import 'package:reebaplus_pos/features/pos/screens/checkout_page.dart';
+import 'package:reebaplus_pos/features/customers/data/models/customer.dart';
 
 void main() {
   testWidgets('CheckoutPage renders correctly with different cart items', (WidgetTester tester) async {

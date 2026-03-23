@@ -216,7 +216,7 @@ class ThermalReceiptService {
 
     // --- 6. QR CODE ---
     bytes += generator.qrcode(
-      orderId,
+      'https://reebaplus.com/receipt/$orderId',
       size: QRSize.size4,
     );
     // Explicitly print the unformatted number below the QR code
@@ -237,7 +237,7 @@ class ThermalReceiptService {
       styles: const PosStyles(align: PosAlign.center),
     );
     bytes += generator.text(
-      'Powered by Coldcrate Ltd',
+      'Powered by Reebaplus+',
       styles: const PosStyles(
         align: PosAlign.center,
         fontType: PosFontType.fontB,

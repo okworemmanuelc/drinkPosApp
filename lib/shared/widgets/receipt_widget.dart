@@ -23,6 +23,8 @@ class ReceiptWidget extends StatelessWidget {
   final String? deliveryRef;
   final String? orderStatus;
   final double? refundAmount;
+  /// manufacturerId → name — used to label crate deposit rows by manufacturer.
+  final Map<int, String>? manufacturerNames;
 
   const ReceiptWidget({
     super.key,
@@ -43,14 +45,16 @@ class ReceiptWidget extends StatelessWidget {
     this.deliveryRef,
     this.orderStatus,
     this.refundAmount,
+    this.manufacturerNames,
   });
 
   @override
   Widget build(BuildContext context) {
-    const bg = Colors.white;
-    const textCol = Color(0xFF0F172A);
-    const sub = Color(0xFF64748B);
-    const divCol = Color(0xFFE2E8F0);
+    final bg = Theme.of(context).cardColor;
+    final textCol = Theme.of(context).colorScheme.onSurface;
+    final sub = Theme.of(context).textTheme.bodySmall?.color ?? Theme.of(context).iconTheme.color!;
+    final divCol = Theme.of(context).dividerColor;
+    final primary = Theme.of(context).colorScheme.primary;
 
     return Container(
       width: double.infinity,
@@ -123,8 +127,8 @@ class ReceiptWidget extends StatelessWidget {
                 vertical: context.getRSize(4),
               ),
               decoration: BoxDecoration(
-                color: blueMain.withValues(alpha: 0.1),
-                border: Border.all(color: blueMain.withValues(alpha: 0.5)),
+                color: primary.withValues(alpha: 0.1),
+                border: Border.all(color: primary.withValues(alpha: 0.5)),
                 borderRadius: BorderRadius.circular(4),
               ),
               child: Text(
@@ -132,7 +136,7 @@ class ReceiptWidget extends StatelessWidget {
                 style: TextStyle(
                   fontSize: context.getRFontSize(14),
                   fontWeight: FontWeight.w900,
-                  color: blueMain,
+                  color: primary,
                   letterSpacing: 1,
                 ),
               ),
@@ -158,7 +162,7 @@ class ReceiptWidget extends StatelessWidget {
               style: TextStyle(
                 fontSize: context.getRFontSize(13),
                 fontWeight: FontWeight.bold,
-                color: blueMain,
+                color: primary,
               ),
             ),
           ],
@@ -258,7 +262,61 @@ class ReceiptWidget extends StatelessWidget {
           _infoRow(context, 'Subtotal', subtotal, sub),
           if (crateDeposit > 0) ...[
             SizedBox(height: context.getRSize(4)),
-            _infoRow(context, 'Crate Deposit', crateDeposit, sub),
+            // Build per-manufacturer crate breakdown when names are available.
+            if (manufacturerNames != null && manufacturerNames!.isNotEmpty) ...[
+              () {
+                // Group glass cart items by manufacturerId
+                final Map<int, double> mfrQty = {};
+                for (final item in cart) {
+                  final mid = item['manufacturerId'];
+                  if (mid is int && (item['crateGroupId'] != null || ((item['emptyCrateValueKobo'] ?? 0) as num) > 0)) {
+                    mfrQty[mid] = (mfrQty[mid] ?? 0) + (item['qty'] as num).toDouble();
+                  }
+                }
+                if (mfrQty.isEmpty) {
+                  return _infoRow(context, 'Crate Deposit', crateDeposit, sub);
+                }
+                final sortedEntries = mfrQty.entries.toList()
+                  ..sort((a, b) {
+                    final nameA = manufacturerNames![a.key] ?? '';
+                    final nameB = manufacturerNames![b.key] ?? '';
+                    return nameA.compareTo(nameB);
+                  });
+                return Column(
+                  children: sortedEntries.map((e) {
+                    final mfrName = manufacturerNames![e.key] ?? 'Unknown';
+                    return Padding(
+                      padding: EdgeInsets.symmetric(vertical: context.getRSize(2)),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            '$mfrName (${e.value.toStringAsFixed(0)} crates)',
+                            style: TextStyle(fontSize: context.getRFontSize(12), color: sub),
+                          ),
+                        ],
+                      ),
+                    );
+                  }).toList()
+                    ..add(
+                      Padding(
+                        padding: EdgeInsets.symmetric(vertical: context.getRSize(2)),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text('Crate Deposit', style: TextStyle(fontSize: context.getRFontSize(13), color: sub)),
+                            Text(
+                              formatCurrency(crateDeposit),
+                              style: TextStyle(fontSize: context.getRFontSize(13), fontWeight: FontWeight.w600, color: sub),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                );
+              }(),
+            ] else
+              _infoRow(context, 'Crate Deposit', crateDeposit, sub),
           ],
 
           SizedBox(height: context.getRSize(12)),
@@ -278,7 +336,7 @@ class ReceiptWidget extends StatelessWidget {
                 style: TextStyle(
                   fontSize: context.getRFontSize(18),
                   fontWeight: FontWeight.w800,
-                  color: blueMain,
+                  color: primary,
                 ),
               ),
             ],
@@ -347,7 +405,7 @@ class ReceiptWidget extends StatelessWidget {
           SizedBox(height: context.getRSize(8)),
           BarcodeWidget(
             barcode: Barcode.qrCode(),
-            data: orderId,
+            data: 'https://reebaplus.com/receipt/$orderId',
             width: context.getRSize(120),
             height: context.getRSize(120),
             style: TextStyle(
@@ -368,7 +426,7 @@ class ReceiptWidget extends StatelessWidget {
           ),
           SizedBox(height: context.getRSize(4)),
           Text(
-            'Powered by Coldcrate Ltd',
+            'Powered by Reebaplus+',
             style: TextStyle(fontSize: context.getRFontSize(10), color: sub),
           ),
         ],

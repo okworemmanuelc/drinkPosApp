@@ -1,4 +1,4 @@
-package com.ribaplus.pos
+package com.reebaplus.pos
 
 import io.flutter.embedding.android.FlutterFragmentActivity
 

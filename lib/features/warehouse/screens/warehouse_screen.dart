@@ -7,12 +7,15 @@ import '../../../shared/widgets/shared_scaffold.dart';
 import '../../../shared/widgets/menu_button.dart';
 import '../../../shared/widgets/app_bar_header.dart';
 import '../../../shared/widgets/notification_bell.dart';
-import '../../../core/theme/colors.dart';
+import '../../../shared/widgets/app_button.dart';
+import '../../../shared/widgets/app_input.dart';
+
 
 import '../../../core/theme/design_tokens.dart';
 import '../../../core/utils/responsive.dart';
 import '../../../core/database/app_database.dart';
 import '../../../shared/services/navigation_service.dart';
+import '../../../core/utils/notifications.dart';
 import 'warehouse_details_screen.dart';
 
 class WarehouseScreen extends StatefulWidget {
@@ -121,100 +124,50 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
                   ),
                   SizedBox(height: rSize(ctx, 24)),
 
-                  // Name
-                  _sheetField(
-                    ctx,
+                  AppInput(
                     controller: nameCtrl,
-                    label: 'Warehouse Name',
-                    hint: 'e.g. Main Store, Annex B',
-                    icon: Icons.warehouse_outlined,
+                    labelText: 'Warehouse Name',
+                    hintText: 'e.g. Main Store, Annex B',
+                    prefixIcon: const Icon(Icons.warehouse_outlined, size: 20),
                     validator: (v) => v == null || v.trim().isEmpty
                         ? 'Name is required'
                         : null,
                   ),
                   SizedBox(height: rSize(ctx, 16)),
 
-                  // Location
-                  _sheetField(
-                    ctx,
+                  AppInput(
                     controller: locationCtrl,
-                    label: 'Location / Address (optional)',
-                    hint: 'e.g. 14 Market Road, Lagos',
-                    icon: Icons.location_on_outlined,
+                    labelText: 'Location / Address (optional)',
+                    hintText: 'e.g. 14 Market Road, Lagos',
+                    prefixIcon: const Icon(Icons.location_on_outlined, size: 20),
                   ),
                   SizedBox(height: rSize(ctx, 28)),
 
                   // Save button
-                  SizedBox(
-                    width: double.infinity,
-                    height: rSize(ctx, 52),
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [blueLight, blueDark],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.35),
-                            blurRadius: 10,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: ElevatedButton(
-                        onPressed: saving
-                            ? null
-                            : () async {
-                                if (!formKey.currentState!.validate()) return;
-                                setSheet(() => saving = true);
-                                try {
-                                  await database.into(database.warehouses).insert(
-                                        WarehousesCompanion.insert(
-                                          name: nameCtrl.text.trim(),
-                                          location: locationCtrl.text.trim().isEmpty
-                                              ? const Value.absent()
-                                              : Value(locationCtrl.text.trim()),
-                                        ),
-                                      );
-                                  if (ctx.mounted) Navigator.pop(ctx);
-                                } catch (e) {
-                                  setSheet(() => saving = false);
-                                  if (ctx.mounted) {
-                                    ScaffoldMessenger.of(ctx).showSnackBar(
-                                      SnackBar(content: Text('Error: $e')),
-                                    );
-                                  }
-                                }
-                              },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.transparent,
-                          shadowColor: Colors.transparent,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                        ),
-                        child: saving
-                            ? const SizedBox(
-                                width: 22,
-                                height: 22,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2.5,
-                                  color: Colors.white,
-                                ),
-                              )
-                            : const Text(
-                                'Save Warehouse',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                      ),
-                    ),
+                  AppButton(
+                    text: 'Save Warehouse',
+                    onPressed: saving
+                        ? null
+                        : () async {
+                            if (!formKey.currentState!.validate()) return;
+                            setSheet(() => saving = true);
+                            try {
+                              await database.into(database.warehouses).insert(
+                                    WarehousesCompanion.insert(
+                                      name: nameCtrl.text.trim(),
+                                      location: locationCtrl.text.trim().isEmpty
+                                          ? const Value.absent()
+                                          : Value(locationCtrl.text.trim()),
+                                    ),
+                                  );
+                              if (ctx.mounted) Navigator.pop(ctx);
+                            } catch (e) {
+                              setSheet(() => saving = false);
+                              if (ctx.mounted) {
+                                AppNotification.showError(ctx, 'Error: $e');
+                              }
+                            }
+                          },
                   ),
                 ],
               ),
@@ -297,88 +250,42 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
                     ],
                   ),
                   SizedBox(height: rSize(ctx, 24)),
-                  _sheetField(
-                    ctx,
+                  AppInput(
                     controller: nameCtrl,
-                    label: 'Warehouse Name',
-                    hint: 'e.g. Main Store',
-                    icon: Icons.warehouse_outlined,
+                    labelText: 'Warehouse Name',
+                    hintText: 'e.g. Main Store',
+                    prefixIcon: const Icon(Icons.warehouse_outlined, size: 20),
                     validator: (v) => v == null || v.trim().isEmpty
                         ? 'Name is required'
                         : null,
                   ),
                   SizedBox(height: rSize(ctx, 16)),
-                  _sheetField(
-                    ctx,
+                  AppInput(
                     controller: locationCtrl,
-                    label: 'Location / Address (optional)',
-                    hint: 'e.g. 14 Market Road, Lagos',
-                    icon: Icons.location_on_outlined,
+                    labelText: 'Location / Address (optional)',
+                    hintText: 'e.g. 14 Market Road, Lagos',
+                    prefixIcon: const Icon(Icons.location_on_outlined, size: 20),
                   ),
                   SizedBox(height: rSize(ctx, 28)),
-                  SizedBox(
-                    width: double.infinity,
-                    height: rSize(ctx, 52),
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [blueLight, blueDark],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.35),
-                            blurRadius: 10,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: ElevatedButton(
-                        onPressed: saving
-                            ? null
-                            : () async {
-                                if (!formKey.currentState!.validate()) return;
-                                setSheet(() => saving = true);
-                                await (database.update(database.warehouses)
-                                      ..where((t) => t.id.equals(warehouse.id)))
-                                    .write(
-                                      WarehousesCompanion(
-                                        name: Value(nameCtrl.text.trim()),
-                                        location: locationCtrl.text.trim().isEmpty
-                                            ? const Value(null)
-                                            : Value(locationCtrl.text.trim()),
-                                      ),
-                                    );
-                                if (ctx.mounted) Navigator.pop(ctx);
-                              },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.transparent,
-                          shadowColor: Colors.transparent,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                        ),
-                        child: saving
-                            ? const SizedBox(
-                                width: 22,
-                                height: 22,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2.5,
-                                  color: Colors.white,
-                                ),
-                              )
-                            : const Text(
-                                'Save Changes',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                      ),
-                    ),
+                  AppButton(
+                    text: 'Save Changes',
+                    onPressed: saving
+                        ? null
+                        : () async {
+                            if (!formKey.currentState!.validate()) return;
+                            setSheet(() => saving = true);
+                            await (database.update(database.warehouses)
+                                  ..where((t) => t.id.equals(warehouse.id)))
+                                .write(
+                                  WarehousesCompanion(
+                                    name: Value(nameCtrl.text.trim()),
+                                    location: locationCtrl.text.trim().isEmpty
+                                        ? const Value(null)
+                                        : Value(locationCtrl.text.trim()),
+                                  ),
+                                );
+                            if (ctx.mounted) Navigator.pop(ctx);
+                          },
                   ),
                 ],
               ),
@@ -460,11 +367,16 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
           ],
         ),
         actions: [
-          TextButton(
+          AppButton(
+            text: 'Cancel',
+            variant: AppButtonVariant.ghost,
+            size: AppButtonSize.small,
             onPressed: () => Navigator.pop(ctx),
-            child: Text('Cancel', style: TextStyle(color: _subtext)),
           ),
-          ElevatedButton(
+          AppButton(
+            text: 'Delete',
+            variant: AppButtonVariant.danger,
+            size: AppButtonSize.small,
             onPressed: () async {
               Navigator.pop(ctx);
               // Delete inventory first (FK), then warehouse
@@ -475,14 +387,6 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
                 database.warehouses,
               )..where((t) => t.id.equals(warehouse.id))).go();
             },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.danger,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            child: const Text('Delete'),
           ),
         ],
       ),
@@ -594,53 +498,6 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
     );
   }
 
-  // ── Shared bottom-sheet text field ─────────────────────────────────────────
-  Widget _sheetField(
-    BuildContext context, {
-    required TextEditingController controller,
-    required String label,
-    required String hint,
-    required IconData icon,
-    String? Function(String?)? validator,
-  }) {
-    return TextFormField(
-      controller: controller,
-      validator: validator,
-      style: TextStyle(color: _text, fontSize: rFontSize(context, 15)),
-      decoration: InputDecoration(
-        labelText: label,
-        hintText: hint,
-        labelStyle: TextStyle(color: _subtext),
-        hintStyle: TextStyle(
-          color: _subtext.withValues(alpha: 0.5),
-          fontSize: 13,
-        ),
-        prefixIcon: Icon(icon, color: _subtext, size: 20),
-        filled: true,
-        fillColor: _bg,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide.none,
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide(color: _border),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide(color: Theme.of(context).colorScheme.primary, width: 1.5),
-        ),
-        errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: AppColors.danger),
-        ),
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 16,
-        ),
-      ),
-    );
-  }
 }
 
 // ── Reactive warehouse card ────────────────────────────────────────────────────
@@ -859,7 +716,7 @@ class _WarehouseCardState extends State<_WarehouseCard> {
                 Expanded(
                   child: _actionButton(
                     icon: FontAwesomeIcons.trash,
-                    color: AppColors.danger,
+                    color: Theme.of(context).colorScheme.error,
                     label: 'Delete',
                     onTap: widget.onDelete,
                   ),

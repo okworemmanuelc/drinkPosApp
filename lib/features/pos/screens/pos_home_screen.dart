@@ -11,6 +11,7 @@ import '../../../shared/widgets/menu_button.dart';
 import '../../../shared/widgets/app_bar_header.dart';
 import '../../../shared/widgets/notification_bell.dart';
 import '../../../shared/widgets/app_dropdown.dart';
+import '../../../shared/widgets/app_input.dart';
 import '../../customers/data/models/customer.dart';
 import '../controllers/pos_controller.dart';
 import '../widgets/product_grid.dart';
@@ -20,6 +21,7 @@ import '../../../shared/widgets/pin_dialog.dart';
 import '../../../shared/services/auth_service.dart';
 import '../../../shared/services/navigation_service.dart';
 import '../../../core/database/app_database.dart';
+import '../../../core/utils/notifications.dart';
 
 class PosHomeScreen extends StatefulWidget {
   const PosHomeScreen({super.key});
@@ -130,7 +132,7 @@ class _PosHomeScreenState extends State<PosHomeScreen> {
       leading: const MenuButton(),
       title: AppBarHeader(
         icon: FontAwesomeIcons.beerMugEmpty,
-        title: 'Ribaplus POS',
+        title: 'Reebaplus POS',
         subtitle: _controller.currentWarehouseName ?? 'Point of Sale',
       ),
       actions: [
@@ -259,35 +261,19 @@ class _PosHomeScreenState extends State<PosHomeScreen> {
     return Container(
       color: surfaceCol,
       padding: EdgeInsets.fromLTRB(context.getRSize(16), 0, context.getRSize(16), context.getRSize(12)),
-      child: TextField(
+      child: AppInput(
         controller: _searchController,
         autofocus: true,
         onChanged: (v) => _controller.updateSearch(v),
-        style: TextStyle(fontSize: context.getRFontSize(14), color: textCol),
-        decoration: InputDecoration(
-          hintText: 'Search products...',
-          hintStyle: TextStyle(color: subtextCol),
-          prefixIcon: Icon(FontAwesomeIcons.magnifyingGlass, size: context.getRSize(16), color: subtextCol),
-          filled: true,
-          fillColor: cardCol,
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
-          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: Theme.of(context).colorScheme.primary, width: 2)),
-          contentPadding: EdgeInsets.symmetric(horizontal: context.getRSize(16), vertical: context.getRSize(12)),
-        ),
+        hintText: 'Search products...',
+        prefixIcon: Icon(FontAwesomeIcons.magnifyingGlass, size: context.getRSize(16)),
       ),
     );
   }
 
   void _addToCart(BuildContext context, dynamic product) {
     cartService.addItem(product, qty: 1.0);
-    ScaffoldMessenger.of(context).clearSnackBars();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('${product.name} added to cart'),
-        duration: const Duration(seconds: 1),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    AppNotification.showSuccess(context, '${product.name} added to cart');
   }
 
   Future<void> _showQuickSaleModal(BuildContext context) async {

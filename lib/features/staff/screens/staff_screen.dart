@@ -16,7 +16,10 @@ import '../../../shared/widgets/notification_bell.dart';
 import '../../../shared/widgets/role_guard.dart';
 import 'staff_constants.dart';
 import 'staff_details_screen.dart';
-import '../../../shared/widgets/fluid_menu.dart';
+import '../../../shared/widgets/app_button.dart';
+import '../../../shared/widgets/app_dropdown.dart';
+import '../../../shared/widgets/app_input.dart';
+import '../../../core/utils/notifications.dart';
 
 const int _kAllWarehouses = -1;
 
@@ -82,30 +85,11 @@ class _StaffScreenState extends State<StaffScreen> {
               preferredSize: const Size.fromHeight(60),
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                child: TextField(
+                child: AppInput(
                   onChanged: (v) => setState(() => _searchQuery = v),
-                  style: TextStyle(color: _text),
-                  decoration: InputDecoration(
-                    hintText: 'Search staff by name...',
-                    hintStyle: TextStyle(color: _subtext, fontSize: 14),
-                    prefixIcon: Icon(FontAwesomeIcons.magnifyingGlass,
-                        size: 16, color: _subtext),
-                    filled: true,
-                    fillColor: _bg,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none,
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none,
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5)),
-                    ),
-                  ),
+                  hintText: 'Search staff by name...',
+                  prefixIcon: Icon(FontAwesomeIcons.magnifyingGlass, size: 16, color: _subtext),
+                  fillColor: _bg,
                 ),
               ),
             ),
@@ -412,20 +396,19 @@ class _StaffScreenState extends State<StaffScreen> {
         content: Text('Are you sure you want to remove ${user.name} from the system?',
             style: TextStyle(color: _subtext)),
         actions: [
-          TextButton(
+          AppButton(
+            text: 'Cancel',
+            variant: AppButtonVariant.ghost,
+            size: AppButtonSize.small,
             onPressed: () => Navigator.pop(context),
-            child: Text('Cancel', style: TextStyle(color: _subtext)),
           ),
-          ElevatedButton(
+          AppButton(
+            text: 'Delete',
+            variant: AppButtonVariant.danger,
             onPressed: () async {
               Navigator.pop(context);
               // Stub — no DB delete in this version
             },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.error,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            ),
-            child: const Text('Delete', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -464,10 +447,8 @@ class _StaffFormSheetState extends State<_StaffFormSheet> {
   int? _selectedWarehouseId;
   bool _showPin = false;
   Color get _surface => Theme.of(context).colorScheme.surface;
-  Color get _bg => Theme.of(context).scaffoldBackgroundColor;
   Color get _text => Theme.of(context).colorScheme.onSurface;
   Color get _subtext => Theme.of(context).textTheme.bodySmall?.color ?? Theme.of(context).iconTheme.color!;
-  Color get _border => Theme.of(context).dividerColor;
 
   @override
   void initState() {
@@ -528,53 +509,51 @@ class _StaffFormSheetState extends State<_StaffFormSheet> {
                   ),
                   const SizedBox(height: 24),
                   
-                  // Name field
-                  Text('Full Name', style: TextStyle(color: _subtext, fontSize: 13)),
-                  const SizedBox(height: 8),
-                  TextFormField(
+                  AppInput(
                     controller: _nameCtrl,
-                    style: TextStyle(color: _text),
-                    decoration: _inputDecoration('Enter full name'),
-                    validator: (v) => v!.isEmpty ? 'Name is required' : null,
+                    labelText: 'Full Name',
+                    hintText: 'Enter full name',
+                    validator: (v) => v == null || v.isEmpty ? 'Name is required' : null,
                   ),
                   
                   const SizedBox(height: 16),
                   
-                  // PIN field
-                  Text('Access PIN (4 Digits)', style: TextStyle(color: _subtext, fontSize: 13)),
-                  const SizedBox(height: 8),
-                  TextFormField(
+                  AppInput(
                     controller: _pinCtrl,
-                    style: TextStyle(color: _text),
+                    labelText: 'Access PIN (4 Digits)',
+                    hintText: 'Enter 4-digit PIN',
                     obscureText: !_showPin,
                     keyboardType: TextInputType.number,
                     inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                    decoration: _inputDecoration('Enter 4-digit PIN').copyWith(
-                      suffixIcon: IconButton(
-                        onPressed: () => setState(() => _showPin = !_showPin),
-                        icon: Icon(
-                          _showPin ? FontAwesomeIcons.eyeSlash : FontAwesomeIcons.eye,
-                          size: 16,
-                          color: _subtext,
-                        ),
+                    suffixIcon: IconButton(
+                      onPressed: () => setState(() => _showPin = !_showPin),
+                      icon: Icon(
+                        _showPin ? FontAwesomeIcons.eyeSlash : FontAwesomeIcons.eye,
+                        size: 16,
+                        color: _subtext,
                       ),
                     ),
-                    validator: (v) => v!.length != 4 ? 'PIN must be 4 digits' : null,
+                    validator: (v) => v == null || v.length != 4 ? 'PIN must be 4 digits' : null,
                   ),
                   
                   const SizedBox(height: 16),
                   
-                  FluidMenu<RoleOption>(
-                    label: 'Role & Access Level',
+                  AppDropdown<RoleOption>(
+                    labelText: 'Role & Access Level',
                     value: _selectedRole,
                     items: roleOptions.map((r) {
-                      return FluidMenuItem<RoleOption>(
+                      return DropdownMenuItem<RoleOption>(
                         value: r,
-                        label: r.label,
-                        leading: Container(
-                          width: 8,
-                          height: 8,
-                          decoration: BoxDecoration(color: r.color, shape: BoxShape.circle),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 8,
+                              height: 8,
+                              decoration: BoxDecoration(color: r.color, shape: BoxShape.circle),
+                            ),
+                            const SizedBox(width: 12),
+                            Text(r.label),
+                          ],
                         ),
                       );
                     }).toList(),
@@ -583,14 +562,14 @@ class _StaffFormSheetState extends State<_StaffFormSheet> {
 
                   const SizedBox(height: 16),
                   
-                  FluidMenu<int>(
-                    label: 'Assigned Warehouse',
+                  AppDropdown<int>(
+                    labelText: 'Assigned Warehouse',
                     value: _selectedWarehouseId,
-                    placeholder: 'Select Warehouse',
+                    hintText: 'Select Warehouse',
                     items: widget.warehouses.map((w) {
-                      return FluidMenuItem<int>(
+                      return DropdownMenuItem<int>(
                         value: w.id,
-                        label: w.name,
+                        child: Text(w.name),
                       );
                     }).toList(),
                     onChanged: (id) => setState(() => _selectedWarehouseId = id!),
@@ -599,24 +578,9 @@ class _StaffFormSheetState extends State<_StaffFormSheet> {
                   const SizedBox(height: 32),
                   
                   // Submit Button
-                  SizedBox(
-                    width: double.infinity,
-                    height: 56,
-                    child: ElevatedButton(
-                      onPressed: _submit,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Theme.of(context).colorScheme.primary,
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16)),
-                      ),
-                      child: Text(
-                        widget.user == null ? 'Create Account' : 'Save Changes',
-                        style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold),
-                      ),
-                    ),
+                  AppButton(
+                    text: widget.user == null ? 'Create Account' : 'Save Changes',
+                    onPressed: _submit,
                   ),
                 ],
               ),
@@ -679,15 +643,10 @@ class _StaffFormSheetState extends State<_StaffFormSheet> {
               style: TextStyle(color: _subtext, height: 1.5),
             ),
             actions: [
-              ElevatedButton(
+              AppButton(
+                text: 'Got it',
                 onPressed: () => Navigator.pop(ctx),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Theme.of(context).colorScheme.primary,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10)),
-                ),
-                child: const Text('Got it',
-                    style: TextStyle(color: Colors.white)),
+                size: AppButtonSize.small,
               ),
             ],
           ),
@@ -724,52 +683,12 @@ class _StaffFormSheetState extends State<_StaffFormSheet> {
     }
 
     if (!mounted) return;
-    final messenger = ScaffoldMessenger.of(context);
-    Navigator.pop(context);
-    messenger.showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            const Icon(FontAwesomeIcons.circleCheck,
-                color: Colors.white, size: 16),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                '$name has been successfully assigned to $warehouseName.',
-                style: const TextStyle(color: Colors.white),
-              ),
-            ),
-          ],
-        ),
-        backgroundColor: const Color(0xFF22C55E),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        duration: const Duration(seconds: 4),
-      ),
+    AppNotification.showSuccess(
+      context,
+      '$name has been successfully assigned to $warehouseName.',
     );
   }
 
-  InputDecoration _inputDecoration(String hint) {
-    return InputDecoration(
-      hintText: hint,
-      hintStyle: TextStyle(color: _subtext.withValues(alpha: 0.5), fontSize: 14),
-      filled: true,
-      fillColor: _bg,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: _border),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: _border),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: Theme.of(context).colorScheme.primary),
-      ),
-    );
-  }
 }
 
 class _StaffActionSheet extends StatelessWidget {

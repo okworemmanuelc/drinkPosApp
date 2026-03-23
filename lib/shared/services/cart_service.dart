@@ -46,7 +46,12 @@ class CartService extends ValueNotifier<List<Map<String, dynamic>>> {
         'id': id,
         'name': name,
         'subtitle': product is ProductData ? product.subtitle : product['subtitle'],
-        'price': product is ProductData ? product.sellingPriceKobo / 100.0 : product['price'],
+        'price': product is ProductData
+            ? (product.sellingPriceKobo > 0
+                ? product.sellingPriceKobo
+                : product.retailPriceKobo) /
+                100.0
+            : product['price'],
         'qty': qty,
         'icon': product is ProductData ? (product.iconCodePoint ?? FontAwesomeIcons.box.codePoint) : product['icon'],
         'color': product is ProductData ? product.colorHex : product['color'],
@@ -54,6 +59,8 @@ class CartService extends ValueNotifier<List<Map<String, dynamic>>> {
         'crateGroupId': product is ProductData ? product.crateGroupId : product['crateGroupId'],
         'crateGroupName': product is ProductData ? null : product['crateGroupName'],
         'emptyCrateValueKobo': product is ProductData ? product.emptyCrateValueKobo : (product['emptyCrateValueKobo'] ?? 0),
+        'manufacturerId': product is ProductData ? product.manufacturerId : product['manufacturerId'],
+        'buyingPriceKobo': product is ProductData ? product.buyingPriceKobo : (product['buyingPriceKobo'] ?? 0),
       });
     }
 

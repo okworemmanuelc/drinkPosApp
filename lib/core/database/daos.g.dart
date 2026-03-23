@@ -342,3 +342,32 @@ class StockTransferDaoManager {
         _db.stockTransactions,
       );
 }
+
+mixin _$PendingCrateReturnsDaoMixin on DatabaseAccessor<AppDatabase> {
+  $WarehousesTable get warehouses => attachedDatabase.warehouses;
+  $CustomersTable get customers => attachedDatabase.customers;
+  $UsersTable get users => attachedDatabase.users;
+  $OrdersTable get orders => attachedDatabase.orders;
+  $PendingCrateReturnsTable get pendingCrateReturns =>
+      attachedDatabase.pendingCrateReturns;
+  PendingCrateReturnsDaoManager get managers =>
+      PendingCrateReturnsDaoManager(this);
+}
+
+class PendingCrateReturnsDaoManager {
+  final _$PendingCrateReturnsDaoMixin _db;
+  PendingCrateReturnsDaoManager(this._db);
+  $$WarehousesTableTableManager get warehouses =>
+      $$WarehousesTableTableManager(_db.attachedDatabase, _db.warehouses);
+  $$CustomersTableTableManager get customers =>
+      $$CustomersTableTableManager(_db.attachedDatabase, _db.customers);
+  $$UsersTableTableManager get users =>
+      $$UsersTableTableManager(_db.attachedDatabase, _db.users);
+  $$OrdersTableTableManager get orders =>
+      $$OrdersTableTableManager(_db.attachedDatabase, _db.orders);
+  $$PendingCrateReturnsTableTableManager get pendingCrateReturns =>
+      $$PendingCrateReturnsTableTableManager(
+        _db.attachedDatabase,
+        _db.pendingCrateReturns,
+      );
+}

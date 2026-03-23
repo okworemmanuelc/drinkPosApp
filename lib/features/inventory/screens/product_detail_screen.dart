@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
@@ -10,8 +11,12 @@ import '../data/models/inventory_item.dart';
 import '../../../shared/widgets/app_dropdown.dart';
 import '../../../core/database/app_database.dart';
 import '../../../shared/services/auth_service.dart';
+import '../../../shared/services/activity_log_service.dart';
+import '../../../shared/widgets/app_button.dart';
 import '../../../shared/services/cart_service.dart';
+import '../../../core/utils/notifications.dart';
 import '../../../shared/widgets/shared_bottom_nav_bar.dart';
+import '../../../shared/widgets/app_input.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ProductDetailScreen — full-screen product information view
@@ -20,11 +25,13 @@ import '../../../shared/widgets/shared_bottom_nav_bar.dart';
 class ProductDetailScreen extends StatefulWidget {
   final InventoryItem item;
   final VoidCallback onUpdateStock;
+  final int? selectedWarehouseId; // null = "All Warehouses" — quantity editing blocked
 
   const ProductDetailScreen({
     super.key,
     required this.item,
     required this.onUpdateStock,
+    this.selectedWarehouseId,
   });
 
   @override
@@ -73,6 +80,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     _monthlyTargetController = TextEditingController(text: '0');
     _emptyCratesController = TextEditingController(text: '0');
     _emptyCrateValueController = TextEditingController(text: '0');
+
+    _retailPriceController.addListener(_onRetailPriceChanged);
 
     // Defer heavy DB calls + full widget tree until after the first frame
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -158,8 +167,13 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     }
   }
 
+  void _onRetailPriceChanged() {
+    if (mounted) setState(() {});
+  }
+
   @override
   void dispose() {
+    _retailPriceController.removeListener(_onRetailPriceChanged);
     _nameController.dispose();
     _subtitleController.dispose();
     _quantityController.dispose();
@@ -325,30 +339,20 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 SizedBox(height: context.getRSize(14)),
                 ConstrainedBox(
                   constraints: BoxConstraints(maxWidth: context.screenWidth * 0.8),
-                  child: TextField(
+                  child: AppInput(
                     controller: _nameController,
                     readOnly: !_canEdit,
                     textAlign: TextAlign.center,
-                    cursorColor: Colors.white,
                     style: TextStyle(
                       fontSize: context.getRFontSize(24),
                       fontWeight: FontWeight.w800,
                       color: Colors.white,
                       letterSpacing: -0.5,
                     ),
-                    decoration: const InputDecoration(
-                      border: InputBorder.none,
-                      focusedBorder: InputBorder.none,
-                      enabledBorder: InputBorder.none,
-                      errorBorder: InputBorder.none,
-                      disabledBorder: InputBorder.none,
-                      contentPadding: EdgeInsets.zero,
-                      isDense: true,
-                      hintText: 'Product Name',
-                      hintStyle: TextStyle(color: Colors.white60),
-                      filled: true,
-                      fillColor: Colors.transparent,
-                    ),
+                    border: InputBorder.none,
+                    contentPadding: EdgeInsets.zero,
+                    hintText: 'Product Name',
+                    fillColor: Colors.transparent,
                     onChanged: (v) => setState(() {}),
                   ),
                 ),
@@ -394,7 +398,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
   Widget _buildBody(BuildContext context) {
     final double totalStockValue = stockValue(
-      (widget.item.retailPrice ?? 0).toDouble(),
+      double.tryParse(_retailPriceController.text) ?? (widget.item.retailPrice ?? 0).toDouble(),
       widget.item.totalStock,
     );
 
@@ -432,22 +436,23 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: _border),
                 ),
-                child: TextField(
-                  controller: _quantityController,
-                  readOnly: !_canEdit,
-                  keyboardType: TextInputType.number,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: context.getRFontSize(14),
-                    fontWeight: FontWeight.bold,
-                    color: _text,
-                  ),
-                  decoration: const InputDecoration(
-                    isDense: true,
-                    contentPadding: EdgeInsets.zero,
+                child: GestureDetector(
+                  onTap: widget.selectedWarehouseId == null && _canEdit
+                      ? () => AppNotification.showError(
+                            context,
+                            'Select a specific warehouse to edit stock quantity.',
+                          )
+                      : null,
+                  child: AppInput(
+                    controller: _quantityController,
+                    readOnly: !_canEdit || widget.selectedWarehouseId == null,
+                    keyboardType: TextInputType.number,
+                    textAlign: TextAlign.center,
+                    onChanged: (v) => setState(() {}),
                     border: InputBorder.none,
+                    contentPadding: EdgeInsets.zero,
+                    fillColor: Colors.transparent,
                   ),
-                  onChanged: (v) => setState(() {}),
                 ),
               ),
             ),
@@ -518,25 +523,17 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: _border),
                 ),
-                child: TextField(
-                  controller: _emptyCrateValueController,
-                  readOnly: true,
-                  keyboardType: TextInputType.number,
-                  textAlign: TextAlign.end,
-                  style: TextStyle(
-                    fontSize: context.getRFontSize(14),
-                    fontWeight: FontWeight.bold,
-                    color: _text,
-                  ),
-                  decoration: const InputDecoration(
-                    isDense: true,
-                    contentPadding: EdgeInsets.zero,
+                  child: AppInput(
+                    controller: _emptyCrateValueController,
+                    readOnly: true,
+                    keyboardType: TextInputType.number,
+                    textAlign: TextAlign.end,
+                    onChanged: (v) => setState(() {}),
                     border: InputBorder.none,
+                    contentPadding: EdgeInsets.zero,
                     prefixText: '₦',
-                    prefixStyle: TextStyle(fontSize: 12),
+                    fillColor: Colors.transparent,
                   ),
-                  onChanged: (v) => setState(() {}),
-                ),
               ),
             ),
             _divider(context),
@@ -653,28 +650,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           SizedBox(height: context.getRSize(32)),
           if (_canEdit) ...[
             // ── Action Button ─────────────────────────────────────────
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Theme.of(context).colorScheme.primary,
-                  foregroundColor: Colors.white,
-                  padding: EdgeInsets.symmetric(vertical: context.getRSize(16)),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  elevation: 0,
-                ),
-                icon: Icon(FontAwesomeIcons.check, size: context.getRSize(16)),
-                label: Text(
-                  'Update Product',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: context.getRFontSize(16),
-                  ),
-                ),
-                onPressed: _updateProduct,
-              ),
+            AppButton(
+              text: 'Update Product',
+              variant: AppButtonVariant.primary,
+              icon: FontAwesomeIcons.check,
+              onPressed: _updateProduct,
             ),
           ] else ...[
             // ── Read-only notice ──────────────────────────────────────
@@ -691,11 +671,14 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 children: [
                   Icon(Icons.lock_outline, size: context.getRSize(16), color: _subtext),
                   SizedBox(width: context.getRSize(8)),
-                  Text(
-                    'View only — this product is not in your warehouse',
-                    style: TextStyle(
-                      fontSize: context.getRFontSize(13),
-                      color: _subtext,
+                  Flexible(
+                    child: Text(
+                      'View only — this product is not in your warehouse',
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: context.getRFontSize(13),
+                        color: _subtext,
+                      ),
                     ),
                   ),
                 ],
@@ -958,25 +941,18 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     ),
                     SizedBox(
                       width: context.getRSize(40),
-                      child: TextField(
+                      child: AppInput(
                         controller: _monthlyTargetController,
                         readOnly: !_canEdit,
                         keyboardType: TextInputType.number,
-                        style: TextStyle(
-                          fontSize: context.getRFontSize(12),
-                          fontWeight: FontWeight.bold,
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
-                        decoration: const InputDecoration(
-                          isDense: true,
-                          contentPadding: EdgeInsets.zero,
-                          border: InputBorder.none,
-                        ),
                         onChanged: (val) {
                           setState(() {
                             _monthlyTarget = int.tryParse(val) ?? 0;
                           });
                         },
+                        border: InputBorder.none,
+                        contentPadding: EdgeInsets.zero,
+                        fillColor: Colors.transparent,
                       ),
                     ),
                     Text(
@@ -1093,9 +1069,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   }
 
   void _pickImage() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Image picking not implemented')),
-    );
+    AppNotification.showError(context, 'Image picking not implemented');
   }
 
   Widget _inlinePriceInput(TextEditingController controller) {
@@ -1110,24 +1084,16 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: _border),
       ),
-      child: TextField(
+      child: AppInput(
         controller: controller,
         readOnly: !_canEdit,
         keyboardType: TextInputType.number,
         textAlign: TextAlign.end,
-        style: TextStyle(
-          fontSize: context.getRFontSize(14),
-          fontWeight: FontWeight.bold,
-          color: _text,
-        ),
-        decoration: const InputDecoration(
-          isDense: true,
-          contentPadding: EdgeInsets.zero,
-          border: InputBorder.none,
-          prefixText: '₦',
-          prefixStyle: TextStyle(fontSize: 12),
-        ),
         onChanged: (v) => setState(() {}),
+        border: InputBorder.none,
+        contentPadding: EdgeInsets.zero,
+        prefixText: '₦',
+        fillColor: Colors.transparent,
       ),
     );
   }
@@ -1135,9 +1101,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   Future<void> _updateProduct() async {
     final name = _nameController.text.trim();
     if (name.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Product name cannot be empty')),
-      );
+      AppNotification.showError(context, 'Product name cannot be empty');
       return;
     }
 
@@ -1147,8 +1111,20 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     final bulk = double.tryParse(_bulkBreakerPriceController.text) ?? 0;
     final distributor = double.tryParse(_distributorPriceController.text) ?? 0;
 
+    if (buying > retail) {
+      AppNotification.showError(
+        context,
+        'Buying price (₦$buying) cannot be higher than retail price (₦$retail).',
+      );
+      return;
+    }
+
     final emptyVal = double.tryParse(_emptyCrateValueController.text) ?? 0;
     final productId = int.parse(widget.item.id);
+
+    // Capture old values for change summary (before DB write)
+    final oldRetail = widget.item.retailPrice ?? 0.0;
+    final oldBuying = widget.item.buyingPrice ?? 0.0;
 
     try {
       // 1. Update Products table — name, manufacturer, prices, empty crate value, category
@@ -1176,8 +1152,20 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         final crateDelta = newCrates - originalCrates;
         if (crateDelta > 0) {
           await database.inventoryDao.addEmptyCrates(_selectedManufacturerId!, crateDelta);
+          await activityLogService.logAction(
+            'crate_stock_update',
+            '${authService.currentUser?.name ?? 'Unknown'} added $crateDelta empty crates for $name',
+            relatedEntityId: widget.item.id,
+            relatedEntityType: 'product',
+          );
         } else if (crateDelta < 0) {
           await database.inventoryDao.deductEmptyCrates(_selectedManufacturerId!, -crateDelta);
+          await activityLogService.logAction(
+            'crate_stock_update',
+            '${authService.currentUser?.name ?? 'Unknown'} removed ${-crateDelta} empty crates for $name',
+            relatedEntityId: widget.item.id,
+            relatedEntityType: 'product',
+          );
         }
         setState(() => _emptyCrateStock = newCrates);
       }
@@ -1192,8 +1180,14 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           productId,
           warehouseId,
           diff,
-          'Manual adjustment from Product Detail Screen',
-          null,
+          'Manual adjustment by ${authService.currentUser?.name ?? 'Unknown'}',
+          authService.currentUser?.id,
+        );
+        await activityLogService.logAction(
+          'stock_adjustment',
+          '${authService.currentUser?.name ?? 'Unknown'} ${diff > 0 ? 'added $diff' : 'removed ${diff.abs()}'} units of $name',
+          relatedEntityId: widget.item.id,
+          relatedEntityType: 'product',
         );
       }
 
@@ -1206,14 +1200,34 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       );
 
       // 6. Log the edit
-      await database.activityLogDao.log(
-        action: 'update_product',
-        description: 'Updated product details for $name',
-        entityId: widget.item.id,
-        entityType: 'product',
+      await activityLogService.logAction(
+        'update_product',
+        '${authService.currentUser?.name ?? 'Unknown'} updated product details for $name',
+        relatedEntityId: widget.item.id,
+        relatedEntityType: 'product',
       );
 
-      // 7. Update local item object for UI feedback
+      // 7. Notify CEO if a manager made the update
+      final user = authService.currentUser;
+      if (user != null && user.roleTier == 4) {
+        final changes = <String>[];
+        if (retail != oldRetail) changes.add('Retail: ₦${oldRetail.toStringAsFixed(0)}→₦${retail.toStringAsFixed(0)}');
+        if (buying != oldBuying) changes.add('Buying: ₦${oldBuying.toStringAsFixed(0)}→₦${buying.toStringAsFixed(0)}');
+        final summaryText = changes.isEmpty
+            ? '${user.name} updated $name'
+            : '${user.name} updated $name — ${changes.join(', ')}';
+        await database.notificationsDao.create(
+          'product_update',
+          summaryText,
+          linkedRecordId: jsonEncode({
+            'product': name,
+            'manager': user.name,
+            'summary': summaryText,
+          }),
+        );
+      }
+
+      // 8. Update local item object for UI feedback
       setState(() {
         widget.item.productName = name;
         widget.item.manufacturer = mfr?.name;
@@ -1228,16 +1242,12 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       widget.onUpdateStock();
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$name updated successfully')),
-        );
+        AppNotification.showSuccess(context, '$name updated successfully');
         Navigator.pop(context);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Update failed: $e')),
-        );
+        AppNotification.showError(context, 'Update failed: $e');
       }
     }
   }
@@ -1253,22 +1263,32 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           style: TextStyle(color: _text),
         ),
         actions: [
-          TextButton(
+          AppButton(
+            text: 'Cancel',
+            variant: AppButtonVariant.ghost,
+            isFullWidth: false,
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
           ),
-          TextButton(
+          AppButton(
+            text: 'Delete',
+            variant: AppButtonVariant.danger,
+            isFullWidth: false,
             onPressed: () async {
-              await database.catalogDao.softDeleteProduct(int.parse(widget.item.id));
-              cartService.removeItem(widget.item.productName);
+              final productName = widget.item.productName;
+              final productId = widget.item.id;
+              await database.catalogDao.softDeleteProduct(int.parse(productId));
+              await activityLogService.logAction(
+                'delete_product',
+                '${authService.currentUser?.name ?? 'Unknown'} deleted product: $productName',
+                relatedEntityId: productId,
+                relatedEntityType: 'product',
+              );
+              cartService.removeItem(productName);
               if (!context.mounted) return;
               Navigator.pop(ctx);
               Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('${widget.item.productName} deleted')),
-              );
+              AppNotification.showSuccess(context, '$productName deleted');
             },
-            child: Text('Delete', style: TextStyle(color: Theme.of(context).colorScheme.error)),
           ),
         ],
       ),

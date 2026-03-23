@@ -10,6 +10,7 @@ import '../../../core/utils/number_format.dart';
 import '../../customers/data/models/customer.dart';
 import '../controllers/pos_controller.dart';
 import '../../../shared/services/cart_service.dart';
+import './product_preview_modal.dart';
 
 class ProductGrid extends StatelessWidget {
   final List<ProductDataWithStock> products;
@@ -113,13 +114,35 @@ class _ProductCardState extends State<_ProductCard>
     with TickerProviderStateMixin {
   AnimationController? _flingCtrl;
   OverlayEntry? _overlayEntry;
+  OverlayEntry? _previewEntry;
 
   @override
   void dispose() {
     _flingCtrl?.dispose();
     _overlayEntry?.remove();
     _overlayEntry = null;
+    _previewEntry?.remove();
+    _previewEntry = null;
     super.dispose();
+  }
+
+  void _showPreview() {
+    if (_previewEntry != null) return;
+    _previewEntry = OverlayEntry(
+      builder: (_) => ProductPreviewModal(
+        product: widget.item.product,
+        totalStock: widget.item.totalStock,
+        cardCol: widget.cardCol,
+        textCol: widget.textCol,
+        subtextCol: widget.subtextCol,
+      ),
+    );
+    Overlay.of(context).insert(_previewEntry!);
+  }
+
+  void _hidePreview() {
+    _previewEntry?.remove();
+    _previewEntry = null;
   }
 
   void _handleTap() {
@@ -143,7 +166,6 @@ class _ProductCardState extends State<_ProductCard>
 
     final screenSize = MediaQuery.of(context).size;
     // Cart icon is the 5th (last) item in the 5-item bottom nav bar.
-    // Its centre x ≈ screenWidth × (4.5/5) and y ≈ near the bottom.
     final target = Offset(screenSize.width * 0.9, screenSize.height - 28.0);
 
     _flingCtrl = AnimationController(
@@ -239,103 +261,108 @@ class _ProductCardState extends State<_ProductCard>
         return Stack(
           clipBehavior: Clip.none,
           children: [
-            InkWell(
-              onTap: _handleTap,
-              borderRadius: BorderRadius.circular(16),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                curve: Curves.easeOut,
-                decoration: BoxDecoration(
-                  color: widget.cardCol,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: inCart ? blueMain : widget.borderCol,
-                    width: inCart ? 2.0 : 1.0,
+            GestureDetector(
+              onLongPressStart: (_) => _showPreview(),
+              onLongPressEnd: (_) => _hidePreview(),
+              onLongPressCancel: () => _hidePreview(),
+              child: InkWell(
+                onTap: _handleTap,
+                borderRadius: BorderRadius.circular(16),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  curve: Curves.easeOut,
+                  decoration: BoxDecoration(
+                    color: widget.cardCol,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: inCart ? blueMain : widget.borderCol,
+                      width: inCart ? 2.0 : 1.0,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: inCart
+                            ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.15)
+                            : Colors.black.withValues(alpha: 0.02),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
                   ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: inCart
-                          ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.15)
-                          : Colors.black.withValues(alpha: 0.02),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Container(
-                        width: double.infinity,
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.05),
-                          borderRadius: const BorderRadius.vertical(
-                              top: Radius.circular(16)),
-                        ),
-                        child: Center(
-                          child: Icon(
-                            FontAwesomeIcons.beerMugEmpty,
-                            size: context.getRSize(32),
-                            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.4),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Container(
+                          width: double.infinity,
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.05),
+                            borderRadius: const BorderRadius.vertical(
+                                top: Radius.circular(16)),
+                          ),
+                          child: Center(
+                            child: Icon(
+                              FontAwesomeIcons.beerMugEmpty,
+                              size: context.getRSize(32),
+                              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.4),
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                    Padding(
-                      padding: EdgeInsets.all(context.getRSize(12)),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            product.name,
-                            style: TextStyle(
-                              fontSize: context.getRFontSize(12),
-                              fontWeight: FontWeight.w700,
-                              color: widget.textCol,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          SizedBox(height: context.getRSize(4)),
-                          Text(
-                            formatCurrency(price),
-                            style: TextStyle(
-                              fontSize: context.getRFontSize(13),
-                              fontWeight: FontWeight.w800,
-                              color: Theme.of(context).colorScheme.primary,
-                            ),
-                          ),
-                          SizedBox(height: context.getRSize(8)),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                'Stock: ${widget.item.totalStock}',
-                                style: TextStyle(
-                                  fontSize: context.getRFontSize(10),
-                                  color: isLowStock ? danger : widget.subtextCol,
-                                  fontWeight: isLowStock
-                                      ? FontWeight.bold
-                                      : FontWeight.w500,
-                                ),
+                      Padding(
+                        padding: EdgeInsets.all(context.getRSize(12)),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              product.name,
+                              style: TextStyle(
+                                fontSize: context.getRFontSize(12),
+                                fontWeight: FontWeight.w700,
+                                color: widget.textCol,
                               ),
-                              if (isLowStock)
-                                Icon(
-                                  FontAwesomeIcons.triangleExclamation,
-                                  size: context.getRSize(10),
-                                  color: Theme.of(context).colorScheme.error,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            SizedBox(height: context.getRSize(4)),
+                            Text(
+                              formatCurrency(price),
+                              style: TextStyle(
+                                fontSize: context.getRFontSize(13),
+                                fontWeight: FontWeight.w800,
+                                color: Theme.of(context).colorScheme.primary,
+                              ),
+                            ),
+                            SizedBox(height: context.getRSize(8)),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  'Stock: ${widget.item.totalStock}',
+                                  style: TextStyle(
+                                    fontSize: context.getRFontSize(10),
+                                    color: isLowStock ? danger : widget.subtextCol,
+                                    fontWeight: isLowStock
+                                        ? FontWeight.bold
+                                        : FontWeight.w500,
+                                  ),
                                 ),
-                            ],
-                          ),
-                        ],
+                                if (isLowStock)
+                                  Icon(
+                                    FontAwesomeIcons.triangleExclamation,
+                                    size: context.getRSize(10),
+                                    color: Theme.of(context).colorScheme.error,
+                                  ),
+                              ],
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
-            // Cart quantity badge — larger than before
+            // Cart quantity badge
             Positioned(
               top: -8,
               right: -8,

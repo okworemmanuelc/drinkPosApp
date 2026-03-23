@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import '../../../../core/theme/colors.dart';
 
 import '../../../../core/utils/number_format.dart';
 import '../../../../core/utils/responsive.dart';
@@ -11,6 +10,9 @@ import '../../../shared/widgets/app_dropdown.dart';
 import '../data/models/delivery.dart';
 import '../data/services/delivery_service.dart';
 import '../../../../core/database/app_database.dart';
+import '../../../../core/utils/notifications.dart';
+import '../../../../shared/widgets/app_button.dart';
+import '../../../../shared/widgets/app_input.dart';
 
 class ReceiveDeliverySheet extends StatefulWidget {
   const ReceiveDeliverySheet({super.key});
@@ -136,57 +138,35 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
   Future<void> _submit() async {
     // Validate warehouse
     if (_selectedWarehouse == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Please select a destination warehouse.'),
-          backgroundColor: Theme.of(context).colorScheme.error,
-        ),
-      );
+      AppNotification.showError(context, 'Please select a destination warehouse.');
       return;
     }
 
     // Validate each line
     for (var l in _lines) {
       if (l.selectedProduct == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text(
-              'Select a product from the list for each item.',
-            ),
-            backgroundColor: Theme.of(context).colorScheme.error,
-          ),
+        AppNotification.showError(
+          context,
+          'Select a product from the list for each item.',
         );
         return;
       }
       if ((double.tryParse(l.qtyCtrl.text) ?? 0) <= 0) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text(
-              'Quantity must be greater than 0 for each item.',
-            ),
-            backgroundColor: Theme.of(context).colorScheme.error,
-          ),
+        AppNotification.showError(
+          context,
+          'Quantity must be greater than 0 for each item.',
         );
         return;
       }
       if (l.selectedSupplier == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Please select a supplier for each item.'),
-            backgroundColor: Theme.of(context).colorScheme.error,
-          ),
-        );
+        AppNotification.showError(context, 'Please select a supplier for each item.');
         return;
       }
       if (l.selectedCategory == 'Glass Crates' &&
           l.selectedCrateGroup == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text(
-              'Select a Crate Company for Glass Crate items.',
-            ),
-            backgroundColor: Theme.of(context).colorScheme.error,
-          ),
+        AppNotification.showError(
+          context,
+          'Select a Crate Company for Glass Crate items.',
         );
         return;
       }
@@ -252,13 +232,9 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
     if (!mounted) return;
 
     Navigator.pop(context);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          '${totalQty.toInt()} units added to ${_selectedWarehouse!.name}.',
-        ),
-        backgroundColor: success,
-      ),
+    AppNotification.showSuccess(
+      context,
+      '${totalQty.toInt()} units added to ${_selectedWarehouse!.name}.',
     );
   }
 
@@ -270,128 +246,65 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
     bool isAutocomplete = false,
     _DeliveryItemLine? line,
   }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w700,
-            color: _subtext,
-          ),
-        ),
-        const SizedBox(height: 8),
-        if (isAutocomplete && line != null)
-          Autocomplete<ProductData>(
-            displayStringForOption: (p) => p.name,
-            optionsBuilder: (TextEditingValue textEditingValue) {
-              if (textEditingValue.text.isEmpty) {
-                return const Iterable<ProductData>.empty();
-              }
-              final q = textEditingValue.text.toLowerCase();
-              return _allProducts.where(
-                (p) => p.name.toLowerCase().contains(q),
-              );
-            },
-            onSelected: (ProductData selection) {
-              setState(() {
-                line.selectedProduct = selection;
-                line.productCtrl.text = selection.name;
-                line.selectedCategory = 'Other';
-                line.retailPriceCtrl.text = (selection.retailPriceKobo / 100)
-                    .round()
-                    .toString();
+    if (isAutocomplete && line != null) {
+      return Autocomplete<ProductData>(
+        displayStringForOption: (p) => p.name,
+        optionsBuilder: (TextEditingValue textEditingValue) {
+          if (textEditingValue.text.isEmpty) {
+            return const Iterable<ProductData>.empty();
+          }
+          final q = textEditingValue.text.toLowerCase();
+          return _allProducts.where(
+            (p) => p.name.toLowerCase().contains(q),
+          );
+        },
+        onSelected: (ProductData selection) {
+          setState(() {
+            line.selectedProduct = selection;
+            line.productCtrl.text = selection.name;
+            line.selectedCategory = 'Other';
+            line.retailPriceCtrl.text =
+                (selection.retailPriceKobo / 100).round().toString();
 
-                // Map crateGroupId to a loaded CrateGroupData
-                if (selection.crateGroupId != null) {
-                  final match = _crateGroups
-                      .where((cg) => cg.id == selection.crateGroupId)
-                      .firstOrNull;
-                  line.selectedCrateGroup = match;
-                } else {
-                  line.selectedCrateGroup = null;
-                }
+            if (selection.crateGroupId != null) {
+              final match = _crateGroups
+                  .where((cg) => cg.id == selection.crateGroupId)
+                  .firstOrNull;
+              line.selectedCrateGroup = match;
+            } else {
+              line.selectedCrateGroup = null;
+            }
 
-                if (line.qtyCtrl.text.isEmpty) {
-                  line.qtyCtrl.text = '1';
-                }
-              });
-            },
-            fieldViewBuilder:
-                (context, controller, focusNode, onEditingComplete) {
-                  if (controller.text.isEmpty &&
-                      line.productCtrl.text.isNotEmpty) {
-                    controller.text = line.productCtrl.text;
-                  }
-                  controller.addListener(() {
-                    line.productCtrl.text = controller.text;
-                  });
-                  return TextField(
-                    controller: controller,
-                    focusNode: focusNode,
-                    onEditingComplete: onEditingComplete,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: _text,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    decoration: InputDecoration(
-                      hintText: hint,
-                      hintStyle: TextStyle(
-                        color: _subtext,
-                        fontWeight: FontWeight.normal,
-                      ),
-                      filled: true,
-                      fillColor: _cardBg,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(14),
-                        borderSide: BorderSide.none,
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(14),
-                        borderSide: BorderSide(
-                          color: Theme.of(context).colorScheme.primary,
-                          width: 2,
-                        ),
-                      ),
-                      contentPadding: const EdgeInsets.all(16),
-                    ),
-                  );
-                },
-          )
-        else
-          TextField(
-            controller: ctrl,
-            keyboardType: isNumber ? TextInputType.number : TextInputType.text,
-            style: TextStyle(
-              fontSize: 14,
-              color: _text,
-              fontWeight: FontWeight.bold,
-            ),
-            decoration: InputDecoration(
-              hintText: hint,
-              hintStyle: TextStyle(
-                color: _subtext,
-                fontWeight: FontWeight.normal,
-              ),
-              filled: true,
-              fillColor: _cardBg,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide.none,
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide(
-                  color: Theme.of(context).colorScheme.primary,
-                  width: 2,
-                ),
-              ),
-              contentPadding: const EdgeInsets.all(16),
-            ),
-          ),
-      ],
+            if (line.qtyCtrl.text.isEmpty) {
+              line.qtyCtrl.text = '1';
+            }
+          });
+        },
+        fieldViewBuilder: (context, controller, focusNode, onEditingComplete) {
+          if (controller.text.isEmpty && line.productCtrl.text.isNotEmpty) {
+            controller.text = line.productCtrl.text;
+          }
+          controller.addListener(() {
+            line.productCtrl.text = controller.text;
+          });
+          return AppInput(
+            controller: controller,
+            focusNode: focusNode,
+            onFieldSubmitted: (_) => onEditingComplete(),
+            labelText: label,
+            hintText: hint,
+            fillColor: _cardBg,
+          );
+        },
+      );
+    }
+
+    return AppInput(
+      controller: ctrl,
+      keyboardType: isNumber ? TextInputType.number : TextInputType.text,
+      labelText: label,
+      hintText: hint,
+      fillColor: _cardBg,
     );
   }
 
@@ -680,47 +593,22 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
                     ),
                   ],
                 ),
-                TextButton.icon(
+                AppButton(
+                  text: 'Add Item',
+                  icon: FontAwesomeIcons.plus,
+                  variant: AppButtonVariant.ghost,
+                  isFullWidth: false,
                   onPressed: () => _addLine(scrollController),
-                  icon: Icon(FontAwesomeIcons.plus, size: context.getRSize(14)),
-                  label: const Text(
-                    'Add Item',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  style: TextButton.styleFrom(
-                    foregroundColor: Theme.of(context).colorScheme.primary,
-                    padding: EdgeInsets.symmetric(
-                      horizontal: context.getRSize(16),
-                      vertical: context.getRSize(12),
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
                 ),
               ],
             ),
             SizedBox(height: context.getRSize(16)),
             SizedBox(
               width: double.infinity,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Theme.of(context).colorScheme.primary,
-                  foregroundColor: Colors.white,
-                  padding: EdgeInsets.symmetric(vertical: context.getRSize(16)),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  elevation: 0,
-                ),
+              child: AppButton(
+                text: 'Confirm Delivery',
+                size: AppButtonSize.large,
                 onPressed: _submit,
-                child: Text(
-                  'Confirm Delivery',
-                  style: TextStyle(
-                    fontSize: context.getRFontSize(16),
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
               ),
             ),
           ],

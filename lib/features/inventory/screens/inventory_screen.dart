@@ -5,7 +5,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../../core/widgets/app_fab.dart';
 import '../../../shared/services/navigation_service.dart';
 import '../../../shared/services/auth_service.dart';
-// import '../../../shared/services/activity_log_service.dart';
+import '../../../shared/services/activity_log_service.dart';
 
 import '../../../core/theme/colors.dart';
 
@@ -19,12 +19,15 @@ import '../../../shared/widgets/app_dropdown.dart';
 import '../../../shared/widgets/notification_bell.dart';
 import '../../../shared/widgets/menu_button.dart';
 import '../../../shared/widgets/app_bar_header.dart';
+import '../../../shared/widgets/app_input.dart';
+import '../../../shared/widgets/app_button.dart';
 import 'supplier_detail_screen.dart';
 import 'stock_count_screen.dart';
 import 'product_detail_screen.dart';
 import '../../../core/theme/design_tokens.dart';
 import '../../../core/database/app_database.dart';
 import '../widgets/add_product_sheet.dart';
+import '../../pos/widgets/category_filter_bar.dart';
 
 class InventoryScreen extends StatefulWidget {
   const InventoryScreen({super.key});
@@ -42,14 +45,16 @@ class _InventoryScreenState extends State<InventoryScreen>
   List<WarehouseData> _warehouses = [];
   List<ProductDataWithStock> _dbProducts = [];
   List<ManufacturerData> _dbManufacturers = [];
+  List<CategoryData> _dbCategories = [];
+  int? _selectedCategoryId;
   Map<String, int> _fullCratesByMfr = {};
   Map<String, int> _emptyCratesByMfr = {};
   int _totalCrateAssetsSum = 0;
   List<CrateGroupData> _dbCrateGroups = [];
 
-
   StreamSubscription<List<ProductDataWithStock>>? _productsSub;
   StreamSubscription<List<ManufacturerData>>? _manufacturersSub;
+  StreamSubscription<List<CategoryData>>? _categoriesSub;
   StreamSubscription<List<CrateGroupData>>? _crateGroupsSub;
   StreamSubscription<Map<String, int>>? _bottlesSub;
   StreamSubscription<Map<String, int>>? _emptyCratesSub;
@@ -58,15 +63,15 @@ class _InventoryScreenState extends State<InventoryScreen>
   List<ActivityLogData> _dbLogs = [];
   Color get _bg => Theme.of(context).scaffoldBackgroundColor;
   Color get _surface => Theme.of(context).colorScheme.surface;
-  
+
   Color get _text => Theme.of(context).colorScheme.onSurface;
-  Color get _subtext => Theme.of(context).textTheme.bodySmall?.color ?? Theme.of(context).iconTheme.color!;
+  Color get _subtext =>
+      Theme.of(context).textTheme.bodySmall?.color ??
+      Theme.of(context).iconTheme.color!;
   Color get _border => Theme.of(context).dividerColor;
 
   List<CrateGroupData> get _activeCrateGroups =>
       _dbCrateGroups.where((cg) => cg.emptyCrateStock > 0).toList();
-
-
 
   @override
   void initState() {
@@ -101,31 +106,36 @@ class _InventoryScreenState extends State<InventoryScreen>
       }
     });
 
-    _manufacturersSub = database.inventoryDao.watchAllManufacturers().listen(
-      (data) {
-        if (mounted) setState(() => _dbManufacturers = data);
-      },
-      onError: (e) => debugPrint('Error watching manufacturers: $e'),
-    );
+    _manufacturersSub = database.inventoryDao.watchAllManufacturers().listen((
+      data,
+    ) {
+      if (mounted) setState(() => _dbManufacturers = data);
+    }, onError: (e) => debugPrint('Error watching manufacturers: $e'));
+
+    _categoriesSub = database.inventoryDao.watchAllCategories().listen((data) {
+      if (mounted) setState(() => _dbCategories = data);
+    }, onError: (e) => debugPrint('Error watching categories: $e'));
 
     _subscribeToProducts();
 
-    _bottlesSub = database.inventoryDao.watchFullCratesByManufacturer().listen(
-      (data) {
-        if (mounted) setState(() => _fullCratesByMfr = data);
-      },
-    );
-    _emptyCratesSub = database.inventoryDao.watchEmptyCratesByManufacturer().listen(
-      (data) {
-        if (mounted) setState(() => _emptyCratesByMfr = data);
-      },
-    );
+    _bottlesSub = database.inventoryDao.watchFullCratesByManufacturer().listen((
+      data,
+    ) {
+      if (mounted) setState(() => _fullCratesByMfr = data);
+    });
+    _emptyCratesSub = database.inventoryDao
+        .watchEmptyCratesByManufacturer()
+        .listen((data) {
+          if (mounted) setState(() => _emptyCratesByMfr = data);
+        });
 
     _logsSub = database.activityLogDao.watchRecent().listen((data) {
       if (mounted) setState(() => _dbLogs = data);
     });
 
-    _crateGroupsSub = database.inventoryDao.watchAllCrateGroups().listen((data) {
+    _crateGroupsSub = database.inventoryDao.watchAllCrateGroups().listen((
+      data,
+    ) {
       if (mounted) setState(() => _dbCrateGroups = data);
     });
 
@@ -138,6 +148,7 @@ class _InventoryScreenState extends State<InventoryScreen>
   void dispose() {
     _productsSub?.cancel();
     _manufacturersSub?.cancel();
+    _categoriesSub?.cancel();
     _crateGroupsSub?.cancel();
     _bottlesSub?.cancel();
     _emptyCratesSub?.cancel();
@@ -169,25 +180,21 @@ class _InventoryScreenState extends State<InventoryScreen>
         : int.tryParse(_selectedWarehouseId);
 
     final productStream = warehouseId != null
-        ? database.inventoryDao.watchProductDatasWithStockByWarehouse(warehouseId)
+        ? database.inventoryDao.watchProductDatasWithStockByWarehouse(
+            warehouseId,
+          )
         : database.inventoryDao.watchAllProductDatasWithStock();
 
-    _productsSub = productStream.listen(
-      (data) {
-        if (mounted) setState(() => _dbProducts = data);
-      },
-      onError: (e) => debugPrint('Error watching inventory: $e'),
-    );
+    _productsSub = productStream.listen((data) {
+      if (mounted) setState(() => _dbProducts = data);
+    }, onError: (e) => debugPrint('Error watching inventory: $e'));
 
-    _emptyCratesSumSub = database.inventoryDao
-        .watchTotalCrateAssets()
-        .listen(
-          (count) {
-            if (mounted) setState(() => _totalCrateAssetsSum = count);
-          },
-        );
+    _emptyCratesSumSub = database.inventoryDao.watchTotalCrateAssets().listen((
+      count,
+    ) {
+      if (mounted) setState(() => _totalCrateAssetsSum = count);
+    });
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -207,14 +214,10 @@ class _InventoryScreenState extends State<InventoryScreen>
         child: NestedScrollView(
           headerSliverBuilder: (context, innerBoxIsScrolled) {
             return [
-              SliverToBoxAdapter(
-                child: _buildSummaryCards(context),
-              ),
+              SliverToBoxAdapter(child: _buildSummaryCards(context)),
               SliverPersistentHeader(
                 pinned: true,
-                delegate: _StickyTabBarDelegate(
-                  child: _buildTabBar(context),
-                ),
+                delegate: _StickyTabBarDelegate(child: _buildTabBar(context)),
               ),
             ];
           },
@@ -268,8 +271,7 @@ class _InventoryScreenState extends State<InventoryScreen>
     final lowStock = products
         .where(
           (p) =>
-              p.totalStock > 0 &&
-              p.totalStock <= p.product.lowStockThreshold,
+              p.totalStock > 0 && p.totalStock <= p.product.lowStockThreshold,
         )
         .length;
     final outOfStock = products.where((p) => p.totalStock == 0).length;
@@ -277,81 +279,81 @@ class _InventoryScreenState extends State<InventoryScreen>
     final totalCrates = _totalCrateAssetsSum.toDouble();
 
     final cards = [
-          _summaryCard(
-            context,
-            'Total SKUs',
-            '$totalItems',
-            FontAwesomeIcons.layerGroup,
-            Theme.of(context).colorScheme.primary,
-            isActive: _stockFilter == 'all',
-            onTap: () => setState(() {
-              _stockFilter = 'all';
-              _tabController.animateTo(0);
-            }),
-          ),
-          _summaryCard(
-            context,
-            'Low Stock',
-            '$lowStock',
-            FontAwesomeIcons.triangleExclamation,
-            const Color(0xFFF59E0B),
-            isActive: _stockFilter == 'low',
-            onTap: () => setState(() {
-              _stockFilter = 'low';
-              _tabController.animateTo(0);
-            }),
-          ),
-          _summaryCard(
-            context,
-            'Out of Stock',
-            '$outOfStock',
-            FontAwesomeIcons.ban,
-            danger,
-            isActive: _stockFilter == 'out',
-            onTap: () => setState(() {
-              _stockFilter = 'out';
-              _tabController.animateTo(0);
-            }),
-          ),
-          _summaryCard(
-            context,
-            'Total Crates',
-            '${totalCrates.toInt()}',
-            FontAwesomeIcons.beerMugEmpty,
-            success,
-            isActive: _tabController.index == 2,
-            onTap: () => setState(() {
-              _tabController.animateTo(2);
-            }),
-          ),
-        ];
+      _summaryCard(
+        context,
+        'Total SKUs',
+        '$totalItems',
+        FontAwesomeIcons.layerGroup,
+        Theme.of(context).colorScheme.primary,
+        isActive: _stockFilter == 'all',
+        onTap: () => setState(() {
+          _stockFilter = 'all';
+          _tabController.animateTo(0);
+        }),
+      ),
+      _summaryCard(
+        context,
+        'Low Stock',
+        '$lowStock',
+        FontAwesomeIcons.triangleExclamation,
+        AppColors.warning,
+        isActive: _stockFilter == 'low',
+        onTap: () => setState(() {
+          _stockFilter = 'low';
+          _tabController.animateTo(0);
+        }),
+      ),
+      _summaryCard(
+        context,
+        'Out of Stock',
+        '$outOfStock',
+        FontAwesomeIcons.ban,
+        danger,
+        isActive: _stockFilter == 'out',
+        onTap: () => setState(() {
+          _stockFilter = 'out';
+          _tabController.animateTo(0);
+        }),
+      ),
+      _summaryCard(
+        context,
+        'Total Crates',
+        '${totalCrates.toInt()}',
+        FontAwesomeIcons.beerMugEmpty,
+        success,
+        isActive: _tabController.index == 2,
+        onTap: () => setState(() {
+          _tabController.animateTo(2);
+        }),
+      ),
+    ];
 
-        return Container(
-          color: _surface,
-          padding: EdgeInsets.only(
-            top: context.getRSize(12),
-            bottom: context.getRSize(16),
-          ),
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            padding: EdgeInsets.symmetric(horizontal: context.spacingM),
-            child: Row(
-              children: cards.asMap().entries.map((entry) {
-                final int index = entry.key;
-                final Widget card = entry.value;
-                return Container(
-                  width: context.isPhone
-                      ? context.getRSize(130)
-                      : context.getRSize(180),
-                  margin: EdgeInsets.only(
-                    right: index < cards.length - 1 ? context.getRSize(12) : 0,
-                  ),
-                  child: card,
-                );
-              }).toList(),
-            ),
-          ),
-        );
+    return Container(
+      color: _surface,
+      padding: EdgeInsets.only(
+        top: context.getRSize(12),
+        bottom: context.getRSize(16),
+      ),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        padding: EdgeInsets.symmetric(horizontal: context.spacingM),
+        child: Row(
+          children: cards.asMap().entries.map((entry) {
+            final int index = entry.key;
+            final Widget card = entry.value;
+            return Container(
+              width: context.isPhone
+                  ? context.getRSize(130)
+                  : context.getRSize(180),
+              margin: EdgeInsets.only(
+                right: index < cards.length - 1 ? context.getRSize(12) : 0,
+              ),
+              child: card,
+            );
+          }).toList(),
+        ),
+      ),
+    );
   }
 
   Widget _summaryCard(
@@ -378,11 +380,7 @@ class _InventoryScreenState extends State<InventoryScreen>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(
-              icon,
-              size: context.getRSize(16),
-              color: color,
-            ),
+            Icon(icon, size: context.getRSize(16), color: color),
             SizedBox(height: context.getRSize(8)),
             FittedBox(
               fit: BoxFit.scaleDown,
@@ -451,8 +449,7 @@ class _InventoryScreenState extends State<InventoryScreen>
       list = list
           .where(
             (p) =>
-                p.totalStock > 0 &&
-                p.totalStock <= p.product.lowStockThreshold,
+                p.totalStock > 0 && p.totalStock <= p.product.lowStockThreshold,
           )
           .toList();
     } else if (_stockFilter == 'out') {
@@ -464,10 +461,36 @@ class _InventoryScreenState extends State<InventoryScreen>
           .where((p) => p.product.manufacturer == _selectedManufacturer)
           .toList();
     }
+    if (_selectedCategoryId != null) {
+      list = list
+          .where((p) => p.product.categoryId == _selectedCategoryId)
+          .toList();
+    }
 
     return Column(
       children: [
         _buildSupplierFilter(context),
+        CategoryFilterBar(
+          categories: ['All', ..._dbCategories.map((c) => c.name)],
+          selectedCategory: _selectedCategoryId == null
+              ? 'All'
+              : _dbCategories
+                    .firstWhere((c) => c.id == _selectedCategoryId)
+                    .name,
+          onCategorySelected: (name) {
+            setState(() {
+              if (name == 'All') {
+                _selectedCategoryId = null;
+              } else {
+                _selectedCategoryId = _dbCategories
+                    .firstWhere((c) => c.name == name)
+                    .id;
+              }
+            });
+          },
+          textCol: _text,
+          borderCol: _border,
+        ),
         Expanded(
           child: list.isEmpty
               ? Center(
@@ -496,29 +519,11 @@ class _InventoryScreenState extends State<InventoryScreen>
       children: [
         Padding(
           padding: EdgeInsets.all(context.getRSize(16)),
-          child: SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
-                foregroundColor: Theme.of(context).colorScheme.primary,
-                elevation: 0,
-                padding: EdgeInsets.symmetric(vertical: context.getRSize(16)),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  side: BorderSide(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3)),
-                ),
-              ),
-              icon: Icon(FontAwesomeIcons.plus, size: context.getRSize(16)),
-              label: Text(
-                'Add Supplier',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: context.getRFontSize(15),
-                ),
-              ),
-              onPressed: _showAddSupplierDialog,
-            ),
+          child: AppButton(
+            text: 'Add Supplier',
+            variant: AppButtonVariant.secondary,
+            icon: FontAwesomeIcons.plus,
+            onPressed: _showAddSupplierDialog,
           ),
         ),
         Expanded(
@@ -560,7 +565,9 @@ class _InventoryScreenState extends State<InventoryScreen>
                               width: context.getRSize(48),
                               height: context.getRSize(48),
                               decoration: BoxDecoration(
-                                color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.primary.withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: Icon(
@@ -611,7 +618,6 @@ class _InventoryScreenState extends State<InventoryScreen>
     );
   }
 
-
   List<ManufacturerCrateStats> get _manufacturerCrateStats {
     final allMfrs = {..._fullCratesByMfr.keys, ..._emptyCratesByMfr.keys};
     return allMfrs.map((mfr) {
@@ -621,8 +627,7 @@ class _InventoryScreenState extends State<InventoryScreen>
         emptyCrates: _emptyCratesByMfr[mfr] ?? 0,
         totalValueKobo: 0,
       );
-    }).toList()
-      ..sort((a, b) => a.manufacturer.compareTo(b.manufacturer));
+    }).toList()..sort((a, b) => a.manufacturer.compareTo(b.manufacturer));
   }
 
   Widget _buildSupplierFilter(BuildContext context) {
@@ -643,11 +648,19 @@ class _InventoryScreenState extends State<InventoryScreen>
                     value: _selectedWarehouseId,
                     labelText: 'Warehouse',
                     items: [
-                      DropdownMenuItem(value: 'all', child: Text('All Warehouses', style: TextStyle(color: _text))),
-                      ..._warehouses.map((w) => DropdownMenuItem(
-                        value: w.id.toString(),
-                        child: Text(w.name, style: TextStyle(color: _text)),
-                      )),
+                      DropdownMenuItem(
+                        value: 'all',
+                        child: Text(
+                          'All Warehouses',
+                          style: TextStyle(color: _text),
+                        ),
+                      ),
+                      ..._warehouses.map(
+                        (w) => DropdownMenuItem(
+                          value: w.id.toString(),
+                          child: Text(w.name, style: TextStyle(color: _text)),
+                        ),
+                      ),
                     ],
                     onChanged: (val) {
                       if (val != null) {
@@ -663,13 +676,19 @@ class _InventoryScreenState extends State<InventoryScreen>
               value: _selectedManufacturer,
               labelText: 'Manufacturer',
               items: [
-                DropdownMenuItem(value: 'all', child: Text('All', style: TextStyle(color: _text))),
-                ..._dbManufacturers.map((m) => DropdownMenuItem(
-                  value: m.name,
-                  child: Text(m.name, style: TextStyle(color: _text)),
-                )),
+                DropdownMenuItem(
+                  value: 'all',
+                  child: Text('All', style: TextStyle(color: _text)),
+                ),
+                ..._dbManufacturers.map(
+                  (m) => DropdownMenuItem(
+                    value: m.name,
+                    child: Text(m.name, style: TextStyle(color: _text)),
+                  ),
+                ),
               ],
-              onChanged: (val) => setState(() => _selectedManufacturer = val ?? 'all'),
+              onChanged: (val) =>
+                  setState(() => _selectedManufacturer = val ?? 'all'),
             ),
           ),
         ],
@@ -694,7 +713,11 @@ class _InventoryScreenState extends State<InventoryScreen>
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(FontAwesomeIcons.warehouse, size: context.getRSize(12), color: _subtext),
+          Icon(
+            FontAwesomeIcons.warehouse,
+            size: context.getRSize(12),
+            color: _subtext,
+          ),
           SizedBox(width: context.getRSize(8)),
           Expanded(
             child: Text(
@@ -707,7 +730,11 @@ class _InventoryScreenState extends State<InventoryScreen>
               overflow: TextOverflow.ellipsis,
             ),
           ),
-          Icon(FontAwesomeIcons.lock, size: context.getRSize(10), color: _subtext),
+          Icon(
+            FontAwesomeIcons.lock,
+            size: context.getRSize(10),
+            color: _subtext,
+          ),
         ],
       ),
     );
@@ -725,7 +752,7 @@ class _InventoryScreenState extends State<InventoryScreen>
       statusColor = danger;
       statusLabel = 'Out of Stock';
     } else if (isLow) {
-      statusColor = const Color(0xFFF59E0B);
+      statusColor = AppColors.warning;
       statusLabel = 'Low Stock';
     }
 
@@ -755,6 +782,7 @@ class _InventoryScreenState extends State<InventoryScreen>
           distributorPrice: product.distributorPriceKobo != null
               ? product.distributorPriceKobo! / 100.0
               : null,
+          buyingPrice: product.buyingPriceKobo / 100.0,
           category: product.categoryId?.toString(),
           manufacturer: product.manufacturer,
           crateSize: product.crateSize,
@@ -765,6 +793,9 @@ class _InventoryScreenState extends State<InventoryScreen>
             builder: (context) => ProductDetailScreen(
               item: inventoryItem,
               onUpdateStock: () => setState(() {}),
+              selectedWarehouseId: _selectedWarehouseId == 'all'
+                  ? null
+                  : int.tryParse(_selectedWarehouseId),
             ),
           ),
         );
@@ -868,7 +899,7 @@ class _InventoryScreenState extends State<InventoryScreen>
                         fontWeight: FontWeight.w800,
                         color: isOut
                             ? danger
-                            : (isLow ? const Color(0xFFF59E0B) : _text),
+                            : (isLow ? AppColors.warning : _text),
                       ),
                     ),
                   ),
@@ -900,9 +931,9 @@ class _InventoryScreenState extends State<InventoryScreen>
       children: [
         // 1. Stats Overview
         _buildCrateStatsRow(context),
-        
+
         SizedBox(height: context.getRSize(24)),
-        
+
         // 2. Manufacturers Section
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -916,28 +947,24 @@ class _InventoryScreenState extends State<InventoryScreen>
                 letterSpacing: -0.5,
               ),
             ),
-            TextButton.icon(
+            AppButton(
+              text: 'Add New',
+              icon: FontAwesomeIcons.circlePlus,
+              variant: AppButtonVariant.ghost,
+              isFullWidth: false,
               onPressed: _showAddManufacturerDialog,
-              icon: Icon(FontAwesomeIcons.circlePlus, size: context.getRSize(14)),
-              label: Text(
-                'Add New',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: context.getRFontSize(13),
-                ),
-              ),
-              style: TextButton.styleFrom(
-                foregroundColor: Theme.of(context).colorScheme.primary,
-                padding: EdgeInsets.symmetric(horizontal: context.getRSize(12)),
-              ),
             ),
           ],
         ),
-        
+
         SizedBox(height: context.getRSize(12)),
-        
+
         if (_dbManufacturers.isEmpty)
-          _buildEmptyCratesState(context, 'No manufacturers to track', 'Add your first manufacturer above')
+          _buildEmptyCratesState(
+            context,
+            'No manufacturers to track',
+            'Add your first manufacturer above',
+          )
         else
           ..._dbManufacturers.map((mfr) {
             final stat = _manufacturerCrateStats.firstWhere(
@@ -961,9 +988,15 @@ class _InventoryScreenState extends State<InventoryScreen>
   }
 
   Widget _buildCrateStatsRow(BuildContext context) {
-    final totalEmpty = _dbManufacturers.fold<int>(0, (sum, m) => sum + m.emptyCrateStock);
-    final totalFull = _manufacturerCrateStats.fold<int>(0, (sum, s) => sum + s.fullCratesEquiv);
-    
+    final totalEmpty = _dbManufacturers.fold<int>(
+      0,
+      (sum, m) => sum + m.emptyCrateStock,
+    );
+    final totalFull = _manufacturerCrateStats.fold<int>(
+      0,
+      (sum, s) => sum + s.fullCratesEquiv,
+    );
+
     return Row(
       children: [
         Expanded(
@@ -972,7 +1005,7 @@ class _InventoryScreenState extends State<InventoryScreen>
             'Empty In Stock',
             totalEmpty.toString(),
             FontAwesomeIcons.beerMugEmpty,
-            const Color(0xFFF59E0B),
+            AppColors.warning,
           ),
         ),
         SizedBox(width: context.getRSize(12)),
@@ -989,7 +1022,13 @@ class _InventoryScreenState extends State<InventoryScreen>
     );
   }
 
-  Widget _miniCrateStatCard(BuildContext context, String label, String value, IconData icon, Color color) {
+  Widget _miniCrateStatCard(
+    BuildContext context,
+    String label,
+    String value,
+    IconData icon,
+    Color color,
+  ) {
     return Container(
       padding: EdgeInsets.all(context.getRSize(16)),
       decoration: BoxDecoration(
@@ -1030,7 +1069,11 @@ class _InventoryScreenState extends State<InventoryScreen>
     );
   }
 
-  Widget _buildManufacturerCard(BuildContext context, ManufacturerData mfr, ManufacturerCrateStats stat) {
+  Widget _buildManufacturerCard(
+    BuildContext context,
+    ManufacturerData mfr,
+    ManufacturerCrateStats stat,
+  ) {
     final depositNaira = mfr.depositAmountKobo / 100;
     final totalAssets = stat.fullCratesEquiv + mfr.emptyCrateStock;
 
@@ -1058,12 +1101,14 @@ class _InventoryScreenState extends State<InventoryScreen>
                   width: context.getRSize(44),
                   height: context.getRSize(44),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFA855F7).withValues(alpha: 0.1),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.secondary.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(
                     FontAwesomeIcons.industry,
-                    color: const Color(0xFFA855F7),
+                    color: Theme.of(context).colorScheme.secondary,
                     size: context.getRSize(16),
                   ),
                 ),
@@ -1106,9 +1151,25 @@ class _InventoryScreenState extends State<InventoryScreen>
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                _mfrSimpleStat(context, 'Full', stat.fullCratesEquiv.toString(), Theme.of(context).colorScheme.primary),
-                _mfrSimpleStat(context, 'Empty', mfr.emptyCrateStock.toString(), const Color(0xFFF59E0B)),
-                _mfrSimpleStat(context, 'Total', totalAssets.toString(), AppColors.success, isBold: true),
+                _mfrSimpleStat(
+                  context,
+                  'Full',
+                  stat.fullCratesEquiv.toString(),
+                  Theme.of(context).colorScheme.primary,
+                ),
+                _mfrSimpleStat(
+                  context,
+                  'Empty',
+                  mfr.emptyCrateStock.toString(),
+                  AppColors.warning,
+                ),
+                _mfrSimpleStat(
+                  context,
+                  'Total',
+                  totalAssets.toString(),
+                  AppColors.success,
+                  isBold: true,
+                ),
               ],
             ),
           ),
@@ -1117,7 +1178,13 @@ class _InventoryScreenState extends State<InventoryScreen>
     );
   }
 
-  Widget _mfrSimpleStat(BuildContext context, String label, String value, Color color, {bool isBold = false}) {
+  Widget _mfrSimpleStat(
+    BuildContext context,
+    String label,
+    String value,
+    Color color, {
+    bool isBold = false,
+  }) {
     return Column(
       children: [
         Text(
@@ -1129,7 +1196,7 @@ class _InventoryScreenState extends State<InventoryScreen>
             letterSpacing: 0.5,
           ),
         ),
-        SizedBox(height: 4),
+        const SizedBox(height: 4),
         Text(
           value,
           style: TextStyle(
@@ -1147,9 +1214,14 @@ class _InventoryScreenState extends State<InventoryScreen>
       onTap: () => _showUpdateManufacturerDialog(mfr),
       borderRadius: BorderRadius.circular(10),
       child: Container(
-        padding: EdgeInsets.symmetric(horizontal: context.getRSize(12), vertical: context.getRSize(8)),
+        padding: EdgeInsets.symmetric(
+          horizontal: context.getRSize(12),
+          vertical: context.getRSize(8),
+        ),
         decoration: BoxDecoration(
-          border: Border.all(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3)),
+          border: Border.all(
+            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
+          ),
           borderRadius: BorderRadius.circular(10),
         ),
         child: Text(
@@ -1164,7 +1236,11 @@ class _InventoryScreenState extends State<InventoryScreen>
     );
   }
 
-  Widget _buildEmptyCratesState(BuildContext context, String title, String subtitle) {
+  Widget _buildEmptyCratesState(
+    BuildContext context,
+    String title,
+    String subtitle,
+  ) {
     return Container(
       padding: EdgeInsets.symmetric(vertical: context.getRSize(32)),
       decoration: BoxDecoration(
@@ -1175,9 +1251,16 @@ class _InventoryScreenState extends State<InventoryScreen>
       child: Center(
         child: Column(
           children: [
-            Icon(FontAwesomeIcons.boxOpen, size: context.getRSize(32), color: _border),
+            Icon(
+              FontAwesomeIcons.boxOpen,
+              size: context.getRSize(32),
+              color: _border,
+            ),
             SizedBox(height: context.getRSize(16)),
-            Text(title, style: TextStyle(fontWeight: FontWeight.bold, color: _text)),
+            Text(
+              title,
+              style: TextStyle(fontWeight: FontWeight.bold, color: _text),
+            ),
             Text(subtitle, style: TextStyle(fontSize: 12, color: _subtext)),
           ],
         ),
@@ -1201,37 +1284,71 @@ class _InventoryScreenState extends State<InventoryScreen>
             color: _surface,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
           ),
-          padding: EdgeInsets.fromLTRB(24, 24, 24, 24 + MediaQuery.of(ctx).padding.bottom),
+          padding: EdgeInsets.fromLTRB(
+            24,
+            24,
+            24,
+            24 + MediaQuery.of(ctx).padding.bottom,
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 'Add Manufacturer',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: _text),
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w900,
+                  color: _text,
+                ),
               ),
               const SizedBox(height: 20),
               _styledDialogField(nameCtrl, 'Name', 'e.g. Nigerian Breweries'),
               const SizedBox(height: 12),
               Row(
                 children: [
-                  Expanded(child: _styledDialogField(stockCtrl, 'Initial Empty', '0', isNumber: true)),
+                  Expanded(
+                    child: _styledDialogField(
+                      stockCtrl,
+                      'Initial Empty',
+                      '0',
+                      isNumber: true,
+                    ),
+                  ),
                   const SizedBox(width: 12),
-                  Expanded(child: _styledDialogField(depositCtrl, 'Deposit (₦)', '0', isNumber: true)),
+                  Expanded(
+                    child: _styledDialogField(
+                      depositCtrl,
+                      'Deposit (₦)',
+                      '0',
+                      isNumber: true,
+                    ),
+                  ),
                 ],
               ),
               const SizedBox(height: 32),
-              _gradientButton(
-                context: ctx,
-                label: 'Add Manufacturer',
+              AppButton(
+                text: 'Add Manufacturer',
+                variant: AppButtonVariant.primary,
                 onPressed: () async {
                   if (nameCtrl.text.trim().isEmpty) return;
+                  final mfrName = nameCtrl.text.trim();
                   await database.inventoryDao.insertManufacturer(
                     ManufacturersCompanion.insert(
-                      name: nameCtrl.text.trim(),
-                      emptyCrateStock: Value(int.tryParse(stockCtrl.text.trim()) ?? 0),
-                      depositAmountKobo: Value(((double.tryParse(depositCtrl.text.trim()) ?? 0) * 100).round()),
+                      name: mfrName,
+                      emptyCrateStock: Value(
+                        int.tryParse(stockCtrl.text.trim()) ?? 0,
+                      ),
+                      depositAmountKobo: Value(
+                        ((double.tryParse(depositCtrl.text.trim()) ?? 0) * 100)
+                            .round(),
+                      ),
                     ),
+                  );
+                  await activityLogService.logAction(
+                    'add_manufacturer',
+                    '${authService.currentUser?.name ?? 'Unknown'} added manufacturer: $mfrName',
+                    relatedEntityType: 'manufacturer',
                   );
                   if (mounted) Navigator.pop(ctx);
                 },
@@ -1244,14 +1361,16 @@ class _InventoryScreenState extends State<InventoryScreen>
   }
 
   void _showUpdateManufacturerDialog(ManufacturerData mfr) {
-    final stockCtrl = TextEditingController(text: mfr.emptyCrateStock.toString());
+    final stockCtrl = TextEditingController(
+      text: mfr.emptyCrateStock.toString(),
+    );
     final depositCtrl = TextEditingController();
     final crateValueCtrl = TextEditingController();
     final isCEO = (authService.currentUser?.roleTier ?? 1) >= 5;
-    
+
     // Default modes
     String depositMode = 'change'; // 'add' | 'change'
-    String priceMode = 'change';   // 'add' | 'change'
+    String priceMode = 'change'; // 'add' | 'change'
 
     showModalBottomSheet(
       context: context,
@@ -1259,13 +1378,22 @@ class _InventoryScreenState extends State<InventoryScreen>
       backgroundColor: Colors.transparent,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setB) => Padding(
-          padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(ctx).viewInsets.bottom,
+          ),
           child: Container(
             decoration: BoxDecoration(
               color: _surface,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(28),
+              ),
             ),
-            padding: EdgeInsets.fromLTRB(24, 24, 24, 24 + MediaQuery.of(ctx).padding.bottom),
+            padding: EdgeInsets.fromLTRB(
+              24,
+              24,
+              24,
+              24 + MediaQuery.of(ctx).padding.bottom,
+            ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1275,7 +1403,11 @@ class _InventoryScreenState extends State<InventoryScreen>
                   children: [
                     Text(
                       'Update ${mfr.name}',
-                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: _text),
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w900,
+                        color: _text,
+                      ),
                     ),
                     IconButton(
                       icon: const Icon(Icons.close),
@@ -1285,13 +1417,13 @@ class _InventoryScreenState extends State<InventoryScreen>
                 ),
                 const SizedBox(height: 20),
                 _styledDialogField(
-                  stockCtrl, 
-                  'Empty Crates In Stock', 
-                  'e.g. 50', 
+                  stockCtrl,
+                  'Empty Crates In Stock',
+                  'e.g. 50',
                   isNumber: true,
                 ),
                 const SizedBox(height: 12),
-                
+
                 // Deposit Amount with CEO Check
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1300,51 +1432,78 @@ class _InventoryScreenState extends State<InventoryScreen>
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          'Deposit Amount (₦)', 
-                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: _subtext),
+                          'Deposit Amount (₦)',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: _subtext,
+                          ),
                         ),
                         if (isCEO)
                           Row(
                             children: [
-                              _modeChip('Add', depositMode == 'add', () => setB(() => depositMode = 'add')),
+                              _modeChip(
+                                'Add',
+                                depositMode == 'add',
+                                () => setB(() => depositMode = 'add'),
+                              ),
                               const SizedBox(width: 4),
-                              _modeChip('Change', depositMode == 'change', () => setB(() => depositMode = 'change')),
+                              _modeChip(
+                                'Change',
+                                depositMode == 'change',
+                                () => setB(() => depositMode = 'change'),
+                              ),
                             ],
                           )
                         else
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 2,
+                            ),
                             decoration: BoxDecoration(
                               color: _border.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
                               '₦${(mfr.depositAmountKobo / 100).toStringAsFixed(0)}',
-                              style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: _subtext),
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: _subtext,
+                              ),
                             ),
                           ),
                       ],
                     ),
                     const SizedBox(height: 8),
                     _styledDialogField(
-                      depositCtrl, 
-                      '', 
-                      depositMode == 'add' ? 'Amount to add' : 'New total amount', 
+                      depositCtrl,
+                      '',
+                      depositMode == 'add'
+                          ? 'Amount to add'
+                          : 'New total amount',
                       isNumber: true,
                       readOnly: !isCEO,
                       showLabel: false,
                     ),
                   ],
                 ),
-                
+
                 if (isCEO) ...[
                   const SizedBox(height: 20),
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.05),
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.primary.withValues(alpha: 0.05),
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1)),
+                      border: Border.all(
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.primary.withValues(alpha: 0.1),
+                      ),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1354,49 +1513,73 @@ class _InventoryScreenState extends State<InventoryScreen>
                           children: [
                             Row(
                               children: [
-                                Icon(FontAwesomeIcons.shieldHalved, size: 14, color: Theme.of(context).colorScheme.primary),
+                                Icon(
+                                  FontAwesomeIcons.shieldHalved,
+                                  size: 14,
+                                  color: Theme.of(context).colorScheme.primary,
+                                ),
                                 const SizedBox(width: 8),
                                 Text(
                                   'CEO: CRATE PRICE',
-                                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: Theme.of(context).colorScheme.primary),
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w900,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.primary,
+                                  ),
                                 ),
                               ],
                             ),
                             Row(
                               children: [
-                                _modeChip('Add', priceMode == 'add', () => setB(() => priceMode = 'add'), small: true),
+                                _modeChip(
+                                  'Add',
+                                  priceMode == 'add',
+                                  () => setB(() => priceMode = 'add'),
+                                  small: true,
+                                ),
                                 const SizedBox(width: 4),
-                                _modeChip('Change', priceMode == 'change', () => setB(() => priceMode = 'change'), small: true),
+                                _modeChip(
+                                  'Change',
+                                  priceMode == 'change',
+                                  () => setB(() => priceMode = 'change'),
+                                  small: true,
+                                ),
                               ],
                             ),
                           ],
                         ),
                         const SizedBox(height: 12),
                         _styledDialogField(
-                          crateValueCtrl, 
-                          'Bulk Update Price (₦)', 
-                          priceMode == 'add' ? '+ /- amount' : 'New price for all items', 
+                          crateValueCtrl,
+                          'Bulk Update Price (₦)',
+                          priceMode == 'add'
+                              ? '+ /- amount'
+                              : 'New price for all items',
                           isNumber: true,
                         ),
                       ],
                     ),
                   ),
                 ],
-                
+
                 const SizedBox(height: 32),
-                _gradientButton(
-                  context: ctx,
-                  label: 'Save Changes',
+                AppButton(
+                  text: 'Save Changes',
+                  variant: AppButtonVariant.primary,
                   onPressed: () async {
                     // Update Stock
                     await database.inventoryDao.updateManufacturerStock(
-                      mfr.id, 
-                      int.tryParse(stockCtrl.text.trim()) ?? mfr.emptyCrateStock,
+                      mfr.id,
+                      int.tryParse(stockCtrl.text.trim()) ??
+                          mfr.emptyCrateStock,
                     );
 
                     // Update Deposit
                     if (isCEO && depositCtrl.text.isNotEmpty) {
-                      final inputVal = double.tryParse(depositCtrl.text.trim()) ?? 0;
+                      final inputVal =
+                          double.tryParse(depositCtrl.text.trim()) ?? 0;
                       final inputKobo = (inputVal * 100).round();
                       int newDepositKobo = mfr.depositAmountKobo;
                       if (depositMode == 'add') {
@@ -1404,30 +1587,47 @@ class _InventoryScreenState extends State<InventoryScreen>
                       } else {
                         newDepositKobo = inputKobo;
                       }
-                      await database.inventoryDao.updateManufacturerDeposit(mfr.id, newDepositKobo);
+                      await database.inventoryDao.updateManufacturerDeposit(
+                        mfr.id,
+                        newDepositKobo,
+                      );
                     }
-                    
+
                     // Update Product Crate Values
                     if (isCEO && crateValueCtrl.text.isNotEmpty) {
-                      final inputVal = double.tryParse(crateValueCtrl.text.trim()) ?? 0;
+                      final inputVal =
+                          double.tryParse(crateValueCtrl.text.trim()) ?? 0;
                       final inputKobo = (inputVal * 100).round();
-                      
+
                       if (priceMode == 'add') {
-                        // This would require a more complex DB operation to add relative 
-                        // to current. For now, we update if simple change is requested 
-                        // but user said "same procedure" so I'll try to support add too 
+                        // This would require a more complex DB operation to add relative
+                        // to current. For now, we update if simple change is requested
+                        // but user said "same procedure" so I'll try to support add too
                         // if DB allows or I'll just use simple replace for price if not feasible.
-                        // Actually I'll just use replace for price for now as 'Add' to a unit 
+                        // Actually I'll just use replace for price for now as 'Add' to a unit
                         // price is less common, but I'll set it to newVal anyway.
                         // Wait, I can't easily fetch 'current' for all without a more complex SQL.
-                        // I'll stick to replacing for price regardless of mode for now but 
+                        // I'll stick to replacing for price regardless of mode for now but
                         // with a newVal if 'add' was meant as 'new absolute plus current'.
-                        await database.catalogDao.updateManufacturerEmptyCrateValue(mfr.id, inputKobo);
+                        await database.catalogDao
+                            .updateManufacturerEmptyCrateValue(
+                              mfr.id,
+                              inputKobo,
+                            );
                       } else {
-                        await database.catalogDao.updateManufacturerEmptyCrateValue(mfr.id, inputKobo);
+                        await database.catalogDao
+                            .updateManufacturerEmptyCrateValue(
+                              mfr.id,
+                              inputKobo,
+                            );
                       }
                     }
-                    
+
+                    await activityLogService.logAction(
+                      'update_manufacturer',
+                      '${authService.currentUser?.name ?? 'Unknown'} updated crate stock/deposit for ${mfr.name}',
+                      relatedEntityType: 'manufacturer',
+                    );
                     if (mounted) Navigator.pop(ctx);
                   },
                 ),
@@ -1439,7 +1639,12 @@ class _InventoryScreenState extends State<InventoryScreen>
     );
   }
 
-  Widget _modeChip(String label, bool active, VoidCallback onTap, {bool small = false}) {
+  Widget _modeChip(
+    String label,
+    bool active,
+    VoidCallback onTap, {
+    bool small = false,
+  }) {
     final color = active ? Theme.of(context).colorScheme.primary : _subtext;
     return GestureDetector(
       onTap: onTap,
@@ -1462,75 +1667,24 @@ class _InventoryScreenState extends State<InventoryScreen>
     );
   }
 
-  Widget _gradientButton({
-    required BuildContext context,
-    required String label,
-    required VoidCallback onPressed,
-  }) {
-    return InkWell(
-      onTap: onPressed,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Theme.of(context).colorScheme.primary,
-              Theme.of(context).colorScheme.primary.withValues(alpha: 0.8),
-            ],
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Text(
-          label,
-          textAlign: TextAlign.center,
-          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
-        ),
-      ),
-    );
-  }
 
   Widget _styledDialogField(
-    TextEditingController ctrl, 
-    String label, 
+    TextEditingController ctrl,
+    String label,
     String hint, {
-    bool isNumber = false, 
+    bool isNumber = false,
     bool readOnly = false,
     bool showLabel = true,
   }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (showLabel) ...[
-          Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: _subtext)),
-          const SizedBox(height: 8),
-        ],
-        TextField(
-          controller: ctrl,
-          readOnly: readOnly,
-          keyboardType: isNumber ? const TextInputType.numberWithOptions(decimal: true) : TextInputType.text,
-          style: TextStyle(color: readOnly ? _subtext : _text, fontWeight: FontWeight.bold),
-          decoration: InputDecoration(
-            hintText: hint,
-            hintStyle: TextStyle(color: _subtext, fontWeight: FontWeight.normal),
-            filled: true,
-            fillColor: readOnly ? _border.withValues(alpha: 0.05) : Theme.of(context).cardColor,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            prefixIcon: isNumber ? Icon(FontAwesomeIcons.nairaSign, size: 12, color: _subtext) : null,
-          ),
-        ),
-      ],
+    return AppInput(
+      controller: ctrl,
+      labelText: showLabel ? label : null,
+      hintText: hint,
+      readOnly: readOnly,
+      keyboardType: isNumber
+          ? const TextInputType.numberWithOptions(decimal: true)
+          : TextInputType.text,
+      fillColor: Theme.of(context).cardColor,
     );
   }
 
@@ -1543,15 +1697,25 @@ class _InventoryScreenState extends State<InventoryScreen>
             Container(
               padding: EdgeInsets.all(context.getRSize(8)),
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.secondary.withValues(alpha: 0.1),
+                color: Theme.of(
+                  context,
+                ).colorScheme.secondary.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: Icon(FontAwesomeIcons.box, size: context.getRSize(14), color: Theme.of(context).colorScheme.secondary),
+              child: Icon(
+                FontAwesomeIcons.box,
+                size: context.getRSize(14),
+                color: Theme.of(context).colorScheme.secondary,
+              ),
             ),
             SizedBox(width: context.getRSize(10)),
             Text(
               'Crate Group Assets',
-              style: TextStyle(fontSize: context.getRFontSize(16), fontWeight: FontWeight.bold, color: _text),
+              style: TextStyle(
+                fontSize: context.getRFontSize(16),
+                fontWeight: FontWeight.bold,
+                color: _text,
+              ),
             ),
           ],
         ),
@@ -1580,27 +1744,41 @@ class _InventoryScreenState extends State<InventoryScreen>
                 children: [
                   Text(
                     grp.name,
-                    style: TextStyle(fontSize: context.getRFontSize(13), fontWeight: FontWeight.bold, color: _text),
+                    style: TextStyle(
+                      fontSize: context.getRFontSize(13),
+                      fontWeight: FontWeight.bold,
+                      color: _text,
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                   Text(
                     '${grp.size} bottles',
-                    style: TextStyle(fontSize: context.getRFontSize(11), color: _subtext),
+                    style: TextStyle(
+                      fontSize: context.getRFontSize(11),
+                      color: _subtext,
+                    ),
                   ),
-            const Spacer(),
+                  const Spacer(),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
                         grp.emptyCrateStock.toString(),
-                        style: TextStyle(fontSize: context.getRFontSize(20), fontWeight: FontWeight.w900, color: Theme.of(context).colorScheme.primary),
+                        style: TextStyle(
+                          fontSize: context.getRFontSize(20),
+                          fontWeight: FontWeight.w900,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
                       ),
                       GestureDetector(
                         onTap: () => _showUpdateCrateGroupDialog(grp),
                         child: Container(
                           padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(color: _border, shape: BoxShape.circle),
+                          decoration: BoxDecoration(
+                            color: _border,
+                            shape: BoxShape.circle,
+                          ),
                           child: Icon(Icons.edit, size: 14, color: _text),
                         ),
                       ),
@@ -1616,7 +1794,9 @@ class _InventoryScreenState extends State<InventoryScreen>
   }
 
   void _showUpdateCrateGroupDialog(CrateGroupData grp) {
-    final stockCtrl = TextEditingController(text: grp.emptyCrateStock.toString());
+    final stockCtrl = TextEditingController(
+      text: grp.emptyCrateStock.toString(),
+    );
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -1625,22 +1805,50 @@ class _InventoryScreenState extends State<InventoryScreen>
         padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
         child: Container(
           decoration: BoxDecoration(
-            color: _surface, 
+            color: _surface,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
           ),
-          padding: EdgeInsets.fromLTRB(24, 24, 24, 24 + MediaQuery.of(ctx).padding.bottom),
+          padding: EdgeInsets.fromLTRB(
+            24,
+            24,
+            24,
+            24 + MediaQuery.of(ctx).padding.bottom,
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('Update ${grp.name}', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _text)),
+              Text(
+                'Update ${grp.name}',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: _text,
+                ),
+              ),
               const SizedBox(height: 20),
-              _styledDialogField(stockCtrl, 'Physical Stock', '0', isNumber: true),
+              _styledDialogField(
+                stockCtrl,
+                'Physical Stock',
+                '0',
+                isNumber: true,
+              ),
               const SizedBox(height: 24),
-              _gradientButton(
-                context: ctx,
-                label: 'Save Changes',
+              AppButton(
+                text: 'Save Changes',
+                variant: AppButtonVariant.primary,
                 onPressed: () async {
-                  await database.inventoryDao.updateCrateGroupStock(grp.id, int.tryParse(stockCtrl.text.trim()) ?? grp.emptyCrateStock);
+                  final newStock =
+                      int.tryParse(stockCtrl.text.trim()) ??
+                      grp.emptyCrateStock;
+                  await database.inventoryDao.updateCrateGroupStock(
+                    grp.id,
+                    newStock,
+                  );
+                  await activityLogService.logAction(
+                    'crate_group_update',
+                    '${authService.currentUser?.name ?? 'Unknown'} set ${grp.name} crate stock to $newStock',
+                    relatedEntityType: 'crate_group',
+                  );
                   if (mounted) Navigator.pop(ctx);
                 },
               ),
@@ -1700,12 +1908,13 @@ class _InventoryScreenState extends State<InventoryScreen>
 
   Widget _buildLogRow(BuildContext context, ActivityLogData log) {
     final actionColors = {
-      'Inventory Restock': success,
+      'Inventory Restock': AppColors.success,
       'Stock Adjustment': Theme.of(context).colorScheme.primary,
-      'crate_update': const Color(0xFFF59E0B),
-      'new_supplier': const Color(0xFF8B5CF6),
+      'crate_update': AppColors.warning,
+      'new_supplier': Theme.of(context).colorScheme.secondary,
     };
-    final color = actionColors[log.action] ?? Theme.of(context).colorScheme.primary;
+    final color =
+        actionColors[log.action] ?? Theme.of(context).colorScheme.primary;
 
     return Container(
       padding: EdgeInsets.all(context.getRSize(14)),
@@ -1786,9 +1995,7 @@ class _InventoryScreenState extends State<InventoryScreen>
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => AddProductSheet(
-        onProductAdded: () => setState(() {}),
-      ),
+      builder: (_) => AddProductSheet(onProductAdded: () => setState(() {})),
     );
   }
 
@@ -1807,21 +2014,34 @@ class _InventoryScreenState extends State<InventoryScreen>
             color: Theme.of(context).colorScheme.surface,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
           ),
-          padding: EdgeInsets.fromLTRB(24, 24, 24, 24 + MediaQuery.of(ctx).padding.bottom),
+          padding: EdgeInsets.fromLTRB(
+            24,
+            24,
+            24,
+            24 + MediaQuery.of(ctx).padding.bottom,
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Center(
                 child: Container(
-                  width: 40, height: 4,
-                  decoration: BoxDecoration(color: _border, borderRadius: BorderRadius.circular(2)),
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: _border,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
               ),
               const SizedBox(height: 20),
               Text(
                 'Add New Supplier',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: _text),
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                  color: _text,
+                ),
               ),
               const SizedBox(height: 4),
               Text(
@@ -1829,13 +2049,21 @@ class _InventoryScreenState extends State<InventoryScreen>
                 style: TextStyle(fontSize: 13, color: _subtext),
               ),
               const SizedBox(height: 20),
-              _styledDialogField(nameCtrl, 'Supplier / Company Name', 'e.g. SABMiller Nigeria'),
+              _styledDialogField(
+                nameCtrl,
+                'Supplier / Company Name',
+                'e.g. SABMiller Nigeria',
+              ),
               const SizedBox(height: 16),
-              _styledDialogField(contactCtrl, 'Contact Details / Rep Info', 'e.g. John Doe, 08012345678'),
+              _styledDialogField(
+                contactCtrl,
+                'Contact Details / Rep Info',
+                'e.g. John Doe, 08012345678',
+              ),
               const SizedBox(height: 32),
-              _gradientButton(
-                context: ctx,
-                label: 'Add Supplier',
+              AppButton(
+                text: 'Add Supplier',
+                variant: AppButtonVariant.primary,
                 onPressed: () {
                   if (nameCtrl.text.trim().isEmpty) return;
                   final newSupplier = Supplier(
@@ -1873,9 +2101,14 @@ class _StickyTabBarDelegate extends SliverPersistentHeaderDelegate {
   @override
   double get maxExtent => 48;
   @override
-  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
     return child;
   }
+
   @override
   bool shouldRebuild(_StickyTabBarDelegate oldDelegate) {
     return child != oldDelegate.child;

@@ -2,16 +2,19 @@ import 'package:flutter/material.dart';
 import '../../../core/widgets/app_fab.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
+import '../../../core/database/app_database.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/utils/number_format.dart';
 import '../../../core/utils/responsive.dart';
 import '../../../shared/services/auth_service.dart';
+import '../../../shared/services/navigation_service.dart';
 import '../../../shared/widgets/app_drawer.dart';
 import '../../../shared/widgets/notification_bell.dart';
 import '../data/models/customer.dart';
 import '../data/services/customer_service.dart';
 import '../widgets/add_customer_sheet.dart';
 import 'customer_detail_screen.dart';
+import '../../../shared/widgets/app_dropdown.dart';
 
 class CustomersScreen extends StatefulWidget {
   const CustomersScreen({super.key});
@@ -21,13 +24,45 @@ class CustomersScreen extends StatefulWidget {
 }
 
 class _CustomersScreenState extends State<CustomersScreen> {
+  List<WarehouseData> _warehouses = [];
+  // null = "All Warehouses"
+  int? _selectedWarehouseId;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadWarehouses();
+  }
+
+  Future<void> _loadWarehouses() async {
+    final ws = await database.select(database.warehouses).get();
+    final user = authService.currentUser;
+    final roleTier = user?.roleTier ?? 0;
+
+    int? defaultId;
+    if (roleTier >= 5) {
+      // CEO: default to the warehouse currently selected on the POS screen
+      defaultId = navigationService.lockedWarehouseId.value;
+    } else if (roleTier >= 4) {
+      // Manager: default to their own warehouse
+      defaultId = user?.warehouseId;
+    }
+    // Staff (< 4): no dropdown — always their warehouse (handled in filter)
+
+    if (mounted) {
+      setState(() {
+        _warehouses = ws;
+        _selectedWarehouseId = defaultId;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final themeNotifier = ValueNotifier<ThemeMode>(ThemeMode.system);
     return ValueListenableBuilder<ThemeMode>(
       valueListenable: themeNotifier,
       builder: (_, mode, _) {
-        
         final bgCol = Theme.of(context).scaffoldBackgroundColor;
         final surfaceCol = Theme.of(context).colorScheme.surface;
         final textCol = Theme.of(context).colorScheme.onSurface;
@@ -35,24 +70,40 @@ class _CustomersScreenState extends State<CustomersScreen> {
         final borderCol = Theme.of(context).dividerColor;
         final cardCol = Theme.of(context).cardColor;
 
+        final user = authService.currentUser;
+        final roleTier = user?.roleTier ?? 0;
+        final isManagerOrAbove = roleTier >= 4;
+
         return Scaffold(
           backgroundColor: bgCol,
           appBar: _buildAppBar(context, surfaceCol, textCol, borderCol),
           drawer: const AppDrawer(activeRoute: 'customers'),
           body: Column(
             children: [
+              // ── Warehouse filter dropdown (managers and CEO only) ──
+              if (isManagerOrAbove)
+                _buildWarehouseFilter(context, surfaceCol, textCol, subtextCol, borderCol),
+
               Expanded(
                 child: ValueListenableBuilder<List<Customer>>(
                   valueListenable: customerService,
                   builder: (context, customers, child) {
-                    // CEO sees all; staff/manager see only their warehouse
-                    final user = authService.currentUser;
-                    final isCeo = (user?.roleTier ?? 0) >= 5;
-                    final filtered = isCeo
-                        ? customers
-                        : customers
-                            .where((c) => c.warehouseId == user?.warehouseId)
-                            .toList();
+                    List<Customer> filtered;
+
+                    if (roleTier < 4) {
+                      // Staff: always see only their own warehouse
+                      filtered = customers
+                          .where((c) => c.warehouseId == user?.warehouseId)
+                          .toList();
+                    } else if (_selectedWarehouseId == null) {
+                      // Manager/CEO with "All" selected
+                      filtered = customers;
+                    } else {
+                      // Manager/CEO with a specific warehouse selected
+                      filtered = customers
+                          .where((c) => c.warehouseId == _selectedWarehouseId)
+                          .toList();
+                    }
 
                     if (filtered.isEmpty) {
                       return const Center(child: Text('No customers found.'));
@@ -89,6 +140,67 @@ class _CustomersScreenState extends State<CustomersScreen> {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildWarehouseFilter(
+    BuildContext context,
+    Color surfaceCol,
+    Color textCol,
+    Color subtextCol,
+    Color borderCol,
+  ) {
+
+    return Container(
+      color: surfaceCol,
+      padding: EdgeInsets.fromLTRB(
+        context.getRSize(16),
+        context.getRSize(8),
+        context.getRSize(16),
+        context.getRSize(8),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            FontAwesomeIcons.warehouse,
+            size: context.getRSize(13),
+            color: subtextCol,
+          ),
+          SizedBox(width: context.getRSize(8)),
+          Text(
+            'Showing:',
+            style: TextStyle(
+              fontSize: context.getRFontSize(13),
+              color: subtextCol,
+            ),
+          ),
+          SizedBox(width: context.getRSize(8)),
+          Expanded(
+            child: AppDropdown<int?>(
+              value: _selectedWarehouseId,
+              items: [
+                DropdownMenuItem<int?>(
+                  value: null,
+                  child: Text(
+                    'All Warehouses',
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                ..._warehouses.map(
+                  (w) => DropdownMenuItem<int?>(
+                    value: w.id,
+                    child: Text(
+                      w.name,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ),
+              ],
+              onChanged: (id) => setState(() => _selectedWarehouseId = id),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -332,6 +444,3 @@ class _CustomersScreenState extends State<CustomersScreen> {
     );
   }
 }
-
-
-

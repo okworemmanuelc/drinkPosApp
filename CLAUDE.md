@@ -1,6 +1,6 @@
-# Ribaplus POS - Project Overview
+# Reebaplus POS - Project Overview
 
-Ribaplus POS is a modern Flutter-based Point of Sale application designed specifically for drinks distributors. It features offline-first capabilities with local SQLite storage and seamless cloud synchronization.
+Reebaplus POS is a modern Flutter-based Point of Sale application designed specifically for drinks distributors. It features offline-first capabilities with local SQLite storage and seamless cloud synchronization.
 
 ## 📝 Summary of Major Recent Updates
 - **PIN-based Authentication**: Secure login with role-based navigation and warehouse access control.

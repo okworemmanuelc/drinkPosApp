@@ -4,7 +4,6 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:print_bluetooth_thermal/print_bluetooth_thermal.dart';
 import 'package:screenshot/screenshot.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:path_provider/path_provider.dart';
@@ -14,6 +13,7 @@ import '../../../core/theme/colors.dart';
 import '../../../core/utils/number_format.dart';
 import '../../../core/utils/responsive.dart';
 import '../../../core/database/app_database.dart';
+import '../../../shared/widgets/app_button.dart';
 import '../../../shared/services/activity_log_service.dart';
 // staff.dart import removed as it was moved to DB fetch
 import '../../../shared/services/order_service.dart';
@@ -25,10 +25,14 @@ import '../../../shared/widgets/app_bar_header.dart';
 import '../../../shared/widgets/notification_bell.dart';
 // customer_service.dart import removed as it was unused
 import '../../pos/services/receipt_builder.dart';
+import '../../../core/utils/notifications.dart';
 import '../widgets/crate_return_modal.dart';
+import '../../../shared/services/printer_service.dart';
+import '../../../shared/widgets/printer_picker.dart';
 
 class OrdersScreen extends StatefulWidget {
-  const OrdersScreen({super.key});
+  final int initialIndex;
+  const OrdersScreen({super.key, this.initialIndex = 0});
 
   @override
   State<OrdersScreen> createState() => _OrdersScreenState();
@@ -50,7 +54,11 @@ class _OrdersScreenState extends State<OrdersScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(
+      length: 3,
+      vsync: this,
+      initialIndex: widget.initialIndex,
+    );
     _ordersSub = orderService.watchAllOrdersWithItems().listen((data) {
       if (mounted) setState(() => _allOrdersWithItems = data);
     });
@@ -263,9 +271,6 @@ class _OrdersScreenState extends State<OrdersScreen>
               : null,
           onRefund: status == 'cancelled' ? () => _showRefundChoice(context, item.order) : null,
           onViewReceipt: () => _viewReceipt(context, item),
-          onReturnCrates: status == 'pending' && item.customer != null
-              ? () => CrateReturnModal.show(context, item)
-              : null,
         );
       },
     );
@@ -287,23 +292,19 @@ class _OrdersScreenState extends State<OrdersScreen>
             style: TextStyle(color: subtextCol),
           ),
           actions: [
-            TextButton(
+            AppButton(
+              text: 'Cancel',
+              variant: AppButtonVariant.ghost,
+              size: AppButtonSize.small,
               onPressed: () => Navigator.pop(ctx),
-              child: Text('Cancel', style: TextStyle(color: subtextCol)),
             ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: success,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
+            AppButton(
+              text: 'Confirm',
               onPressed: () {
                 Navigator.pop(ctx);
                 _executeMarkDelivered(orderWithItems);
               },
-              child: const Text('Confirm'),
+              size: AppButtonSize.small,
             ),
           ],
         );
@@ -330,12 +331,7 @@ class _OrdersScreenState extends State<OrdersScreen>
     model.deliveryReceiptService.addReceipt(receipt);
 
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Order #${order.id} marked as completed.'),
-          backgroundColor: success,
-        ),
-      );
+      AppNotification.showSuccess(context, 'Order #${order.id} marked as completed.');
     }
 
     // 3. If the order has a customer, let the modal decide whether to open
@@ -360,23 +356,20 @@ class _OrdersScreenState extends State<OrdersScreen>
             style: TextStyle(color: subtextCol),
           ),
           actions: [
-            TextButton(
+            AppButton(
+              text: 'Back',
+              variant: AppButtonVariant.ghost,
+              size: AppButtonSize.small,
               onPressed: () => Navigator.pop(ctx),
-              child: Text('Back', style: TextStyle(color: subtextCol)),
             ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Theme.of(context).colorScheme.error,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
+            AppButton(
+              text: 'Cancel Order',
+              variant: AppButtonVariant.danger,
+              size: AppButtonSize.small,
               onPressed: () {
                 Navigator.pop(ctx);
                 orderService.markAsCancelled(order.id, 'Cancelled by staff', 1);
               },
-              child: const Text('Cancel Order'),
             ),
           ],
         );
@@ -400,17 +393,19 @@ class _OrdersScreenState extends State<OrdersScreen>
             style: TextStyle(color: subtextCol),
           ),
           actions: [
-            TextButton(
+            AppButton(
+              text: 'Cancel',
+              variant: AppButtonVariant.ghost,
+              size: AppButtonSize.small,
               onPressed: () => Navigator.pop(ctx),
-              child: Text('Cancel', style: TextStyle(color: subtextCol)),
             ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary, foregroundColor: Colors.white),
+            AppButton(
+              text: 'Confirm Refund',
+              size: AppButtonSize.small,
               onPressed: () {
                 Navigator.pop(ctx);
                 _processRefund(order, toWallet: true);
               },
-              child: const Text('Confirm Refund'),
             ),
           ],
         ),
@@ -472,12 +467,7 @@ class _OrdersScreenState extends State<OrdersScreen>
 
   void _processRefund(OrderData order, {required bool toWallet}) {
     // orderService.refundOrder(order.id, toWallet: toWallet); // Not yet implemented in Service
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Refund of ${formatCurrency(order.amountPaidKobo / 100.0)} processed to ${toWallet ? 'Wallet' : 'Cash'}.'),
-        backgroundColor: success,
-      ),
-    );
+    AppNotification.showSuccess(context, 'Refund of ${formatCurrency(order.amountPaidKobo / 100.0)} processed to ${toWallet ? 'Wallet' : 'Cash'}.');
   }
 
   void _showRiderSelection(BuildContext context, int orderId) {
@@ -602,7 +592,7 @@ class _OrdersScreenState extends State<OrdersScreen>
                       child: Screenshot(
                         controller: _screenshotCtrl,
                         child: ReceiptWidget(
-                          orderId: currentOrder.id.toString(),
+                          orderId: currentOrder.orderNumber,
                           cart: richOrder.items.map((ri) => {
                             'name': ri.product.name,
                             'qty': ri.item.quantity,
@@ -633,77 +623,39 @@ class _OrdersScreenState extends State<OrdersScreen>
                       child: Row(
                         children: [
                           Expanded(
-                            child: ElevatedButton.icon(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Theme.of(context).colorScheme.primary,
-                                padding: EdgeInsets.symmetric(
-                                  vertical: context.getRSize(16),
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
+                            child: AppButton(
+                              text: 'Print',
+                              icon: FontAwesomeIcons.print,
                               onPressed: () {
                                 setModalState(() {
                                   reprintDate = DateTime.now();
                                 });
                                 _printReceipt(context, richOrder);
                               },
-                              icon: const Icon(FontAwesomeIcons.print, color: Colors.white, size: 18),
-                              label: Text(
-                                'Print',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: context.getRFontSize(14),
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
                             ),
                           ),
                           SizedBox(width: context.getRSize(12)),
                           if (currentOrder.status == 'cancelled')
                             Expanded(
-                              child: ElevatedButton.icon(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Theme.of(context).colorScheme.error,
-                                  padding: EdgeInsets.symmetric(
-                                    vertical: context.getRSize(16),
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                ),
+                              child: AppButton(
+                                text: 'Refund',
+                                icon: FontAwesomeIcons.rotateLeft,
+                                variant: AppButtonVariant.danger,
                                 onPressed: (currentOrder.paymentType == 'Credit')
                                     ? null
                                     : () {
                                         Navigator.pop(modalCtx);
                                         _showRefundChoice(context, currentOrder);
                                       },
-                                icon: const Icon(FontAwesomeIcons.rotateLeft,
-                                    color: Colors.white, size: 18),
-                                label: Text(
-                                  'Refund',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: context.getRFontSize(14),
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
                               ),
                             ),
                           if (currentOrder.status == 'cancelled')
                             SizedBox(width: context.getRSize(12)),
                           Expanded(
-                            child: ElevatedButton.icon(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: success,
-                                padding: EdgeInsets.symmetric(
-                                  vertical: context.getRSize(16),
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
+                            child: AppButton(
+                              text: 'Share',
+                              icon: FontAwesomeIcons.shareNodes,
+                              variant: AppButtonVariant.secondary,
                               onPressed: () async {
                                 setModalState(() {
                                   reshareDate = DateTime.now();
@@ -714,15 +666,6 @@ class _OrdersScreenState extends State<OrdersScreen>
                                   _shareReceipt(context, richOrder, reshareDate: reshareDate);
                                 }
                               },
-                              icon: const Icon(FontAwesomeIcons.shareNodes, color: Colors.white, size: 18),
-                              label: Text(
-                                'Share',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: context.getRFontSize(14),
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
                             ),
                           ),
                         ],
@@ -743,7 +686,6 @@ class _OrdersScreenState extends State<OrdersScreen>
 
   Future<void> _printReceipt(BuildContext context, OrderWithItems richOrder) async {
     final order = richOrder.order;
-    // orderService.addReprint(order.id); // TODO: Implement in OrderService if needed
     
     final receiptMapping = richOrder.items.map((ri) => {
       'name': ri.product.name,
@@ -753,13 +695,16 @@ class _OrdersScreenState extends State<OrdersScreen>
 
     final deliveryReceipt = model.deliveryReceiptService.getByOrderId(order.id.toString());
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Printing reprint...')),
-    );
-
     try {
+      final granted = await printerService.requestPermissions();
+      if (!granted) {
+        if (!mounted) return;
+        AppNotification.showError(context, 'Bluetooth permissions denied');
+        return;
+      }
+
       final bytes = await ThermalReceiptService.buildReceipt(
-        orderId: order.id.toString(),
+        orderId: order.orderNumber,
         cart: receiptMapping,
         subtotal: order.totalAmountKobo / 100.0,
         crateDeposit: 0,
@@ -776,13 +721,54 @@ class _OrdersScreenState extends State<OrdersScreen>
         refundAmount: order.amountPaidKobo / 100.0,
       );
 
-      await PrintBluetoothThermal.writeBytes(bytes);
-      _logReprint(order.id.toString());
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error printing: $e'), backgroundColor: Colors.red),
+      if (!mounted) return;
+
+      final success = await printerService.printBytes(bytes);
+      if (success) {
+        if (!mounted) return;
+        AppNotification.showSuccess(context, 'Print successful');
+        _logReprint(order.id.toString());
+        return;
+      }
+
+      // If print failed (not connected), show printer picker
+      if (mounted) {
+        showModalBottomSheet(
+          context: context,
+          isScrollControlled: true,
+          backgroundColor: surfaceCol,
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.5,
+          ),
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+          ),
+          builder: (_) => PrinterPicker(
+            onSelected: (device) async {
+              if (!mounted) return;
+              Navigator.pop(context);
+              
+              if (!mounted) return;
+              AppNotification.showSuccess(context, 'Connecting to ${device.name}...');
+              
+              final connected = await printerService.connect(device.macAdress);
+              if (!mounted) return;
+              
+              if (connected) {
+                await printerService.printBytes(bytes);
+                if (!mounted) return;
+                AppNotification.showSuccess(context, 'Print successful');
+                _logReprint(order.id.toString());
+              } else {
+                AppNotification.showError(context, 'Failed to connect to ${device.name}');
+              }
+            },
+          ),
         );
+      }
+    } catch (e) {
+      if (mounted) {
+        AppNotification.showError(context, 'Error printing: $e');
       }
     }
   }
@@ -802,9 +788,7 @@ class _OrdersScreenState extends State<OrdersScreen>
       
       if (imageBytes == null) {
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Failed to capture receipt')),
-          );
+          AppNotification.showError(context, 'Failed to capture receipt');
         }
         return;
       }
@@ -812,17 +796,15 @@ class _OrdersScreenState extends State<OrdersScreen>
       final dir = await getTemporaryDirectory();
       final stamp = reshareDate != null ? 'reshare' : 'reprint';
       final file = File(
-        '${dir.path}/ribaplus_pos_${stamp}_${order.id}_${DateTime.now().millisecondsSinceEpoch}.png',
+        '${dir.path}/reebaplus_pos_${stamp}_${order.id}_${DateTime.now().millisecondsSinceEpoch}.png',
       );
       await file.writeAsBytes(imageBytes);
 
-      await Share.shareXFiles([XFile(file.path)], text: 'Ribaplus POS Receipt Reprint #${order.id}');
+      await Share.shareXFiles([XFile(file.path)], text: 'Reebaplus POS Receipt Reprint #${order.id}');
       _logReprint(order.id.toString());
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error sharing: $e'), backgroundColor: Colors.red),
-        );
+        AppNotification.showError(context, 'Error sharing: $e');
       }
     }
   }
@@ -845,7 +827,6 @@ class _OrderCard extends StatelessWidget {
   final Function(int)? onAssignRider;
   final VoidCallback? onRefund;
   final VoidCallback onViewReceipt;
-  final VoidCallback? onReturnCrates;
 
   const _OrderCard({
     required this.orderWithItems,
@@ -855,7 +836,6 @@ class _OrderCard extends StatelessWidget {
     this.onAssignRider,
     this.onRefund,
     required this.onViewReceipt,
-    this.onReturnCrates,
   });
 
   @override
@@ -953,24 +933,6 @@ class _OrderCard extends StatelessWidget {
                       Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          if (onReturnCrates != null &&
-                              orderWithItems.items.any(
-                                (i) => i.product.crateGroupId != null,
-                              ))
-                            Padding(
-                              padding: EdgeInsets.only(right: context.getRSize(4)),
-                              child: IconButton(
-                                icon: Icon(
-                                  FontAwesomeIcons.boxOpen,
-                                  size: context.getRSize(18),
-                                  color: Colors.orange,
-                                ),
-                                tooltip: 'Return Crates',
-                                onPressed: onReturnCrates,
-                                padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(),
-                              ),
-                            ),
                           Column(
                             children: [
                               IconButton(
@@ -1213,84 +1175,28 @@ class _OrderCard extends StatelessWidget {
                     children: [
                       if (onCancel != null)
                         Expanded(
-                          child: TextButton.icon(
-                            style: TextButton.styleFrom(
-                              foregroundColor: Theme.of(context).colorScheme.error,
-                              padding: EdgeInsets.symmetric(
-                                vertical: context.getRSize(12),
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                            ),
-                            icon: Icon(
-                              FontAwesomeIcons.ban,
-                              size: context.getRSize(14),
-                            ),
-                            label: Text(
-                              'Cancel',
-                              style: TextStyle(
-                                fontSize: context.getRFontSize(13),
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
+                          child: AppButton(
+                            text: 'Cancel',
+                            icon: FontAwesomeIcons.ban,
+                            variant: AppButtonVariant.ghost,
                             onPressed: onCancel,
                           ),
                         ),
                       SizedBox(width: context.getRSize(12)),
                       if (onMarkAsDelivered != null)
                         Expanded(
-                          child: ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Theme.of(context).colorScheme.primary,
-                              foregroundColor: Colors.white,
-                              elevation: 0,
-                              padding: EdgeInsets.symmetric(
-                                vertical: context.getRSize(12),
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                            ),
-                            icon: Icon(
-                              FontAwesomeIcons.truckFast,
-                              size: context.getRSize(14),
-                            ),
-                            label: Text(
-                              'Confirm Delivery',
-                              style: TextStyle(
-                                fontSize: context.getRFontSize(13),
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
+                          child: AppButton(
+                            text: 'Confirm Order',
+                            icon: FontAwesomeIcons.truckFast,
                             onPressed: onMarkAsDelivered,
                           ),
                         ),
                       if (status == 'cancelled' && onRefund != null)
                         Expanded(
-                          child: ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Theme.of(context).colorScheme.error,
-                              foregroundColor: Colors.white,
-                              elevation: 0,
-                              padding: EdgeInsets.symmetric(
-                                vertical: context.getRSize(12),
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                            ),
-                            icon: Icon(
-                              FontAwesomeIcons.rotateLeft,
-                              size: context.getRSize(14),
-                            ),
-                            label: Text(
-                              'Initiate Refund',
-                              style: TextStyle(
-                                fontSize: context.getRFontSize(13),
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
+                          child: AppButton(
+                            text: 'Initiate Refund',
+                            icon: FontAwesomeIcons.rotateLeft,
+                            variant: AppButtonVariant.danger,
                             onPressed: onRefund,
                           ),
                         ),

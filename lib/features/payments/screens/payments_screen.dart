@@ -12,7 +12,9 @@ import '../data/models/payment.dart';
 import '../data/services/payment_service.dart';
 import '../widgets/add_payment_sheet.dart';
 import '../../../shared/widgets/notification_bell.dart';
-import '../../../shared/widgets/fluid_menu.dart';
+import '../../../shared/widgets/app_button.dart';
+import '../../../shared/widgets/app_dropdown.dart';
+import '../../../shared/widgets/app_input.dart';
 import '../../inventory/data/models/supplier.dart';
 import '../../inventory/data/services/supplier_service.dart';
 import '../../inventory/screens/supplier_detail_screen.dart';
@@ -225,7 +227,7 @@ class _PaymentsScreenState extends State<PaymentsScreen>
               ),
             ],
           ),
-            FluidMenu<String>(
+            AppDropdown<String>(
               value: _periodFilter,
               width: context.getRSize(130),
               items: [
@@ -235,7 +237,7 @@ class _PaymentsScreenState extends State<PaymentsScreen>
                 'This Year',
                 'All Time',
               ].map((String val) {
-                return FluidMenuItem<String>(value: val, label: val);
+                return DropdownMenuItem<String>(value: val, child: Text(val));
               }).toList(),
               onChanged: (val) {
                 if (val != null) {
@@ -360,29 +362,11 @@ class _PaymentsScreenState extends State<PaymentsScreen>
       children: [
         Padding(
           padding: EdgeInsets.all(context.getRSize(16)),
-          child: SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
-                foregroundColor: Theme.of(context).colorScheme.primary,
-                elevation: 0,
-                padding: EdgeInsets.symmetric(vertical: context.getRSize(16)),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  side: BorderSide(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3)),
-                ),
-              ),
-              icon: Icon(FontAwesomeIcons.plus, size: context.getRSize(16)),
-              label: Text(
-                'Add Supplier',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: context.getRFontSize(15),
-                ),
-              ),
-              onPressed: _showAddSupplierDialog,
-            ),
+          child: AppButton(
+            text: 'Add Supplier',
+            variant: AppButtonVariant.secondary,
+            icon: FontAwesomeIcons.plus,
+            onPressed: _showAddSupplierDialog,
           ),
         ),
         Expanded(
@@ -543,53 +527,35 @@ class _PaymentsScreenState extends State<PaymentsScreen>
                   'e.g. John Doe, 08012345678',
                 ),
                 SizedBox(height: ctx.getRSize(32)),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Theme.of(context).colorScheme.primary,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      padding: EdgeInsets.symmetric(vertical: ctx.getRSize(16)),
-                      elevation: 0,
-                    ),
-                    onPressed: () {
-                      if (nameCtrl.text.trim().isEmpty) return;
-                      final newSupplier = Supplier(
-                        id: 's${DateTime.now().millisecondsSinceEpoch}',
-                        name: nameCtrl.text.trim(),
-                        crateGroup: CrateGroup.nbPlc,
-                        trackInventory: true,
-                        contactDetails: contactCtrl.text.trim(),
-                        amountPaid: 0.0,
-                        supplierWallet: 0.0,
-                      );
-                      final log = InventoryLog(
-                        timestamp: DateTime.now(),
-                        user: 'John Cashier',
-                        itemId: newSupplier.id,
-                        itemName: newSupplier.name,
-                        action: 'new_supplier',
-                        previousValue: 0,
-                        newValue: 0,
-                        note: 'Supplier added: ${newSupplier.name}',
-                      );
-                      setState(() {
-                        supplierService.addSupplier(newSupplier);
-                        kInventoryLogs.add(log);
-                      });
-                      Navigator.pop(ctx);
-                    },
-                    child: Text(
-                      'Add Supplier',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: ctx.getRFontSize(15),
-                      ),
-                    ),
-                  ),
+                AppButton(
+                  text: 'Add Supplier',
+                  onPressed: () {
+                    if (nameCtrl.text.trim().isEmpty) return;
+                    final newSupplier = Supplier(
+                      id: 's${DateTime.now().millisecondsSinceEpoch}',
+                      name: nameCtrl.text.trim(),
+                      crateGroup: CrateGroup.nbPlc,
+                      trackInventory: true,
+                      contactDetails: contactCtrl.text.trim(),
+                      amountPaid: 0.0,
+                      supplierWallet: 0.0,
+                    );
+                    final log = InventoryLog(
+                      timestamp: DateTime.now(),
+                      user: 'John Cashier',
+                      itemId: newSupplier.id,
+                      itemName: newSupplier.name,
+                      action: 'new_supplier',
+                      previousValue: 0,
+                      newValue: 0,
+                      note: 'Supplier added: ${newSupplier.name}',
+                    );
+                    setState(() {
+                      supplierService.addSupplier(newSupplier);
+                      kInventoryLogs.add(log);
+                    });
+                    Navigator.pop(ctx);
+                  },
                 ),
               ],
             ),
@@ -600,42 +566,11 @@ class _PaymentsScreenState extends State<PaymentsScreen>
   }
 
   Widget _inputField(String label, TextEditingController ctrl, String hint) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: context.getRFontSize(12),
-            fontWeight: FontWeight.bold,
-            color: _subtext,
-          ),
-        ),
-        SizedBox(height: context.getRSize(8)),
-        TextField(
-          controller: ctrl,
-          style: TextStyle(color: _text, fontWeight: FontWeight.w600),
-          decoration: InputDecoration(
-            hintText: hint,
-            hintStyle: TextStyle(color: _subtext.withValues(alpha: 0.5)),
-            filled: true,
-            fillColor: _bg,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: _border),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: _border),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Theme.of(context).colorScheme.primary),
-            ),
-            contentPadding: EdgeInsets.all(context.getRSize(16)),
-          ),
-        ),
-      ],
+    return AppInput(
+      controller: ctrl,
+      labelText: label,
+      hintText: hint,
+      fillColor: _bg,
     );
   }
 

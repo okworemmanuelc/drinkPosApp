@@ -17,8 +17,13 @@ import '../../customers/data/models/customer.dart';
 import '../../../shared/widgets/user_tips_modal.dart';
 import '../../../shared/widgets/app_dropdown.dart';
 import '../../../shared/services/auth_service.dart';
-
-const Color warning = Color(0xFFF59E0B);
+import 'sales_detail_screen.dart';
+import 'reports_hub_screen.dart';
+import '../../customers/screens/customers_screen.dart';
+import '../../expenses/screens/expenses_screen.dart';
+import '../../inventory/screens/inventory_screen.dart';
+import '../../orders/screens/orders_screen.dart';
+import '../../../shared/widgets/app_button.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -194,21 +199,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
       (sum, e) => sum + e.amountKobo / 100.0,
     );
 
-    // Profit — only calculated when at least one product has a buying price set
+    // Profit — only for items that had a buying price at the time of sale.
+    // Uses the snapshotted buyingPriceKobo on the order item, not the current product price.
     final hasBuyingPrices = filteredOrdersWithItems.any(
-      (o) => o.items.any((i) => i.product.buyingPriceKobo > 0),
+      (o) => o.items.any((i) => i.item.buyingPriceKobo > 0),
     );
     double? netProfit;
     if (hasBuyingPrices) {
+      double pricedRevenue = 0;
       double cogs = 0;
       for (final o in filteredOrdersWithItems) {
         for (final i in o.items) {
-          if (i.product.buyingPriceKobo > 0) {
-            cogs += i.item.quantity * i.product.buyingPriceKobo / 100.0;
+          if (i.item.buyingPriceKobo > 0) {
+            pricedRevenue += i.item.quantity * i.item.unitPriceKobo / 100.0;
+            cogs += i.item.quantity * i.item.buyingPriceKobo / 100.0;
           }
         }
       }
-      netProfit = totalSales - cogs - totalExpenses;
+      netProfit = pricedRevenue - cogs - totalExpenses;
     }
 
     final pendingOrdersCount = _allOrdersWithItems
@@ -244,7 +252,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           leading: const MenuButton(),
           title: const AppBarHeader(
             icon: FontAwesomeIcons.chartLine,
-            title: 'Ribaplus POS',
+            title: 'Reebaplus POS',
             subtitle: 'Business Overview',
           ),
           actions: [
@@ -268,6 +276,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               credit: totalCredit,
               debt: totalDebt,
               expenses: totalExpenses,
+              filteredOrders: filteredOrdersWithItems,
             ),
             SizedBox(height: context.spacingL),
           ],
@@ -314,7 +323,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               const SizedBox(width: 16),
               const Expanded(
                 child: Text(
-                  'Welcome to Ribaplus POS!',
+                  'Welcome to Reebaplus POS!',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 20,
@@ -335,21 +344,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ),
           const SizedBox(height: 20),
-          ElevatedButton(
+          AppButton(
+            text: 'View Pro Tips',
+            variant: AppButtonVariant.secondary,
+            isFullWidth: false,
             onPressed: () => UserTipsModal.show(context),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.white,
-              foregroundColor: Theme.of(context).colorScheme.primary,
-              elevation: 0,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            child: const Text(
-              'View Pro Tips',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
           ),
         ],
       ),
@@ -360,20 +359,31 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Performance Overview',
-          style: context.bodyLarge.copyWith(
-            fontWeight: FontWeight.bold,
-            color: _text,
-          ),
-        ),
-        SizedBox(height: context.getRSize(2)),
-        Text(
-          'Analytics for the selected period',
-          style: TextStyle(
-            fontSize: context.getRFontSize(12),
-            color: _subtext,
-          ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Performance Overview',
+                  style: context.bodyLarge.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: _text,
+                  ),
+                ),
+                SizedBox(height: context.getRSize(2)),
+                Text(
+                  'Analytics for the selected period',
+                  style: TextStyle(
+                    fontSize: context.getRFontSize(12),
+                    color: _subtext,
+                  ),
+                ),
+              ],
+            ),
+            _buildReportButton(),
+          ],
         ),
         SizedBox(height: context.getRSize(12)),
         Row(
@@ -392,6 +402,60 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
+  Widget _buildReportButton() {
+    return Material(
+      color: context.primaryColor.withValues(alpha: 0.1),
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const ReportsHubScreen()),
+          );
+        },
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                FontAwesomeIcons.fileContract,
+                size: 14,
+                color: context.primaryColor,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Reports',
+                style: TextStyle(
+                  color: context.primaryColor,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                ),
+              ),
+              const SizedBox(width: 4),
+              Container(
+                padding: const EdgeInsets.all(4),
+                decoration: const BoxDecoration(
+                  color: Colors.red,
+                  shape: BoxShape.circle,
+                ),
+                child: const Text(
+                  '3',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 8,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildLockedWarehouseChip() {
     return Container(
       height: 48,
@@ -406,12 +470,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
         children: [
           Icon(Icons.warehouse_outlined, size: context.getRSize(14), color: Theme.of(context).colorScheme.primary),
           SizedBox(width: context.getRSize(6)),
-          Text(
-            _lockedWarehouseName.isEmpty ? 'My Warehouse' : _lockedWarehouseName,
-            style: TextStyle(
-              fontSize: context.getRFontSize(13),
-              fontWeight: FontWeight.w600,
-              color: Theme.of(context).colorScheme.primary,
+          Flexible(
+            child: Text(
+              _lockedWarehouseName.isEmpty ? 'My Warehouse' : _lockedWarehouseName,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: context.getRFontSize(13),
+                fontWeight: FontWeight.w600,
+                color: Theme.of(context).colorScheme.primary,
+              ),
             ),
           ),
           SizedBox(width: context.getRSize(4)),
@@ -446,6 +513,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
+  void _openSalesDetail(
+    List<OrderWithItems> orders,
+    String mode,
+  ) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => SalesDetailScreen(
+          orders: orders,
+          mode: mode,
+          period: _selectedPeriod,
+        ),
+      ),
+    );
+  }
+
   Widget _buildMetricsList({
     required double sales,
     required int pending,
@@ -453,7 +535,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
     required double credit,
     required double debt,
     required double expenses,
+    required List<OrderWithItems> filteredOrders,
   }) {
+    final userTier = authService.currentUser?.roleTier ?? 1;
+    final canDrill = userTier >= 4;
+
     return Column(
       children: [
         _robustMetricCard(
@@ -464,32 +550,43 @@ class _DashboardScreenState extends State<DashboardScreen> {
           color: Theme.of(context).colorScheme.primary,
           trend: sales > 0 ? 'Active' : 'No sales',
           isNeutral: true,
+          onTap: canDrill ? () => _openSalesDetail(filteredOrders, 'sales') : null,
         ),
-        SizedBox(height: context.spacingM),
-        _robustMetricCard(
-          label: 'Net Profit',
-          value: profit != null ? formatCurrency(profit) : '—',
-          subtitle: profit != null
-              ? 'Revenue minus cost of goods & expenses'
-              : 'Add buying prices to products to see profit',
-          icon: FontAwesomeIcons.chartLine,
-          color: profit != null
-              ? (profit >= 0 ? success : danger)
-              : Theme.of(context).colorScheme.primary,
-          trend: profit != null
-              ? (profit >= 0 ? 'Positive' : 'Negative')
-              : 'N/A',
-          isPositive: profit == null || profit >= 0,
-        ),
+        if (userTier >= 5) ...[
+          SizedBox(height: context.spacingM),
+          _robustMetricCard(
+            label: 'Net Profit',
+            value: profit != null ? formatCurrency(profit) : '—',
+            subtitle: profit != null
+                ? 'Revenue minus cost of goods & expenses'
+                : 'Add buying prices to products to see profit',
+            icon: FontAwesomeIcons.chartLine,
+            color: profit != null
+                ? (profit >= 0 ? success : danger)
+                : Theme.of(context).colorScheme.primary,
+            trend: profit != null
+                ? (profit >= 0 ? 'Positive' : 'Negative')
+                : 'N/A',
+            isPositive: profit == null || profit >= 0,
+            onTap: profit != null ? () => _openSalesDetail(filteredOrders, 'profit') : null,
+          ),
+        ],
         SizedBox(height: context.spacingM),
         _robustMetricCard(
           label: 'Pending Orders',
           value: pending.toString(),
           subtitle: 'Orders awaiting fulfillment',
           icon: FontAwesomeIcons.clock,
-          color: warning,
+          color: AppColors.warning,
           trend: pending > 0 ? 'Attention' : 'Clear',
           isNeutral: true,
+          onTap: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => const OrdersScreen(initialIndex: 0),
+              ),
+            );
+          },
         ),
         SizedBox(height: context.spacingM),
         _robustMetricCard(
@@ -501,6 +598,31 @@ class _DashboardScreenState extends State<DashboardScreen> {
           trend: expenses > 0 ? 'Recorded' : 'None',
           isPositive: false,
           inverted: true,
+          onTap: () {
+            String initialPeriod = 'All Time';
+            switch (_selectedPeriod) {
+              case 'Day':
+                initialPeriod = 'Today';
+                break;
+              case 'Week':
+                initialPeriod = 'This Week';
+                break;
+              case 'Month':
+                initialPeriod = 'This Month';
+                break;
+              case 'Year':
+                initialPeriod = 'This Year';
+                break;
+              case 'To Date':
+                initialPeriod = 'All Time';
+                break;
+            }
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => ExpensesScreen(initialPeriod: initialPeriod),
+              ),
+            );
+          },
         ),
         SizedBox(height: context.spacingM),
         _robustMetricCard(
@@ -511,6 +633,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
           color: Theme.of(context).colorScheme.primary,
           trend: 'Live',
           isNeutral: true,
+          onTap: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => const InventoryScreen(),
+              ),
+            );
+          },
         ),
         SizedBox(height: context.spacingM),
         _robustMetricCard(
@@ -519,8 +648,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
           subtitle: 'Debt: ${formatCurrency(debt)}',
           icon: FontAwesomeIcons.wallet,
           color: Theme.of(context).colorScheme.primary,
-          trend: 'Updated',
-          isNeutral: true,
+          trend: debt > 0 ? 'Pending Recov.' : 'Healthy',
+          isPositive: debt == 0,
+          onTap: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => const CustomersScreen(),
+              ),
+            );
+          },
         ),
       ],
     );
@@ -536,19 +672,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
     bool isPositive = true,
     bool isNeutral = false,
     bool inverted = false,
+    VoidCallback? onTap,
   }) {
     final trendColor = isNeutral ? _subtext : (isPositive ? success : danger);
     final trendIcon = isNeutral
         ? FontAwesomeIcons.circleExclamation
         : (isPositive ? FontAwesomeIcons.arrowUp : FontAwesomeIcons.arrowDown);
 
-    return Container(
+    final card = Container(
       width: double.infinity,
       padding: EdgeInsets.all(context.spacingM),
       decoration: BoxDecoration(
         color: _surface,
         borderRadius: BorderRadius.circular(context.radiusL),
-        border: Border.all(color: _border),
+        border: Border.all(color: onTap != null ? color.withValues(alpha: 0.4) : _border),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.03),
@@ -634,6 +771,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ),
         ],
+      ),
+    );
+
+    if (onTap == null) return card;
+
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(context.radiusL),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(context.radiusL),
+        child: card,
       ),
     );
   }

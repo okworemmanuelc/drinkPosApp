@@ -1,0 +1,208 @@
+import 'package:flutter/material.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import '../../../core/theme/design_tokens.dart';
+import '../../../shared/widgets/shared_scaffold.dart';
+import '../../../shared/widgets/app_dropdown.dart';
+import 'approvals_screen.dart';
+
+class ReportsHubScreen extends StatefulWidget {
+  const ReportsHubScreen({super.key});
+
+  @override
+  State<ReportsHubScreen> createState() => _ReportsHubScreenState();
+}
+
+class _ReportsHubScreenState extends State<ReportsHubScreen> {
+  String _selectedPeriod = 'Day';
+  final List<String> _periods = ['Day', 'Week', 'Month', 'Year', 'To Date'];
+
+  @override
+  Widget build(BuildContext context) {
+    return SharedScaffold(
+      activeRoute: 'dashboard',
+      appBar: AppBar(
+        title: Text(
+          'Business Reports',
+          style: context.h3.copyWith(fontWeight: FontWeight.bold),
+        ),
+        elevation: 0,
+        backgroundColor: context.backgroundColor,
+        leading: BackButton(color: context.primaryColor),
+        actions: [
+          _buildPeriodSelector(),
+          const SizedBox(width: 8),
+        ],
+      ),
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              context.backgroundColor,
+              context.backgroundColor.withValues(alpha: 0.8),
+            ],
+          ),
+        ),
+        child: GridView.count(
+          crossAxisCount: 2,
+          padding: EdgeInsets.all(context.spacingM),
+          mainAxisSpacing: context.spacingM,
+          crossAxisSpacing: context.spacingM,
+          children: [
+            _buildReportCard(
+              context,
+              title: 'Pending Approvals',
+              subtitle: '3 Requests Waiting',
+              icon: FontAwesomeIcons.clockRotateLeft,
+              color: Colors.orange,
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const ApprovalsScreen()),
+              ),
+              badge: '3',
+            ),
+            _buildReportCard(
+              context,
+              title: 'Success History',
+              subtitle: 'Approved Requests',
+              icon: FontAwesomeIcons.circleCheck,
+              color: Colors.green,
+              onTap: () {},
+            ),
+            _buildReportCard(
+              context,
+              title: 'Sales Report',
+              subtitle: 'Revenue & Volume',
+              icon: FontAwesomeIcons.chartLine,
+              color: context.primaryColor,
+              onTap: () {},
+            ),
+            _buildReportCard(
+              context,
+              title: 'Expense Tracker',
+              subtitle: 'Outflow Analysis',
+              icon: FontAwesomeIcons.fileInvoiceDollar,
+              color: Colors.redAccent,
+              onTap: () {},
+            ),
+            _buildReportCard(
+              context,
+              title: 'Stock Audit',
+              subtitle: 'Inventory Health',
+              icon: FontAwesomeIcons.boxesStacked,
+              color: Colors.blueAccent,
+              onTap: () {},
+            ),
+            _buildReportCard(
+              context,
+              title: 'Customer Ledger',
+              subtitle: 'Wallet & Credit',
+              icon: FontAwesomeIcons.wallet,
+              color: Colors.purpleAccent,
+              onTap: () {},
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPeriodSelector() {
+    return Container(
+      width: 100,
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      child: AppDropdown<String>(
+        value: _selectedPeriod,
+        items: _periods.map((p) => DropdownMenuItem(value: p, child: Text(p, style: const TextStyle(fontSize: 12)))).toList(),
+        onChanged: (v) => setState(() => _selectedPeriod = v ?? 'Day'),
+      ),
+    );
+  }
+
+  Widget _buildReportCard(
+    BuildContext context, {
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required Color color,
+    required VoidCallback onTap,
+    String? badge,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(context.radiusL),
+        child: Container(
+          padding: EdgeInsets.all(context.spacingM),
+          decoration: BoxDecoration(
+            color: context.surfaceColor,
+            borderRadius: BorderRadius.circular(context.radiusL),
+            boxShadow: [
+              BoxShadow(
+                color: color.withValues(alpha: 0.1),
+                blurRadius: 15,
+                offset: const Offset(0, 8),
+              ),
+            ],
+            border: Border.all(color: color.withValues(alpha: 0.2)),
+          ),
+          child: Stack(
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: color.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(icon, color: color, size: 24),
+                  ),
+                  const Spacer(),
+                  Text(
+                    title,
+                    style: context.bodyMedium.copyWith(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style: context.bodySmall.copyWith(
+                      color: Theme.of(context).hintColor,
+                    ),
+                  ),
+                ],
+              ),
+              if (badge != null)
+                Positioned(
+                  top: 0,
+                  right: 0,
+                  child: Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: const BoxDecoration(
+                      color: Colors.red,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Text(
+                      badge,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

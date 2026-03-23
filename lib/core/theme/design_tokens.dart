@@ -19,6 +19,12 @@ extension DesignTokenExtension on BuildContext {
   TextStyle get bodyLarge => AppTypography.bodyLarge.copyWith(fontSize: getRFontSize(AppTypography.bodyLarge.fontSize!));
   TextStyle get bodyMedium => AppTypography.bodyMedium.copyWith(fontSize: getRFontSize(AppTypography.bodyMedium.fontSize!));
   TextStyle get bodySmall => AppTypography.bodySmall.copyWith(fontSize: getRFontSize(AppTypography.bodySmall.fontSize!));
+
+  Color get primaryColor => Theme.of(this).colorScheme.primary;
+  Color get secondaryColor => Theme.of(this).colorScheme.secondary;
+  Color get surfaceColor => Theme.of(this).colorScheme.surface;
+  Color get errorColor => Theme.of(this).colorScheme.error;
+  Color get backgroundColor => Theme.of(this).scaffoldBackgroundColor;
 }
 
 class AppColors {

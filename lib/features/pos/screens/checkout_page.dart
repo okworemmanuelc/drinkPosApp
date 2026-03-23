@@ -3,12 +3,11 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:print_bluetooth_thermal/print_bluetooth_thermal.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:screenshot/screenshot.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:path_provider/path_provider.dart';
 
+import '../../../core/database/app_database.dart';
 import '../../../shared/services/auth_service.dart';
 import '../../../shared/services/cart_service.dart';
 import '../../../shared/services/order_service.dart';
@@ -20,8 +19,13 @@ import '../../customers/data/models/customer.dart';
 import '../../../core/theme/colors.dart';
 
 import '../../../core/utils/number_format.dart';
+import '../../../core/utils/notifications.dart';
 import '../../../core/utils/currency_input_formatter.dart';
 import '../../../shared/services/navigation_service.dart';
+import '../../../shared/services/printer_service.dart';
+import '../../../shared/widgets/app_input.dart';
+import '../../../shared/widgets/app_button.dart';
+import '../../../shared/widgets/printer_picker.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CheckoutPage — shown after "Proceed to Checkout" in the cart.
@@ -57,10 +61,12 @@ enum PaymentType { fullCash, partialCash, credit }
 
 class _CheckoutPageState extends State<CheckoutPage> {
   PaymentType _paymentType = PaymentType.fullCash;
+  bool _isWalletPayment = false;
   final TextEditingController _cashReceivedCtrl = TextEditingController();
   final ScreenshotController _screenshotCtrl = ScreenshotController();
   bool _paymentConfirmed = false;
   bool _isProcessing = false;
+  Map<int, String> _manufacturerNames = {};
 
   // Computed on confirm — passed to receipt
 
@@ -70,7 +76,6 @@ class _CheckoutPageState extends State<CheckoutPage> {
   bool get _isWalkIn => widget.customer == null || widget.customer!.isWalkIn;
   Color get _bg => Theme.of(context).scaffoldBackgroundColor;
   Color get _surface => Theme.of(context).colorScheme.surface;
-  Color get _cardBg => Theme.of(context).cardColor;
   Color get _text => Theme.of(context).colorScheme.onSurface;
   Color get _subtext => Theme.of(context).textTheme.bodySmall?.color ?? Theme.of(context).iconTheme.color!;
   Color get _border => Theme.of(context).dividerColor;
@@ -87,10 +92,26 @@ class _CheckoutPageState extends State<CheckoutPage> {
         'CheckoutPage: Item [$i]: ${item['name']}, Price: ${item['price']}, Qty: ${item['qty']}',
       );
     }
+    _loadManufacturers();
+    cartService.activeCustomer.addListener(_onCustomerChanged);
+  }
+
+  void _onCustomerChanged() {
+    if (mounted) setState(() => _isWalletPayment = false);
+  }
+
+  Future<void> _loadManufacturers() async {
+    final list = await database.inventoryDao.getAllManufacturers();
+    if (mounted) {
+      setState(() {
+        _manufacturerNames = {for (final m in list) m.id: m.name};
+      });
+    }
   }
 
   @override
   void dispose() {
+    cartService.activeCustomer.removeListener(_onCustomerChanged);
     _cashReceivedCtrl.dispose();
     super.dispose();
   }
@@ -99,7 +120,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
   String get _paymentLabel {
     switch (_paymentType) {
       case PaymentType.fullCash:
-        return 'Full Cash / Card';
+        return _isWalletPayment ? 'Wallet Payment' : 'Full Cash / Card';
       case PaymentType.partialCash:
         return 'Partial Cash / Card';
       case PaymentType.credit:
@@ -119,7 +140,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
     double effectiveCash;
     switch (_paymentType) {
       case PaymentType.fullCash:
-        effectiveCash = widget.total;
+        // Wallet payment debits the wallet; cash payment leaves it unchanged
+        effectiveCash = _isWalletPayment ? 0 : widget.total;
         break;
       case PaymentType.partialCash:
         effectiveCash = _cashReceivedValue;
@@ -278,6 +300,10 @@ class _CheckoutPageState extends State<CheckoutPage> {
             FontAwesomeIcons.moneyBill,
           ),
 
+          // Sub-options: Cash/Transfer vs Wallet — only for named customers
+          if (_paymentType == PaymentType.fullCash && !_isWalkIn)
+            _buildWalletSubOptions(),
+
           // 2. Partial Cash / Card
           _paymentOption(
             PaymentType.partialCash,
@@ -292,11 +318,13 @@ class _CheckoutPageState extends State<CheckoutPage> {
           // Partial amount input + live remaining
           if (_paymentType == PaymentType.partialCash) ...[
             SizedBox(height: context.getRSize(16)),
-            _inputField(
-              'Amount Paid Now',
-              _cashReceivedCtrl,
-              '₦ Enter amount',
-              isNumber: true,
+            AppInput(
+              controller: _cashReceivedCtrl,
+              labelText: 'Amount Paid Now',
+              hintText: '₦ Enter amount',
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              inputFormatters: [CurrencyInputFormatter()],
+              onChanged: (v) => setState(() {}),
             ),
             SizedBox(height: context.getRSize(10)),
             Container(
@@ -379,58 +407,12 @@ class _CheckoutPageState extends State<CheckoutPage> {
           ),
 
           SizedBox(height: context.getRSize(32)),
-          // ── Confirm button ────────────────────────────────────────────
-          GestureDetector(
-            onTap: _confirmPayment,
-            child: Container(
-              width: double.infinity,
-              padding: EdgeInsets.symmetric(vertical: context.getRSize(18)),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [blueLight, blueDark],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
-                    blurRadius: 14,
-                    offset: const Offset(0, 6),
-                  ),
-                ],
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    FontAwesomeIcons.check,
-                    color: Colors.white,
-                    size: context.getRSize(18),
-                  ),
-                  SizedBox(width: context.getRSize(10)),
-                  Text(
-                    _isProcessing ? 'Processing...' : 'Confirm Payment',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: context.getRFontSize(16),
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  if (_isProcessing) ...[
-                    SizedBox(width: context.getRSize(10)),
-                    SizedBox(
-                      width: context.getRSize(16),
-                      height: context.getRSize(16),
-                      child: const CircularProgressIndicator(
-                        color: Colors.white,
-                        strokeWidth: 2,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
+          AppButton(
+            text: 'Confirm Payment',
+            variant: AppButtonVariant.primary,
+            isLoading: _isProcessing,
+            icon: FontAwesomeIcons.check,
+            onPressed: _confirmPayment,
           ),
         ],
       ),
@@ -441,20 +423,25 @@ class _CheckoutPageState extends State<CheckoutPage> {
   Future<void> _confirmPayment() async {
     // Walk-in validation
     if (_isWalkIn && _paymentType != PaymentType.fullCash) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Walk-in customers must pay in full'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      AppNotification.showError(context, 'Walk-in customers must pay in full');
       return;
+    }
+
+    // Wallet payment validation
+    if (_paymentType == PaymentType.fullCash && _isWalletPayment) {
+      final walletBalance = widget.customer?.customerWallet ?? 0.0;
+      if (walletBalance < widget.total) {
+        AppNotification.showError(
+          context,
+          'Insufficient wallet balance. Use Partial Payment instead.',
+        );
+        return;
+      }
     }
 
     // Validation
     if (_paymentType == PaymentType.partialCash && _cashReceivedValue <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter the amount paid')),
-      );
+      AppNotification.showError(context, 'Please enter the amount paid');
       return;
     }
 
@@ -467,7 +454,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
       switch (_paymentType) {
         case PaymentType.fullCash:
-          amountPaidKobo = totalKobo;
+          // Wallet payment: amountPaidKobo=0 so the full amount is debited
+          // from the customer wallet (same mechanism as credit sale)
+          amountPaidKobo = _isWalletPayment ? 0 : totalKobo;
           break;
         case PaymentType.partialCash:
           amountPaidKobo = (_cashReceivedValue * 100).round();
@@ -478,7 +467,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
       }
 
       // ── Call atomic transaction ──────────────────────────────────────
-      await orderService.addOrder(
+      final orderNo = await orderService.addOrder(
         customerId: widget.customer?.id,
         cart: widget.cart,
         totalAmountKobo: totalKobo,
@@ -494,8 +483,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
         setState(() {
           _amountPaid = amountPaidKobo / 100.0;
           _paymentConfirmed = true;
-          // Note: In a real app, you'd get the actual ID from the service return or a listener
-          _currentOrderId = "New Order";
+          _currentOrderId = orderNo;
         });
 
         // Clear cart for next sale
@@ -506,12 +494,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Checkout failed: ${e.toString()}'),
-            backgroundColor: Theme.of(context).colorScheme.error,
-          ),
-        );
+        AppNotification.showError(context, 'Checkout failed: ${e.toString()}');
       }
     } finally {
       if (mounted) {
@@ -544,6 +527,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 cashReceived: _amountPaid,
                 walletBalance: _isWalkIn ? null : _dynamicNewCustomerWallet,
                 riderName: 'Pick-up Order',
+                manufacturerNames: _manufacturerNames,
               ),
             ),
           ),
@@ -597,24 +581,14 @@ class _CheckoutPageState extends State<CheckoutPage> {
               ),
             ],
           ),
-          SizedBox(height: context.getRSize(12)),
-          SizedBox(
-            width: double.infinity,
-            child: TextButton(
-              onPressed: () {
-                if (!mounted) return;
-                Navigator.of(context).pop();
-                navigationService.setIndex(1);
-              },
-              child: Text(
-                'Done — Back to POS',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: context.getRFontSize(14),
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-              ),
-            ),
+          AppButton(
+            text: 'Done — Back to POS',
+            variant: AppButtonVariant.ghost,
+            onPressed: () {
+              if (!mounted) return;
+              Navigator.of(context).pop();
+              navigationService.setIndex(1);
+            },
           ),
         ],
       ),
@@ -664,208 +638,214 @@ class _CheckoutPageState extends State<CheckoutPage> {
       );
       if (imageBytes == null) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to capture receipt image')),
-        );
+        AppNotification.showError(context, 'Failed to capture receipt image');
         return;
       }
 
       final dir = await getTemporaryDirectory();
       final file = File(
-        '${dir.path}/ribaplus_pos_receipt_${DateTime.now().millisecondsSinceEpoch}.png',
+        '${dir.path}/reebaplus_pos_receipt_${DateTime.now().millisecondsSinceEpoch}.png',
       );
       await file.writeAsBytes(imageBytes);
 
-      await Share.shareXFiles([XFile(file.path)], text: 'Ribaplus POS Receipt');
+      await Share.shareXFiles([XFile(file.path)], text: 'Reebaplus POS Receipt');
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error sharing receipt: $e')));
+      AppNotification.showError(context, 'Error sharing receipt: $e');
     }
   }
 
   Future<void> _printReceipt() async {
-    if (Platform.isAndroid) {
-      await [
-        Permission.bluetoothScan,
-        Permission.bluetoothConnect,
-        Permission.location,
-      ].request();
-    }
-
-    final List<int> receiptBytes = await ThermalReceiptService.buildReceipt(
-      orderId: _currentOrderId,
-      cart: widget.cart,
-      subtotal: widget.subtotal,
-      crateDeposit: widget.crateDeposit,
-      total: widget.total,
-      paymentMethod: _paymentLabel,
-      customerName: _customerDisplayName,
-      customerAddress: widget.customer?.addressText,
-      customerPhone: widget.customer?.phone,
-      cashReceived: _amountPaid,
-      walletBalance: _isWalkIn ? null : _dynamicNewCustomerWallet,
-      riderName: 'Pick-up Order',
-    );
-
-    if (!mounted) return;
-
-    // Check if already connected
-    bool isConnected = await PrintBluetoothThermal.connectionStatus;
-    if (!mounted) return;
-
-    if (isConnected) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Printing receipt...')));
-      await PrintBluetoothThermal.writeBytes(receiptBytes);
-      return;
-    }
-
-    // Try silent auto-connect to known printer
-    final paired = await PrintBluetoothThermal.pairedBluetooths;
-    final targetPrinters = paired.where((d) {
-      final name = d.name.toLowerCase();
-      return name.contains('bluetooth_mobile_printer') ||
-          name.contains('mp583');
-    }).toList();
-
-    if (targetPrinters.isNotEmpty) {
-      final targetPrinter = targetPrinters.first;
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Connecting to ${targetPrinter.name}...')),
-        );
+    try {
+      final granted = await printerService.requestPermissions();
+      if (!granted) {
+        if (!mounted) return;
+        AppNotification.showError(context, 'Bluetooth permissions denied');
+        return;
       }
 
-      bool autoConnected = await PrintBluetoothThermal.connect(
-        macPrinterAddress: targetPrinter.macAdress,
+      final List<int> receiptBytes = await ThermalReceiptService.buildReceipt(
+        orderId: _currentOrderId,
+        cart: widget.cart,
+        subtotal: widget.subtotal,
+        crateDeposit: widget.crateDeposit,
+        total: widget.total,
+        paymentMethod: _paymentLabel,
+        customerName: _customerDisplayName,
+        customerAddress: widget.customer?.addressText,
+        customerPhone: widget.customer?.phone,
+        cashReceived: _amountPaid,
+        walletBalance: _isWalkIn ? null : _dynamicNewCustomerWallet,
+        riderName: 'Pick-up Order',
       );
 
       if (!mounted) return;
 
-      if (autoConnected) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Printing receipt...')));
-        await PrintBluetoothThermal.writeBytes(receiptBytes);
+      final success = await printerService.printBytes(receiptBytes);
+      if (success) {
+        if (!mounted) return;
+        AppNotification.showSuccess(context, 'Print successful');
         return;
       }
-    }
 
-    if (!mounted) return;
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: _surface,
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.5,
-      ),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (_) {
-        return SafeArea(
-          top: false,
-          child: FutureBuilder<List<BluetoothInfo>>(
-            future: PrintBluetoothThermal.pairedBluetooths,
-            builder: (c, snapshot) {
-              final allDevices = snapshot.data ?? [];
-              final devices = allDevices.where((d) {
-                final n = d.name.toLowerCase();
-                return n.contains('print') ||
-                    n.contains('pos') ||
-                    n.contains('therma') ||
-                    n.contains('mtp') ||
-                    n.contains('mp583');
-              }).toList();
-
-              return Column(
-                children: [
-                   Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Text(
-                      'Select Receipt Printer',
-                      style: TextStyle(
-                        color: _text,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                    ),
-                  ),
-                  Divider(height: 1, color: _border),
-                  if (snapshot.connectionState == ConnectionState.waiting)
-                    const Expanded(
-                      child: Center(child: CircularProgressIndicator()),
-                    )
-                  else if (devices.isEmpty)
-                    Expanded(
-                      child: Center(
-                        child: Text(
-                          'No paired printers found',
-                          style: TextStyle(color: _subtext),
-                        ),
-                      ),
-                    )
-                  else
-                    Expanded(
-                      child: ListView.builder(
-                        physics: const ClampingScrollPhysics(),
-                        itemCount: devices.length,
-                        itemBuilder: (_, i) {
-                          final device = devices[i];
-                          return ListTile(
-                            leading: const Icon(Icons.print),
-                            title: Text(
-                              device.name.isEmpty
-                                  ? 'Unknown Device'
-                                  : device.name,
-                            ),
-                            subtitle: Text(device.macAdress),
-                            onTap: () async {
-                              Navigator.pop(context);
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Connecting to printer...'),
-                                ),
-                              );
-                              bool connected =
-                                  await PrintBluetoothThermal.connect(
-                                    macPrinterAddress: device.macAdress,
-                                  );
-                              if (connected) {
-                                await PrintBluetoothThermal.writeBytes(
-                                  receiptBytes,
-                                );
-                                if (!mounted) return;
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Print successful'),
-                                  ),
-                                );
-                              } else {
-                                if (!mounted) return;
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text(
-                                      'Failed to connect to printer.',
-                                    ),
-                                  ),
-                                );
-                              }
-                            },
-                          );
-                        },
-                      ),
-                    ),
-                ],
-              );
+      // If print failed (likely not connected), show printer picker
+      if (mounted) {
+        showModalBottomSheet(
+          context: context,
+          isScrollControlled: true,
+          backgroundColor: _surface,
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.5,
+          ),
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+          ),
+          builder: (_) => PrinterPicker(
+            onSelected: (device) async {
+              if (!mounted) return;
+              Navigator.pop(context);
+              
+              if (!mounted) return;
+              AppNotification.showSuccess(context, 'Connecting to ${device.name}...');
+              
+              final connected = await printerService.connect(device.macAdress);
+              if (!mounted) return;
+              
+              if (connected) {
+                await printerService.printBytes(receiptBytes);
+                if (!mounted) return;
+                AppNotification.showSuccess(context, 'Print successful');
+              } else {
+                AppNotification.showError(context, 'Failed to connect to ${device.name}');
+              }
             },
           ),
         );
-      },
+      }
+    } catch (e) {
+      if (mounted) {
+        AppNotification.showError(context, 'Print error: $e');
+      }
+    }
+  }
+
+  // ── Wallet sub-options (shown under Full Cash when customer is named) ───────
+
+  Widget _buildWalletSubOptions() {
+    final walletBalance = widget.customer?.customerWallet ?? 0.0;
+    final sufficient = walletBalance >= widget.total;
+
+    return Padding(
+      padding: EdgeInsets.only(
+        left: context.getRSize(4),
+        right: context.getRSize(4),
+        bottom: context.getRSize(10),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              _walletChip(
+                'Cash / Transfer',
+                !_isWalletPayment,
+                () => setState(() => _isWalletPayment = false),
+              ),
+              SizedBox(width: context.getRSize(10)),
+              _walletChip(
+                'Pay from Wallet',
+                _isWalletPayment,
+                () => setState(() => _isWalletPayment = true),
+              ),
+            ],
+          ),
+          if (_isWalletPayment) ...[
+            SizedBox(height: context.getRSize(12)),
+            Container(
+              padding: EdgeInsets.symmetric(
+                horizontal: context.getRSize(16),
+                vertical: context.getRSize(12),
+              ),
+              decoration: BoxDecoration(
+                color: sufficient
+                    ? success.withValues(alpha: 0.08)
+                    : danger.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: sufficient
+                      ? success.withValues(alpha: 0.3)
+                      : danger.withValues(alpha: 0.3),
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Wallet Balance',
+                    style: TextStyle(
+                      fontSize: context.getRFontSize(13),
+                      fontWeight: FontWeight.w700,
+                      color: _text,
+                    ),
+                  ),
+                  Text(
+                    formatCurrency(walletBalance),
+                    style: TextStyle(
+                      fontSize: context.getRFontSize(15),
+                      fontWeight: FontWeight.w800,
+                      color: sufficient ? success : danger,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (!sufficient) ...[
+              SizedBox(height: context.getRSize(6)),
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: context.getRSize(4)),
+                child: Text(
+                  'Insufficient balance (${formatCurrency(walletBalance - widget.total)} short). '
+                  'Use Partial Payment instead.',
+                  style: TextStyle(
+                    fontSize: context.getRFontSize(12),
+                    color: danger,
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _walletChip(String label, bool selected, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: EdgeInsets.symmetric(
+          horizontal: context.getRSize(16),
+          vertical: context.getRSize(8),
+        ),
+        decoration: BoxDecoration(
+          color: selected ? blueMain.withValues(alpha: 0.12) : _surface,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: selected ? blueMain : _border,
+            width: selected ? 2 : 1,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: context.getRFontSize(13),
+            fontWeight: selected ? FontWeight.bold : FontWeight.w500,
+            color: selected ? blueMain : _subtext,
+          ),
+        ),
+      ),
     );
   }
 
@@ -1032,7 +1012,12 @@ class _CheckoutPageState extends State<CheckoutPage> {
     final iconColor = disabled ? _subtext : (active ? blueMain : _subtext);
 
     return GestureDetector(
-      onTap: disabled ? null : () => setState(() => _paymentType = type),
+      onTap: disabled
+          ? null
+          : () => setState(() {
+                _paymentType = type;
+                if (type != PaymentType.fullCash) _isWalletPayment = false;
+              }),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
         margin: EdgeInsets.only(bottom: context.getRSize(10)),
@@ -1120,49 +1105,6 @@ class _CheckoutPageState extends State<CheckoutPage> {
     );
   }
 
-  Widget _inputField(
-    String label,
-    TextEditingController ctrl,
-    String hint, {
-    bool isNumber = false,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: context.getRFontSize(12),
-            fontWeight: FontWeight.w700,
-            color: _subtext,
-          ),
-        ),
-        SizedBox(height: context.getRSize(8)),
-        TextField(
-          controller: ctrl,
-          keyboardType: isNumber ? TextInputType.number : TextInputType.text,
-          inputFormatters: isNumber ? [CurrencyInputFormatter()] : null,
-          onChanged: (_) => setState(() {}),
-          style: TextStyle(fontSize: context.getRFontSize(14), color: _text),
-          decoration: InputDecoration(
-            hintText: hint,
-            hintStyle: TextStyle(color: _subtext),
-            filled: true,
-            fillColor: _cardBg,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: BorderSide.none,
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: BorderSide(color: Theme.of(context).colorScheme.primary, width: 2),
-            ),
-            contentPadding: EdgeInsets.all(context.getRSize(16)),
-          ),
-        ),
-      ],
-    );
-  }
 }
 
 

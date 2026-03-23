@@ -19,6 +19,7 @@ import '../../shared/services/cart_service.dart';
 import '../../shared/services/navigation_service.dart';
 import '../../shared/services/order_service.dart';
 import '../../shared/models/order.dart';
+import '../../core/utils/notifications.dart';
 
 
 // ── Lazy IndexedStack ──────────────────────────────────────────────────────
@@ -128,46 +129,38 @@ class _MainLayoutState extends State<MainLayout> {
               if (_lastBackPress == null ||
                   now.difference(_lastBackPress!) > _exitThreshold) {
                 _lastBackPress = now;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Tapping back again closes the app'),
-                    duration: Duration(seconds: 2),
-                    behavior: SnackBarBehavior.floating,
-                  ),
-                );
+                AppNotification.showSuccess(context, 'Tapping back again closes the app');
               } else {
                 // Consecutive tap within threshold - exit app
                 SystemNavigator.pop();
               }
             }
           },
-          child: ValueListenableBuilder<List<Map<String, dynamic>>>(
-            valueListenable: cartService,
-            builder: (context, cart, _) => Scaffold(
+          child: Scaffold(
               // IndexedStack keeps all screens alive for state preservation.
               // RepaintBoundary isolates each screen's painting so Flutter does
               // not repaint inactive screens when a detail route is pushed.
               body: _LazyIndexedStack(
                 index: currentIndex,
-                children: [
-                  const RepaintBoundary(child: DashboardScreen()),  // 0
-                  const RepaintBoundary(child: PosHomeScreen()),    // 1
-                  const RepaintBoundary(child: InventoryScreen()),  // 2
-                  const RepaintBoundary(child: OrdersScreen()),     // 3
-                  const RepaintBoundary(child: CustomersScreen()),  // 4
-                  const RepaintBoundary(child: PaymentsScreen()),   // 5
-                  const RepaintBoundary(child: ExpensesScreen()),   // 6
-                  const RepaintBoundary(child: WarehouseScreen()),  // 7
-                  const RepaintBoundary(child: StaffScreen()),      // 8
-                  RepaintBoundary(                                  // 9
+                children: const [
+                  RepaintBoundary(child: DashboardScreen()),  // 0
+                  RepaintBoundary(child: PosHomeScreen()),    // 1
+                  RepaintBoundary(child: InventoryScreen()),  // 2
+                  RepaintBoundary(child: OrdersScreen()),     // 3
+                  RepaintBoundary(child: CustomersScreen()),  // 4
+                  RepaintBoundary(child: PaymentsScreen()),   // 5
+                  RepaintBoundary(child: ExpensesScreen()),   // 6
+                  RepaintBoundary(child: WarehouseScreen()),  // 7
+                  RepaintBoundary(child: StaffScreen()),      // 8
+                  RepaintBoundary(                            // 9
                     child: CartScreen(
-                      cart: cart,
+                      cart: [],
                       crateDeposit: 0.0,
                       onCustomerChanged: _voidOnCustomerChanged,
                     ),
                   ),
-                  const RepaintBoundary(child: DeliveriesScreen()),  // 10
-                  const RepaintBoundary(child: ActivityLogScreen()), // 11
+                  RepaintBoundary(child: DeliveriesScreen()),  // 10
+                  RepaintBoundary(child: ActivityLogScreen()), // 11
                 ],
               ),
               bottomNavigationBar: ValueListenableBuilder(
@@ -225,17 +218,23 @@ class _MainLayoutState extends State<MainLayout> {
                           label: 'Orders',
                         ),
                         BottomNavigationBarItem(
-                          icon: Badge(
-                            label: Text(cart.length.toString()),
-                            isLabelVisible: cart.isNotEmpty,
-                            backgroundColor: t.colorScheme.error,
-                            child: const Icon(Icons.shopping_cart_outlined),
+                          icon: ValueListenableBuilder<List<Map<String, dynamic>>>(
+                            valueListenable: cartService,
+                            builder: (_, cart, __) => Badge(
+                              label: Text(cart.length.toString()),
+                              isLabelVisible: cart.isNotEmpty,
+                              backgroundColor: t.colorScheme.error,
+                              child: const Icon(Icons.shopping_cart_outlined),
+                            ),
                           ),
-                          activeIcon: Badge(
-                            label: Text(cart.length.toString()),
-                            isLabelVisible: cart.isNotEmpty,
-                            backgroundColor: t.colorScheme.error,
-                            child: Icon(isNavTab ? Icons.shopping_cart : Icons.shopping_cart_outlined),
+                          activeIcon: ValueListenableBuilder<List<Map<String, dynamic>>>(
+                            valueListenable: cartService,
+                            builder: (_, cart, __) => Badge(
+                              label: Text(cart.length.toString()),
+                              isLabelVisible: cart.isNotEmpty,
+                              backgroundColor: t.colorScheme.error,
+                              child: Icon(isNavTab ? Icons.shopping_cart : Icons.shopping_cart_outlined),
+                            ),
                           ),
                           label: 'Cart',
                         ),
@@ -301,17 +300,23 @@ class _MainLayoutState extends State<MainLayout> {
                         label: 'Orders',
                       ),
                       BottomNavigationBarItem(
-                        icon: Badge(
-                          label: Text(cart.length.toString()),
-                          isLabelVisible: cart.isNotEmpty,
-                          backgroundColor: t.colorScheme.error,
-                          child: const Icon(Icons.shopping_cart_outlined),
+                        icon: ValueListenableBuilder<List<Map<String, dynamic>>>(
+                          valueListenable: cartService,
+                          builder: (_, cart, __) => Badge(
+                            label: Text(cart.length.toString()),
+                            isLabelVisible: cart.isNotEmpty,
+                            backgroundColor: t.colorScheme.error,
+                            child: const Icon(Icons.shopping_cart_outlined),
+                          ),
                         ),
-                        activeIcon: Badge(
-                          label: Text(cart.length.toString()),
-                          isLabelVisible: cart.isNotEmpty,
-                          backgroundColor: t.colorScheme.error,
-                          child: Icon(isNavTab ? Icons.shopping_cart : Icons.shopping_cart_outlined),
+                        activeIcon: ValueListenableBuilder<List<Map<String, dynamic>>>(
+                          valueListenable: cartService,
+                          builder: (_, cart, __) => Badge(
+                            label: Text(cart.length.toString()),
+                            isLabelVisible: cart.isNotEmpty,
+                            backgroundColor: t.colorScheme.error,
+                            child: Icon(isNavTab ? Icons.shopping_cart : Icons.shopping_cart_outlined),
+                          ),
                         ),
                         label: 'Cart',
                       ),
@@ -320,7 +325,6 @@ class _MainLayoutState extends State<MainLayout> {
                 },
               ),
             ),
-          ),
         );
       },
     );

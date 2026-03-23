@@ -167,8 +167,9 @@ class OrderItems extends Table {
   IntColumn get warehouseId => integer().references(Warehouses, #id)();
   IntColumn get quantity => integer()();
   IntColumn get unitPriceKobo => integer()();
+  IntColumn get buyingPriceKobo => integer().withDefault(const Constant(0))();
   IntColumn get totalKobo => integer()();
-  TextColumn get priceSnapshot => text().nullable()(); 
+  TextColumn get priceSnapshot => text().nullable()();
 }
 
 // 11. Purchases
@@ -446,6 +447,18 @@ class SavedCarts extends Table {
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
 }
 
+// 34. Pending Crate Returns — short returns awaiting manager approval
+@DataClassName('PendingCrateReturnData')
+class PendingCrateReturns extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  IntColumn get orderId => integer().references(Orders, #id)();
+  IntColumn get customerId => integer().references(Customers, #id)();
+  IntColumn get staffId => integer().references(Users, #id)();
+  TextColumn get returnDataJson => text()(); // JSON: [{crateGroupId,crateGroupName,expectedQty,returnedQty}]
+  TextColumn get status => text().withDefault(const Constant('pending'))(); // pending/approved/rejected
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+}
+
 @DriftDatabase(
   tables: [
     CrateGroups,
@@ -482,37 +495,39 @@ class SavedCarts extends Table {
     CustomerWallets,
     WalletTransactions,
     SavedCarts,
+    PendingCrateReturns,
   ],
   daos: [
-    CatalogDao, 
-    InventoryDao, 
-    OrdersDao, 
-    CustomersDao, 
-    DeliveriesDao, 
-    ExpensesDao, 
-    SyncDao, 
-    ActivityLogDao, 
-    NotificationsDao, 
-    WarehousesDao, 
-    StockLedgerDao, 
-    StockTransferDao
+    CatalogDao,
+    InventoryDao,
+    OrdersDao,
+    CustomersDao,
+    DeliveriesDao,
+    ExpensesDao,
+    SyncDao,
+    ActivityLogDao,
+    NotificationsDao,
+    WarehousesDao,
+    StockLedgerDao,
+    StockTransferDao,
+    PendingCrateReturnsDao,
   ],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 26;
+  int get schemaVersion => 28;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
         onCreate: (m) async {
           debugPrint('[AppDatabase] onCreate: Creating database tables...');
-          await m.createAll().timeout(const Duration(seconds: 15), onTimeout: () {
-            throw Exception('Database creation timed out.');
-          });
-          debugPrint('[AppDatabase] onCreate: Seeding initial data...');
-          await _seedData();
+          await m.createAll();
+          debugPrint('[AppDatabase] onCreate: Seeding system defaults...');
+          await _seedData();           // crate groups + categories
+          debugPrint('[AppDatabase] onCreate: Seeding business data...');
+          await _seedBusinessData();   // warehouses, staff, products, inventory
           debugPrint('[AppDatabase] onCreate: Database setup complete.');
         },
         onUpgrade: (m, from, to) async {
@@ -558,6 +573,16 @@ class AppDatabase extends _$AppDatabase {
               try { await m.addColumn(orders, orders.crateDepositPaidKobo); } catch (_) {}
             }
 
+            if (from < 27) {
+              // Version 27: Snapshot buying price on OrderItems so profit history is unaffected by future price changes.
+              try { await m.addColumn(orderItems, orderItems.buyingPriceKobo); } catch (_) {}
+            }
+
+            if (from < 28) {
+              // Version 28: Add PendingCrateReturns table for staff short-return approval workflow.
+              await m.createTable(pendingCrateReturns);
+            }
+
             // Fallback: Create any other new tables that do not yet exist
             for (final table in allTables) {
               await m.createTable(table).catchError((_) => Future.value());
@@ -571,73 +596,191 @@ class AppDatabase extends _$AppDatabase {
 
   Future<void> _seedData() async {
     await batch((b) {
-      // Default warehouse — users can add more from the Warehouse screen
-      b.insert(warehouses, const WarehousesCompanion(name: Value('Main Store')));
-
+      // Crate groups — system defaults used for deposit calculations
       b.insert(crateGroups, const CrateGroupsCompanion(name: Value('Big Crate 12'), size: Value(12), depositAmountKobo: Value(150000)));
       b.insert(crateGroups, const CrateGroupsCompanion(name: Value('Medium Crate 20'), size: Value(20), depositAmountKobo: Value(150000)));
       b.insert(crateGroups, const CrateGroupsCompanion(name: Value('Small Crate 24'), size: Value(24), depositAmountKobo: Value(120000)));
 
+      // Product categories
       b.insert(categories, const CategoriesCompanion(name: Value('Glass Crates')));
       b.insert(categories, const CategoriesCompanion(name: Value('Cans & PET')));
       b.insert(categories, const CategoriesCompanion(name: Value('Kegs')));
       b.insert(categories, const CategoriesCompanion(name: Value('Other')));
-
-      // ── Default Staff ────────────────────────────────────────────────────────
-      // These are placeholder accounts. Real login details will be set later.
-      // PINs follow a simple pattern so staff can log in immediately on a fresh device.
-      b.insert(
-        users,
-        const UsersCompanion(
-          name: Value('CEO'),
-          role: Value('CEO'),
-          roleTier: Value(5),
-          pin: Value('0000'),
-          avatarColor: Value('#8B5CF6'), // purple
-        ),
-      );
-      b.insert(
-        users,
-        const UsersCompanion(
-          name: Value('Manager'),
-          role: Value('manager'),
-          roleTier: Value(4),
-          pin: Value('1111'),
-          avatarColor: Value('#3B82F6'), // blue
-        ),
-      );
-      b.insert(
-        users,
-        const UsersCompanion(
-          name: Value('Cashier'),
-          role: Value('cashier'),
-          roleTier: Value(2),
-          pin: Value('2222'),
-          avatarColor: Value('#10B981'), // green
-        ),
-      );
-      b.insert(
-        users,
-        const UsersCompanion(
-          name: Value('Stock Keeper'),
-          role: Value('stock_keeper'),
-          roleTier: Value(3),
-          pin: Value('3333'),
-          avatarColor: Value('#F59E0B'), // amber
-        ),
-      );
-      b.insert(
-        users,
-        const UsersCompanion(
-          name: Value('Rider'),
-          role: Value('rider'),
-          roleTier: Value(1),
-          pin: Value('4444'),
-          avatarColor: Value('#EF4444'), // red
-        ),
-      );
     });
   }
+
+  /// Seeds real business data — branches, staff, products, and inventory.
+  /// Called once from onCreate (fresh install only). Never call on existing DBs.
+  Future<void> _seedBusinessData() => transaction(() async {
+    // ── 0. Supplier ─────────────────────────────────────────────────────────
+    final coldcrateId = await into(suppliers).insert(const SuppliersCompanion(
+      name: Value('Coldcrate Ltd'),
+      phone: Value('08000000000'),
+    ));
+
+    // ── 1. Manufacturers ────────────────────────────────────────────────────
+    final nbId = await into(manufacturers).insert(const ManufacturersCompanion(
+      name: Value('Nigerian Breweries'),
+      depositAmountKobo: Value(150000), // ₦1,500 per bottle
+      emptyCrateStock: Value(30),
+    ));
+    final gnId = await into(manufacturers).insert(const ManufacturersCompanion(
+      name: Value('Guinness Nigeria'),
+      depositAmountKobo: Value(150000), // ₦1,500 per bottle
+      emptyCrateStock: Value(20),
+    ));
+
+    // ── 2. Warehouses ───────────────────────────────────────────────────────
+    final pankshinId = await into(warehouses).insert(const WarehousesCompanion(
+      name: Value('Pankshin Branch'),
+    ));
+    final keffiId = await into(warehouses).insert(const WarehousesCompanion(
+      name: Value('Keffi Branch'),
+    ));
+    final tafawaId = await into(warehouses).insert(const WarehousesCompanion(
+      name: Value('Tafawa Balewa Branch'),
+    ));
+
+    // ── 3. Staff (all inserted in one batch for speed) ──────────────────────
+    await batch((b) {
+      // Pankshin Branch
+      b.insert(users, UsersCompanion(name: const Value('Okwor Camillus'), role: const Value('CEO'), roleTier: const Value(5), pin: const Value('0000'), warehouseId: Value(pankshinId), avatarColor: const Value('#8B5CF6')));
+      b.insert(users, UsersCompanion(name: const Value('Okwor Felister'), role: const Value('manager'), roleTier: const Value(4), pin: const Value('1111'), warehouseId: Value(pankshinId), avatarColor: const Value('#3B82F6')));
+      b.insert(users, UsersCompanion(name: const Value('Okwor Solomon'), role: const Value('stock_keeper'), roleTier: const Value(3), pin: const Value('2222'), warehouseId: Value(pankshinId), avatarColor: const Value('#F59E0B')));
+      b.insert(users, UsersCompanion(name: const Value('Okwor Malachi'), role: const Value('stock_keeper'), roleTier: const Value(3), pin: const Value('3333'), warehouseId: Value(pankshinId), avatarColor: const Value('#F59E0B')));
+      b.insert(users, UsersCompanion(name: const Value('Boniface'), role: const Value('rider'), roleTier: const Value(1), pin: const Value('4444'), warehouseId: Value(pankshinId), avatarColor: const Value('#EF4444')));
+      // Keffi Branch
+      b.insert(users, UsersCompanion(name: const Value('Okwor Chimezie'), role: const Value('manager'), roleTier: const Value(4), pin: const Value('5555'), warehouseId: Value(keffiId), avatarColor: const Value('#3B82F6')));
+      b.insert(users, UsersCompanion(name: const Value('Eze Ebuka'), role: const Value('stock_keeper'), roleTier: const Value(3), pin: const Value('6666'), warehouseId: Value(keffiId), avatarColor: const Value('#F59E0B')));
+      // Tafawa Balewa Branch (Dashe is manager — only person at this branch)
+      b.insert(users, UsersCompanion(name: const Value('Dashe Gwimyol'), role: const Value('manager'), roleTier: const Value(4), pin: const Value('7777'), warehouseId: Value(tafawaId), avatarColor: const Value('#3B82F6')));
+    });
+
+    // ── 4. Resolve system category + crate group IDs ────────────────────────
+    final cats = await select(categories).get();
+    final glassCatId = cats.firstWhere((c) => c.name == 'Glass Crates').id;
+    final cansCatId  = cats.firstWhere((c) => c.name == 'Cans & PET').id;
+
+    final crateGrps  = await select(crateGroups).get();
+    final bigCrateId = crateGrps.firstWhere((c) => c.size == 12).id;
+
+    // ── 5. Products ─────────────────────────────────────────────────────────
+    // sellingPriceKobo = retailPriceKobo so cart prices show immediately.
+    // buyingPriceKobo  = retailPriceKobo to mirror the add-product form default.
+    // colorHex is set so product cards show a colour accent (matches form behaviour).
+    // 3 glass products
+    final starId = await into(products).insert(ProductsCompanion(
+      name: const Value('Star Lager Beer'),
+      categoryId: Value(glassCatId),
+      manufacturerId: Value(nbId), manufacturer: const Value('Nigerian Breweries'),
+      supplierId: Value(coldcrateId),
+      crateGroupId: Value(bigCrateId), crateSize: const Value('big'),
+      retailPriceKobo: const Value(1160000), sellingPriceKobo: const Value(1160000),
+      buyingPriceKobo: const Value(1080000), unit: const Value('Bottle'),
+      colorHex: const Value('#F59E0B'),
+    ));
+    final heinId = await into(products).insert(ProductsCompanion(
+      name: const Value('Heineken Beer'),
+      categoryId: Value(glassCatId),
+      manufacturerId: Value(nbId), manufacturer: const Value('Nigerian Breweries'),
+      supplierId: Value(coldcrateId),
+      crateGroupId: Value(bigCrateId), crateSize: const Value('big'),
+      retailPriceKobo: const Value(1350000), sellingPriceKobo: const Value(1350000),
+      buyingPriceKobo: const Value(1200000), unit: const Value('Bottle'),
+      colorHex: const Value('#10B981'),
+    ));
+    final guinnId = await into(products).insert(ProductsCompanion(
+      name: const Value('Guinness Stout'),
+      categoryId: Value(glassCatId),
+      manufacturerId: Value(gnId), manufacturer: const Value('Guinness Nigeria'),
+      supplierId: Value(coldcrateId),
+      crateGroupId: Value(bigCrateId), crateSize: const Value('big'),
+      retailPriceKobo: const Value(1750000), sellingPriceKobo: const Value(1750000),
+      buyingPriceKobo: const Value(1623000), unit: const Value('Bottle'),
+      colorHex: const Value('#6B7280'),
+    ));
+    // 2 non-glass products
+    final maltaId = await into(products).insert(ProductsCompanion(
+      name: const Value('Malta Guinness'),
+      categoryId: Value(cansCatId),
+      manufacturerId: Value(gnId), manufacturer: const Value('Guinness Nigeria'),
+      supplierId: Value(coldcrateId),
+      retailPriceKobo: const Value(1435000), sellingPriceKobo: const Value(1435000),
+      buyingPriceKobo: const Value(1350000), unit: const Value('Can'),
+      colorHex: const Value('#92400E'),
+    ));
+    final himaltId = await into(products).insert(ProductsCompanion(
+      name: const Value('Hi-Malt'),
+      categoryId: Value(cansCatId),
+      manufacturerId: Value(nbId), manufacturer: const Value('Nigerian Breweries'),
+      supplierId: Value(coldcrateId),
+      retailPriceKobo: const Value(1130000), sellingPriceKobo: const Value(1130000),
+      buyingPriceKobo: const Value(1030000), unit: const Value('Can'),
+      colorHex: const Value('#3B82F6'),
+    ));
+
+    // ── 6. Inventory per warehouse ──────────────────────────────────────────
+    // quantities[product][warehouse]: [Pankshin, Keffi, Tafawa Balewa]
+    final productIds  = [starId, heinId, guinnId, maltaId, himaltId];
+    final warehouseIds = [pankshinId, keffiId, tafawaId];
+    final quantities  = [
+      [240, 120, 60],  // Star Lager Beer
+      [120,  60, 60],  // Heineken Beer
+      [120,  60, 60],  // Guinness Stout
+      [ 48,  24, 24],  // Malta Guinness
+      [ 48,  24, 24],  // Hi-Malt
+    ];
+
+    await batch((b) {
+      for (var p = 0; p < productIds.length; p++) {
+        for (var w = 0; w < warehouseIds.length; w++) {
+          b.insert(inventory, InventoryCompanion(
+            productId:   Value(productIds[p]),
+            warehouseId: Value(warehouseIds[w]),
+            quantity:    Value(quantities[p][w]),
+          ));
+        }
+      }
+    });
+
+    // ── 7. Additional staff — Riders, Cashiers, Cleaners ───────────────────
+    await batch((b) {
+      // Riders (PIN 8888–0011)
+      b.insert(users, UsersCompanion(name: const Value('Usman Garba'), role: const Value('rider'), roleTier: const Value(1), pin: const Value('8888'), warehouseId: Value(pankshinId), avatarColor: const Value('#F97316')));
+      b.insert(users, UsersCompanion(name: const Value('Daniel Markus'), role: const Value('rider'), roleTier: const Value(1), pin: const Value('9999'), warehouseId: Value(keffiId), avatarColor: const Value('#F97316')));
+      b.insert(users, UsersCompanion(name: const Value('John Pwajok'), role: const Value('rider'), roleTier: const Value(1), pin: const Value('0011'), warehouseId: Value(tafawaId), avatarColor: const Value('#F97316')));
+      // Cashiers (PIN 2233–7788)
+      b.insert(users, UsersCompanion(name: const Value('Amina Yusuf'), role: const Value('cashier'), roleTier: const Value(2), pin: const Value('2233'), warehouseId: Value(pankshinId), avatarColor: const Value('#3B82F6')));
+      b.insert(users, UsersCompanion(name: const Value('Grace Dung'), role: const Value('cashier'), roleTier: const Value(2), pin: const Value('3344'), warehouseId: Value(pankshinId), avatarColor: const Value('#3B82F6')));
+      b.insert(users, UsersCompanion(name: const Value('Joseph Danjuma'), role: const Value('cashier'), roleTier: const Value(2), pin: const Value('4455'), warehouseId: Value(pankshinId), avatarColor: const Value('#3B82F6')));
+      b.insert(users, UsersCompanion(name: const Value('Fatima Idris'), role: const Value('cashier'), roleTier: const Value(2), pin: const Value('5566'), warehouseId: Value(keffiId), avatarColor: const Value('#3B82F6')));
+      b.insert(users, UsersCompanion(name: const Value('Emmanuel Lot'), role: const Value('cashier'), roleTier: const Value(2), pin: const Value('6677'), warehouseId: Value(keffiId), avatarColor: const Value('#3B82F6')));
+      b.insert(users, UsersCompanion(name: const Value('Mary Fom'), role: const Value('cashier'), roleTier: const Value(2), pin: const Value('7788'), warehouseId: Value(tafawaId), avatarColor: const Value('#3B82F6')));
+      // Cleaners (PIN 8899–1010)
+      b.insert(users, UsersCompanion(name: const Value('Haruna Bulus'), role: const Value('cleaner'), roleTier: const Value(1), pin: const Value('8899'), warehouseId: Value(pankshinId), avatarColor: const Value('#94A3B8')));
+      b.insert(users, UsersCompanion(name: const Value('Rebecca Luka'), role: const Value('cleaner'), roleTier: const Value(1), pin: const Value('9900'), warehouseId: Value(keffiId), avatarColor: const Value('#94A3B8')));
+      b.insert(users, UsersCompanion(name: const Value('Sunday Nden'), role: const Value('cleaner'), roleTier: const Value(1), pin: const Value('1010'), warehouseId: Value(tafawaId), avatarColor: const Value('#94A3B8')));
+    });
+
+    // ── 8. Customers (5 sample accounts + a wallet for each) ───────────────
+    // Must be sequential (not batch) so we capture each customer's auto-ID
+    // to create the matching CustomerWallet row. Without a wallet row,
+    // addCustomer() behaviour is not replicated and wallet screens crash.
+    final c1 = await into(customers).insert(CustomersCompanion(name: const Value('Adamu Musa'), phone: const Value('08031234567'), address: const Value('Pankshin Market'), customerGroup: const Value('retailer'), warehouseId: Value(pankshinId)));
+    await into(customerWallets).insert(CustomerWalletsCompanion.insert(walletId: 'wlt-seed-$c1', customerId: c1));
+
+    final c2 = await into(customers).insert(CustomersCompanion(name: const Value('Hadiza Bello'), phone: const Value('08056781234'), address: const Value('Pankshin Junction'), customerGroup: const Value('wholesaler'), warehouseId: Value(pankshinId)));
+    await into(customerWallets).insert(CustomerWalletsCompanion.insert(walletId: 'wlt-seed-$c2', customerId: c2));
+
+    final c3 = await into(customers).insert(CustomersCompanion(name: const Value('Ibrahim Suleiman'), phone: const Value('08098765432'), address: const Value('Keffi Road'), customerGroup: const Value('retailer'), warehouseId: Value(keffiId)));
+    await into(customerWallets).insert(CustomerWalletsCompanion.insert(walletId: 'wlt-seed-$c3', customerId: c3));
+
+    final c4 = await into(customers).insert(CustomersCompanion(name: const Value('Ngozi Okafor'), phone: const Value('07061234567'), address: const Value('Keffi Market'), customerGroup: const Value('wholesaler'), warehouseId: Value(keffiId)));
+    await into(customerWallets).insert(CustomerWalletsCompanion.insert(walletId: 'wlt-seed-$c4', customerId: c4));
+
+    final c5 = await into(customers).insert(CustomersCompanion(name: const Value('Yusuf Danladi'), phone: const Value('08123456789'), address: const Value('Tafawa Balewa Central'), customerGroup: const Value('retailer'), warehouseId: Value(tafawaId)));
+    await into(customerWallets).insert(CustomerWalletsCompanion.insert(walletId: 'wlt-seed-$c5', customerId: c5));
+  });
 
   /// Seeds the 5 default staff accounts.
   /// Safe to call any time — only used when the Users table is empty.
@@ -669,10 +812,23 @@ class AppDatabase extends _$AppDatabase {
 
 final database = AppDatabase();
 
+/// Set to true by main.dart after the DB warmup query succeeds.
+/// LoginScreen reads this to skip its own wait if the DB is already ready.
+bool dbReady = false;
+
 LazyDatabase _openConnection() {
   return LazyDatabase(() async {
     final dbFolder = await getApplicationDocumentsDirectory();
-    final file = File(p.join(dbFolder.path, 'ribaplus_pos.sqlite'));
-    return NativeDatabase.createInBackground(file);
+    final file = File(p.join(dbFolder.path, 'reebaplus_pos.sqlite'));
+    return NativeDatabase.createInBackground(file, setup: (db) {
+      // Enable WAL mode for faster concurrent reads/writes.
+      db.execute('PRAGMA journal_mode = WAL');
+      // NORMAL is safe for app data and skips expensive per-write OS syncs.
+      db.execute('PRAGMA synchronous = NORMAL');
+      // 8 MB in-memory page cache to reduce disk I/O during table creation.
+      db.execute('PRAGMA cache_size = -8000');
+      // Keep temp tables in RAM instead of on disk.
+      db.execute('PRAGMA temp_store = MEMORY');
+    });
   });
 }

@@ -10,6 +10,8 @@ class AppDropdown<T> extends StatelessWidget {
   final String? hintText;
   final Widget? prefixIcon;
   final bool isExpanded;
+  final double? width;
+  final EdgeInsetsGeometry? contentPadding;
   final String? Function(T?)? validator;
 
   const AppDropdown({
@@ -21,6 +23,8 @@ class AppDropdown<T> extends StatelessWidget {
     this.hintText,
     this.prefixIcon,
     this.isExpanded = true,
+    this.width,
+    this.contentPadding,
     this.validator,
   });
 
@@ -31,8 +35,7 @@ class AppDropdown<T> extends StatelessWidget {
     final textColor = t.colorScheme.onSurface;
     final subtextColor = t.textTheme.bodySmall?.color ?? t.iconTheme.color!;
     final dropdownColor = t.colorScheme.surface;
-
-    return Column(
+    final widget = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (labelText != null) ...[
@@ -47,7 +50,7 @@ class AppDropdown<T> extends StatelessWidget {
           const SizedBox(height: 8),
         ],
         DropdownButtonFormField<T>(
-          initialValue: value,
+          value: value,
           items: items,
           onChanged: onChanged,
           validator: validator,
@@ -85,7 +88,7 @@ class AppDropdown<T> extends StatelessWidget {
             prefixIcon: prefixIcon,
             filled: true,
             fillColor: fillColor,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+            contentPadding: contentPadding ?? const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
               borderSide: BorderSide.none,
@@ -102,5 +105,10 @@ class AppDropdown<T> extends StatelessWidget {
         ),
       ],
     );
+
+    if (width != null) {
+      return SizedBox(width: width, child: widget);
+    }
+    return widget;
   }
 }

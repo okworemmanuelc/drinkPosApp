@@ -1,4 +1,4 @@
-import 'package:ribaplus_pos/core/database/app_database.dart';
+import 'package:reebaplus_pos/core/database/app_database.dart';
 import 'payment.dart';
 
 enum CustomerGroup { retailer, wholesaler }

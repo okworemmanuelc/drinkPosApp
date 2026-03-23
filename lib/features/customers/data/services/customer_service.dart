@@ -26,8 +26,8 @@ class CustomerService extends ValueNotifier<List<Customer>> {
     }
   }
 
-  Future<void> addCustomer(Customer customer) async {
-    await database.customersDao.addCustomer(CustomersCompanion.insert(
+  Future<Customer?> addCustomer(Customer customer) async {
+    final newId = await database.customersDao.addCustomer(CustomersCompanion.insert(
       name: customer.name,
       phone: Value(customer.phone),
       address: Value(customer.addressText),
@@ -35,12 +35,15 @@ class CustomerService extends ValueNotifier<List<Customer>> {
       customerGroup: Value(customer.customerGroup.name),
       warehouseId: Value(customer.warehouseId),
     ));
-    
+
     await activityLogService.logAction(
       'Customer Created',
       'Added new customer: ${customer.name}',
       relatedEntityType: 'customer',
     );
+
+    final data = await database.customersDao.findById(newId);
+    return data != null ? Customer.fromDb(data) : null;
   }
 
   Future<void> updateCustomer(Customer updatedCustomer) async {

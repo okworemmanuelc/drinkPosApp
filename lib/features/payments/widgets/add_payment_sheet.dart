@@ -7,7 +7,9 @@ import '../../../core/theme/colors.dart';
 import '../../../core/utils/number_format.dart';
 import '../../../core/utils/responsive.dart';
 import '../../../shared/services/activity_log_service.dart';
-import '../../../shared/widgets/fluid_menu.dart';
+import '../../../shared/widgets/app_button.dart';
+import '../../../shared/widgets/app_dropdown.dart';
+import '../../../shared/widgets/app_input.dart';
 
 import '../../deliveries/data/services/delivery_service.dart';
 import '../data/models/payment.dart';
@@ -45,7 +47,6 @@ class _AddPaymentSheetState extends State<AddPaymentSheet> {
   String? _selectedDeliveryId;
   Supplier? _selectedSupplier;
   Color get _surface => Theme.of(context).colorScheme.surface;
-  Color get _cardBg => Theme.of(context).cardColor;
   Color get _text => Theme.of(context).colorScheme.onSurface;
   Color get _subtext => Theme.of(context).textTheme.bodySmall?.color ?? Theme.of(context).iconTheme.color!;
   Color get _border => Theme.of(context).dividerColor;
@@ -112,17 +113,15 @@ class _AddPaymentSheetState extends State<AddPaymentSheet> {
               style: TextStyle(color: _subtext),
             ),
             actions: [
-              TextButton(
+              AppButton(
+                text: 'Cancel',
+                variant: AppButtonVariant.ghost,
                 onPressed: () => Navigator.pop(ctx, false),
-                child: Text('Cancel', style: TextStyle(color: _subtext)),
               ),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Theme.of(context).colorScheme.primary,
-                  foregroundColor: Colors.white,
-                ),
+              AppButton(
+                text: 'Confirm',
                 onPressed: () => Navigator.pop(ctx, true),
-                child: const Text('Confirm'),
+                size: AppButtonSize.small,
               ),
             ],
           ),
@@ -170,37 +169,7 @@ class _AddPaymentSheetState extends State<AddPaymentSheet> {
     if (mounted) Navigator.pop(context);
   }
 
-  InputDecoration _inputDeco(String hint) {
-    return InputDecoration(
-      hintText: hint,
-      hintStyle: TextStyle(color: _subtext),
-      filled: true,
-      fillColor: _cardBg,
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: BorderSide.none,
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: BorderSide(color: Theme.of(context).colorScheme.primary, width: 2),
-      ),
-      contentPadding: EdgeInsets.all(context.getRSize(16)),
-    );
-  }
 
-  Widget _buildLabel(String text) {
-    return Padding(
-      padding: EdgeInsets.only(bottom: context.getRSize(8)),
-      child: Text(
-        text,
-        style: TextStyle(
-          fontSize: context.getRFontSize(12),
-          fontWeight: FontWeight.w700,
-          color: _subtext,
-        ),
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -312,7 +281,17 @@ class _AddPaymentSheetState extends State<AddPaymentSheet> {
                         ),
                         children: [
                           // Supplier Autocomplete
-                          _buildLabel('Supplier Name'),
+                          Padding(
+                            padding: EdgeInsets.only(bottom: context.getRSize(8)),
+                            child: Text(
+                              'Supplier Name',
+                              style: TextStyle(
+                                fontSize: context.getRFontSize(12),
+                                fontWeight: FontWeight.w700,
+                                color: _subtext,
+                              ),
+                            ),
+                          ),
                           Autocomplete<Supplier>(
                             displayStringForOption: (item) => item.name,
                             optionsBuilder:
@@ -346,18 +325,12 @@ class _AddPaymentSheetState extends State<AddPaymentSheet> {
                               controller.addListener(() {
                                 _supplierCtrl.text = controller.text;
                               });
-                              return TextFormField(
+                              return AppInput(
                                 controller: controller,
                                 focusNode: focusNode,
-                                onEditingComplete: onEditingComplete,
-                                style: TextStyle(
-                                  fontSize: context.getRFontSize(14),
-                                  fontWeight: FontWeight.bold,
-                                  color: _text,
-                                ),
-                                decoration: _inputDeco(
-                                  'Start typing supplier name...',
-                                ),
+                                onFieldSubmitted: (_) => onEditingComplete(),
+                                labelText: 'Supplier Name',
+                                hintText: 'Start typing supplier name...',
                                 validator: (v) => v == null || v.trim().isEmpty
                                     ? 'Supplier is required'
                                     : null,
@@ -366,18 +339,12 @@ class _AddPaymentSheetState extends State<AddPaymentSheet> {
                           ),
                           SizedBox(height: context.getRSize(16)),
 
-                          // Amount
-                          _buildLabel('Amount'),
-                          TextFormField(
+                          AppInput(
+                            labelText: 'Amount',
                             controller: _amountCtrl,
                             keyboardType: TextInputType.number,
                             inputFormatters: [CurrencyInputFormatter()],
-                            style: TextStyle(
-                              fontSize: context.getRFontSize(14),
-                              fontWeight: FontWeight.bold,
-                              color: _text,
-                            ),
-                            decoration: _inputDeco('0.00'),
+                            hintText: '0.00',
                             validator: (v) => v == null || v.trim().isEmpty
                                 ? 'Amount is required'
                                 : null,
@@ -385,11 +352,11 @@ class _AddPaymentSheetState extends State<AddPaymentSheet> {
                           SizedBox(height: context.getRSize(16)),
 
                           // Payment Method
-                          FluidMenu<String>(
-                            label: 'Payment Method',
+                          AppDropdown<String>(
+                            labelText: 'Payment Method',
                             value: _paymentMethod,
                             items: ['Cash', 'Transfer', 'Cheque', 'POS']
-                                .map((e) => FluidMenuItem(value: e, label: e))
+                                .map((e) => DropdownMenuItem(value: e, child: Text(e)))
                                 .toList(),
                             onChanged: (val) {
                               if (val != null) setState(() => _paymentMethod = val);
@@ -397,82 +364,50 @@ class _AddPaymentSheetState extends State<AddPaymentSheet> {
                           ),
                           SizedBox(height: context.getRSize(16)),
 
-                          // Date Field
-                          _buildLabel('Date'),
-                          InkWell(
+                          AppInput(
+                            labelText: 'Date',
+                            readOnly: true,
                             onTap: _pickDate,
-                            child: Container(
-                              padding: EdgeInsets.all(context.getRSize(16)),
-                              decoration: BoxDecoration(
-                                color: _cardBg,
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                              child: Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    DateFormat('MMM d, y').format(
-                                      _selectedDate,
-                                    ),
-                                    style: TextStyle(
-                                      fontSize: context.getRFontSize(14),
-                                      fontWeight: FontWeight.bold,
-                                      color: _text,
-                                    ),
-                                  ),
-                                  Icon(
-                                    FontAwesomeIcons.calendar,
-                                    size: context.getRSize(16),
-                                    color: _subtext,
-                                  ),
-                                ],
-                              ),
+                            controller: TextEditingController(
+                              text: DateFormat('MMM d, y').format(_selectedDate),
+                            ),
+                            suffixIcon: Icon(
+                              FontAwesomeIcons.calendar,
+                              size: context.getRSize(16),
+                              color: _subtext,
                             ),
                           ),
                           SizedBox(height: context.getRSize(16)),
 
                           // Link to Delivery
-                          FluidMenu<String?>(
-                            label: 'Link to Delivery (Optional)',
+                          AppDropdown<String?>(
+                            labelText: 'Link to Delivery (Optional)',
                             value: _selectedDeliveryId,
-                            placeholder: 'None',
+                            hintText: 'None',
                             items: [
-                              const FluidMenuItem<String?>(value: null, label: 'None'),
+                              const DropdownMenuItem<String?>(value: null, child: Text('None')),
                               ...recentDeliveries.map((d) {
                                 final label =
                                     '${DateFormat('MMM d').format(d.deliveredAt)} - ${d.supplierName}';
-                                return FluidMenuItem<String?>(value: d.id, label: label);
+                                return DropdownMenuItem<String?>(value: d.id, child: Text(label));
                               }),
                             ],
                             onChanged: (val) => setState(() => _selectedDeliveryId = val),
                           ),
                           SizedBox(height: context.getRSize(16)),
 
-                          // Reference Number
-                          _buildLabel('Reference Number (Optional)'),
-                          TextFormField(
+                          AppInput(
+                            labelText: 'Reference Number (Optional)',
                             controller: _refCtrl,
-                            style: TextStyle(
-                              fontSize: context.getRFontSize(14),
-                              fontWeight: FontWeight.bold,
-                              color: _text,
-                            ),
-                            decoration: _inputDeco('e.g. TR-20938...'),
+                            hintText: 'e.g. TR-20938...',
                           ),
                           SizedBox(height: context.getRSize(16)),
 
-                          // Notes
-                          _buildLabel('Notes (Optional)'),
-                          TextFormField(
+                          AppInput(
+                            labelText: 'Notes (Optional)',
                             controller: _notesCtrl,
                             maxLines: 3,
-                            style: TextStyle(
-                              fontSize: context.getRFontSize(14),
-                              fontWeight: FontWeight.bold,
-                              color: _text,
-                            ),
-                            decoration: _inputDeco('Add remarks'),
+                            hintText: 'Add remarks',
                           ),
                           SizedBox(height: context.getRSize(24)),
                         ],
@@ -487,45 +422,9 @@ class _AddPaymentSheetState extends State<AddPaymentSheet> {
                         context.getRSize(20),
                         context.bottomInset + context.getRSize(16),
                       ),
-                      child: Container(
-                        width: double.infinity,
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [blueLight, blueDark],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          borderRadius: BorderRadius.circular(16),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
-                              blurRadius: 10,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.transparent,
-                            foregroundColor: Colors.white,
-                            shadowColor: Colors.transparent,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            padding: EdgeInsets.symmetric(
-                              vertical: context.getRSize(16),
-                            ),
-                            elevation: 0,
-                          ),
-                          onPressed: _submit,
-                          child: Text(
-                            'Save Payment',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: context.getRFontSize(15),
-                            ),
-                          ),
-                        ),
+                      child: AppButton(
+                        text: 'Save Payment',
+                        onPressed: _submit,
                       ),
                     ),
                   ],

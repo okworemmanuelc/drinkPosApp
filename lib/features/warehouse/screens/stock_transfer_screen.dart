@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
-import '../../../core/theme/colors.dart';
+
 
 import '../../../core/utils/responsive.dart';
 import '../../../shared/services/activity_log_service.dart';
@@ -10,8 +10,11 @@ import '../../inventory/data/models/inventory_item.dart';
 import '../../inventory/data/models/inventory_log.dart';
 import '../../../core/utils/currency_input_formatter.dart';
 import '../../warehouse/data/models/warehouse.dart';
-import '../../../shared/widgets/fluid_menu.dart';
+import '../../../shared/widgets/app_dropdown.dart';
+import '../../../shared/widgets/app_button.dart';
 import '../../../shared/widgets/shared_bottom_nav_bar.dart';
+import '../../../core/utils/notifications.dart';
+import '../../../shared/widgets/app_input.dart';
 
 class StockTransferScreen extends StatefulWidget {
   const StockTransferScreen({super.key});
@@ -33,7 +36,6 @@ class _StockTransferScreenState extends State<StockTransferScreen> {
   Color get _text => Theme.of(context).colorScheme.onSurface;
   Color get _subtext => Theme.of(context).textTheme.bodySmall?.color ?? Theme.of(context).iconTheme.color!;
   Color get _border => Theme.of(context).dividerColor;
-  Color get _cardBg => Theme.of(context).cardColor;
 
   @override
   void initState() {
@@ -140,39 +142,15 @@ class _StockTransferScreenState extends State<StockTransferScreen> {
 
     if (!mounted) return;
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Successfully transferred ${qty.toInt()} items.'),
-        backgroundColor: success,
-      ),
-    );
+    AppNotification.showSuccess(context, 'Successfully transferred ${qty.toInt()} items.');
 
     Navigator.pop(context);
   }
 
   void _showError(String msg) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(msg), backgroundColor: Theme.of(context).colorScheme.error));
+    AppNotification.showError(context, msg);
   }
 
-  InputDecoration _inputDeco(String hint) {
-    return InputDecoration(
-      hintText: hint,
-      hintStyle: TextStyle(color: _subtext),
-      filled: true,
-      fillColor: _cardBg,
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: BorderSide.none,
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: BorderSide(color: Theme.of(context).colorScheme.primary, width: 2),
-      ),
-      contentPadding: const EdgeInsets.all(16),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -208,55 +186,11 @@ class _StockTransferScreenState extends State<StockTransferScreen> {
               ),
             ),
           ),
-          Padding(
-            padding: EdgeInsets.fromLTRB(
-              context.getRSize(20),
-              0, // Removed extra top spacing
-              context.getRSize(20),
-              context.getRSize(60),
+            AppButton(
+              text: 'Confirm Transfer',
+              icon: FontAwesomeIcons.rightLeft,
+              onPressed: _submit,
             ),
-            child: Container(
-              width: double.infinity,
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [blueLight, blueDark],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(14),
-                boxShadow: [
-                  BoxShadow(
-                    color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.transparent,
-                  foregroundColor: Colors.white,
-                  shadowColor: Colors.transparent,
-                  padding: EdgeInsets.symmetric(vertical: context.getRSize(16)),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                ),
-                onPressed: _submit,
-                icon: Icon(
-                  FontAwesomeIcons.rightLeft,
-                  size: context.getRSize(16),
-                ),
-                label: Text(
-                  'Confirm Transfer',
-                  style: TextStyle(
-                    fontSize: context.getRFontSize(16),
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ),
-          ),
         ],
       ),
     );
@@ -282,11 +216,11 @@ class _StockTransferScreenState extends State<StockTransferScreen> {
             ),
           ),
           SizedBox(height: context.getRSize(16)),
-          FluidMenu<Warehouse>(
-            label: 'Source Warehouse',
+          AppDropdown<Warehouse>(
+            labelText: 'Source Warehouse',
             value: _sourceWarehouse,
             items: kWarehouses.map((w) {
-              return FluidMenuItem(value: w, label: w.name);
+              return DropdownMenuItem(value: w, child: Text(w.name));
             }).toList(),
             onChanged: (val) {
               setState(() {
@@ -303,11 +237,11 @@ class _StockTransferScreenState extends State<StockTransferScreen> {
             },
           ),
           SizedBox(height: context.getRSize(16)),
-          FluidMenu<Warehouse>(
-            label: 'Destination Warehouse',
+          AppDropdown<Warehouse>(
+            labelText: 'Destination Warehouse',
             value: _destinationWarehouse,
             items: kWarehouses.map((w) {
-              return FluidMenuItem(value: w, label: w.name);
+              return DropdownMenuItem(value: w, child: Text(w.name));
             }).toList(),
             onChanged: (val) => setState(() => _destinationWarehouse = val),
           ),
@@ -336,7 +270,6 @@ class _StockTransferScreenState extends State<StockTransferScreen> {
             ),
           ),
           SizedBox(height: context.getRSize(16)),
-          _buildFieldLabel('Product'),
           Autocomplete<InventoryItem>(
             displayStringForOption: (item) => item.productName,
             optionsBuilder: (TextEditingValue textEditingValue) {
@@ -437,12 +370,11 @@ class _StockTransferScreenState extends State<StockTransferScreen> {
                   controller.addListener(() {
                     _productCtrl.text = controller.text;
                   });
-                  return TextField(
+                  return AppInput(
                     controller: controller,
                     focusNode: focusNode,
-                    onEditingComplete: onEditingComplete,
-                    style: TextStyle(color: _text, fontWeight: FontWeight.bold),
-                    decoration: _inputDeco('Start typing product name...'),
+                    onFieldSubmitted: (_) => onEditingComplete(),
+                    hintText: 'Start typing product name...',
                   );
                 },
           ),
@@ -466,16 +398,12 @@ class _StockTransferScreenState extends State<StockTransferScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildFieldLabel('Unit Price ₦'),
-                    TextField(
+                    AppInput(
+                      labelText: 'Unit Price ₦',
                       controller: _priceCtrl,
                       keyboardType: TextInputType.number,
                       inputFormatters: [CurrencyInputFormatter()],
-                      style: TextStyle(
-                        color: _text,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      decoration: _inputDeco('0.0'),
+                      hintText: '0.0',
                     ),
                   ],
                 ),
@@ -485,15 +413,11 @@ class _StockTransferScreenState extends State<StockTransferScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildFieldLabel('Quantity'),
-                    TextField(
+                    AppInput(
+                      labelText: 'Quantity',
                       controller: _qtyCtrl,
                       keyboardType: TextInputType.number,
-                      style: TextStyle(
-                        color: _text,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      decoration: _inputDeco('0'),
+                      hintText: '0',
                     ),
                   ],
                 ),
@@ -505,19 +429,6 @@ class _StockTransferScreenState extends State<StockTransferScreen> {
     );
   }
 
-  Widget _buildFieldLabel(String label) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6.0),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: _subtext,
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-    );
-  }
 }
 
 

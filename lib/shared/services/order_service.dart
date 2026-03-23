@@ -42,6 +42,7 @@ class OrderService {
         warehouseId: resolvedWarehouseId,
         quantity: qty.toInt(),
         unitPriceKobo: (price * 100).round(),
+        buyingPriceKobo: Value(item['buyingPriceKobo'] as int? ?? 0),
         totalKobo: (price * qty * 100).round(),
       );
     }).toList();

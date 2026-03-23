@@ -1,5 +1,8 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 
 import 'core/theme/app_theme.dart';
 import 'core/theme/theme_notifier.dart';
@@ -19,37 +22,61 @@ void main() async {
   // Load persisted theme preferences.
   await themeController.init();
 
-  // Warm up the DB so onCreate/onUpgrade runs before the login PIN query.
-  // Timeout guards against a slow first-run init blocking runApp() forever.
-  try {
-    await database.customSelect('SELECT 1').get()
-        .timeout(const Duration(seconds: 10));
-  } catch (_) {
-    // DB warmup timed out or failed — proceed anyway.
-    // The DB initializes lazily on the first real query.
+  // Check if the DB file already exists on disk.
+  // - Existing install: file present → mark ready immediately, no overlay needed.
+  // - Fresh install: file absent → kick off warmup in background and let the
+  //   LoginScreen "Setting up…" overlay show while onCreate seeds the data.
+  // Either way runApp() fires immediately so the login screen appears at once.
+  final dbDir = await getApplicationDocumentsDirectory();
+  final dbFile = File(p.join(dbDir.path, 'reebaplus_pos.sqlite'));
+
+  if (dbFile.existsSync()) {
+    // Existing install — DB is already set up, no wait needed.
+    dbReady = true;
+    // Still open the DB connection in the background so first PIN query is fast.
+    () async { try { await database.customSelect('SELECT 1').get(); } catch (_) {} }();
+  } else {
+    // Fresh install — run onCreate + seed data in the background.
+    // LoginScreen._waitForDb() will show the overlay until this completes.
+    () async {
+      try { await database.customSelect('SELECT 1').get(); dbReady = true; } catch (_) {}
+    }();
   }
 
-  runApp(const RibaplusPosApp());
+  runApp(const ReebaplusPosApp());
 }
 
-class RibaplusPosApp extends StatelessWidget {
-  const RibaplusPosApp({super.key});
+class ReebaplusPosApp extends StatelessWidget {
+  const ReebaplusPosApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
       listenable: themeController,
       builder: (_, __) {
-        final isAmber =
-            themeController.designSystem == DesignSystem.amber;
-
         return MaterialApp(
-          title: 'Ribaplus POS',
+          title: 'Reebaplus POS',
           debugShowCheckedModeBanner: false,
+          builder: (context, child) {
+            return GestureDetector(
+              onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+              behavior: HitTestBehavior.opaque,
+              child: child,
+            );
+          },
           themeMode: themeController.themeMode,
-          theme: isAmber ? AppTheme.amberLight() : AppTheme.light(),
-          darkTheme:
-              isAmber ? AppTheme.amberDarkTheme() : AppTheme.dark(),
+          theme: switch (themeController.designSystem) {
+            DesignSystem.purple => AppTheme.purpleLight(),
+            DesignSystem.amber => AppTheme.amberLight(),
+            DesignSystem.green => AppTheme.greenLight(),
+            DesignSystem.blue => AppTheme.light(),
+          },
+          darkTheme: switch (themeController.designSystem) {
+            DesignSystem.purple => AppTheme.purpleDarkTheme(),
+            DesignSystem.amber => AppTheme.amberDarkTheme(),
+            DesignSystem.green => AppTheme.greenDarkTheme(),
+            DesignSystem.blue => AppTheme.dark(),
+          },
           home: ValueListenableBuilder<UserData?>(
             valueListenable: authService,
             builder: (_, user, __) {

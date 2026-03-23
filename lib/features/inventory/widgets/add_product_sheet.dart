@@ -1,10 +1,15 @@
 import 'package:drift/drift.dart' as drift;
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import '../../../core/utils/notifications.dart';
 import '../../../core/database/app_database.dart';
 
 import '../../../shared/widgets/app_dropdown.dart';
 import '../../../core/utils/responsive.dart';
+import '../../../shared/services/auth_service.dart';
+import '../../../shared/services/activity_log_service.dart';
+import '../../../shared/widgets/app_button.dart';
+import '../../../shared/widgets/app_input.dart';
 
 class AddProductSheet extends StatefulWidget {
   final VoidCallback? onProductAdded;
@@ -18,6 +23,7 @@ class _AddProductSheetState extends State<AddProductSheet> {
   final _nameCtrl = TextEditingController();
   final _subtitleCtrl = TextEditingController();
   final _retailPriceCtrl = TextEditingController();
+  final _buyingPriceCtrl = TextEditingController();
   final _lowStockCtrl = TextEditingController(text: '5');
   final _initialStockCtrl = TextEditingController(text: '0');
   final _supplierCtrl = TextEditingController();
@@ -38,6 +44,8 @@ class _AddProductSheetState extends State<AddProductSheet> {
   List<ManufacturerData> _allManufacturers = [];
   List<ManufacturerData> _manufacturerSuggestions = [];
 
+  List<ProductData> _allProducts = [];
+  List<ProductData> _productSuggestions = [];
   bool _isSaving = false;
 
   static const _units = ['Bottle', 'Crate', 'Pack', 'Carton', 'Keg', 'Can'];
@@ -55,6 +63,9 @@ class _AddProductSheetState extends State<AddProductSheet> {
     '#334155',
     '#64748B',
   ];
+
+  bool get _isStockKeeper => authService.currentUser?.role == 'stock_keeper';
+
   @override
   void initState() {
     super.initState();
@@ -66,12 +77,15 @@ class _AddProductSheetState extends State<AddProductSheet> {
     final suppliers = await database.catalogDao.getAllSuppliers();
     final manufacturers = await database.inventoryDao.getAllManufacturers();
     final cats = await database.select(database.categories).get();
+    final productsList = await (database.select(database.products)..where((t) => t.isDeleted.not())).get();
+
     if (mounted) {
       setState(() {
         _warehouses = whs;
         _allSuppliers = suppliers;
         _allManufacturers = manufacturers;
         _allCategories = cats;
+        _allProducts = productsList;
         if (whs.isNotEmpty) _selectedWarehouse = whs.first;
         if (cats.isNotEmpty) _selectedCategory = cats.first;
       });
@@ -83,6 +97,7 @@ class _AddProductSheetState extends State<AddProductSheet> {
     _nameCtrl.dispose();
     _subtitleCtrl.dispose();
     _retailPriceCtrl.dispose();
+    _buyingPriceCtrl.dispose();
     _lowStockCtrl.dispose();
     _initialStockCtrl.dispose();
     _supplierCtrl.dispose();
@@ -146,6 +161,51 @@ class _AddProductSheetState extends State<AddProductSheet> {
     });
   }
 
+  void _onNameChanged(String query) {
+    final q = query.trim().toLowerCase();
+    setState(() {
+      _productSuggestions = q.isEmpty
+          ? []
+          : _allProducts
+                .where((p) => p.name.toLowerCase().contains(q))
+                .take(5)
+                .toList();
+    });
+  }
+
+  void _selectProduct(ProductData product) {
+    _nameCtrl.text = product.name;
+    _subtitleCtrl.text = product.subtitle ?? '';
+    _retailPriceCtrl.text = (product.retailPriceKobo / 100).toStringAsFixed(2);
+    _buyingPriceCtrl.text = (product.buyingPriceKobo / 100).toStringAsFixed(2);
+    _lowStockCtrl.text = product.lowStockThreshold.toString();
+    
+    setState(() {
+      _unit = product.unit;
+      _colorHex = product.colorHex ?? '#3B82F6';
+      _crateSize = product.crateSize;
+      _selectedCategory = _allCategories.cast<CategoryData?>().firstWhere(
+        (c) => c?.id == product.categoryId,
+        orElse: () => _selectedCategory,
+      );
+      _selectedManufacturer = _allManufacturers.cast<ManufacturerData?>().firstWhere(
+        (m) => m?.id == product.manufacturerId,
+        orElse: () => null,
+      );
+      if (_selectedManufacturer != null) {
+        _manufacturerCtrl.text = _selectedManufacturer!.name;
+      }
+      _selectedSupplier = _allSuppliers.cast<SupplierData?>().firstWhere(
+        (s) => s?.id == product.supplierId,
+        orElse: () => null,
+      );
+      if (_selectedSupplier != null) {
+        _supplierCtrl.text = _selectedSupplier!.name;
+      }
+      _productSuggestions = [];
+    });
+  }
+
   Future<void> _createNewManufacturer(String name) async {
     final id = await database.inventoryDao.insertManufacturer(
       ManufacturersCompanion.insert(name: name),
@@ -176,23 +236,41 @@ class _AddProductSheetState extends State<AddProductSheet> {
     String? missingField;
     if (name.isEmpty) {
       missingField = 'Product Name';
+    } else if (_subtitleCtrl.text.trim().isEmpty) {
+      missingField = 'Description / Subtitle';
     } else if (_selectedCategory == null) {
       missingField = 'Category';
     } else if (_retailPriceCtrl.text.trim().isEmpty) {
       missingField = 'Retail Price';
+    } else if (!_isStockKeeper && _buyingPriceCtrl.text.trim().isEmpty) {
+      missingField = 'Buying Price';
+    } else if (_lowStockCtrl.text.trim().isEmpty) {
+      missingField = 'Low Stock Alert';
     } else if (_selectedWarehouse == null) {
       missingField = 'Warehouse';
-    } else if (_crateSize != null && _selectedManufacturer == null) {
-      missingField = 'Manufacturer (required for glass/crate products)';
+    } else if (_selectedManufacturer == null) {
+      missingField = 'Manufacturer';
+    } else if (_selectedSupplier == null) {
+      missingField = 'Supplier';
+    } else if (_initialStockCtrl.text.trim().isEmpty) {
+      missingField = 'Initial Quantity';
     }
 
     if (missingField != null) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('$missingField is required.'),
-            backgroundColor: Colors.red.shade700,
-          ),
+        AppNotification.showError(context, '$missingField is required.');
+      }
+      return;
+    }
+
+    final retailPrice = double.tryParse(_retailPriceCtrl.text) ?? 0;
+    final buyingPrice = double.tryParse(_buyingPriceCtrl.text) ?? 0;
+
+    if (buyingPrice > retailPrice) {
+      if (mounted) {
+        AppNotification.showError(
+          context,
+          'Buying price (₦$buyingPrice) cannot be higher than retail price (₦$retailPrice).',
         );
       }
       return;
@@ -202,19 +280,13 @@ class _AddProductSheetState extends State<AddProductSheet> {
     final existing = await database.catalogDao.findByName(name);
     if (existing != null) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('A product named "$name" already exists.'),
-            backgroundColor: Colors.red.shade700,
-            duration: const Duration(seconds: 4),
-          ),
-        );
+        AppNotification.showError(context, 'A product named "$name" already exists.');
       }
       return;
     }
 
-    final retailKobo = ((double.tryParse(_retailPriceCtrl.text) ?? 0) * 100)
-        .round();
+    final retailKobo = (retailPrice * 100).round();
+    final buyingKobo = (buyingPrice * 100).round();
     final lowStock = int.tryParse(_lowStockCtrl.text) ?? 5;
     final initialStock = int.tryParse(_initialStockCtrl.text) ?? 0;
 
@@ -230,7 +302,7 @@ class _AddProductSheetState extends State<AddProductSheet> {
           ),
           retailPriceKobo: drift.Value(retailKobo),
           sellingPriceKobo: drift.Value(retailKobo),
-          buyingPriceKobo: drift.Value(retailKobo),
+          buyingPriceKobo: drift.Value(buyingKobo),
           unit: drift.Value(_unit),
           colorHex: drift.Value(_colorHex),
           crateSize: drift.Value(_crateSize),
@@ -248,16 +320,17 @@ class _AddProductSheetState extends State<AddProductSheet> {
           productId,
           _selectedWarehouse!.id,
           initialStock,
-          'Initial stock',
-          null,
+          'Initial stock by ${authService.currentUser?.name ?? 'Unknown'}',
+          authService.currentUser?.id,
         );
       }
 
-      await database.activityLogDao.log(
-        action: 'New Product',
-        description: 'Product added: $name with initial stock $initialStock',
-        entityId: productId.toString(),
-        entityType: 'Product',
+      await activityLogService.logAction(
+        'new_product',
+        '${authService.currentUser?.name ?? 'Unknown'} added product: $name'
+            '${initialStock > 0 ? ' with initial stock $initialStock' : ''}',
+        relatedEntityId: productId.toString(),
+        relatedEntityType: 'product',
       );
 
       if (mounted) Navigator.pop(context);
@@ -265,13 +338,7 @@ class _AddProductSheetState extends State<AddProductSheet> {
     } catch (e) {
       debugPrint('AddProductSheet._save error: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Could not save product: $e'),
-            backgroundColor: Colors.red.shade700,
-            duration: const Duration(seconds: 5),
-          ),
-        );
+        AppNotification.showError(context, 'Could not save product: $e');
       }
     } finally {
       if (mounted) setState(() => _isSaving = false);
@@ -361,14 +428,27 @@ class _AddProductSheetState extends State<AddProductSheet> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _field(
-                      'Product Name *',
-                      _nameCtrl,
-                      'e.g. Heineken 60cl',
-                      card,
-                      textColor,
-                      subtext,
+                    AppInput(
+                      controller: _nameCtrl,
+                      labelText: 'Product Name *',
+                      hintText: 'e.g. Heineken 60cl',
+                      prefixIcon: Icon(Icons.search, size: 18, color: subtext),
+                      onChanged: _onNameChanged,
                     ),
+                    if (_productSuggestions.isNotEmpty)
+                      _suggestionList(
+                        children: _productSuggestions.map(
+                          (p) => _suggestionTile(
+                            label: p.name,
+                            textColor: textColor,
+                            card: card,
+                            border: border,
+                            onTap: () => _selectProduct(p),
+                          ),
+                        ).toList(),
+                        card: card,
+                        border: border,
+                      ),
                     const SizedBox(height: 14),
                     _sectionLabel('CATEGORY *', subtext),
                     const SizedBox(height: 8),
@@ -391,46 +471,45 @@ class _AddProductSheetState extends State<AddProductSheet> {
                         onChanged: (v) => setState(() => _selectedCategory = v),
                       ),
                     const SizedBox(height: 14),
-                    _field(
-                      'Description / Subtitle',
-                      _subtitleCtrl,
-                      'e.g. Premium Lager',
-                      card,
-                      textColor,
-                      subtext,
+                    AppInput(
+                      controller: _subtitleCtrl,
+                      labelText: 'Description / Subtitle *',
+                      hintText: 'e.g. Premium Lager',
                     ),
                     const SizedBox(height: 14),
                     Row(
                       children: [
                         Expanded(
-                          child: _field(
-                            'Retail Price (₦) *',
-                            _retailPriceCtrl,
-                            '0.00',
-                            card,
-                            textColor,
-                            subtext,
-                            isNumber: true,
+                          child: AppInput(
+                            controller: _retailPriceCtrl,
+                            labelText: 'Retail Price (₦) *',
+                            hintText: '0.00',
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
                           ),
                         ),
                         const SizedBox(width: 12),
-                        Expanded(
-                          child: _field(
-                            'Low Stock Alert',
-                            _lowStockCtrl,
-                            '5',
-                            card,
-                            textColor,
-                            subtext,
-                            isNumber: true,
+                        if (!_isStockKeeper)
+                          Expanded(
+                            child: AppInput(
+                              controller: _buyingPriceCtrl,
+                              labelText: 'Buying Price (₦) *',
+                              hintText: '0.00',
+                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            ),
                           ),
-                        ),
                       ],
+                    ),
+                    const SizedBox(height: 14),
+                    AppInput(
+                      controller: _lowStockCtrl,
+                      labelText: 'Low Stock Alert *',
+                      hintText: '5',
+                      keyboardType: TextInputType.number,
                     ),
                     const SizedBox(height: 16),
 
                     // ── UNIT SELECTOR ──────────────────────────────────────
-                    _sectionLabel('UNIT', subtext),
+                    _sectionLabel('UNIT *', subtext),
                     const SizedBox(height: 8),
                     AppDropdown<String>(
                       value: _unit,
@@ -508,20 +587,13 @@ class _AddProductSheetState extends State<AddProductSheet> {
                     const SizedBox(height: 16),
 
                     // ── MANUFACTURER ───────────────────────────────────────
-                    _sectionLabel(
-                      _crateSize != null ? 'MANUFACTURER *' : 'MANUFACTURER',
-                      subtext,
-                    ),
-                    const SizedBox(height: 8),
-                    _searchField(
+                    AppInput(
                       controller: _manufacturerCtrl,
-                      hint: 'Search or type manufacturer name…',
-                      card: card,
-                      textColor: textColor,
-                      subtext: subtext,
-                      border: border,
+                      labelText: 'MANUFACTURER *',
+                      hintText: 'Search or type manufacturer name…',
+                      prefixIcon: Icon(Icons.search, size: 18, color: subtext),
                       onChanged: _onManufacturerChanged,
-                      trailing: _selectedManufacturer != null
+                      suffixIcon: _selectedManufacturer != null
                           ? GestureDetector(
                               onTap: _clearManufacturer,
                               child: Icon(
@@ -566,17 +638,13 @@ class _AddProductSheetState extends State<AddProductSheet> {
                     const SizedBox(height: 16),
 
                     // ── SUPPLIER ───────────────────────────────────────────
-                    _sectionLabel('SUPPLIER', subtext),
-                    const SizedBox(height: 8),
-                    _searchField(
+                    AppInput(
                       controller: _supplierCtrl,
-                      hint: 'Search supplier name…',
-                      card: card,
-                      textColor: textColor,
-                      subtext: subtext,
-                      border: border,
+                      labelText: 'SUPPLIER *',
+                      hintText: 'Search supplier name…',
+                      prefixIcon: Icon(Icons.search, size: 18, color: subtext),
                       onChanged: _onSupplierChanged,
-                      trailing: _selectedSupplier != null
+                      suffixIcon: _selectedSupplier != null
                           ? GestureDetector(
                               onTap: _clearSupplier,
                               child: Icon(
@@ -621,22 +689,17 @@ class _AddProductSheetState extends State<AddProductSheet> {
                     const SizedBox(height: 16),
 
                     // ── QUANTITY ────────────────────────────────────────────
-                    _sectionLabel('QUANTITY', subtext),
-                    const SizedBox(height: 8),
-                    _field(
-                      '',
-                      _initialStockCtrl,
-                      '0',
-                      card,
-                      textColor,
-                      subtext,
-                      isNumber: true,
+                    AppInput(
+                      controller: _initialStockCtrl,
+                      labelText: 'INITIAL QUANTITY *',
+                      hintText: '0',
+                      keyboardType: TextInputType.number,
                     ),
                     const SizedBox(height: 16),
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _sectionLabel('SELECT WAREHOUSE *', subtext),
+                        _sectionLabel('WAREHOUSE *', subtext),
                         const SizedBox(height: 8),
                         if (_warehouses.isEmpty)
                           Container(
@@ -685,36 +748,11 @@ class _AddProductSheetState extends State<AddProductSheet> {
             // Save button
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-              child: SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Theme.of(context).colorScheme.primary,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    elevation: 0,
-                  ),
-                  onPressed: _isSaving ? null : _save,
-                  child: _isSaving
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            color: Colors.white,
-                            strokeWidth: 2,
-                          ),
-                        )
-                      : const Text(
-                          'Add Product',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                ),
+              child: AppButton(
+                text: 'Add Product',
+                variant: AppButtonVariant.primary,
+                isLoading: _isSaving,
+                onPressed: _save,
               ),
             ),
           ],
@@ -736,108 +774,6 @@ class _AddProductSheetState extends State<AddProductSheet> {
   );
 
 
-  Widget _field(
-    String label,
-    TextEditingController ctrl,
-    String hint,
-    Color card,
-    Color textColor,
-    Color subtext, {
-    bool isNumber = false,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (label.isNotEmpty) ...[
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              color: subtext,
-            ),
-          ),
-          const SizedBox(height: 8),
-        ],
-        TextField(
-          controller: ctrl,
-          keyboardType: isNumber
-              ? const TextInputType.numberWithOptions(decimal: true)
-              : TextInputType.text,
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: textColor,
-          ),
-          decoration: InputDecoration(
-            hintText: hint,
-            hintStyle: TextStyle(color: subtext),
-            filled: true,
-            fillColor: card,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide.none,
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Theme.of(context).colorScheme.primary, width: 2),
-            ),
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 14,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _searchField({
-    required TextEditingController controller,
-    required String hint,
-    required Color card,
-    required Color textColor,
-    required Color subtext,
-    required Color border,
-    required ValueChanged<String> onChanged,
-    Widget? trailing,
-  }) {
-    return TextField(
-      controller: controller,
-      style: TextStyle(
-        fontSize: 14,
-        fontWeight: FontWeight.w600,
-        color: textColor,
-      ),
-      onChanged: onChanged,
-      decoration: InputDecoration(
-        hintText: hint,
-        hintStyle: TextStyle(color: subtext),
-        filled: true,
-        fillColor: card,
-        prefixIcon: Icon(Icons.search, size: 18, color: subtext),
-        suffixIcon: trailing != null
-            ? Padding(
-                padding: const EdgeInsets.only(right: 12),
-                child: trailing,
-              )
-            : null,
-        suffixIconConstraints: const BoxConstraints(),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none,
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Theme.of(context).colorScheme.primary, width: 2),
-        ),
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 14,
-        ),
-      ),
-    );
-  }
 
   Widget _suggestionList({
     required List<Widget> children,

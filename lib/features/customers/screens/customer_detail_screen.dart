@@ -16,8 +16,10 @@ import '../../../shared/widgets/receipt_widget.dart';
 import '../../../core/utils/currency_input_formatter.dart';
 import '../data/models/payment.dart';
 import '../data/services/customer_service.dart';
-import '../../../shared/widgets/fluid_menu.dart';
 import '../../../shared/widgets/shared_bottom_nav_bar.dart';
+import '../../../shared/widgets/app_input.dart';
+import '../../../shared/widgets/app_button.dart';
+import '../../../shared/widgets/app_dropdown.dart';
 
 class CustomerDetailScreen extends StatefulWidget {
   final Customer? customer;
@@ -535,7 +537,10 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
             if (customerOrders.length > 3)
               Align(
                 alignment: Alignment.centerRight,
-                child: TextButton(
+                child: AppButton(
+                  text: 'View More',
+                  variant: AppButtonVariant.ghost,
+                  size: AppButtonSize.small,
                   onPressed: () => _showAllOrdersModal(
                     context,
                     customerOrders,
@@ -543,14 +548,6 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                     textCol,
                     subtextCol,
                     borderCol,
-                  ),
-                  child: Text(
-                    'View More',
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.primary,
-                      fontWeight: FontWeight.bold,
-                      fontSize: context.getRFontSize(13),
-                    ),
                   ),
                 ),
               ),
@@ -876,32 +873,12 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               _sectionTitle(context, 'Wallet Transactions', textCol),
-              TextButton.icon(
+              AppButton(
+                text: 'Fund Wallet',
+                icon: FontAwesomeIcons.plus,
+                variant: AppButtonVariant.secondary,
+                size: AppButtonSize.small,
                 onPressed: () => _showAddPaymentDialog(context),
-                icon: Icon(
-                  FontAwesomeIcons.plus,
-                  size: context.getRSize(14),
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-                label: Text(
-                  'Fund Wallet',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: context.getRFontSize(13),
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                ),
-                style: TextButton.styleFrom(
-                  backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
-                  padding: EdgeInsets.symmetric(
-                    horizontal: context.getRSize(12),
-                    vertical: context.getRSize(6),
-                  ),
-                  minimumSize: Size.zero,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
               ),
             ],
           ),
@@ -1003,7 +980,10 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
             if (txns.length > 3)
               Align(
                 alignment: Alignment.centerRight,
-                child: TextButton(
+                child: AppButton(
+                  text: 'View Full Ledger',
+                  variant: AppButtonVariant.ghost,
+                  size: AppButtonSize.small,
                   onPressed: () => _showAllTransactionsModal(
                     context,
                     txns,
@@ -1011,14 +991,6 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                     textCol,
                     subtextCol,
                     borderCol,
-                  ),
-                  child: Text(
-                    'View Full Ledger',
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.primary,
-                      fontWeight: FontWeight.bold,
-                      fontSize: context.getRFontSize(13),
-                    ),
                   ),
                 ),
               ),
@@ -1282,37 +1254,14 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               _sectionTitle(context, 'Empty Crates Balance', textCol),
-              TextButton.icon(
+              AppButton(
+                text: 'Return Crates',
+                icon: FontAwesomeIcons.rotateLeft,
+                variant: AppButtonVariant.secondary,
+                size: AppButtonSize.small,
                 onPressed: outstandingCrates.isEmpty
                     ? null
                     : () => _showReturnCratesDialog(context),
-                icon: Icon(
-                  FontAwesomeIcons.rotateLeft,
-                  size: context.getRSize(14),
-                ),
-                label: Text(
-                  'Return Crates',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: context.getRFontSize(13),
-                  ),
-                ),
-                style: TextButton.styleFrom(
-                  backgroundColor: outstandingCrates.isEmpty
-                      ? null
-                      : Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
-                  foregroundColor: outstandingCrates.isEmpty
-                      ? subtextCol
-                      : Theme.of(context).colorScheme.primary,
-                  padding: EdgeInsets.symmetric(
-                    horizontal: context.getRSize(12),
-                    vertical: context.getRSize(6),
-                  ),
-                  minimumSize: Size.zero,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
               ),
             ],
           ),
@@ -1421,7 +1370,6 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
         final borderCol = Theme.of(context).dividerColor;
         final cardCol = Theme.of(context).cardColor;
         final textCol = Theme.of(context).colorScheme.onSurface;
-        final subtextCol = Theme.of(context).textTheme.bodySmall?.color ?? Theme.of(context).iconTheme.color!;
 
         return Padding(
           padding: EdgeInsets.only(bottom: modalCtx.bottomInset),
@@ -1477,17 +1425,10 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                             ),
                           ),
                           SizedBox(height: modalCtx.getRSize(20)),
-                          Text(
-                            'Amount',
-                            style: TextStyle(
-                              fontSize: modalCtx.getRFontSize(12),
-                              fontWeight: FontWeight.w700,
-                              color: subtextCol,
-                            ),
-                          ),
-                          SizedBox(height: modalCtx.getRSize(8)),
-                          TextFormField(
+                          AppInput(
                             controller: amountCtrl,
+                            labelText: 'Amount',
+                            hintText: 'e.g. 5000',
                             keyboardType: const TextInputType.numberWithOptions(
                               decimal: true,
                             ),
@@ -1497,30 +1438,8 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                               fontWeight: FontWeight.bold,
                               color: textCol,
                             ),
-                            decoration: InputDecoration(
-                              hintText: 'e.g. 5000',
-                              hintStyle: TextStyle(color: subtextCol),
-                              filled: true,
-                              fillColor: cardCol,
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(14),
-                                borderSide: BorderSide.none,
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(14),
-                                borderSide: BorderSide(
-                                  color: Theme.of(context).colorScheme.primary,
-                                  width: 2,
-                                ),
-                              ),
-                              contentPadding: const EdgeInsets.all(16),
-                              prefixText: '₦ ',
-                              prefixStyle: TextStyle(
-                                color: textCol,
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
+                            fillColor: cardCol,
+                            prefixText: '₦ ',
                             validator: (v) {
                               if (v == null || v.isEmpty) return 'Required';
                               final parsed = parseCurrency(v);
@@ -1531,36 +1450,12 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                             },
                           ),
                           const SizedBox(height: 16),
-                          Text(
-                            'Note (Optional)',
-                            style: TextStyle(
-                              fontSize: modalCtx.getRFontSize(12),
-                              fontWeight: FontWeight.w700,
-                              color: subtextCol,
-                            ),
-                          ),
-                          SizedBox(height: modalCtx.getRSize(8)),
-                          TextFormField(
+                          AppInput(
                             controller: noteCtrl,
+                            labelText: 'Note (Optional)',
+                            hintText: 'Payment note',
                             style: TextStyle(fontSize: 14, color: textCol),
-                            decoration: InputDecoration(
-                              hintText: 'Payment note',
-                              hintStyle: TextStyle(color: subtextCol),
-                              filled: true,
-                              fillColor: cardCol,
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(14),
-                                borderSide: BorderSide.none,
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(14),
-                                borderSide: BorderSide(
-                                  color: Theme.of(context).colorScheme.primary,
-                                  width: 2,
-                                ),
-                              ),
-                              contentPadding: const EdgeInsets.all(16),
-                            ),
+                            fillColor: cardCol,
                           ),
                           const SizedBox(height: 32),
                         ],
@@ -1570,47 +1465,30 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                 ),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
-                  child: SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Theme.of(context).colorScheme.primary,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        elevation: 0,
-                      ),
-                      onPressed: () async {
-                        if (formKey.currentState!.validate()) {
-                          final amount = parseCurrency(amountCtrl.text);
+                  child: AppButton(
+                    text: 'Confirm Payment',
+                    variant: AppButtonVariant.primary,
+                    onPressed: () async {
+                      if (formKey.currentState!.validate()) {
+                        final amount = parseCurrency(amountCtrl.text);
 
-                          // Persist via service
-                          await customerService.addPayment(
-                            _customer.id, 
-                            Payment(
-                              id: DateTime.now().millisecondsSinceEpoch.toString(),
-                              amount: amount,
-                              timestamp: DateTime.now(),
-                              note: noteCtrl.text.trim(),
-                            ),
-                          );
+                        // Persist via service
+                        await customerService.addPayment(
+                          _customer.id, 
+                          Payment(
+                            id: DateTime.now().millisecondsSinceEpoch.toString(),
+                            amount: amount,
+                            timestamp: DateTime.now(),
+                            note: noteCtrl.text.trim(),
+                          ),
+                        );
 
-                          if (!modalCtx.mounted) return;
+                        if (!modalCtx.mounted) return;
 
-                          // DB streams will auto-update balance + history
-                          if (modalCtx.mounted) Navigator.pop(modalCtx);
-                        }
-                      },
-                      child: const Text(
-                        'Confirm Payment',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
+                        // DB streams will auto-update balance + history
+                        if (modalCtx.mounted) Navigator.pop(modalCtx);
+                      }
+                    },
                   ),
                 ),
               ],
@@ -1637,7 +1515,6 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
         final borderCol = Theme.of(context).dividerColor;
         final cardCol = Theme.of(context).cardColor;
         final textCol = Theme.of(context).colorScheme.onSurface;
-        final subtextCol = Theme.of(context).textTheme.bodySmall?.color ?? Theme.of(context).iconTheme.color!;
 
         return StatefulBuilder(
           builder: (dialogCtx, setDialogState) {
@@ -1707,13 +1584,13 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                                         crossAxisAlignment:
                                             CrossAxisAlignment.start,
                                         children: [
-                                          FluidMenu<String>(
-                                            label: 'Crate Company',
+                                          AppDropdown<String>(
+                                            labelText: 'Crate Company',
                                             value: rowData['group'],
                                             items: allGroups.map((g) {
-                                              return FluidMenuItem(
+                                              return DropdownMenuItem(
                                                 value: g,
-                                                label: g,
+                                                child: Text(g),
                                               );
                                             }).toList(),
                                             onChanged: (val) {
@@ -1731,61 +1608,22 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                                     const SizedBox(width: 8),
                                     Expanded(
                                       flex: 1,
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            'Qty',
-                                            style: TextStyle(
-                                              fontSize: modalCtx.getRFontSize(
-                                                12,
-                                              ),
-                                              fontWeight: FontWeight.w700,
-                                              color: subtextCol,
-                                            ),
-                                          ),
-                                          SizedBox(
-                                            height: modalCtx.getRSize(8),
-                                          ),
-                                          TextFormField(
-                                            initialValue: rowData['qty']
-                                                .toString(),
-                                            keyboardType: TextInputType.number,
-                                            style: TextStyle(
-                                              fontSize: 16,
-                                              color: textCol,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                            decoration: InputDecoration(
-                                              filled: true,
-                                              fillColor: cardCol,
-                                              border: OutlineInputBorder(
-                                                borderRadius:
-                                                    BorderRadius.circular(14),
-                                                borderSide: BorderSide.none,
-                                              ),
-                                              focusedBorder: OutlineInputBorder(
-                                                borderRadius:
-                                                    BorderRadius.circular(14),
-                                                borderSide: BorderSide(
-                                                  color: Theme.of(context).colorScheme.primary,
-                                                  width: 2,
-                                                ),
-                                              ),
-                                              contentPadding:
-                                                  const EdgeInsets.symmetric(
-                                                    horizontal: 12,
-                                                    vertical: 14,
-                                                  ),
-                                            ),
-                                            onChanged: (val) {
-                                              final parsed =
-                                                  int.tryParse(val) ?? 0;
-                                              rows[idx]['qty'] = parsed;
-                                            },
-                                          ),
-                                        ],
+                                      child: AppInput(
+                                        initialValue: rowData['qty']
+                                            .toString(),
+                                        labelText: 'Qty',
+                                        keyboardType: TextInputType.number,
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          color: textCol,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                        fillColor: cardCol,
+                                        onChanged: (val) {
+                                          final parsed =
+                                              int.tryParse(val) ?? 0;
+                                          rows[idx]['qty'] = parsed;
+                                        },
                                       ),
                                     ),
                                     Padding(
@@ -1810,7 +1648,11 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                               );
                             }),
                             const SizedBox(height: 8),
-                            TextButton.icon(
+                            AppButton(
+                              text: 'Add Row',
+                              icon: FontAwesomeIcons.plus,
+                              variant: AppButtonVariant.secondary,
+                              size: AppButtonSize.small,
                               onPressed: () {
                                 setDialogState(() {
                                   rows.add({
@@ -1819,28 +1661,6 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                                   });
                                 });
                               },
-                              icon: Icon(
-                                FontAwesomeIcons.plus,
-                                size: 14,
-                                color: Theme.of(context).colorScheme.primary,
-                              ),
-                              label: Text(
-                                'Add Row',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: Theme.of(context).colorScheme.primary,
-                                ),
-                              ),
-                              style: TextButton.styleFrom(
-                                backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 12,
-                                ),
-                              ),
                             ),
                             const SizedBox(height: 32),
                           ],
@@ -1849,57 +1669,40 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                     ),
                     Padding(
                       padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
-                      child: SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Theme.of(context).colorScheme.primary,
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            elevation: 0,
-                          ),
-                          onPressed: () async {
-                            final returns = <String, int>{};
-                            for (var r in rows) {
-                              final g = r['group'] as String;
-                              final q = r['qty'] as int;
-                              if (q > 0) {
-                                returns[g] = (returns[g] ?? 0) + q;
-                              }
+                      child: AppButton(
+                        text: 'Confirm Return',
+                        variant: AppButtonVariant.primary,
+                        onPressed: () async {
+                          final returns = <String, int>{};
+                          for (var r in rows) {
+                            final g = r['group'] as String;
+                            final q = r['qty'] as int;
+                            if (q > 0) {
+                              returns[g] = (returns[g] ?? 0) + q;
                             }
-                            if (returns.isNotEmpty) {
-                              // Persist via service
-                              await customerService.updateEmptyCratesBalance(_customer.id, returns);
-                              
-                              if (!modalCtx.mounted) return;
+                          }
+                          if (returns.isNotEmpty) {
+                            // Persist via service
+                            await customerService.updateEmptyCratesBalance(_customer.id, returns);
+                            
+                            if (!modalCtx.mounted) return;
 
-                              setState(() {
-                                final updated = Map<String, int>.from(_customer.emptyCratesBalance);
-                                for (final entry in returns.entries) {
-                                  final current = updated[entry.key] ?? 0;
-                                  final newVal = current - entry.value;
-                                  if (newVal <= 0) {
-                                    updated.remove(entry.key);
-                                  } else {
-                                    updated[entry.key] = newVal;
-                                  }
+                            setState(() {
+                              final updated = Map<String, int>.from(_customer.emptyCratesBalance);
+                              for (final entry in returns.entries) {
+                                final current = updated[entry.key] ?? 0;
+                                final newVal = current - entry.value;
+                                if (newVal <= 0) {
+                                  updated.remove(entry.key);
+                                } else {
+                                  updated[entry.key] = newVal;
                                 }
-                                _customer = _customer.copyWith(emptyCratesBalance: updated);
-                              });
-                            }
-                            Navigator.pop(modalCtx);
-                          },
-                          child: const Text(
-                            'Confirm Return',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
+                              }
+                              _customer = _customer.copyWith(emptyCratesBalance: updated);
+                            });
+                          }
+                          Navigator.pop(modalCtx);
+                        },
                       ),
                     ),
                   ],
@@ -1992,8 +1795,10 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                   ),
                 ),
                 SizedBox(height: modalCtx.getRSize(24)),
-                TextField(
+                AppInput(
                   controller: limitCtrl,
+                  labelText: 'Maximum Debt Amount',
+                  hintText: 'e.g. 50,000',
                   keyboardType: TextInputType.number,
                   inputFormatters: [CurrencyInputFormatter()],
                   style: TextStyle(
@@ -2001,64 +1806,31 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                     fontWeight: FontWeight.bold,
                     color: textCol,
                   ),
-                  decoration: InputDecoration(
-                    labelText: 'Maximum Debt Amount',
-                    labelStyle: TextStyle(color: subtextCol),
-                    hintText: 'e.g. 50,000',
-                    prefixIcon: Icon(
-                      FontAwesomeIcons.nairaSign,
-                      size: modalCtx.getRSize(14),
-                      color: subtextCol,
-                    ),
-                    filled: true,
-                    fillColor: cardCol,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
-                      borderSide: BorderSide.none,
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
-                      borderSide: BorderSide(color: Theme.of(context).colorScheme.primary, width: 2),
-                    ),
+                  prefixIcon: Icon(
+                    FontAwesomeIcons.nairaSign,
+                    size: modalCtx.getRSize(14),
+                    color: subtextCol,
                   ),
+                  fillColor: cardCol,
                 ),
                 SizedBox(height: modalCtx.getRSize(32)),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: () async {
-                      final val = parseCurrency(limitCtrl.text);
-                      final limitKobo = -(val.abs() * 100).round();
-                      
-                      // Persist via service
-                      await customerService.updateWalletLimit(_customer.id, val.abs());
+                AppButton(
+                  text: 'Save Limit',
+                  variant: AppButtonVariant.primary,
+                  onPressed: () async {
+                    final val = parseCurrency(limitCtrl.text);
+                    final limitKobo = -(val.abs() * 100).round();
+                    
+                    // Persist via service
+                    await customerService.updateWalletLimit(_customer.id, val.abs());
 
-                      if (!modalCtx.mounted) return;
+                    if (!modalCtx.mounted) return;
 
-                      setState(() {
-                        _customer = _customer.copyWith(walletLimitKobo: limitKobo);
-                      });
-                      Navigator.pop(modalCtx);
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Theme.of(context).colorScheme.primary,
-                      foregroundColor: Colors.white,
-                      padding: EdgeInsets.symmetric(
-                        vertical: modalCtx.getRSize(16),
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      elevation: 0,
-                    ),
-                    child: Text(
-                      'Save Limit',
-                      style: TextStyle(
-                        fontSize: modalCtx.getRFontSize(16),
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
+                    setState(() {
+                      _customer = _customer.copyWith(walletLimitKobo: limitKobo);
+                    });
+                    Navigator.pop(modalCtx);
+                  },
                 ),
               ],
             ),
