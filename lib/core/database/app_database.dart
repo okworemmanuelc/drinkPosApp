@@ -517,7 +517,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 28;
+  int get schemaVersion => 29;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -583,6 +583,18 @@ class AppDatabase extends _$AppDatabase {
               await m.createTable(pendingCrateReturns);
             }
 
+            if (from < 29) {
+              // Version 29: Migrate all 4-digit PINs to 6 digits by appending '00'.
+              // e.g. '0000' → '000000', '1111' → '111100'. Existing users enter old PIN + '00'.
+              try {
+                await customStatement(
+                  "UPDATE users SET pin = pin || '00' WHERE LENGTH(pin) = 4",
+                );
+              } catch (e) {
+                debugPrint('[AppDatabase] v29 PIN migration error: $e');
+              }
+            }
+
             // Fallback: Create any other new tables that do not yet exist
             for (final table in allTables) {
               await m.createTable(table).catchError((_) => Future.value());
@@ -644,16 +656,16 @@ class AppDatabase extends _$AppDatabase {
     // ── 3. Staff (all inserted in one batch for speed) ──────────────────────
     await batch((b) {
       // Pankshin Branch
-      b.insert(users, UsersCompanion(name: const Value('Okwor Camillus'), role: const Value('CEO'), roleTier: const Value(5), pin: const Value('0000'), warehouseId: Value(pankshinId), avatarColor: const Value('#8B5CF6')));
-      b.insert(users, UsersCompanion(name: const Value('Okwor Felister'), role: const Value('manager'), roleTier: const Value(4), pin: const Value('1111'), warehouseId: Value(pankshinId), avatarColor: const Value('#3B82F6')));
-      b.insert(users, UsersCompanion(name: const Value('Okwor Solomon'), role: const Value('stock_keeper'), roleTier: const Value(3), pin: const Value('2222'), warehouseId: Value(pankshinId), avatarColor: const Value('#F59E0B')));
-      b.insert(users, UsersCompanion(name: const Value('Okwor Malachi'), role: const Value('stock_keeper'), roleTier: const Value(3), pin: const Value('3333'), warehouseId: Value(pankshinId), avatarColor: const Value('#F59E0B')));
-      b.insert(users, UsersCompanion(name: const Value('Boniface'), role: const Value('rider'), roleTier: const Value(1), pin: const Value('4444'), warehouseId: Value(pankshinId), avatarColor: const Value('#EF4444')));
+      b.insert(users, UsersCompanion(name: const Value('Okwor Camillus'), role: const Value('CEO'), roleTier: const Value(5), pin: const Value('000000'), warehouseId: Value(pankshinId), avatarColor: const Value('#8B5CF6')));
+      b.insert(users, UsersCompanion(name: const Value('Okwor Felister'), role: const Value('manager'), roleTier: const Value(4), pin: const Value('111100'), warehouseId: Value(pankshinId), avatarColor: const Value('#3B82F6')));
+      b.insert(users, UsersCompanion(name: const Value('Okwor Solomon'), role: const Value('stock_keeper'), roleTier: const Value(3), pin: const Value('222200'), warehouseId: Value(pankshinId), avatarColor: const Value('#F59E0B')));
+      b.insert(users, UsersCompanion(name: const Value('Okwor Malachi'), role: const Value('stock_keeper'), roleTier: const Value(3), pin: const Value('333300'), warehouseId: Value(pankshinId), avatarColor: const Value('#F59E0B')));
+      b.insert(users, UsersCompanion(name: const Value('Boniface'), role: const Value('rider'), roleTier: const Value(1), pin: const Value('444400'), warehouseId: Value(pankshinId), avatarColor: const Value('#EF4444')));
       // Keffi Branch
-      b.insert(users, UsersCompanion(name: const Value('Okwor Chimezie'), role: const Value('manager'), roleTier: const Value(4), pin: const Value('5555'), warehouseId: Value(keffiId), avatarColor: const Value('#3B82F6')));
-      b.insert(users, UsersCompanion(name: const Value('Eze Ebuka'), role: const Value('stock_keeper'), roleTier: const Value(3), pin: const Value('6666'), warehouseId: Value(keffiId), avatarColor: const Value('#F59E0B')));
+      b.insert(users, UsersCompanion(name: const Value('Okwor Chimezie'), role: const Value('manager'), roleTier: const Value(4), pin: const Value('555500'), warehouseId: Value(keffiId), avatarColor: const Value('#3B82F6')));
+      b.insert(users, UsersCompanion(name: const Value('Eze Ebuka'), role: const Value('stock_keeper'), roleTier: const Value(3), pin: const Value('666600'), warehouseId: Value(keffiId), avatarColor: const Value('#F59E0B')));
       // Tafawa Balewa Branch (Dashe is manager — only person at this branch)
-      b.insert(users, UsersCompanion(name: const Value('Dashe Gwimyol'), role: const Value('manager'), roleTier: const Value(4), pin: const Value('7777'), warehouseId: Value(tafawaId), avatarColor: const Value('#3B82F6')));
+      b.insert(users, UsersCompanion(name: const Value('Dashe Gwimyol'), role: const Value('manager'), roleTier: const Value(4), pin: const Value('777700'), warehouseId: Value(tafawaId), avatarColor: const Value('#3B82F6')));
     });
 
     // ── 4. Resolve system category + crate group IDs ────────────────────────
@@ -746,20 +758,20 @@ class AppDatabase extends _$AppDatabase {
     // ── 7. Additional staff — Riders, Cashiers, Cleaners ───────────────────
     await batch((b) {
       // Riders (PIN 8888–0011)
-      b.insert(users, UsersCompanion(name: const Value('Usman Garba'), role: const Value('rider'), roleTier: const Value(1), pin: const Value('8888'), warehouseId: Value(pankshinId), avatarColor: const Value('#F97316')));
-      b.insert(users, UsersCompanion(name: const Value('Daniel Markus'), role: const Value('rider'), roleTier: const Value(1), pin: const Value('9999'), warehouseId: Value(keffiId), avatarColor: const Value('#F97316')));
-      b.insert(users, UsersCompanion(name: const Value('John Pwajok'), role: const Value('rider'), roleTier: const Value(1), pin: const Value('0011'), warehouseId: Value(tafawaId), avatarColor: const Value('#F97316')));
-      // Cashiers (PIN 2233–7788)
-      b.insert(users, UsersCompanion(name: const Value('Amina Yusuf'), role: const Value('cashier'), roleTier: const Value(2), pin: const Value('2233'), warehouseId: Value(pankshinId), avatarColor: const Value('#3B82F6')));
-      b.insert(users, UsersCompanion(name: const Value('Grace Dung'), role: const Value('cashier'), roleTier: const Value(2), pin: const Value('3344'), warehouseId: Value(pankshinId), avatarColor: const Value('#3B82F6')));
-      b.insert(users, UsersCompanion(name: const Value('Joseph Danjuma'), role: const Value('cashier'), roleTier: const Value(2), pin: const Value('4455'), warehouseId: Value(pankshinId), avatarColor: const Value('#3B82F6')));
-      b.insert(users, UsersCompanion(name: const Value('Fatima Idris'), role: const Value('cashier'), roleTier: const Value(2), pin: const Value('5566'), warehouseId: Value(keffiId), avatarColor: const Value('#3B82F6')));
-      b.insert(users, UsersCompanion(name: const Value('Emmanuel Lot'), role: const Value('cashier'), roleTier: const Value(2), pin: const Value('6677'), warehouseId: Value(keffiId), avatarColor: const Value('#3B82F6')));
-      b.insert(users, UsersCompanion(name: const Value('Mary Fom'), role: const Value('cashier'), roleTier: const Value(2), pin: const Value('7788'), warehouseId: Value(tafawaId), avatarColor: const Value('#3B82F6')));
-      // Cleaners (PIN 8899–1010)
-      b.insert(users, UsersCompanion(name: const Value('Haruna Bulus'), role: const Value('cleaner'), roleTier: const Value(1), pin: const Value('8899'), warehouseId: Value(pankshinId), avatarColor: const Value('#94A3B8')));
-      b.insert(users, UsersCompanion(name: const Value('Rebecca Luka'), role: const Value('cleaner'), roleTier: const Value(1), pin: const Value('9900'), warehouseId: Value(keffiId), avatarColor: const Value('#94A3B8')));
-      b.insert(users, UsersCompanion(name: const Value('Sunday Nden'), role: const Value('cleaner'), roleTier: const Value(1), pin: const Value('1010'), warehouseId: Value(tafawaId), avatarColor: const Value('#94A3B8')));
+      b.insert(users, UsersCompanion(name: const Value('Usman Garba'), role: const Value('rider'), roleTier: const Value(1), pin: const Value('888800'), warehouseId: Value(pankshinId), avatarColor: const Value('#F97316')));
+      b.insert(users, UsersCompanion(name: const Value('Daniel Markus'), role: const Value('rider'), roleTier: const Value(1), pin: const Value('999900'), warehouseId: Value(keffiId), avatarColor: const Value('#F97316')));
+      b.insert(users, UsersCompanion(name: const Value('John Pwajok'), role: const Value('rider'), roleTier: const Value(1), pin: const Value('001100'), warehouseId: Value(tafawaId), avatarColor: const Value('#F97316')));
+      // Cashiers (PIN 223300–778800)
+      b.insert(users, UsersCompanion(name: const Value('Amina Yusuf'), role: const Value('cashier'), roleTier: const Value(2), pin: const Value('223300'), warehouseId: Value(pankshinId), avatarColor: const Value('#3B82F6')));
+      b.insert(users, UsersCompanion(name: const Value('Grace Dung'), role: const Value('cashier'), roleTier: const Value(2), pin: const Value('334400'), warehouseId: Value(pankshinId), avatarColor: const Value('#3B82F6')));
+      b.insert(users, UsersCompanion(name: const Value('Joseph Danjuma'), role: const Value('cashier'), roleTier: const Value(2), pin: const Value('445500'), warehouseId: Value(pankshinId), avatarColor: const Value('#3B82F6')));
+      b.insert(users, UsersCompanion(name: const Value('Fatima Idris'), role: const Value('cashier'), roleTier: const Value(2), pin: const Value('556600'), warehouseId: Value(keffiId), avatarColor: const Value('#3B82F6')));
+      b.insert(users, UsersCompanion(name: const Value('Emmanuel Lot'), role: const Value('cashier'), roleTier: const Value(2), pin: const Value('667700'), warehouseId: Value(keffiId), avatarColor: const Value('#3B82F6')));
+      b.insert(users, UsersCompanion(name: const Value('Mary Fom'), role: const Value('cashier'), roleTier: const Value(2), pin: const Value('778800'), warehouseId: Value(tafawaId), avatarColor: const Value('#3B82F6')));
+      // Cleaners (PIN 889900–101000)
+      b.insert(users, UsersCompanion(name: const Value('Haruna Bulus'), role: const Value('cleaner'), roleTier: const Value(1), pin: const Value('889900'), warehouseId: Value(pankshinId), avatarColor: const Value('#94A3B8')));
+      b.insert(users, UsersCompanion(name: const Value('Rebecca Luka'), role: const Value('cleaner'), roleTier: const Value(1), pin: const Value('990000'), warehouseId: Value(keffiId), avatarColor: const Value('#94A3B8')));
+      b.insert(users, UsersCompanion(name: const Value('Sunday Nden'), role: const Value('cleaner'), roleTier: const Value(1), pin: const Value('101000'), warehouseId: Value(tafawaId), avatarColor: const Value('#94A3B8')));
     });
 
     // ── 8. Customers (5 sample accounts + a wallet for each) ───────────────
@@ -786,11 +798,11 @@ class AppDatabase extends _$AppDatabase {
   /// Safe to call any time — only used when the Users table is empty.
   Future<void> _seedDefaultStaff() async {
     await batch((b) {
-      b.insert(users, const UsersCompanion(name: Value('CEO'), role: Value('CEO'), roleTier: Value(5), pin: Value('0000'), avatarColor: Value('#8B5CF6')));
-      b.insert(users, const UsersCompanion(name: Value('Manager'), role: Value('manager'), roleTier: Value(4), pin: Value('1111'), avatarColor: Value('#3B82F6')));
-      b.insert(users, const UsersCompanion(name: Value('Cashier'), role: Value('cashier'), roleTier: Value(2), pin: Value('2222'), avatarColor: Value('#10B981')));
-      b.insert(users, const UsersCompanion(name: Value('Stock Keeper'), role: Value('stock_keeper'), roleTier: Value(3), pin: Value('3333'), avatarColor: Value('#F59E0B')));
-      b.insert(users, const UsersCompanion(name: Value('Rider'), role: Value('rider'), roleTier: Value(1), pin: Value('4444'), avatarColor: Value('#EF4444')));
+      b.insert(users, const UsersCompanion(name: Value('CEO'), role: Value('CEO'), roleTier: Value(5), pin: Value('000000'), avatarColor: Value('#8B5CF6')));
+      b.insert(users, const UsersCompanion(name: Value('Manager'), role: Value('manager'), roleTier: Value(4), pin: Value('111100'), avatarColor: Value('#3B82F6')));
+      b.insert(users, const UsersCompanion(name: Value('Cashier'), role: Value('cashier'), roleTier: Value(2), pin: Value('222200'), avatarColor: Value('#10B981')));
+      b.insert(users, const UsersCompanion(name: Value('Stock Keeper'), role: Value('stock_keeper'), roleTier: Value(3), pin: Value('333300'), avatarColor: Value('#F59E0B')));
+      b.insert(users, const UsersCompanion(name: Value('Rider'), role: Value('rider'), roleTier: Value(1), pin: Value('444400'), avatarColor: Value('#EF4444')));
     });
   }
 

@@ -1,5 +1,7 @@
 import 'package:flutter/widgets.dart';
 import 'package:drift/drift.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/database/app_database.dart';
 import 'navigation_service.dart';
 
@@ -21,6 +23,70 @@ class AuthService extends ValueNotifier<UserData?> {
     return result;
   }
 
+  // ── Device persistence ─────────────────────────────────────────────────────
+
+  static const _deviceUserKey = 'device_user_id';
+
+  /// Returns the locally-persisted user ID, or null if no user has ever
+  /// logged in on this device.
+  Future<int?> getDeviceUserId() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt(_deviceUserKey);
+  }
+
+  /// Persists [userId] so the next app launch goes straight to PIN screen.
+  Future<void> saveDeviceUserId(int userId) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_deviceUserKey, userId);
+  }
+
+  /// Clears the persisted device session (call on explicit logout).
+  Future<void> clearDeviceUserId() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_deviceUserKey);
+  }
+
+  // ── Supabase OTP ───────────────────────────────────────────────────────────
+
+  /// Sends a one-time password to [email] via Supabase.
+  /// Returns null on success, or an error string on failure.
+  Future<String?> sendOtp(String email) async {
+    try {
+      await Supabase.instance.client.auth.signInWithOtp(
+        email: email,
+        shouldCreateUser: true,
+      );
+      return null;
+    } on AuthException catch (e) {
+      return e.message;
+    } catch (_) {
+      return 'Failed to send OTP. Check your connection.';
+    }
+  }
+
+  /// Verifies the [otp] code for [email].
+  /// Returns null on success, or an error string on failure.
+  Future<String?> verifyOtp(String email, String otp) async {
+    try {
+      await Supabase.instance.client.auth.verifyOTP(
+        email: email,
+        token: otp,
+        type: OtpType.email,
+      );
+      return null;
+    } on AuthException catch (e) {
+      return e.message;
+    } catch (_) {
+      return 'Verification failed. Please try again.';
+    }
+  }
+
+  /// Looks up a user in the local database by email.
+  Future<UserData?> getUserByEmail(String email) =>
+      database.warehousesDao.getUserByEmail(email);
+
+  // ── Session management ─────────────────────────────────────────────────────
+
   /// Marks [user] as the active logged-in user and applies warehouse lock.
   void setCurrentUser(UserData user) {
     try {
@@ -33,6 +99,9 @@ class AuthService extends ValueNotifier<UserData?> {
       } else {
         navigationService.setIndex(1);
       }
+
+      // Persist this user's ID so next launch skips the email screen.
+      saveDeviceUserId(user.id);
 
       // Check for warehouse assignment alerts for staff below CEO
       if (user.roleTier < 5 && user.warehouseId == null) {
@@ -100,10 +169,12 @@ class AuthService extends ValueNotifier<UserData?> {
     }
   }
 
-  /// Clears the active user and removes the warehouse lock.
+  /// Clears the active user, removes the warehouse lock, and erases the
+  /// device-level session so the next launch shows the email screen.
   void logout() {
     value = null;
     navigationService.clearWarehouseLock();
+    clearDeviceUserId(); // fire-and-forget
   }
 
   /// Returns true if [pin] belongs to at least one user whose

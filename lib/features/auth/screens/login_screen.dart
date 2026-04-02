@@ -5,6 +5,7 @@ import '../../../core/database/app_database.dart';
 import '../../../shared/services/auth_service.dart';
 import '../../../core/utils/responsive.dart';
 import '../../../core/utils/notifications.dart';
+import 'email_entry_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -73,11 +74,11 @@ class _LoginScreenState extends State<LoginScreen>
   // ── PIN input helpers ──────────────────────────────────────────────────────
 
   void _onDigit(String digit) {
-    if (!_dbReady || _pin.length >= 4 || _checking || _loginSuccess) return;
+    if (!_dbReady || _pin.length >= 6 || _checking || _loginSuccess) return;
     setState(() {
       _pin += digit;
     });
-    if (_pin.length == 4) _submit();
+    if (_pin.length == 6) _submit();
   }
 
   void _onBackspace() {
@@ -137,6 +138,16 @@ class _LoginScreenState extends State<LoginScreen>
       if (!mounted) return;
       authService.setCurrentUser(user); // main.dart listener switches the screen
     });
+  }
+
+  /// Clears device persistence and navigates to email entry so the user can
+  /// log in with a different account or on a new device.
+  Future<void> _switchToEmail() async {
+    await authService.clearDeviceUserId();
+    if (!mounted) return;
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (_) => const EmailEntryScreen()),
+    );
   }
 
   void _showUserPicker(List<UserData> users) {
@@ -206,6 +217,7 @@ class _LoginScreenState extends State<LoginScreen>
                       subtextColor: Colors.white.withValues(alpha: 0.6),
                       onDigit: _onDigit,
                       onBackspace: _onBackspace,
+                      onSwitchToEmail: _switchToEmail,
                     ),
             ),
           ),
@@ -397,6 +409,7 @@ class _PinPad extends StatelessWidget {
   final Color subtextColor;
   final void Function(String) onDigit;
   final VoidCallback onBackspace;
+  final VoidCallback? onSwitchToEmail;
 
   const _PinPad({
     super.key,
@@ -408,6 +421,7 @@ class _PinPad extends StatelessWidget {
     required this.subtextColor,
     required this.onDigit,
     required this.onBackspace,
+    this.onSwitchToEmail,
   });
 
   @override
@@ -431,15 +445,15 @@ class _PinPad extends StatelessWidget {
             ),
             const SizedBox(height: 6),
             Text(
-              'Enter your PIN to continue',
+              'Enter your 6-digit PIN to continue',
               style: TextStyle(fontSize: 14, color: subtextColor),
             ),
             const SizedBox(height: 40),
 
-            // ── Four dots ───────────────────────────────────────────────
+            // ── Six dots ────────────────────────────────────────────────
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(4, (i) {
+              children: List.generate(6, (i) {
                 final filled = i < pin.length;
                 return AnimatedContainer(
                   duration: const Duration(milliseconds: 150),
@@ -498,10 +512,20 @@ class _PinPad extends StatelessWidget {
               ),
             ),
 
-            const SizedBox(height: 32),
+            const SizedBox(height: 24),
 
-            // ── Loading indicator while checking PIN ─────────────────────
-            // Removed the old small loader here as we use the overlay
+            // ── Switch-account link ───────────────────────────────────────
+            if (onSwitchToEmail != null)
+              TextButton(
+                onPressed: onSwitchToEmail,
+                child: Text(
+                  'Login with a different account',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.65),
+                    fontSize: 13,
+                  ),
+                ),
+              ),
 
           ],
         ),

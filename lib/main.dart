@@ -3,11 +3,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'core/theme/app_theme.dart';
 import 'core/theme/theme_notifier.dart';
 import 'core/database/app_database.dart';
 import 'features/auth/screens/login_screen.dart';
+import 'features/auth/screens/email_entry_screen.dart';
 import 'features/auth/screens/warehouse_assignment_screen.dart';
 import 'shared/services/auth_service.dart';
 import 'shared/widgets/main_layout.dart';
@@ -17,6 +19,12 @@ void main() async {
 
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(statusBarColor: Colors.transparent),
+  );
+
+  // Initialize Supabase for OTP email authentication.
+  await Supabase.initialize(
+    url: 'YOUR_SUPABASE_PROJECT_URL',
+    anonKey: 'YOUR_SUPABASE_ANON_KEY',
   );
 
   // Load persisted theme preferences.
@@ -46,8 +54,31 @@ void main() async {
   runApp(const ReebaplusPosApp());
 }
 
-class ReebaplusPosApp extends StatelessWidget {
+class ReebaplusPosApp extends StatefulWidget {
   const ReebaplusPosApp({super.key});
+
+  @override
+  State<ReebaplusPosApp> createState() => _ReebaplusPosAppState();
+}
+
+class _ReebaplusPosAppState extends State<ReebaplusPosApp> {
+  /// null = still checking SharedPreferences
+  /// true  = a user has logged in on this device before → show PIN screen
+  /// false = fresh device / first login → show email screen
+  bool? _hasDeviceUser;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkDeviceUser();
+  }
+
+  Future<void> _checkDeviceUser() async {
+    final userId = await authService.getDeviceUserId();
+    if (mounted) {
+      setState(() => _hasDeviceUser = userId != null);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -80,7 +111,13 @@ class ReebaplusPosApp extends StatelessWidget {
           home: ValueListenableBuilder<UserData?>(
             valueListenable: authService,
             builder: (_, user, __) {
-              if (user == null) return const LoginScreen();
+              if (user == null) {
+                // Still reading SharedPreferences — show a blank screen briefly.
+                if (_hasDeviceUser == null) return const SizedBox.shrink();
+                // Returning user on this device → skip email, go to PIN screen.
+                // New device / fresh install → go to email entry flow.
+                return _hasDeviceUser! ? const LoginScreen() : const EmailEntryScreen();
+              }
               if (user.roleTier < 5 && user.warehouseId == null) {
                 return WarehouseAssignmentScreen(user: user);
               }
@@ -92,5 +129,3 @@ class ReebaplusPosApp extends StatelessWidget {
     );
   }
 }
-
-

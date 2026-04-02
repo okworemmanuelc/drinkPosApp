@@ -972,6 +972,7 @@ class WarehousesDao extends DatabaseAccessor<AppDatabase> with _$WarehousesDaoMi
   Future<void> assignStaffToWarehouse(int userId, int? warehouseId) => (update(users)..where((t) => t.id.equals(userId))).write(UsersCompanion(warehouseId: Value(warehouseId)));
   Stream<Map<int, int>> watchWarehouseStaffCounts() => Stream.value({});
   Future<UserData?> getUserById(int id) => (select(users)..where((t) => t.id.equals(id))).getSingleOrNull();
+  Future<UserData?> getUserByEmail(String email) => (select(users)..where((t) => t.email.equals(email))).getSingleOrNull();
 }
 
 @DriftAccessor(tables: [Notifications])

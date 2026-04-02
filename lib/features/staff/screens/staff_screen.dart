@@ -518,23 +518,26 @@ class _StaffFormSheetState extends State<_StaffFormSheet> {
                   
                   const SizedBox(height: 16),
                   
-                  AppInput(
-                    controller: _pinCtrl,
-                    labelText: 'Access PIN (4 Digits)',
-                    hintText: 'Enter 4-digit PIN',
-                    obscureText: !_showPin,
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                    suffixIcon: IconButton(
-                      onPressed: () => setState(() => _showPin = !_showPin),
-                      icon: Icon(
-                        _showPin ? FontAwesomeIcons.eyeSlash : FontAwesomeIcons.eye,
-                        size: 16,
-                        color: _subtext,
+                  // PIN field only shown when editing an existing staff member.
+                  // New staff set their own 6-digit PIN on first login.
+                  if (widget.user != null)
+                    AppInput(
+                      controller: _pinCtrl,
+                      labelText: 'Access PIN (6 Digits)',
+                      hintText: 'Enter 6-digit PIN',
+                      obscureText: !_showPin,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                      suffixIcon: IconButton(
+                        onPressed: () => setState(() => _showPin = !_showPin),
+                        icon: Icon(
+                          _showPin ? FontAwesomeIcons.eyeSlash : FontAwesomeIcons.eye,
+                          size: 16,
+                          color: _subtext,
+                        ),
                       ),
+                      validator: (v) => v == null || v.length != 6 ? 'PIN must be 6 digits' : null,
                     ),
-                    validator: (v) => v == null || v.length != 4 ? 'PIN must be 4 digits' : null,
-                  ),
                   
                   const SizedBox(height: 16),
                   
@@ -661,10 +664,10 @@ class _StaffFormSheetState extends State<_StaffFormSheet> {
         .name;
 
     if (widget.user == null) {
-      // Insert new staff member
+      // Insert new staff member — PIN is empty; staff set their own on first login.
       await database.into(database.users).insert(UsersCompanion(
         name: Value(name),
-        pin: Value(pin),
+        pin: const Value(''),
         role: Value(role),
         roleTier: Value(tier),
         warehouseId: Value(_selectedWarehouseId),
