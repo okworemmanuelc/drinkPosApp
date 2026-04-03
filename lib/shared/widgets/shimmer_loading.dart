@@ -755,27 +755,27 @@ class ShimmerCustomerProfile extends StatelessWidget {
     return Column(
       children: [
         // Header
-        Padding(
-          padding: const EdgeInsets.all(20),
+        const Padding(
+          padding: EdgeInsets.all(20),
           child: Row(
             children: [
-              const ShimmerBox(width: 60, height: 60, radius: 30),
-              const SizedBox(width: 16),
+              ShimmerBox(width: 60, height: 60, radius: 30),
+              SizedBox(width: 16),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       children: [
-                        const ShimmerLine(height: 20, widthFraction: 0.5),
-                        const Spacer(),
-                        const ShimmerBox(width: 80, height: 24, radius: 12),
+                        ShimmerLine(height: 20, widthFraction: 0.5),
+                        Spacer(),
+                        ShimmerBox(width: 80, height: 24, radius: 12),
                       ],
                     ),
-                    const SizedBox(height: 8),
-                    const ShimmerLine(height: 12, widthFraction: 0.4),
-                    const SizedBox(height: 4),
-                    const ShimmerLine(height: 12, widthFraction: 0.6),
+                    SizedBox(height: 8),
+                    ShimmerLine(height: 12, widthFraction: 0.4),
+                    SizedBox(height: 4),
+                    ShimmerLine(height: 12, widthFraction: 0.6),
                   ],
                 ),
               ),
@@ -795,26 +795,26 @@ class ShimmerCustomerProfile extends StatelessWidget {
                 color: isDark ? Colors.white10 : Colors.grey[200]!,
               ),
             ),
-            child: Column(
+            child: const Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const ShimmerLine(height: 12, widthFraction: 0.3),
-                const SizedBox(height: 12),
-                const ShimmerLine(height: 32, widthFraction: 0.5),
-                const SizedBox(height: 8),
-                const ShimmerLine(height: 12, widthFraction: 0.4),
-                const Spacer(),
+                ShimmerLine(height: 12, widthFraction: 0.3),
+                SizedBox(height: 12),
+                ShimmerLine(height: 32, widthFraction: 0.5),
+                SizedBox(height: 8),
+                ShimmerLine(height: 12, widthFraction: 0.4),
+                Spacer(),
                 Row(
                   children: [
-                    const Expanded(
+                    Expanded(
                       child: ShimmerBox(
                         width: double.infinity,
                         height: 42,
                         radius: 12,
                       ),
                     ),
-                    const SizedBox(width: 10),
-                    const Expanded(
+                    SizedBox(width: 10),
+                    Expanded(
                       child: ShimmerBox(
                         width: double.infinity,
                         height: 42,
@@ -847,21 +847,21 @@ class ShimmerStaffCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: isDark ? Colors.white10 : Colors.grey[200]!),
       ),
-      child: Row(
+      child: const Row(
         children: [
-          const ShimmerBox(width: 48, height: 48, radius: 24),
-          const SizedBox(width: 14),
+          ShimmerBox(width: 48, height: 48, radius: 24),
+          SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const ShimmerLine(height: 15, widthFraction: 0.4),
-                const SizedBox(height: 6),
-                const ShimmerBox(width: 60, height: 18, radius: 10),
+                ShimmerLine(height: 15, widthFraction: 0.4),
+                SizedBox(height: 6),
+                ShimmerBox(width: 60, height: 18, radius: 10),
               ],
             ),
           ),
-          const ShimmerBox(width: 32, height: 32, radius: 8),
+          ShimmerBox(width: 32, height: 32, radius: 8),
         ],
       ),
     );
@@ -879,14 +879,14 @@ class ShimmerSaleRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
         children: [
-          Expanded(
+          const Expanded(
             flex: 3,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const ShimmerLine(height: 13, widthFraction: 0.7),
-                const SizedBox(height: 4),
-                const ShimmerLine(height: 10, widthFraction: 0.4),
+                ShimmerLine(height: 13, widthFraction: 0.7),
+                SizedBox(height: 4),
+                ShimmerLine(height: 10, widthFraction: 0.4),
               ],
             ),
           ),
@@ -930,21 +930,21 @@ class ShimmerStockCountRow extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: isDark ? Colors.white10 : Colors.grey[200]!),
       ),
-      child: Row(
+      child: const Row(
         children: [
           Expanded(
             flex: 5,
-            child: const ShimmerLine(height: 14, widthFraction: 0.6),
+            child: ShimmerLine(height: 14, widthFraction: 0.6),
           ),
-          const SizedBox(
+          SizedBox(
             width: 56,
             child: Center(child: ShimmerBox(width: 24, height: 14, radius: 4)),
           ),
-          const SizedBox(
+          SizedBox(
             width: 72,
             child: ShimmerBox(width: 48, height: 32, radius: 8),
           ),
-          const SizedBox(
+          SizedBox(
             width: 56,
             child: Center(child: ShimmerBox(width: 24, height: 14, radius: 4)),
           ),

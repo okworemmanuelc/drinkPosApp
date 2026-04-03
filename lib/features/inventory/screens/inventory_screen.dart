@@ -1895,6 +1895,19 @@ class _InventoryScreenState extends State<InventoryScreen>
   }
 
   Widget _buildLogTab(BuildContext context) {
+    if (_isFirstLoad) {
+      return ListView.separated(
+        padding: EdgeInsets.fromLTRB(
+          context.getRSize(16),
+          context.getRSize(16),
+          context.getRSize(16),
+          context.getRSize(120),
+        ),
+        itemCount: 8,
+        separatorBuilder: (_, __) => SizedBox(height: context.getRSize(8)),
+        itemBuilder: (_, __) => const ShimmerListTile(),
+      );
+    }
     final logs = _dbLogs;
     if (logs.isEmpty) {
       return Center(

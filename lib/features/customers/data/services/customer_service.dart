@@ -64,7 +64,7 @@ class CustomerService extends ValueNotifier<List<Customer>> {
     final amountKobo = (payment.amount * 100).round();
     await database.customersDao.updateWalletBalance(
       customerId: customerId,
-      deltaKobo: amountKobo,
+      amountKobo: amountKobo,
       type: 'credit',
       referenceType: 'topup_cash',
       note: payment.note,
@@ -135,7 +135,7 @@ class CustomerService extends ValueNotifier<List<Customer>> {
     final amountKobo = (amount * 100).round();
     await database.customersDao.updateWalletBalance(
       customerId: customerId,
-      deltaKobo: amountKobo,
+      amountKobo: amountKobo,
       type: 'credit',
       referenceType: 'refund',
       note: note,
@@ -145,6 +145,32 @@ class CustomerService extends ValueNotifier<List<Customer>> {
     await activityLogService.logAction(
       'Wallet Refunded',
       'Refunded ₦${amount.round()} to ${customer.name}. Note: $note',
+      relatedEntityId: customer.id.toString(),
+      relatedEntityType: 'customer',
+    );
+  }
+
+  Future<void> updateWalletBalance(
+    int customerId,
+    double amount,
+    String note,
+  ) async {
+    final customer = getById(customerId);
+    if (customer == null) return;
+
+    final amountKobo = (amount * 100).round();
+    await database.customersDao.updateWalletBalance(
+      customerId: customerId,
+      amountKobo: amountKobo,
+      type: 'credit',
+      referenceType: 'topup_cash',
+      note: note,
+      staffId: 1, // TODO: Use actual staff ID
+    );
+
+    await activityLogService.logAction(
+      'Wallet Updated',
+      'Added ₦${amount.round()} to ${customer.name}\'s wallet. Note: $note',
       relatedEntityId: customer.id.toString(),
       relatedEntityType: 'customer',
     );

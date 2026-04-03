@@ -17,6 +17,7 @@ import 'package:reebaplus_pos/shared/widgets/app_button.dart';
 import 'package:reebaplus_pos/shared/services/activity_log_service.dart';
 // staff.dart import removed as it was moved to DB fetch
 import 'package:reebaplus_pos/shared/services/order_service.dart';
+import 'package:reebaplus_pos/shared/services/auth_service.dart';
 import 'package:reebaplus_pos/shared/widgets/receipt_widget.dart';
 import 'package:reebaplus_pos/shared/widgets/shared_scaffold.dart';
 import 'package:reebaplus_pos/features/deliveries/data/models/delivery_receipt.dart'
@@ -24,6 +25,7 @@ import 'package:reebaplus_pos/features/deliveries/data/models/delivery_receipt.d
 import 'package:reebaplus_pos/shared/widgets/menu_button.dart';
 import 'package:reebaplus_pos/shared/widgets/app_bar_header.dart';
 import 'package:reebaplus_pos/shared/widgets/notification_bell.dart';
+
 // customer_service.dart import removed as it was unused
 import 'package:reebaplus_pos/features/pos/services/receipt_builder.dart';
 import 'package:reebaplus_pos/core/utils/notifications.dart';
@@ -340,10 +342,23 @@ class _OrdersScreenState extends State<OrdersScreen>
   void _executeMarkDelivered(OrderWithItems orderWithItems) async {
     final order = orderWithItems.order;
 
-    // 1. Update status
-    await orderService.markAsCompleted(order.id, 1); // staffId 1 for now
+    // 1. Show crate return modal FIRST — must be confirmed before completing.
+    // CrateReturnModal.show() handles its own guards (no glass items / deposit
+    // already paid) and returns immediately in those cases. The modal is
+    // non-dismissible, so awaiting it guarantees the user has confirmed.
+    if (order.customerId != null && mounted) {
+      await CrateReturnModal.show(context, orderWithItems);
+    }
 
-    // 2. Generate Delivery Receipt
+    if (!mounted) return;
+
+    // 2. Only now mark the order as completed
+    await orderService.markAsCompleted(
+      order.id,
+      authService.currentUser?.id ?? 1,
+    );
+
+    // 3. Generate Delivery Receipt
     final receipt = model.DeliveryReceipt(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       orderId: order.id.toString(),
@@ -355,17 +370,12 @@ class _OrdersScreenState extends State<OrdersScreen>
     );
     model.deliveryReceiptService.addReceipt(receipt);
 
+    // 4. Show success notification only after everything is confirmed
     if (mounted) {
       AppNotification.showSuccess(
         context,
         'Order #${order.id} marked as completed.',
       );
-    }
-
-    // 3. If the order has a customer, let the modal decide whether to open
-    // (CrateReturnModal.show handles the glass-items and deposit-paid guards internally)
-    if (order.customerId != null && mounted) {
-      await CrateReturnModal.show(context, orderWithItems);
     }
   }
 
@@ -1246,9 +1256,9 @@ class _OrderCard extends StatelessWidget {
                           Text(
                             'Total: ${formatCurrency(order.netAmountKobo / 100.0)}',
                             style: TextStyle(
-                              color: textCol,
-                              fontWeight: FontWeight.w600,
-                              fontSize: context.getRFontSize(13),
+                              color: Theme.of(context).colorScheme.primary,
+                              fontWeight: FontWeight.bold,
+                              fontSize: context.getRFontSize(14),
                             ),
                           ),
                           SizedBox(height: context.getRSize(4)),
@@ -1312,6 +1322,7 @@ class _OrderCard extends StatelessWidget {
                             text: 'Cancel',
                             icon: FontAwesomeIcons.ban,
                             variant: AppButtonVariant.ghost,
+                            size: AppButtonSize.xsmall,
                             onPressed: onCancel,
                           ),
                         ),
@@ -1321,6 +1332,7 @@ class _OrderCard extends StatelessWidget {
                           child: AppButton(
                             text: 'Confirm',
                             icon: FontAwesomeIcons.truckFast,
+                            size: AppButtonSize.xsmall,
                             onPressed: onMarkAsDelivered,
                           ),
                         ),
@@ -1330,6 +1342,7 @@ class _OrderCard extends StatelessWidget {
                             text: 'Initiate Refund',
                             icon: FontAwesomeIcons.rotateLeft,
                             variant: AppButtonVariant.danger,
+                            size: AppButtonSize.xsmall,
                             onPressed: onRefund,
                           ),
                         ),

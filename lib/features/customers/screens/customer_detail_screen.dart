@@ -1,6 +1,7 @@
 import 'dart:async';
-
+import 'package:drift/drift.dart' show innerJoin;
 import 'package:flutter/material.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:reebaplus_pos/core/database/app_database.dart';
 import 'package:reebaplus_pos/core/theme/app_decorations.dart';
@@ -10,8 +11,8 @@ import 'package:reebaplus_pos/core/utils/responsive.dart';
 import 'package:reebaplus_pos/core/widgets/amber_button.dart';
 import 'package:reebaplus_pos/core/widgets/status_badge.dart';
 import 'package:reebaplus_pos/features/customers/data/models/customer.dart';
-import 'package:reebaplus_pos/features/customers/data/models/payment.dart';
 import 'package:reebaplus_pos/features/customers/data/services/customer_service.dart';
+import 'package:reebaplus_pos/shared/widgets/receipt_widget.dart';
 import 'package:reebaplus_pos/shared/widgets/shimmer_loading.dart';
 
 class CustomerDetailScreen extends StatefulWidget {
@@ -78,7 +79,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
     });
 
     // Artificial delay to show shimmers
-    Future.delayed(const Duration(seconds: 2), () {
+    Future.delayed(const Duration(seconds: 1), () {
       if (mounted) setState(() => _contentReady = true);
     });
   }
@@ -160,95 +161,76 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => DraggableScrollableSheet(
-        initialChildSize: 0.55,
-        maxChildSize: 0.9,
-        minChildSize: 0.4,
-        builder: (ctx, scrollCtrl) => _SheetContainer(
-          scrollController: scrollCtrl,
-          child: Form(
-            key: formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const _SheetHandle(),
-                SizedBox(height: ctx.getRSize(8)),
-                Text(
-                  'Add Funds',
-                  style: TextStyle(
-                    fontSize: ctx.getRFontSize(20),
-                    fontWeight: FontWeight.w800,
-                    color: Theme.of(ctx).colorScheme.onSurface,
-                  ),
+      builder: (ctx) => _SheetContainer(
+        scrollController: ScrollController(),
+        child: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const _SheetHandle(),
+              Text(
+                'Add Funds',
+                style: TextStyle(
+                  fontSize: ctx.getRFontSize(18),
+                  fontWeight: FontWeight.w700,
                 ),
-                SizedBox(height: ctx.getRSize(4)),
-                Text(
-                  'Top up $_name\'s wallet',
-                  style: TextStyle(
-                    fontSize: ctx.getRFontSize(13),
-                    color: Theme.of(
-                      ctx,
-                    ).colorScheme.onSurface.withValues(alpha: 0.5),
-                  ),
+              ),
+              SizedBox(height: ctx.getRSize(4)),
+              Text(
+                'Top up $_name\'s wallet',
+                style: TextStyle(
+                  fontSize: ctx.getRFontSize(13),
+                  color: Theme.of(ctx).colorScheme.onSurface.withAlpha(128),
                 ),
-                SizedBox(height: ctx.getRSize(24)),
-                _SheetField(
-                  controller: amountCtrl,
-                  label: 'Amount (₦)',
-                  keyboard: TextInputType.number,
-                  validator: (v) {
-                    final n = double.tryParse(v ?? '');
-                    if (n == null || n <= 0) return 'Enter a valid amount';
-                    return null;
-                  },
-                ),
-                SizedBox(height: ctx.getRSize(16)),
-                _SheetField(
-                  controller: noteCtrl,
-                  label: 'Note (optional)',
-                  keyboard: TextInputType.text,
-                ),
-                const Spacer(),
-                Padding(
-                  padding: EdgeInsets.only(
-                    bottom:
-                        MediaQuery.of(ctx).viewInsets.bottom + ctx.getRSize(16),
-                  ),
-                  child: AmberButton(
-                    label: 'Add Funds',
-                    icon: Icons.add,
-                    onPressed: () async {
-                      if (!formKey.currentState!.validate()) return;
-                      final amount = double.parse(amountCtrl.text.trim());
-                      final note = noteCtrl.text.trim().isEmpty
-                          ? null
-                          : noteCtrl.text.trim();
-                      final id = _customerId;
-                      if (id == null) return;
-                      final messenger = ScaffoldMessenger.of(context);
-                      Navigator.pop(ctx);
-                      await customerService.addPayment(
-                        id,
-                        Payment(
-                          id: 'pay-${DateTime.now().millisecondsSinceEpoch}',
-                          amount: amount,
-                          timestamp: DateTime.now(),
-                          note: note,
-                        ),
-                      );
-                      messenger.showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            '₦${amount.toStringAsFixed(0)} added to wallet',
-                          ),
-                          backgroundColor: successGreen,
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ),
+              ),
+              SizedBox(height: ctx.getRSize(24)),
+              _SheetField(
+                controller: amountCtrl,
+                label: 'Amount (₦)',
+                keyboard: TextInputType.number,
+                validator: (v) {
+                  final n = double.tryParse(v ?? '');
+                  if (n == null || n <= 0) return 'Enter a valid amount';
+                  return null;
+                },
+              ),
+              SizedBox(height: ctx.getRSize(16)),
+              _SheetField(
+                controller: noteCtrl,
+                label: 'Note (optional)',
+                keyboard: TextInputType.text,
+              ),
+              SizedBox(height: ctx.getRSize(24)),
+              AmberButton(
+                label: 'Add Funds',
+                icon: Icons.add,
+                onPressed: () async {
+                  if (!formKey.currentState!.validate()) return;
+                  final amount = double.parse(amountCtrl.text.trim());
+                  final note = noteCtrl.text.trim().isEmpty
+                      ? 'Manual top-up'
+                      : noteCtrl.text.trim();
+                  final id = _customerId;
+                  if (id == null) return;
+                  final messenger = ScaffoldMessenger.of(context);
+                  Navigator.pop(ctx);
+
+                  await customerService.updateWalletBalance(id, amount, note);
+                  messenger.showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        '₦${amount.toStringAsFixed(0)} added to wallet',
+                      ),
+                      backgroundColor: successGreen,
+                    ),
+                  );
+                },
+              ),
+              SizedBox(
+                height: MediaQuery.of(ctx).viewInsets.bottom + ctx.getRSize(16),
+              ),
+            ],
           ),
         ),
       ),
@@ -265,81 +247,115 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => DraggableScrollableSheet(
-        initialChildSize: 0.45,
-        maxChildSize: 0.7,
-        minChildSize: 0.35,
-        builder: (ctx, scrollCtrl) => _SheetContainer(
-          scrollController: scrollCtrl,
-          child: Form(
-            key: formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const _SheetHandle(),
-                SizedBox(height: ctx.getRSize(8)),
-                Text(
-                  'Set Debt Limit',
-                  style: TextStyle(
-                    fontSize: ctx.getRFontSize(20),
-                    fontWeight: FontWeight.w800,
-                    color: Theme.of(ctx).colorScheme.onSurface,
-                  ),
+      builder: (ctx) => _SheetContainer(
+        scrollController: ScrollController(),
+        child: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const _SheetHandle(),
+              Text(
+                'Set Debt Limit',
+                style: TextStyle(
+                  fontSize: ctx.getRFontSize(20),
+                  fontWeight: FontWeight.w800,
+                  color: Theme.of(ctx).colorScheme.onSurface,
                 ),
-                SizedBox(height: ctx.getRSize(4)),
-                Text(
-                  'Maximum credit allowed for $_name',
-                  style: TextStyle(
-                    fontSize: ctx.getRFontSize(13),
-                    color: Theme.of(
-                      ctx,
-                    ).colorScheme.onSurface.withValues(alpha: 0.5),
-                  ),
+              ),
+              SizedBox(height: ctx.getRSize(4)),
+              Text(
+                'Maximum credit allowed for $_name',
+                style: TextStyle(
+                  fontSize: ctx.getRFontSize(13),
+                  color: Theme.of(ctx).colorScheme.onSurface.withAlpha(128),
                 ),
-                SizedBox(height: ctx.getRSize(24)),
-                _SheetField(
-                  controller: limitCtrl,
-                  label: 'Limit Amount (₦)',
-                  keyboard: TextInputType.number,
-                  validator: (v) {
-                    final n = double.tryParse(v ?? '');
-                    if (n == null || n < 0)
-                      return 'Enter a valid amount (0 to remove limit)';
-                    return null;
-                  },
-                ),
-                const Spacer(),
-                Padding(
-                  padding: EdgeInsets.only(
-                    bottom:
-                        MediaQuery.of(ctx).viewInsets.bottom + ctx.getRSize(16),
-                  ),
-                  child: AmberButton(
-                    label: 'Save Limit',
-                    icon: Icons.check,
-                    onPressed: () async {
-                      if (!formKey.currentState!.validate()) return;
-                      final amount = double.parse(limitCtrl.text.trim());
-                      final id = _customerId;
-                      if (id == null) return;
-                      final messenger = ScaffoldMessenger.of(context);
-                      Navigator.pop(ctx);
-                      await customerService.updateWalletLimit(id, amount);
-                      messenger.showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            'Debt limit set to ${formatCurrency(amount)}',
-                          ),
-                          backgroundColor: successGreen,
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ),
+              ),
+              SizedBox(height: ctx.getRSize(24)),
+              _SheetField(
+                controller: limitCtrl,
+                label: 'Limit Amount (₦)',
+                keyboard: TextInputType.number,
+                validator: (v) {
+                  final n = double.tryParse(v ?? '');
+                  if (n == null || n < 0) {
+                    return 'Enter a valid amount (0 to remove limit)';
+                  }
+                  return null;
+                },
+              ),
+              SizedBox(height: ctx.getRSize(24)),
+              AmberButton(
+                label: 'Save Limit',
+                icon: Icons.check,
+                onPressed: () async {
+                  if (!formKey.currentState!.validate()) return;
+                  final amount = double.parse(limitCtrl.text.trim());
+                  final id = _customerId;
+                  if (id == null) return;
+                  final messenger = ScaffoldMessenger.of(context);
+                  Navigator.pop(ctx);
+                  await customerService.updateWalletLimit(id, amount);
+                  messenger.showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        'Debt limit set to ${formatCurrency(amount)}',
+                      ),
+                      backgroundColor: successGreen,
+                    ),
+                  );
+                },
+              ),
+              SizedBox(
+                height: MediaQuery.of(ctx).viewInsets.bottom + ctx.getRSize(16),
+              ),
+            ],
           ),
         ),
+      ),
+    );
+  }
+
+  void _showReceipt(OrderData order) async {
+    final itemRows = await (database.select(database.orderItems).join([
+      innerJoin(
+        database.products,
+        database.products.id.equalsExp(database.orderItems.productId),
+      ),
+    ])..where(database.orderItems.orderId.equals(order.id))).get();
+
+    final items = itemRows.map((row) {
+      final p = row.readTable(database.products);
+      final i = row.readTable(database.orderItems);
+      return {
+        'name': p.name,
+        'qty': i.quantity.toDouble(),
+        'price': i.unitPriceKobo / 100.0,
+        'manufacturerId': p.manufacturerId,
+        'crateGroupId': p.crateGroupId,
+        'emptyCrateValueKobo': p.emptyCrateValueKobo,
+      };
+    }).toList();
+
+    if (!mounted) return;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => ReceiptWidget(
+        orderId: order.orderNumber,
+        cart: items,
+        subtotal: (order.totalAmountKobo - order.crateDepositPaidKobo) / 100.0,
+        crateDeposit: order.crateDepositPaidKobo / 100.0,
+        total: order.totalAmountKobo / 100.0,
+        paymentMethod: order.paymentType,
+        customerName: _name,
+        customerPhone: _phone,
+        customerAddress: _address,
+        orderStatus: order.status[0].toUpperCase() + order.status.substring(1),
+        riderName: order.riderName,
       ),
     );
   }
@@ -365,17 +381,24 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
             ),
             onPressed: () => Navigator.pop(context),
           ),
-          centerTitle: true,
           title: Text(
-            _contentReady ? _name : 'Customer Profile',
+            'Customer Profile',
             style: TextStyle(
               fontSize: context.getRFontSize(18),
               fontWeight: FontWeight.w800,
               color: theme.colorScheme.onSurface,
             ),
           ),
+          centerTitle: true,
         ),
-        body: _contentReady ? _buildContent(theme) : _buildShimmer(theme),
+        body: RefreshIndicator(
+          onRefresh: () async {
+            _loadData();
+            await Future.delayed(const Duration(milliseconds: 500));
+          },
+          color: amberPrimary,
+          child: _contentReady ? _buildContent(theme) : _buildShimmer(theme),
+        ),
       ),
     );
   }
@@ -413,7 +436,6 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Avatar circle
           Container(
             width: context.getRSize(60),
             height: context.getRSize(60),
@@ -458,7 +480,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                 if (_phone.isNotEmpty) ...[
                   SizedBox(height: context.getRSize(6)),
                   _InfoRow(
-                    icon: Icons.phone_outlined,
+                    icon: FontAwesomeIcons.phone,
                     text: _phone,
                     theme: theme,
                   ),
@@ -466,14 +488,14 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                 if (_address.isNotEmpty && _address != 'N/A') ...[
                   SizedBox(height: context.getRSize(4)),
                   _InfoRow(
-                    icon: Icons.location_on_outlined,
+                    icon: FontAwesomeIcons.locationDot,
                     text: _address,
                     theme: theme,
                   ),
                 ],
                 SizedBox(height: context.getRSize(4)),
                 _InfoRow(
-                  icon: Icons.calendar_today_outlined,
+                  icon: FontAwesomeIcons.calendarCheck,
                   text: 'Since ${DateFormat('MMM yyyy').format(_joinedAt)}',
                   theme: theme,
                 ),
@@ -502,17 +524,17 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
             Row(
               children: [
                 Icon(
-                  Icons.account_balance_wallet_outlined,
-                  size: context.getRSize(16),
+                  FontAwesomeIcons.wallet,
+                  size: context.getRSize(14),
                   color: amberPrimary,
                 ),
-                SizedBox(width: context.getRSize(6)),
+                SizedBox(width: context.getRSize(8)),
                 Text(
                   'Wallet Balance',
                   style: TextStyle(
                     fontSize: context.getRFontSize(12),
                     fontWeight: FontWeight.w600,
-                    color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                    color: theme.colorScheme.onSurface.withAlpha(128),
                   ),
                 ),
               ],
@@ -531,18 +553,18 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
             Row(
               children: [
                 Icon(
-                  Icons.credit_card_outlined,
-                  size: context.getRSize(13),
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                  FontAwesomeIcons.creditCard,
+                  size: context.getRSize(12),
+                  color: theme.colorScheme.onSurface.withAlpha(102),
                 ),
-                SizedBox(width: context.getRSize(4)),
+                SizedBox(width: context.getRSize(6)),
                 Text(
                   limit > 0
                       ? 'Debt limit: ${formatCurrency(limit)}'
                       : 'No debt limit set',
                   style: TextStyle(
                     fontSize: context.getRFontSize(12),
-                    color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                    color: theme.colorScheme.onSurface.withAlpha(128),
                   ),
                 ),
               ],
@@ -553,7 +575,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                 Expanded(
                   child: AmberButton(
                     label: 'Add Funds',
-                    icon: Icons.add,
+                    icon: FontAwesomeIcons.plus,
                     height: 42,
                     onPressed: _showAddFundsSheet,
                   ),
@@ -563,8 +585,8 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                   child: OutlinedButton.icon(
                     onPressed: _showSetLimitSheet,
                     icon: Icon(
-                      Icons.edit_outlined,
-                      size: 16,
+                      FontAwesomeIcons.penToSquare,
+                      size: 14,
                       color: theme.colorScheme.onSurface,
                     ),
                     label: Text(
@@ -604,9 +626,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
       ),
       child: TabBar(
         labelColor: amberPrimary,
-        unselectedLabelColor: theme.colorScheme.onSurface.withValues(
-          alpha: 0.45,
-        ),
+        unselectedLabelColor: theme.colorScheme.onSurface.withAlpha(115),
         indicatorColor: amberPrimary,
         indicatorSize: TabBarIndicatorSize.tab,
         labelStyle: TextStyle(
@@ -614,12 +634,12 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
           fontWeight: FontWeight.w700,
         ),
         tabs: const [
-          Tab(icon: Icon(Icons.history, size: 18), text: 'Wallet'),
           Tab(
-            icon: Icon(Icons.receipt_long_outlined, size: 18),
-            text: 'Orders',
+            icon: Icon(FontAwesomeIcons.clockRotateLeft, size: 16),
+            text: 'Wallet',
           ),
-          Tab(icon: Icon(Icons.inbox_outlined, size: 18), text: 'Crates'),
+          Tab(icon: Icon(FontAwesomeIcons.fileLines, size: 16), text: 'Orders'),
+          Tab(icon: Icon(FontAwesomeIcons.boxOpen, size: 16), text: 'Crates'),
         ],
       ),
     );
@@ -630,7 +650,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
   Widget _buildWalletHistoryTab(ThemeData theme) {
     if (_walletHistory.isEmpty) {
       return _EmptyState(
-        icon: Icons.history,
+        icon: FontAwesomeIcons.hourglass,
         message: 'No wallet transactions yet',
         theme: theme,
       );
@@ -659,15 +679,15 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                   width: ctx.getRSize(38),
                   height: ctx.getRSize(38),
                   decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.12),
+                    color: color.withAlpha(30),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
                     isCredit
-                        ? Icons.arrow_downward_rounded
-                        : Icons.arrow_upward_rounded,
+                        ? FontAwesomeIcons.arrowDown
+                        : FontAwesomeIcons.arrowUp,
                     color: color,
-                    size: ctx.getRSize(18),
+                    size: ctx.getRSize(16),
                   ),
                 ),
                 SizedBox(width: ctx.getRSize(12)),
@@ -687,9 +707,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                         DateFormat('d MMM yyyy, h:mm a').format(txn.createdAt),
                         style: TextStyle(
                           fontSize: ctx.getRFontSize(11),
-                          color: theme.colorScheme.onSurface.withValues(
-                            alpha: 0.45,
-                          ),
+                          color: theme.colorScheme.onSurface.withAlpha(115),
                         ),
                       ),
                     ],
@@ -716,7 +734,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
   Widget _buildOrdersTab(ThemeData theme) {
     if (_orders.isEmpty) {
       return _EmptyState(
-        icon: Icons.receipt_long_outlined,
+        icon: FontAwesomeIcons.receipt,
         message: 'No orders placed yet',
         theme: theme,
       );
@@ -734,71 +752,73 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
         final total = order.totalAmountKobo / 100.0;
         return Padding(
           padding: EdgeInsets.only(bottom: ctx.getRSize(10)),
-          child: Container(
-            padding: EdgeInsets.all(ctx.getRSize(14)),
-            decoration: AppDecorations.surfaceCard(ctx, radius: 12),
-            child: Row(
-              children: [
-                Container(
-                  width: ctx.getRSize(38),
-                  height: ctx.getRSize(38),
-                  decoration: BoxDecoration(
-                    color: amberPrimary.withValues(alpha: 0.1),
-                    shape: BoxShape.circle,
+          child: InkWell(
+            onTap: () => _showReceipt(order),
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              padding: EdgeInsets.all(ctx.getRSize(14)),
+              decoration: AppDecorations.surfaceCard(ctx, radius: 12),
+              child: Row(
+                children: [
+                  Container(
+                    width: ctx.getRSize(38),
+                    height: ctx.getRSize(38),
+                    decoration: BoxDecoration(
+                      color: amberPrimary.withAlpha(25),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      FontAwesomeIcons.receipt,
+                      color: amberPrimary,
+                      size: ctx.getRSize(16),
+                    ),
                   ),
-                  child: Icon(
-                    Icons.receipt_outlined,
-                    color: amberPrimary,
-                    size: ctx.getRSize(18),
+                  SizedBox(width: ctx.getRSize(12)),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '#${order.orderNumber}',
+                          style: TextStyle(
+                            fontSize: ctx.getRFontSize(14),
+                            fontWeight: FontWeight.w700,
+                            color: theme.colorScheme.onSurface,
+                          ),
+                        ),
+                        Text(
+                          DateFormat('d MMM yyyy').format(order.createdAt),
+                          style: TextStyle(
+                            fontSize: ctx.getRFontSize(11),
+                            color: theme.colorScheme.onSurface.withAlpha(115),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                SizedBox(width: ctx.getRSize(12)),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       Text(
-                        '#${order.orderNumber}',
+                        formatCurrency(total),
                         style: TextStyle(
                           fontSize: ctx.getRFontSize(14),
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w800,
                           color: theme.colorScheme.onSurface,
                         ),
                       ),
-                      Text(
-                        DateFormat('d MMM yyyy').format(order.createdAt),
-                        style: TextStyle(
-                          fontSize: ctx.getRFontSize(11),
-                          color: theme.colorScheme.onSurface.withValues(
-                            alpha: 0.45,
-                          ),
-                        ),
+                      SizedBox(height: ctx.getRSize(4)),
+                      StatusBadge(
+                        label:
+                            order.status[0].toUpperCase() +
+                            order.status.substring(1),
+                        variant: _orderStatusVariant(order.status),
+                        fontSize: 10,
                       ),
                     ],
                   ),
-                ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      formatCurrency(total),
-                      style: TextStyle(
-                        fontSize: ctx.getRFontSize(14),
-                        fontWeight: FontWeight.w800,
-                        color: theme.colorScheme.onSurface,
-                      ),
-                    ),
-                    SizedBox(height: ctx.getRSize(4)),
-                    StatusBadge(
-                      label:
-                          order.status[0].toUpperCase() +
-                          order.status.substring(1),
-                      variant: _orderStatusVariant(order.status),
-                      fontSize: 10,
-                    ),
-                  ],
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         );
@@ -811,7 +831,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
   Widget _buildCratesTab(ThemeData theme) {
     if (_crateBalances.isEmpty) {
       return _EmptyState(
-        icon: Icons.inbox_outlined,
+        icon: FontAwesomeIcons.boxesStacked,
         message: 'No crate activity recorded',
         theme: theme,
       );
@@ -827,11 +847,10 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
       itemBuilder: (ctx, i) {
         final entry = _crateBalances[i];
         final bal = entry.balance;
-        // Positive = customer still owes crates; negative = customer has a credit
         final isOwe = bal > 0;
         final isClear = bal == 0;
         final color = isClear
-            ? theme.colorScheme.onSurface.withValues(alpha: 0.4)
+            ? theme.colorScheme.onSurface.withAlpha(102)
             : isOwe
             ? amberPrimary
             : successGreen;
@@ -851,13 +870,13 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                   width: ctx.getRSize(38),
                   height: ctx.getRSize(38),
                   decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.12),
+                    color: color.withAlpha(30),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
-                    Icons.inventory_2_outlined,
+                    FontAwesomeIcons.boxOpen,
                     color: color,
-                    size: ctx.getRSize(18),
+                    size: ctx.getRSize(16),
                   ),
                 ),
                 SizedBox(width: ctx.getRSize(12)),
@@ -877,7 +896,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                     vertical: ctx.getRSize(4),
                   ),
                   decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.12),
+                    color: color.withAlpha(30),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
@@ -901,7 +920,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
     return Column(
       children: [
         const ShimmerCustomerProfile(),
-        const ShimmerCategoryBar(), // Mimic the tabs
+        const ShimmerCategoryBar(),
         Expanded(
           child: ListView.builder(
             itemCount: 5,
@@ -926,10 +945,10 @@ class _InfoRow extends StatelessWidget {
       children: [
         Icon(
           icon,
-          size: context.getRSize(13),
-          color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+          size: context.getRSize(12),
+          color: theme.colorScheme.onSurface.withAlpha(102),
         ),
-        SizedBox(width: context.getRSize(4)),
+        SizedBox(width: context.getRSize(6)),
         Expanded(
           child: Text(
             text,
@@ -937,7 +956,7 @@ class _InfoRow extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
               fontSize: context.getRFontSize(12),
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+              color: theme.colorScheme.onSurface.withAlpha(153),
             ),
           ),
         ),
@@ -964,15 +983,15 @@ class _EmptyState extends StatelessWidget {
         children: [
           Icon(
             icon,
-            size: context.getRSize(48),
-            color: theme.colorScheme.onSurface.withValues(alpha: 0.2),
+            size: context.getRSize(40),
+            color: theme.colorScheme.onSurface.withAlpha(51),
           ),
           SizedBox(height: context.getRSize(12)),
           Text(
             message,
             style: TextStyle(
               fontSize: context.getRFontSize(14),
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+              color: theme.colorScheme.onSurface.withAlpha(102),
             ),
           ),
         ],
@@ -1015,7 +1034,7 @@ class _SheetHandle extends StatelessWidget {
         height: 4,
         margin: const EdgeInsets.only(bottom: 16),
         decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.2),
+          color: Theme.of(context).colorScheme.onSurface.withAlpha(51),
           borderRadius: BorderRadius.circular(2),
         ),
       ),
