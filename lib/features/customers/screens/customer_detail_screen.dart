@@ -1,25 +1,18 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:intl/intl.dart';
-
-import '../../../core/database/app_database.dart';
-import '../../../core/theme/colors.dart';
-
-import '../../../core/utils/number_format.dart';
-import '../../../core/utils/responsive.dart';
-import '../../inventory/data/models/crate_group.dart';
-import '../data/models/customer.dart';
-import '../../../shared/models/order.dart';
-import '../../../shared/widgets/receipt_widget.dart';
-import '../../../core/utils/currency_input_formatter.dart';
-import '../data/models/payment.dart';
-import '../data/services/customer_service.dart';
-import '../../../shared/widgets/shared_bottom_nav_bar.dart';
-import '../../../shared/widgets/app_input.dart';
-import '../../../shared/widgets/app_button.dart';
-import '../../../shared/widgets/app_dropdown.dart';
+import 'package:reebaplus_pos/core/database/app_database.dart';
+import 'package:reebaplus_pos/core/theme/app_decorations.dart';
+import 'package:reebaplus_pos/core/theme/colors.dart';
+import 'package:reebaplus_pos/core/utils/number_format.dart';
+import 'package:reebaplus_pos/core/utils/responsive.dart';
+import 'package:reebaplus_pos/core/widgets/amber_button.dart';
+import 'package:reebaplus_pos/core/widgets/status_badge.dart';
+import 'package:reebaplus_pos/features/customers/data/models/customer.dart';
+import 'package:reebaplus_pos/features/customers/data/models/payment.dart';
+import 'package:reebaplus_pos/features/customers/data/services/customer_service.dart';
+import 'package:reebaplus_pos/shared/widgets/shimmer_loading.dart';
 
 class CustomerDetailScreen extends StatefulWidget {
   final Customer? customer;
@@ -31,1332 +24,134 @@ class CustomerDetailScreen extends StatefulWidget {
 }
 
 class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
-  late Customer _customer;
+  bool _contentReady = false;
 
-  String _getEmptyText(String filter, String type) {
-    switch (filter) {
-      case 'Day':
-        return 'No $type today';
-      case 'Week':
-        return 'No $type this week';
-      case 'Month':
-        return 'No $type this month';
-      case 'Year':
-        return 'No $type this year';
-      case 'All Time':
-      default:
-        return 'No $type found';
-    }
-  }
-
-  int _walletBalanceKobo = 0;
+  CustomerData? _customerData;
+  int _walletBalance = 0;
   List<WalletTransactionData> _walletHistory = [];
-  final List<Order> _customerOrders = [];
+  List<OrderData> _orders = [];
+  List<CrateBalanceEntry> _crateBalances = [];
 
+  StreamSubscription<CustomerData?>? _customerSub;
   StreamSubscription<int>? _balanceSub;
   StreamSubscription<List<WalletTransactionData>>? _historySub;
-
-  // Defers heavy widget tree until after first frame so the screen opens instantly.
-  bool _contentReady = false;
+  StreamSubscription<List<OrderData>>? _ordersSub;
+  StreamSubscription<List<CrateBalanceEntry>>? _cratesSub;
 
   @override
   void initState() {
     super.initState();
-    _customer = widget.customer ?? Customer(
-      id: 0,
-      name: 'Unknown',
-      addressText: '',
-      googleMapsLocation: '',
-      phone: '',
-      walletBalanceKobo: 0,
-      walletLimitKobo: 0,
-      createdAt: DateTime.now(),
-      customerGroup: CustomerGroup.retailer,
-      emptyCratesBalance: {},
-    );
-    _walletBalanceKobo = _customer.walletBalanceKobo;
+    if (widget.customer != null) {
+      _walletBalance = widget.customer!.walletBalanceKobo;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadData());
+  }
 
-    // Wait for first frame to commit, then start streams + show full UI.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-
-      if (_customer.id > 0) {
-        _balanceSub = database.customersDao
-            .watchWalletBalance(_customer.id)
-            .listen((balance) {
-          if (mounted) setState(() => _walletBalanceKobo = balance);
-        });
-
-        _historySub = database.customersDao
-            .watchWalletHistory(_customer.id)
-            .listen((history) {
-          if (mounted) setState(() => _walletHistory = history);
-        });
-      }
-
+  void _loadData() {
+    if (!mounted) return;
+    final id = widget.customer?.id;
+    if (id == null || id < 0) {
       setState(() => _contentReady = true);
+      return;
+    }
+
+    _customerSub = database.customersDao.watchCustomerById(id).listen((data) {
+      if (mounted) setState(() => _customerData = data);
+    });
+
+    _balanceSub = database.customersDao.watchWalletBalance(id).listen((bal) {
+      if (mounted) setState(() => _walletBalance = bal);
+    });
+
+    _historySub = database.customersDao.watchWalletHistory(id).listen((hist) {
+      if (mounted) setState(() => _walletHistory = hist);
+    });
+
+    _ordersSub = database.ordersDao.watchOrdersByCustomer(id).listen((orders) {
+      if (mounted) setState(() => _orders = orders);
+    });
+
+    _cratesSub = database.customersDao.watchCrateBalancesWithGroups(id).listen((
+      crates,
+    ) {
+      if (mounted) setState(() => _crateBalances = crates);
+    });
+
+    // Artificial delay to show shimmers
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted) setState(() => _contentReady = true);
     });
   }
 
   @override
   void dispose() {
+    _customerSub?.cancel();
     _balanceSub?.cancel();
     _historySub?.cancel();
+    _ordersSub?.cancel();
+    _cratesSub?.cancel();
     super.dispose();
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final themeNotifier = ValueNotifier<ThemeMode>(ThemeMode.system);
-    return ValueListenableBuilder<ThemeMode>(
-      valueListenable: themeNotifier,
-      builder: (_, mode, _) {
-        
-        final bgCol = Theme.of(context).scaffoldBackgroundColor;
-        final surfaceCol = Theme.of(context).colorScheme.surface;
-        final textCol = Theme.of(context).colorScheme.onSurface;
-        final subtextCol = Theme.of(context).textTheme.bodySmall?.color ?? Theme.of(context).iconTheme.color!;
-        final borderCol = Theme.of(context).dividerColor;
-        final cardCol = Theme.of(context).cardColor;
+  // ── Helpers ────────────────────────────────────────────────────────────────
 
-        // First frame: show a lightweight skeleton so the screen opens instantly.
-        if (!_contentReady) {
-          return Scaffold(
-            backgroundColor: bgCol,
-            appBar: _buildAppBar(context, surfaceCol, textCol, borderCol),
-            bottomNavigationBar: const SharedBottomNavBar(),
-            body: Center(
-              child: CircularProgressIndicator(
-                color: Theme.of(context).colorScheme.primary,
-                strokeWidth: 2,
-              ),
-            ),
-          );
-        }
+  String get _name => _customerData?.name ?? widget.customer?.name ?? '?';
+  String get _phone => _customerData?.phone ?? widget.customer?.phone ?? '';
+  String get _address =>
+      _customerData?.address ?? widget.customer?.addressText ?? '';
+  String get _groupName =>
+      _customerData?.customerGroup ??
+      widget.customer?.customerGroup.name ??
+      'retailer';
+  DateTime get _joinedAt =>
+      _customerData?.createdAt ?? widget.customer?.createdAt ?? DateTime.now();
+  int get _limitKobo =>
+      _customerData?.walletLimitKobo ?? widget.customer?.walletLimitKobo ?? 0;
+  int? get _customerId => widget.customer?.id;
 
-        return Scaffold(
-          backgroundColor: bgCol,
-          appBar: _buildAppBar(context, surfaceCol, textCol, borderCol),
-          bottomNavigationBar: const SharedBottomNavBar(),
-          body: SingleChildScrollView(
-            padding: EdgeInsets.only(
-              bottom:
-                  context.getRSize(40) + MediaQuery.of(context).padding.bottom,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _buildHeader(context, surfaceCol, textCol, subtextCol, borderCol),
-                SizedBox(height: context.getRSize(16)),
-                _buildBalanceSection(context, surfaceCol, textCol, subtextCol, borderCol),
-                SizedBox(height: context.getRSize(16)),
-                _buildOrdersSection(context, cardCol, textCol, subtextCol, borderCol),
-                SizedBox(height: context.getRSize(16)),
-                _buildPaymentsSection(context, cardCol, textCol, subtextCol, borderCol),
-                SizedBox(height: context.getRSize(16)),
-                _buildCratesSection(context, surfaceCol, cardCol, textCol, subtextCol, borderCol),
-              ],
-            ),
-          ),
-        );
-      },
-    );
+  String _initials(String name) {
+    final parts = name.trim().split(' ').where((p) => p.isNotEmpty).toList();
+    if (parts.isEmpty) return '?';
+    if (parts.length == 1) return parts[0][0].toUpperCase();
+    return (parts[0][0] + parts[1][0]).toUpperCase();
   }
 
-  PreferredSizeWidget _buildAppBar(
-    BuildContext context,
-    Color surfaceCol,
-    Color textCol,
-    Color borderCol,
-  ) {
-    return AppBar(
-      backgroundColor: surfaceCol,
-      elevation: 0,
-      leading: IconButton(
-        icon: Icon(
-          Icons.arrow_back_ios_new,
-          size: context.getRSize(20),
-          color: textCol,
-        ),
-        onPressed: () => Navigator.pop(context),
-      ),
-      title: Text(
-        'Customer Profile',
-        style: TextStyle(
-          fontSize: context.getRFontSize(18),
-          fontWeight: FontWeight.w800,
-          color: textCol,
-        ),
-      ),
-      centerTitle: true,
-      bottom: PreferredSize(
-        preferredSize: const Size.fromHeight(1),
-        child: Container(color: borderCol, height: 1),
-      ),
-    );
+  String _friendlyRefType(String ref) {
+    switch (ref) {
+      case 'topup_cash':
+        return 'Cash top-up';
+      case 'topup_transfer':
+        return 'Transfer top-up';
+      case 'order_payment':
+        return 'Order charge';
+      case 'cash_received':
+        return 'Cash received';
+      case 'refund':
+        return 'Refund';
+      case 'reward':
+        return 'Reward';
+      case 'fee':
+        return 'Fee';
+      default:
+        return ref;
+    }
   }
 
-  Widget _buildHeader(
-    BuildContext context,
-    Color surfaceCol,
-    Color textCol,
-    Color subtextCol,
-    Color borderCol,
-  ) {
-    return Stack(
-      children: [
-        Container(
-          width: double.infinity,
-          padding: EdgeInsets.all(context.getRSize(20)),
-          decoration: BoxDecoration(
-            color: surfaceCol,
-            border: Border(bottom: BorderSide(color: borderCol)),
-          ),
-          child: Column(
-            children: [
-              CircleAvatar(
-                radius: context.getRSize(40),
-                backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
-                child: Text(
-                  _customer.name.isNotEmpty ? _customer.name.substring(0, 1).toUpperCase() : '?',
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.primary,
-                    fontSize: context.getRFontSize(32),
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              SizedBox(height: context.getRSize(16)),
-              Text(
-                _customer.name,
-                style: TextStyle(
-                  fontSize: context.getRFontSize(22),
-                  fontWeight: FontWeight.w800,
-                  color: textCol,
-                ),
-              ),
-              SizedBox(height: context.getRSize(8)),
-              _infoRow(
-                context,
-                FontAwesomeIcons.locationDot,
-                _customer.addressText,
-                textCol,
-                subtextCol,
-              ),
-              SizedBox(height: context.getRSize(8)),
-              _infoRow(
-                context,
-                FontAwesomeIcons.mapLocationDot,
-                _customer.googleMapsLocation,
-                textCol,
-                subtextCol,
-              ),
-              if (_customer.phone != null && _customer.phone!.isNotEmpty) ...[
-                SizedBox(height: context.getRSize(8)),
-                _infoRow(
-                  context,
-                  FontAwesomeIcons.phone,
-                  _customer.phone!,
-                  textCol,
-                  subtextCol,
-                ),
-              ],
-              SizedBox(height: context.getRSize(16)),
-              Container(
-                padding: EdgeInsets.symmetric(
-                  horizontal: context.getRSize(12),
-                  vertical: context.getRSize(4),
-                ),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.2)),
-                ),
-                child: Text(
-                  _customer.customerGroup.name.toUpperCase(),
-                  style: TextStyle(
-                    fontSize: context.getRFontSize(10),
-                    fontWeight: FontWeight.w800,
-                    color: Theme.of(context).colorScheme.primary,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        Positioned(
-          bottom: context.getRSize(12),
-          right: context.getRSize(16),
-          child: Text(
-            'Joined on: ${DateFormat('MMM d, y').format(_customer.createdAt)}',
-            style: TextStyle(
-              fontSize: context.getRFontSize(10),
-              color: subtextCol.withValues(alpha: 0.7),
-              fontWeight: FontWeight.w600,
-              fontStyle: FontStyle.italic,
-            ),
-          ),
-        ),
-      ],
-    );
+  BadgeVariant _orderStatusVariant(String status) {
+    switch (status) {
+      case 'completed':
+        return BadgeVariant.green;
+      case 'cancelled':
+      case 'refunded':
+        return BadgeVariant.red;
+      default:
+        return BadgeVariant.amber;
+    }
   }
 
-  Widget _infoRow(
-    BuildContext context,
-    IconData icon,
-    String text,
-    Color textCol,
-    Color subtextCol,
-  ) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Icon(icon, size: context.getRSize(14), color: subtextCol),
-        SizedBox(width: context.getRSize(8)),
-        Flexible(
-          child: Text(
-            text,
-            style: TextStyle(
-              fontSize: context.getRFontSize(14),
-              color: subtextCol,
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ),
-      ],
-    );
-  }
+  // ── Sheets ─────────────────────────────────────────────────────────────────
 
-  Widget _buildBalanceSection(
-    BuildContext context,
-    Color surfaceCol,
-    Color textCol,
-    Color subtextCol,
-    Color borderCol,
-  ) {
-    final balanceKobo = _walletBalanceKobo;
-    final isNegative = balanceKobo < 0;
-    final balanceColor = isNegative ? danger : success;
-    final walletStr = formatCurrency(balanceKobo / 100.0);
-
-    return Stack(
-      children: [
-        Container(
-          width: double.infinity,
-          margin: EdgeInsets.symmetric(horizontal: context.getRSize(16)),
-          padding: EdgeInsets.all(context.getRSize(20)),
-          decoration: BoxDecoration(
-            color: surfaceCol,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: borderCol),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.02),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Column(
-            children: [
-              Text(
-                'Wallet Balance',
-                style: TextStyle(
-                  fontSize: context.getRFontSize(14),
-                  fontWeight: FontWeight.w600,
-                  color: textCol,
-                ),
-              ),
-              SizedBox(height: context.getRSize(8)),
-              Text(
-                walletStr,
-                style: TextStyle(
-                  fontSize: context.getRFontSize(32),
-                  fontWeight: FontWeight.w800,
-                  color: balanceColor,
-                  letterSpacing: -1,
-                ),
-              ),
-              if (_customer.walletLimit != 0) ...[
-                SizedBox(height: context.getRSize(4)),
-                Text(
-                  'Limit: ${formatCurrency(_customer.walletLimit)}',
-                  style: TextStyle(
-                    fontSize: context.getRFontSize(11),
-                    color: subtextCol,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
-        Positioned(
-          top: context.getRSize(8),
-          right: context.getRSize(24),
-          child: IconButton(
-            icon: Container(
-              padding: EdgeInsets.all(context.getRSize(6)),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                FontAwesomeIcons.sliders,
-                size: context.getRSize(12),
-                color: Theme.of(context).colorScheme.primary,
-              ),
-            ),
-            onPressed: () => _showSetWalletLimitDialog(context),
-            tooltip: 'Set Wallet Limit',
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildOrdersSection(
-    BuildContext context,
-    Color cardCol,
-    Color textCol,
-    Color subtextCol,
-    Color borderCol,
-  ) {
-    final customerOrders = _customerOrders;
-    final recentOrders = customerOrders.take(3).toList();
-
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: context.getRSize(16)),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _sectionTitle(context, 'Orders / Receipts', textCol),
-          SizedBox(height: context.getRSize(12)),
-          if (customerOrders.isEmpty)
-            Container(
-              width: double.infinity,
-              padding: EdgeInsets.all(context.getRSize(24)),
-              decoration: BoxDecoration(
-                color: cardCol,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: borderCol),
-              ),
-              child: Column(
-                children: [
-                  Icon(
-                    FontAwesomeIcons.receipt,
-                    size: context.getRSize(32),
-                    color: subtextCol.withValues(alpha: 0.5),
-                  ),
-                  SizedBox(height: context.getRSize(12)),
-                  Text(
-                    'No orders found for this customer.',
-                    style: TextStyle(
-                      fontSize: context.getRFontSize(14),
-                      color: subtextCol,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
-              ),
-            )
-          else ...[
-            Container(
-              decoration: BoxDecoration(
-                color: cardCol,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: borderCol),
-              ),
-              child: ListView.separated(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                padding: EdgeInsets.zero,
-                itemCount: recentOrders.length,
-                separatorBuilder: (context, index) =>
-                    Divider(height: 1, color: borderCol),
-                itemBuilder: (context, index) {
-                  final order = recentOrders[index];
-                  return InkWell(
-                    onTap: () => _showReceiptModal(context, order),
-                    borderRadius: BorderRadius.circular(16),
-                    child: Padding(
-                      padding: EdgeInsets.all(context.getRSize(16)),
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: EdgeInsets.all(context.getRSize(10)),
-                            decoration: BoxDecoration(
-                              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
-                              shape: BoxShape.circle,
-                            ),
-                            child: Icon(
-                              FontAwesomeIcons.fileInvoice,
-                              size: context.getRSize(14),
-                              color: Theme.of(context).colorScheme.primary,
-                            ),
-                          ),
-                          SizedBox(width: context.getRSize(12)),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Order #${order.id.length > 5 ? order.id.substring(order.id.length - 5) : order.id}',
-                                  style: TextStyle(
-                                    fontSize: context.getRFontSize(15),
-                                    fontWeight: FontWeight.w700,
-                                    color: textCol,
-                                  ),
-                                ),
-                                SizedBox(height: context.getRSize(4)),
-                                Text(
-                                  '${formatCurrency(order.totalAmount)} • ${order.paymentMethod}',
-                                  style: TextStyle(
-                                    fontSize: context.getRFontSize(12),
-                                    color: subtextCol,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          Text(
-                            DateFormat('MMM d, y').format(order.createdAt),
-                            style: TextStyle(
-                              fontSize: context.getRFontSize(11),
-                              color: subtextCol,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-            if (customerOrders.length > 3)
-              Align(
-                alignment: Alignment.centerRight,
-                child: AppButton(
-                  text: 'View More',
-                  variant: AppButtonVariant.ghost,
-                  size: AppButtonSize.small,
-                  onPressed: () => _showAllOrdersModal(
-                    context,
-                    customerOrders,
-                    cardCol,
-                    textCol,
-                    subtextCol,
-                    borderCol,
-                  ),
-                ),
-              ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  void _showAllOrdersModal(
-    BuildContext context,
-    List<Order> orders,
-    Color bgCol,
-    Color textCol,
-    Color subtextCol,
-    Color borderCol,
-  ) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (modalCtx) {
-        String selectedFilter = 'All Time';
-        final filters = ['Day', 'Week', 'Month', 'Year', 'All Time'];
-
-        return StatefulBuilder(
-          builder: (dialogCtx, setDialogState) {
-            final now = DateTime.now();
-            List<Order> filteredOrders = orders.where((o) {
-              if (selectedFilter == 'All Time') return true;
-              final diff = now.difference(o.createdAt);
-              if (selectedFilter == 'Day') {
-                return diff.inDays == 0 && now.day == o.createdAt.day;
-              }
-              if (selectedFilter == 'Week') return diff.inDays <= 7;
-              if (selectedFilter == 'Month') return diff.inDays <= 30;
-              if (selectedFilter == 'Year') return diff.inDays <= 365;
-              return true;
-            }).toList();
-
-            return Padding(
-              padding: EdgeInsets.only(
-                bottom: MediaQuery.of(modalCtx).padding.bottom,
-              ),
-              child: Container(
-                height: MediaQuery.of(modalCtx).size.height * 0.85,
-                decoration: BoxDecoration(
-                  color: bgCol,
-                  borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(28),
-                  ),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Padding(
-                      padding: EdgeInsets.fromLTRB(
-                        modalCtx.getRSize(20),
-                        modalCtx.getRSize(20),
-                        modalCtx.getRSize(20),
-                        0,
-                      ),
-                      child: Center(
-                        child: Container(
-                          width: modalCtx.getRSize(40),
-                          height: modalCtx.getRSize(4),
-                          decoration: BoxDecoration(
-                            color: borderCol,
-                            borderRadius: BorderRadius.circular(2),
-                          ),
-                        ),
-                      ),
-                    ),
-                    SizedBox(height: modalCtx.getRSize(20)),
-                    Padding(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: modalCtx.getRSize(20),
-                      ),
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          'All Orders',
-                          style: TextStyle(
-                            fontSize: modalCtx.getRFontSize(18),
-                            fontWeight: FontWeight.w800,
-                            color: textCol,
-                          ),
-                        ),
-                      ),
-                    ),
-                    SizedBox(height: modalCtx.getRSize(16)),
-                    SizedBox(
-                      height: modalCtx.getRSize(36),
-                      child: ListView.separated(
-                        scrollDirection: Axis.horizontal,
-                        padding: EdgeInsets.symmetric(
-                          horizontal: modalCtx.getRSize(20),
-                        ),
-                        itemCount: filters.length,
-                        separatorBuilder: (context, index) =>
-                            SizedBox(width: modalCtx.getRSize(8)),
-                        itemBuilder: (context, index) {
-                          final f = filters[index];
-                          final isSelected = f == selectedFilter;
-                          return FilterChip(
-                            label: Text(
-                              f,
-                              style: TextStyle(
-                                fontSize: context.getRFontSize(12),
-                                color: isSelected ? Colors.white : textCol,
-                                fontWeight: isSelected
-                                    ? FontWeight.w600
-                                    : FontWeight.normal,
-                              ),
-                            ),
-                            selected: isSelected,
-                            onSelected: (val) {
-                              setDialogState(() => selectedFilter = f);
-                            },
-                            selectedColor: Theme.of(context).colorScheme.primary,
-                            backgroundColor: Colors.transparent,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(20),
-                              side: BorderSide(
-                                color: isSelected
-                                    ? Colors.transparent
-                                    : borderCol,
-                              ),
-                            ),
-                            showCheckmark: false,
-                          );
-                        },
-                      ),
-                    ),
-                    SizedBox(height: modalCtx.getRSize(16)),
-                    Expanded(
-                      child: filteredOrders.isEmpty
-                          ? Center(
-                              child: Text(
-                                _getEmptyText(selectedFilter, 'orders'),
-                                style: TextStyle(
-                                  fontSize: modalCtx.getRFontSize(16),
-                                  color: subtextCol,
-                                ),
-                              ),
-                            )
-                          : ListView.separated(
-                              padding: EdgeInsets.fromLTRB(
-                                modalCtx.getRSize(20),
-                                0,
-                                modalCtx.getRSize(20),
-                                modalCtx.getRSize(20),
-                              ),
-                              shrinkWrap: true,
-                              itemCount: filteredOrders.length,
-                              separatorBuilder: (context, index) =>
-                                  Divider(height: 1, color: borderCol),
-                              itemBuilder: (context, index) {
-                                final order = filteredOrders[index];
-                                return InkWell(
-                                  onTap: () =>
-                                      _showReceiptModal(context, order),
-                                  borderRadius: BorderRadius.circular(12),
-                                  child: Padding(
-                                    padding: EdgeInsets.symmetric(
-                                      vertical: context.getRSize(12),
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        Container(
-                                          padding: EdgeInsets.all(
-                                            context.getRSize(10),
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
-                                            shape: BoxShape.circle,
-                                          ),
-                                          child: Icon(
-                                            FontAwesomeIcons.fileInvoice,
-                                            size: context.getRSize(14),
-                                            color: Theme.of(context).colorScheme.primary,
-                                          ),
-                                        ),
-                                        SizedBox(width: context.getRSize(12)),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                'Order #${order.id.length > 5 ? order.id.substring(order.id.length - 5) : order.id}',
-                                                style: TextStyle(
-                                                  fontSize: context
-                                                      .getRFontSize(15),
-                                                  fontWeight: FontWeight.w700,
-                                                  color: textCol,
-                                                ),
-                                              ),
-                                              SizedBox(
-                                                height: context.getRSize(4),
-                                              ),
-                                              Text(
-                                                '₦${NumberFormat('#,###').format(order.totalAmount)} • ${order.paymentMethod}',
-                                                style: TextStyle(
-                                                  fontSize: context
-                                                      .getRFontSize(12),
-                                                  color: subtextCol,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        Text(
-                                          DateFormat(
-                                            'MMM d, y',
-                                          ).format(order.createdAt),
-                                          style: TextStyle(
-                                            fontSize: context.getRFontSize(11),
-                                            color: subtextCol,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
-  void _showReceiptModal(BuildContext context, Order order) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (modalCtx) {
-        final bgCol = Theme.of(context).colorScheme.surface;
-        final borderCol = Theme.of(context).dividerColor;
-
-        return Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(modalCtx).padding.bottom,
-          ),
-          child: Container(
-            height: MediaQuery.of(modalCtx).size.height * 0.85,
-            decoration: BoxDecoration(
-              color: bgCol,
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(28),
-              ),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Padding(
-                  padding: EdgeInsets.fromLTRB(
-                    modalCtx.getRSize(20),
-                    modalCtx.getRSize(20),
-                    modalCtx.getRSize(20),
-                    0,
-                  ),
-                  child: Center(
-                    child: Container(
-                      width: modalCtx.getRSize(40),
-                      height: modalCtx.getRSize(4),
-                      decoration: BoxDecoration(
-                        color: borderCol,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                  ),
-                ),
-                SizedBox(height: modalCtx.getRSize(20)),
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding: EdgeInsets.all(modalCtx.getRSize(20)),
-                    child: ReceiptWidget(
-                      orderId: order.id,
-                      cart: order.items,
-                      subtotal: order.subtotal,
-                      crateDeposit: order.crateDeposit,
-                      total: order.totalAmount,
-                      paymentMethod: order.paymentMethod,
-                      customerName: order.customerName,
-                      customerAddress: _customer.addressText,
-                      customerPhone: _customer.phone,
-                      cashReceived: order.amountPaid,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildPaymentsSection(
-    BuildContext context,
-    Color cardCol,
-    Color textCol,
-    Color subtextCol,
-    Color borderCol,
-  ) {
-    final txns = _walletHistory;
-    final recentTxns = txns.take(3).toList();
-
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: context.getRSize(16)),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _sectionTitle(context, 'Wallet Transactions', textCol),
-              AppButton(
-                text: 'Fund Wallet',
-                icon: FontAwesomeIcons.plus,
-                variant: AppButtonVariant.secondary,
-                size: AppButtonSize.small,
-                onPressed: () => _showAddPaymentDialog(context),
-              ),
-            ],
-          ),
-          SizedBox(height: context.getRSize(12)),
-          if (txns.isEmpty)
-            Container(
-              width: double.infinity,
-              padding: EdgeInsets.all(context.getRSize(20)),
-              decoration: BoxDecoration(
-                color: cardCol,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: borderCol),
-              ),
-              child: Text(
-                'No wallet transactions yet.',
-                style: TextStyle(
-                  fontSize: context.getRFontSize(14),
-                  color: subtextCol,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            )
-          else ...[
-            Container(
-              decoration: BoxDecoration(
-                color: cardCol,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: borderCol),
-              ),
-              child: ListView.separated(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                padding: EdgeInsets.zero,
-                itemCount: recentTxns.length,
-                separatorBuilder: (context, index) =>
-                    Divider(height: 1, color: borderCol),
-                itemBuilder: (context, index) {
-                  final txn = recentTxns[index];
-                  final isCredit = txn.type == 'credit';
-                  final typeIcon = isCredit
-                      ? FontAwesomeIcons.moneyBillWave
-                      : FontAwesomeIcons.cartShopping;
-                  final typeColor = isCredit ? success : danger;
-
-                  return Padding(
-                    padding: EdgeInsets.all(context.getRSize(16)),
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: EdgeInsets.all(context.getRSize(10)),
-                          decoration: BoxDecoration(
-                            color: typeColor.withValues(alpha: 0.1),
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(
-                            typeIcon,
-                            size: context.getRSize(14),
-                            color: typeColor,
-                          ),
-                        ),
-                        SizedBox(width: context.getRSize(12)),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                '${isCredit ? "+" : "-"}${formatCurrency(txn.amountKobo / 100.0)}',
-                                style: TextStyle(
-                                  fontSize: context.getRFontSize(15),
-                                  fontWeight: FontWeight.w700,
-                                  color: typeColor,
-                                ),
-                              ),
-                              SizedBox(height: context.getRSize(2)),
-                              Text(
-                                txn.referenceType.replaceAll('_', ' ').toUpperCase(),
-                                style: TextStyle(
-                                  fontSize: context.getRFontSize(10),
-                                  fontWeight: FontWeight.w800,
-                                  color: subtextCol,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Text(
-                          DateFormat('MMM d, H:mm').format(txn.createdAt),
-                          style: TextStyle(
-                            fontSize: context.getRFontSize(11),
-                            color: subtextCol,
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              ),
-            ),
-            if (txns.length > 3)
-              Align(
-                alignment: Alignment.centerRight,
-                child: AppButton(
-                  text: 'View Full Ledger',
-                  variant: AppButtonVariant.ghost,
-                  size: AppButtonSize.small,
-                  onPressed: () => _showAllTransactionsModal(
-                    context,
-                    txns,
-                    cardCol,
-                    textCol,
-                    subtextCol,
-                    borderCol,
-                  ),
-                ),
-              ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  void _showAllTransactionsModal(
-    BuildContext context,
-    List<WalletTransactionData> txns,
-    Color bgCol,
-    Color textCol,
-    Color subtextCol,
-    Color borderCol,
-  ) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (modalCtx) {
-        String selectedFilter = 'All Time';
-        final filters = ['Day', 'Week', 'Month', 'Year', 'All Time'];
-
-        return StatefulBuilder(
-          builder: (dialogCtx, setDialogState) {
-            final now = DateTime.now();
-            final allTxns = txns.where((p) {
-              if (selectedFilter == 'All Time') return true;
-              final diff = now.difference(p.createdAt);
-              if (selectedFilter == 'Day') {
-                return diff.inDays == 0 && now.day == p.createdAt.day;
-              }
-              if (selectedFilter == 'Week') return diff.inDays <= 7;
-              if (selectedFilter == 'Month') return diff.inDays <= 30;
-              if (selectedFilter == 'Year') return diff.inDays <= 365;
-              return true;
-            }).toList();
-
-            return Padding(
-              padding: EdgeInsets.only(
-                bottom: MediaQuery.of(modalCtx).viewInsets.bottom +
-                    MediaQuery.of(modalCtx).padding.bottom,
-              ),
-              child: Container(
-                height: MediaQuery.of(modalCtx).size.height * 0.85,
-                decoration: BoxDecoration(
-                  color: bgCol,
-                  borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(28),
-                  ),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Padding(
-                      padding: EdgeInsets.fromLTRB(
-                        modalCtx.getRSize(20),
-                        modalCtx.getRSize(20),
-                        modalCtx.getRSize(20),
-                        0,
-                      ),
-                      child: Center(
-                        child: Container(
-                          width: modalCtx.getRSize(40),
-                          height: modalCtx.getRSize(4),
-                          decoration: BoxDecoration(
-                            color: borderCol,
-                            borderRadius: BorderRadius.circular(2),
-                          ),
-                        ),
-                      ),
-                    ),
-                    SizedBox(height: modalCtx.getRSize(20)),
-                    Padding(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: modalCtx.getRSize(20),
-                      ),
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          'Wallet Ledger',
-                          style: TextStyle(
-                            fontSize: modalCtx.getRFontSize(18),
-                            fontWeight: FontWeight.w800,
-                            color: textCol,
-                          ),
-                        ),
-                      ),
-                    ),
-                    SizedBox(height: modalCtx.getRSize(16)),
-                    SizedBox(
-                      height: modalCtx.getRSize(36),
-                      child: ListView.separated(
-                        scrollDirection: Axis.horizontal,
-                        padding: EdgeInsets.symmetric(
-                          horizontal: modalCtx.getRSize(20),
-                        ),
-                        itemCount: filters.length,
-                        separatorBuilder: (context, index) =>
-                            SizedBox(width: modalCtx.getRSize(8)),
-                        itemBuilder: (context, index) {
-                          final f = filters[index];
-                          final isSelected = f == selectedFilter;
-                          return FilterChip(
-                            label: Text(
-                              f,
-                              style: TextStyle(
-                                fontSize: context.getRFontSize(12),
-                                color: isSelected ? Colors.white : textCol,
-                                fontWeight: isSelected
-                                    ? FontWeight.w600
-                                    : FontWeight.normal,
-                              ),
-                            ),
-                            selected: isSelected,
-                            onSelected: (val) {
-                              setDialogState(() => selectedFilter = f);
-                            },
-                            selectedColor: Theme.of(context).colorScheme.primary,
-                            backgroundColor: Colors.transparent,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(20),
-                              side: BorderSide(
-                                color: isSelected
-                                    ? Colors.transparent
-                                    : borderCol,
-                              ),
-                            ),
-                            showCheckmark: false,
-                          );
-                        },
-                      ),
-                    ),
-                    SizedBox(height: modalCtx.getRSize(16)),
-                    Expanded(
-                      child: allTxns.isEmpty
-                          ? Center(
-                              child: Text(
-                                _getEmptyText(selectedFilter, 'transactions'),
-                                style: TextStyle(
-                                  fontSize: modalCtx.getRFontSize(16),
-                                  color: subtextCol,
-                                ),
-                              ),
-                            )
-                          : ListView.separated(
-                              padding: EdgeInsets.fromLTRB(
-                                modalCtx.getRSize(20),
-                                0,
-                                modalCtx.getRSize(20),
-                                modalCtx.getRSize(20),
-                              ),
-                              shrinkWrap: true,
-                              itemCount: allTxns.length,
-                              separatorBuilder: (context, index) =>
-                                  Divider(height: 1, color: borderCol),
-                              itemBuilder: (context, index) {
-                                final txn = allTxns[index];
-                                final isCredit = txn.type == 'credit';
-                                final typeIcon = isCredit
-                                    ? FontAwesomeIcons.moneyBillWave
-                                    : FontAwesomeIcons.cartShopping;
-                                final typeColor = isCredit ? success : danger;
-
-                                return Padding(
-                                  padding: EdgeInsets.symmetric(
-                                    vertical: context.getRSize(12),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Container(
-                                        padding: EdgeInsets.all(
-                                          context.getRSize(10),
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: typeColor.withValues(alpha: 0.1),
-                                          shape: BoxShape.circle,
-                                        ),
-                                        child: Icon(
-                                          typeIcon,
-                                          size: context.getRSize(14),
-                                          color: typeColor,
-                                        ),
-                                      ),
-                                      SizedBox(width: context.getRSize(12)),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              '${isCredit ? "+" : "-"}${formatCurrency(txn.amountKobo / 100.0)}',
-                                              style: TextStyle(
-                                                fontSize: context.getRFontSize(
-                                                  15,
-                                                ),
-                                                fontWeight: FontWeight.w700,
-                                                color: typeColor,
-                                              ),
-                                            ),
-                                            SizedBox(
-                                              height: context.getRSize(2),
-                                            ),
-                                            Text(
-                                              txn.referenceType.replaceAll('_', ' ').toUpperCase(),
-                                              style: TextStyle(
-                                                fontSize: context
-                                                    .getRFontSize(10),
-                                                fontWeight: FontWeight.w800,
-                                                color: subtextCol,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      Text(
-                                        DateFormat(
-                                          'MMM d, H:mm',
-                                        ).format(txn.createdAt),
-                                        style: TextStyle(
-                                          fontSize: context.getRFontSize(11),
-                                          color: subtextCol,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                );
-                              },
-                            ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
-  Widget _buildCratesSection(
-    BuildContext context,
-    Color surfaceCol,
-    Color cardCol,
-    Color textCol,
-    Color subtextCol,
-    Color borderCol,
-  ) {
-    final outstandingCrates = _customer.emptyCratesBalance.entries
-        .where((e) => e.value > 0)
-        .toList();
-
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: context.getRSize(16)),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _sectionTitle(context, 'Empty Crates Balance', textCol),
-              AppButton(
-                text: 'Return Crates',
-                icon: FontAwesomeIcons.rotateLeft,
-                variant: AppButtonVariant.secondary,
-                size: AppButtonSize.small,
-                onPressed: outstandingCrates.isEmpty
-                    ? null
-                    : () => _showReturnCratesDialog(context),
-              ),
-            ],
-          ),
-          SizedBox(height: context.getRSize(12)),
-          if (outstandingCrates.isEmpty)
-            Container(
-              width: double.infinity,
-              padding: EdgeInsets.all(context.getRSize(20)),
-              decoration: BoxDecoration(
-                color: cardCol,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: borderCol),
-              ),
-              child: Text(
-                'No outstanding crates.',
-                style: TextStyle(
-                  fontSize: context.getRFontSize(14),
-                  color: subtextCol,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            )
-          else
-            ListView.separated(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              padding: EdgeInsets.zero,
-              itemCount: outstandingCrates.length,
-              separatorBuilder: (context, index) =>
-                  SizedBox(height: context.getRSize(8)),
-              itemBuilder: (context, index) {
-                final entry = outstandingCrates[index];
-                return Container(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: context.getRSize(16),
-                    vertical: context.getRSize(12),
-                  ),
-                  decoration: BoxDecoration(
-                    color: surfaceCol,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: borderCol),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        entry.key, // Crate group name
-                        style: TextStyle(
-                          fontSize: context.getRFontSize(15),
-                          fontWeight: FontWeight.w600,
-                          color: textCol,
-                        ),
-                      ),
-                      Container(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: context.getRSize(12),
-                          vertical: context.getRSize(4),
-                        ),
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.error.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          '${entry.value} owed',
-                          style: TextStyle(
-                            fontSize: context.getRFontSize(13),
-                            fontWeight: FontWeight.bold,
-                            color: Theme.of(context).colorScheme.error,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _sectionTitle(BuildContext context, String title, Color textCol) {
-    return Text(
-      title,
-      style: TextStyle(
-        fontSize: context.getRFontSize(16),
-        fontWeight: FontWeight.w800,
-        color: textCol,
-      ),
-    );
-  }
-
-  // ── Modals ─────────────────────────────────────────────────────────────────
-
-  void _showAddPaymentDialog(BuildContext context) {
+  void _showAddFundsSheet() {
     final amountCtrl = TextEditingController();
     final noteCtrl = TextEditingController();
     final formKey = GlobalKey<FormState>();
@@ -1365,472 +160,548 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (modalCtx) {
-        final bgCol = Theme.of(context).colorScheme.surface;
-        final borderCol = Theme.of(context).dividerColor;
-        final cardCol = Theme.of(context).cardColor;
-        final textCol = Theme.of(context).colorScheme.onSurface;
-
-        return Padding(
-          padding: EdgeInsets.only(bottom: modalCtx.bottomInset),
-          child: Container(
-            constraints: BoxConstraints(
-              maxHeight: MediaQuery.of(modalCtx).size.height * 0.85,
-            ),
-            decoration: BoxDecoration(
-              color: bgCol,
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(28),
-              ),
-            ),
+      builder: (_) => DraggableScrollableSheet(
+        initialChildSize: 0.55,
+        maxChildSize: 0.9,
+        minChildSize: 0.4,
+        builder: (ctx, scrollCtrl) => _SheetContainer(
+          scrollController: scrollCtrl,
+          child: Form(
+            key: formKey,
             child: Column(
-              mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Padding(
-                  padding: EdgeInsets.fromLTRB(
-                    modalCtx.getRSize(20),
-                    modalCtx.getRSize(20),
-                    modalCtx.getRSize(20),
-                    0,
-                  ),
-                  child: Center(
-                    child: Container(
-                      width: modalCtx.getRSize(40),
-                      height: modalCtx.getRSize(4),
-                      decoration: BoxDecoration(
-                        color: borderCol,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
+                const _SheetHandle(),
+                SizedBox(height: ctx.getRSize(8)),
+                Text(
+                  'Add Funds',
+                  style: TextStyle(
+                    fontSize: ctx.getRFontSize(20),
+                    fontWeight: FontWeight.w800,
+                    color: Theme.of(ctx).colorScheme.onSurface,
                   ),
                 ),
-                SizedBox(height: modalCtx.getRSize(20)),
-                Flexible(
-                  child: SingleChildScrollView(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: modalCtx.getRSize(20),
-                    ),
-                    child: Form(
-                      key: formKey,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Add Payment',
-                            style: TextStyle(
-                              fontSize: modalCtx.getRFontSize(18),
-                              fontWeight: FontWeight.w800,
-                              color: textCol,
-                            ),
-                          ),
-                          SizedBox(height: modalCtx.getRSize(20)),
-                          AppInput(
-                            controller: amountCtrl,
-                            labelText: 'Amount',
-                            hintText: 'e.g. 5000',
-                            keyboardType: const TextInputType.numberWithOptions(
-                              decimal: true,
-                            ),
-                            inputFormatters: [CurrencyInputFormatter()],
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: textCol,
-                            ),
-                            fillColor: cardCol,
-                            prefixText: '₦ ',
-                            validator: (v) {
-                              if (v == null || v.isEmpty) return 'Required';
-                              final parsed = parseCurrency(v);
-                              if (parsed <= 0) {
-                                return 'Invalid amount';
-                              }
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: 16),
-                          AppInput(
-                            controller: noteCtrl,
-                            labelText: 'Note (Optional)',
-                            hintText: 'Payment note',
-                            style: TextStyle(fontSize: 14, color: textCol),
-                            fillColor: cardCol,
-                          ),
-                          const SizedBox(height: 32),
-                        ],
-                      ),
-                    ),
+                SizedBox(height: ctx.getRSize(4)),
+                Text(
+                  'Top up $_name\'s wallet',
+                  style: TextStyle(
+                    fontSize: ctx.getRFontSize(13),
+                    color: Theme.of(
+                      ctx,
+                    ).colorScheme.onSurface.withValues(alpha: 0.5),
                   ),
                 ),
+                SizedBox(height: ctx.getRSize(24)),
+                _SheetField(
+                  controller: amountCtrl,
+                  label: 'Amount (₦)',
+                  keyboard: TextInputType.number,
+                  validator: (v) {
+                    final n = double.tryParse(v ?? '');
+                    if (n == null || n <= 0) return 'Enter a valid amount';
+                    return null;
+                  },
+                ),
+                SizedBox(height: ctx.getRSize(16)),
+                _SheetField(
+                  controller: noteCtrl,
+                  label: 'Note (optional)',
+                  keyboard: TextInputType.text,
+                ),
+                const Spacer(),
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
-                  child: AppButton(
-                    text: 'Confirm Payment',
-                    variant: AppButtonVariant.primary,
+                  padding: EdgeInsets.only(
+                    bottom:
+                        MediaQuery.of(ctx).viewInsets.bottom + ctx.getRSize(16),
+                  ),
+                  child: AmberButton(
+                    label: 'Add Funds',
+                    icon: Icons.add,
                     onPressed: () async {
-                      if (formKey.currentState!.validate()) {
-                        final amount = parseCurrency(amountCtrl.text);
-
-                        // Persist via service
-                        await customerService.addPayment(
-                          _customer.id, 
-                          Payment(
-                            id: DateTime.now().millisecondsSinceEpoch.toString(),
-                            amount: amount,
-                            timestamp: DateTime.now(),
-                            note: noteCtrl.text.trim(),
+                      if (!formKey.currentState!.validate()) return;
+                      final amount = double.parse(amountCtrl.text.trim());
+                      final note = noteCtrl.text.trim().isEmpty
+                          ? null
+                          : noteCtrl.text.trim();
+                      final id = _customerId;
+                      if (id == null) return;
+                      final messenger = ScaffoldMessenger.of(context);
+                      Navigator.pop(ctx);
+                      await customerService.addPayment(
+                        id,
+                        Payment(
+                          id: 'pay-${DateTime.now().millisecondsSinceEpoch}',
+                          amount: amount,
+                          timestamp: DateTime.now(),
+                          note: note,
+                        ),
+                      );
+                      messenger.showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            '₦${amount.toStringAsFixed(0)} added to wallet',
                           ),
-                        );
-
-                        if (!modalCtx.mounted) return;
-
-                        // DB streams will auto-update balance + history
-                        if (modalCtx.mounted) Navigator.pop(modalCtx);
-                      }
+                          backgroundColor: successGreen,
+                        ),
+                      );
                     },
                   ),
                 ),
               ],
             ),
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 
-  void _showReturnCratesDialog(BuildContext context) {
-    final allGroups = CrateGroup.values.map((g) => g.label).toList();
-    final List<Map<String, dynamic>> rows = [
-      {'group': allGroups.first, 'qty': 0},
-    ];
+  void _showSetLimitSheet() {
+    final limitCtrl = TextEditingController(
+      text: _limitKobo > 0 ? (_limitKobo / 100).toStringAsFixed(0) : '',
+    );
+    final formKey = GlobalKey<FormState>();
 
     showModalBottomSheet(
       context: context,
-      useSafeArea: true,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (modalCtx) {
-        final bgCol = Theme.of(context).colorScheme.surface;
-        final borderCol = Theme.of(context).dividerColor;
-        final cardCol = Theme.of(context).cardColor;
-        final textCol = Theme.of(context).colorScheme.onSurface;
-
-        return StatefulBuilder(
-          builder: (dialogCtx, setDialogState) {
-            return Padding(
-              padding: EdgeInsets.only(bottom: modalCtx.bottomInset),
-              child: Container(
-                constraints: BoxConstraints(
-                  maxHeight: MediaQuery.of(modalCtx).size.height * 0.85,
-                ),
-                decoration: BoxDecoration(
-                  color: bgCol,
-                  borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(28),
+      builder: (_) => DraggableScrollableSheet(
+        initialChildSize: 0.45,
+        maxChildSize: 0.7,
+        minChildSize: 0.35,
+        builder: (ctx, scrollCtrl) => _SheetContainer(
+          scrollController: scrollCtrl,
+          child: Form(
+            key: formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const _SheetHandle(),
+                SizedBox(height: ctx.getRSize(8)),
+                Text(
+                  'Set Debt Limit',
+                  style: TextStyle(
+                    fontSize: ctx.getRFontSize(20),
+                    fontWeight: FontWeight.w800,
+                    color: Theme.of(ctx).colorScheme.onSurface,
                   ),
                 ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                SizedBox(height: ctx.getRSize(4)),
+                Text(
+                  'Maximum credit allowed for $_name',
+                  style: TextStyle(
+                    fontSize: ctx.getRFontSize(13),
+                    color: Theme.of(
+                      ctx,
+                    ).colorScheme.onSurface.withValues(alpha: 0.5),
+                  ),
+                ),
+                SizedBox(height: ctx.getRSize(24)),
+                _SheetField(
+                  controller: limitCtrl,
+                  label: 'Limit Amount (₦)',
+                  keyboard: TextInputType.number,
+                  validator: (v) {
+                    final n = double.tryParse(v ?? '');
+                    if (n == null || n < 0)
+                      return 'Enter a valid amount (0 to remove limit)';
+                    return null;
+                  },
+                ),
+                const Spacer(),
+                Padding(
+                  padding: EdgeInsets.only(
+                    bottom:
+                        MediaQuery.of(ctx).viewInsets.bottom + ctx.getRSize(16),
+                  ),
+                  child: AmberButton(
+                    label: 'Save Limit',
+                    icon: Icons.check,
+                    onPressed: () async {
+                      if (!formKey.currentState!.validate()) return;
+                      final amount = double.parse(limitCtrl.text.trim());
+                      final id = _customerId;
+                      if (id == null) return;
+                      final messenger = ScaffoldMessenger.of(context);
+                      Navigator.pop(ctx);
+                      await customerService.updateWalletLimit(id, amount);
+                      messenger.showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            'Debt limit set to ${formatCurrency(amount)}',
+                          ),
+                          backgroundColor: successGreen,
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── Build ──────────────────────────────────────────────────────────────────
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return DefaultTabController(
+      length: 3,
+      child: Scaffold(
+        backgroundColor: theme.scaffoldBackgroundColor,
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          leading: IconButton(
+            icon: Icon(
+              Icons.arrow_back_ios_new,
+              size: context.getRSize(20),
+              color: theme.colorScheme.onSurface,
+            ),
+            onPressed: () => Navigator.pop(context),
+          ),
+          centerTitle: true,
+          title: Text(
+            _contentReady ? _name : 'Customer Profile',
+            style: TextStyle(
+              fontSize: context.getRFontSize(18),
+              fontWeight: FontWeight.w800,
+              color: theme.colorScheme.onSurface,
+            ),
+          ),
+        ),
+        body: _contentReady ? _buildContent(theme) : _buildShimmer(theme),
+      ),
+    );
+  }
+
+  Widget _buildContent(ThemeData theme) {
+    return Column(
+      children: [
+        _buildHeader(theme),
+        _buildWalletCard(theme),
+        _buildTabBar(theme),
+        Expanded(
+          child: TabBarView(
+            children: [
+              _buildWalletHistoryTab(theme),
+              _buildOrdersTab(theme),
+              _buildCratesTab(theme),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ── Header ──────────────────────────────────────────────────────────────────
+
+  Widget _buildHeader(ThemeData theme) {
+    final isWholesaler = _groupName == 'wholesaler';
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        context.getRSize(20),
+        context.getRSize(4),
+        context.getRSize(20),
+        context.getRSize(16),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Avatar circle
+          Container(
+            width: context.getRSize(60),
+            height: context.getRSize(60),
+            decoration: AppDecorations.amberGradient(radius: 30),
+            child: Center(
+              child: Text(
+                _initials(_name),
+                style: TextStyle(
+                  fontSize: context.getRFontSize(22),
+                  fontWeight: FontWeight.w900,
+                  color: Colors.black,
+                ),
+              ),
+            ),
+          ),
+          SizedBox(width: context.getRSize(16)),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
                   children: [
-                    Padding(
-                      padding: EdgeInsets.fromLTRB(
-                        modalCtx.getRSize(20),
-                        modalCtx.getRSize(20),
-                        modalCtx.getRSize(20),
-                        0,
+                    Expanded(
+                      child: Text(
+                        _name,
+                        style: TextStyle(
+                          fontSize: context.getRFontSize(18),
+                          fontWeight: FontWeight.w800,
+                          color: theme.colorScheme.onSurface,
+                        ),
                       ),
-                      child: Center(
-                        child: Container(
-                          width: modalCtx.getRSize(40),
-                          height: modalCtx.getRSize(4),
-                          decoration: BoxDecoration(
-                            color: borderCol,
-                            borderRadius: BorderRadius.circular(2),
+                    ),
+                    SizedBox(width: context.getRSize(8)),
+                    StatusBadge(
+                      label: isWholesaler ? 'Wholesaler' : 'Retailer',
+                      variant: isWholesaler
+                          ? BadgeVariant.green
+                          : BadgeVariant.amber,
+                    ),
+                  ],
+                ),
+                if (_phone.isNotEmpty) ...[
+                  SizedBox(height: context.getRSize(6)),
+                  _InfoRow(
+                    icon: Icons.phone_outlined,
+                    text: _phone,
+                    theme: theme,
+                  ),
+                ],
+                if (_address.isNotEmpty && _address != 'N/A') ...[
+                  SizedBox(height: context.getRSize(4)),
+                  _InfoRow(
+                    icon: Icons.location_on_outlined,
+                    text: _address,
+                    theme: theme,
+                  ),
+                ],
+                SizedBox(height: context.getRSize(4)),
+                _InfoRow(
+                  icon: Icons.calendar_today_outlined,
+                  text: 'Since ${DateFormat('MMM yyyy').format(_joinedAt)}',
+                  theme: theme,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Wallet Card ─────────────────────────────────────────────────────────────
+
+  Widget _buildWalletCard(ThemeData theme) {
+    final balance = _walletBalance / 100.0;
+    final limit = _limitKobo / 100.0;
+
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: context.getRSize(20)),
+      child: Container(
+        padding: EdgeInsets.all(context.getRSize(18)),
+        decoration: AppDecorations.surfaceCard(context, radius: 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.account_balance_wallet_outlined,
+                  size: context.getRSize(16),
+                  color: amberPrimary,
+                ),
+                SizedBox(width: context.getRSize(6)),
+                Text(
+                  'Wallet Balance',
+                  style: TextStyle(
+                    fontSize: context.getRFontSize(12),
+                    fontWeight: FontWeight.w600,
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: context.getRSize(6)),
+            Text(
+              formatCurrency(balance),
+              style: TextStyle(
+                fontSize: context.getRFontSize(28),
+                fontWeight: FontWeight.w900,
+                color: balance >= 0 ? theme.colorScheme.onSurface : dangerRed,
+                letterSpacing: -1,
+              ),
+            ),
+            SizedBox(height: context.getRSize(4)),
+            Row(
+              children: [
+                Icon(
+                  Icons.credit_card_outlined,
+                  size: context.getRSize(13),
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                ),
+                SizedBox(width: context.getRSize(4)),
+                Text(
+                  limit > 0
+                      ? 'Debt limit: ${formatCurrency(limit)}'
+                      : 'No debt limit set',
+                  style: TextStyle(
+                    fontSize: context.getRFontSize(12),
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: context.getRSize(14)),
+            Row(
+              children: [
+                Expanded(
+                  child: AmberButton(
+                    label: 'Add Funds',
+                    icon: Icons.add,
+                    height: 42,
+                    onPressed: _showAddFundsSheet,
+                  ),
+                ),
+                SizedBox(width: context.getRSize(10)),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _showSetLimitSheet,
+                    icon: Icon(
+                      Icons.edit_outlined,
+                      size: 16,
+                      color: theme.colorScheme.onSurface,
+                    ),
+                    label: Text(
+                      'Set Limit',
+                      style: TextStyle(
+                        fontSize: context.getRFontSize(14),
+                        fontWeight: FontWeight.w600,
+                        color: theme.colorScheme.onSurface,
+                      ),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: Size(0, context.getRSize(42)),
+                      side: BorderSide(color: theme.dividerColor),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── Tab Bar ─────────────────────────────────────────────────────────────────
+
+  Widget _buildTabBar(ThemeData theme) {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        context.getRSize(20),
+        context.getRSize(16),
+        context.getRSize(20),
+        0,
+      ),
+      child: TabBar(
+        labelColor: amberPrimary,
+        unselectedLabelColor: theme.colorScheme.onSurface.withValues(
+          alpha: 0.45,
+        ),
+        indicatorColor: amberPrimary,
+        indicatorSize: TabBarIndicatorSize.tab,
+        labelStyle: TextStyle(
+          fontSize: context.getRFontSize(13),
+          fontWeight: FontWeight.w700,
+        ),
+        tabs: const [
+          Tab(icon: Icon(Icons.history, size: 18), text: 'Wallet'),
+          Tab(
+            icon: Icon(Icons.receipt_long_outlined, size: 18),
+            text: 'Orders',
+          ),
+          Tab(icon: Icon(Icons.inbox_outlined, size: 18), text: 'Crates'),
+        ],
+      ),
+    );
+  }
+
+  // ── Tab: Wallet History ─────────────────────────────────────────────────────
+
+  Widget _buildWalletHistoryTab(ThemeData theme) {
+    if (_walletHistory.isEmpty) {
+      return _EmptyState(
+        icon: Icons.history,
+        message: 'No wallet transactions yet',
+        theme: theme,
+      );
+    }
+    return ListView.builder(
+      padding: EdgeInsets.fromLTRB(
+        context.getRSize(20),
+        context.getRSize(12),
+        context.getRSize(20),
+        context.getRSize(20),
+      ),
+      itemCount: _walletHistory.length,
+      itemBuilder: (ctx, i) {
+        final txn = _walletHistory[i];
+        final isCredit = txn.type == 'credit';
+        final amount = txn.amountKobo / 100.0;
+        final color = isCredit ? successGreen : dangerRed;
+        return Padding(
+          padding: EdgeInsets.only(bottom: ctx.getRSize(10)),
+          child: Container(
+            padding: EdgeInsets.all(ctx.getRSize(14)),
+            decoration: AppDecorations.surfaceCard(ctx, radius: 12),
+            child: Row(
+              children: [
+                Container(
+                  width: ctx.getRSize(38),
+                  height: ctx.getRSize(38),
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.12),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    isCredit
+                        ? Icons.arrow_downward_rounded
+                        : Icons.arrow_upward_rounded,
+                    color: color,
+                    size: ctx.getRSize(18),
+                  ),
+                ),
+                SizedBox(width: ctx.getRSize(12)),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _friendlyRefType(txn.referenceType),
+                        style: TextStyle(
+                          fontSize: ctx.getRFontSize(14),
+                          fontWeight: FontWeight.w600,
+                          color: theme.colorScheme.onSurface,
+                        ),
+                      ),
+                      Text(
+                        DateFormat('d MMM yyyy, h:mm a').format(txn.createdAt),
+                        style: TextStyle(
+                          fontSize: ctx.getRFontSize(11),
+                          color: theme.colorScheme.onSurface.withValues(
+                            alpha: 0.45,
                           ),
                         ),
                       ),
-                    ),
-                    SizedBox(height: modalCtx.getRSize(20)),
-                    Flexible(
-                      child: SingleChildScrollView(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: modalCtx.getRSize(20),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Return Empty Crates',
-                              style: TextStyle(
-                                fontSize: modalCtx.getRFontSize(18),
-                                fontWeight: FontWeight.w800,
-                                color: textCol,
-                              ),
-                            ),
-                            SizedBox(height: modalCtx.getRSize(20)),
-                            ...rows.asMap().entries.map((entry) {
-                              final idx = entry.key;
-                              final rowData = entry.value;
-                              return Padding(
-                                padding: const EdgeInsets.only(bottom: 12),
-                                child: Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Expanded(
-                                      flex: 2,
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          AppDropdown<String>(
-                                            labelText: 'Crate Company',
-                                            value: rowData['group'],
-                                            items: allGroups.map((g) {
-                                              return DropdownMenuItem(
-                                                value: g,
-                                                child: Text(g),
-                                              );
-                                            }).toList(),
-                                            onChanged: (val) {
-                                              if (val != null) {
-                                                setDialogState(
-                                                  () =>
-                                                      rows[idx]['group'] = val,
-                                                );
-                                              }
-                                            },
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      flex: 1,
-                                      child: AppInput(
-                                        initialValue: rowData['qty']
-                                            .toString(),
-                                        labelText: 'Qty',
-                                        keyboardType: TextInputType.number,
-                                        style: TextStyle(
-                                          fontSize: 16,
-                                          color: textCol,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                        fillColor: cardCol,
-                                        onChanged: (val) {
-                                          final parsed =
-                                              int.tryParse(val) ?? 0;
-                                          rows[idx]['qty'] = parsed;
-                                        },
-                                      ),
-                                    ),
-                                    Padding(
-                                      padding: EdgeInsets.only(
-                                        top: modalCtx.getRSize(26),
-                                        left: modalCtx.getRSize(4),
-                                      ),
-                                      child: IconButton(
-                                        icon: Icon(
-                                          Icons.remove_circle,
-                                          color: Theme.of(context).colorScheme.error,
-                                        ),
-                                        onPressed: rows.length > 1
-                                            ? () => setDialogState(
-                                                () => rows.removeAt(idx),
-                                              )
-                                            : null,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              );
-                            }),
-                            const SizedBox(height: 8),
-                            AppButton(
-                              text: 'Add Row',
-                              icon: FontAwesomeIcons.plus,
-                              variant: AppButtonVariant.secondary,
-                              size: AppButtonSize.small,
-                              onPressed: () {
-                                setDialogState(() {
-                                  rows.add({
-                                    'group': allGroups.first,
-                                    'qty': 0,
-                                  });
-                                });
-                              },
-                            ),
-                            const SizedBox(height: 32),
-                          ],
-                        ),
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
-                      child: AppButton(
-                        text: 'Confirm Return',
-                        variant: AppButtonVariant.primary,
-                        onPressed: () async {
-                          final returns = <String, int>{};
-                          for (var r in rows) {
-                            final g = r['group'] as String;
-                            final q = r['qty'] as int;
-                            if (q > 0) {
-                              returns[g] = (returns[g] ?? 0) + q;
-                            }
-                          }
-                          if (returns.isNotEmpty) {
-                            // Persist via service
-                            await customerService.updateEmptyCratesBalance(_customer.id, returns);
-                            
-                            if (!modalCtx.mounted) return;
-
-                            setState(() {
-                              final updated = Map<String, int>.from(_customer.emptyCratesBalance);
-                              for (final entry in returns.entries) {
-                                final current = updated[entry.key] ?? 0;
-                                final newVal = current - entry.value;
-                                if (newVal <= 0) {
-                                  updated.remove(entry.key);
-                                } else {
-                                  updated[entry.key] = newVal;
-                                }
-                              }
-                              _customer = _customer.copyWith(emptyCratesBalance: updated);
-                            });
-                          }
-                          Navigator.pop(modalCtx);
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
-  void _showSetWalletLimitDialog(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (modalCtx) {
-        final surfaceCol = Theme.of(context).colorScheme.surface;
-        final textCol = Theme.of(context).colorScheme.onSurface;
-        final subtextCol = Theme.of(context).textTheme.bodySmall?.color ?? Theme.of(context).iconTheme.color!;
-        final borderCol = Theme.of(context).dividerColor;
-        final cardCol = Theme.of(context).cardColor;
-
-        final limitCtrl = TextEditingController(
-          text: _customer.walletLimit.abs().toStringAsFixed(0),
-        );
-
-        return Padding(
-          padding: EdgeInsets.only(bottom: modalCtx.bottomInset),
-          child: Container(
-            decoration: BoxDecoration(
-              color: surfaceCol,
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(28),
-              ),
-            ),
-            padding: EdgeInsets.fromLTRB(
-              modalCtx.getRSize(20),
-              modalCtx.getRSize(20),
-              modalCtx.getRSize(20),
-              modalCtx.bottomInset + 32,
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Center(
-                  child: Container(
-                    width: modalCtx.getRSize(40),
-                    height: modalCtx.getRSize(4),
-                    decoration: BoxDecoration(
-                      color: borderCol,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
+                    ],
                   ),
                 ),
-                SizedBox(height: modalCtx.getRSize(24)),
-                Row(
-                  children: [
-                    Container(
-                      padding: EdgeInsets.all(modalCtx.getRSize(10)),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        FontAwesomeIcons.sliders,
-                        size: modalCtx.getRSize(16),
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
-                    ),
-                    SizedBox(width: modalCtx.getRSize(14)),
-                    Text(
-                      'Wallet Debt Limit',
-                      style: TextStyle(
-                        fontSize: modalCtx.getRFontSize(18),
-                        fontWeight: FontWeight.w800,
-                        color: textCol,
-                      ),
-                    ),
-                  ],
-                ),
-                SizedBox(height: modalCtx.getRSize(12)),
                 Text(
-                  'Set the maximum amount this customer can owe. Use a positive number here (it will represent a negative debt limit).',
+                  '${isCredit ? '+' : '-'}${formatCurrency(amount)}',
                   style: TextStyle(
-                    fontSize: modalCtx.getRFontSize(13),
-                    color: subtextCol,
+                    fontSize: ctx.getRFontSize(15),
+                    fontWeight: FontWeight.w800,
+                    color: color,
                   ),
-                ),
-                SizedBox(height: modalCtx.getRSize(24)),
-                AppInput(
-                  controller: limitCtrl,
-                  labelText: 'Maximum Debt Amount',
-                  hintText: 'e.g. 50,000',
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [CurrencyInputFormatter()],
-                  style: TextStyle(
-                    fontSize: modalCtx.getRFontSize(16),
-                    fontWeight: FontWeight.bold,
-                    color: textCol,
-                  ),
-                  prefixIcon: Icon(
-                    FontAwesomeIcons.nairaSign,
-                    size: modalCtx.getRSize(14),
-                    color: subtextCol,
-                  ),
-                  fillColor: cardCol,
-                ),
-                SizedBox(height: modalCtx.getRSize(32)),
-                AppButton(
-                  text: 'Save Limit',
-                  variant: AppButtonVariant.primary,
-                  onPressed: () async {
-                    final val = parseCurrency(limitCtrl.text);
-                    final limitKobo = -(val.abs() * 100).round();
-                    
-                    // Persist via service
-                    await customerService.updateWalletLimit(_customer.id, val.abs());
-
-                    if (!modalCtx.mounted) return;
-
-                    setState(() {
-                      _customer = _customer.copyWith(walletLimitKobo: limitKobo);
-                    });
-                    Navigator.pop(modalCtx);
-                  },
                 ),
               ],
             ),
@@ -1839,8 +710,345 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
       },
     );
   }
+
+  // ── Tab: Orders ─────────────────────────────────────────────────────────────
+
+  Widget _buildOrdersTab(ThemeData theme) {
+    if (_orders.isEmpty) {
+      return _EmptyState(
+        icon: Icons.receipt_long_outlined,
+        message: 'No orders placed yet',
+        theme: theme,
+      );
+    }
+    return ListView.builder(
+      padding: EdgeInsets.fromLTRB(
+        context.getRSize(20),
+        context.getRSize(12),
+        context.getRSize(20),
+        context.getRSize(20),
+      ),
+      itemCount: _orders.length,
+      itemBuilder: (ctx, i) {
+        final order = _orders[i];
+        final total = order.totalAmountKobo / 100.0;
+        return Padding(
+          padding: EdgeInsets.only(bottom: ctx.getRSize(10)),
+          child: Container(
+            padding: EdgeInsets.all(ctx.getRSize(14)),
+            decoration: AppDecorations.surfaceCard(ctx, radius: 12),
+            child: Row(
+              children: [
+                Container(
+                  width: ctx.getRSize(38),
+                  height: ctx.getRSize(38),
+                  decoration: BoxDecoration(
+                    color: amberPrimary.withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.receipt_outlined,
+                    color: amberPrimary,
+                    size: ctx.getRSize(18),
+                  ),
+                ),
+                SizedBox(width: ctx.getRSize(12)),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '#${order.orderNumber}',
+                        style: TextStyle(
+                          fontSize: ctx.getRFontSize(14),
+                          fontWeight: FontWeight.w700,
+                          color: theme.colorScheme.onSurface,
+                        ),
+                      ),
+                      Text(
+                        DateFormat('d MMM yyyy').format(order.createdAt),
+                        style: TextStyle(
+                          fontSize: ctx.getRFontSize(11),
+                          color: theme.colorScheme.onSurface.withValues(
+                            alpha: 0.45,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      formatCurrency(total),
+                      style: TextStyle(
+                        fontSize: ctx.getRFontSize(14),
+                        fontWeight: FontWeight.w800,
+                        color: theme.colorScheme.onSurface,
+                      ),
+                    ),
+                    SizedBox(height: ctx.getRSize(4)),
+                    StatusBadge(
+                      label:
+                          order.status[0].toUpperCase() +
+                          order.status.substring(1),
+                      variant: _orderStatusVariant(order.status),
+                      fontSize: 10,
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // ── Tab: Crates ─────────────────────────────────────────────────────────────
+
+  Widget _buildCratesTab(ThemeData theme) {
+    if (_crateBalances.isEmpty) {
+      return _EmptyState(
+        icon: Icons.inbox_outlined,
+        message: 'No crate activity recorded',
+        theme: theme,
+      );
+    }
+    return ListView.builder(
+      padding: EdgeInsets.fromLTRB(
+        context.getRSize(20),
+        context.getRSize(12),
+        context.getRSize(20),
+        context.getRSize(20),
+      ),
+      itemCount: _crateBalances.length,
+      itemBuilder: (ctx, i) {
+        final entry = _crateBalances[i];
+        final bal = entry.balance;
+        // Positive = customer still owes crates; negative = customer has a credit
+        final isOwe = bal > 0;
+        final isClear = bal == 0;
+        final color = isClear
+            ? theme.colorScheme.onSurface.withValues(alpha: 0.4)
+            : isOwe
+            ? amberPrimary
+            : successGreen;
+        final label = isClear
+            ? 'Clear'
+            : isOwe
+            ? '${bal.abs()} crates owed'
+            : '${bal.abs()} crates credit';
+        return Padding(
+          padding: EdgeInsets.only(bottom: ctx.getRSize(10)),
+          child: Container(
+            padding: EdgeInsets.all(ctx.getRSize(14)),
+            decoration: AppDecorations.surfaceCard(ctx, radius: 12),
+            child: Row(
+              children: [
+                Container(
+                  width: ctx.getRSize(38),
+                  height: ctx.getRSize(38),
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.12),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.inventory_2_outlined,
+                    color: color,
+                    size: ctx.getRSize(18),
+                  ),
+                ),
+                SizedBox(width: ctx.getRSize(12)),
+                Expanded(
+                  child: Text(
+                    entry.groupName,
+                    style: TextStyle(
+                      fontSize: ctx.getRFontSize(14),
+                      fontWeight: FontWeight.w600,
+                      color: theme.colorScheme.onSurface,
+                    ),
+                  ),
+                ),
+                Container(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: ctx.getRSize(10),
+                    vertical: ctx.getRSize(4),
+                  ),
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: ctx.getRFontSize(12),
+                      fontWeight: FontWeight.w700,
+                      color: color,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildShimmer(ThemeData theme) {
+    return Column(
+      children: [
+        const ShimmerCustomerProfile(),
+        const ShimmerCategoryBar(), // Mimic the tabs
+        Expanded(
+          child: ListView.builder(
+            itemCount: 5,
+            padding: EdgeInsets.symmetric(vertical: context.getRSize(12)),
+            itemBuilder: (_, __) => const ShimmerListTile(),
+          ),
+        ),
+      ],
+    );
+  }
 }
 
+class _InfoRow extends StatelessWidget {
+  final IconData icon;
+  final String text;
+  final ThemeData theme;
+  const _InfoRow({required this.icon, required this.text, required this.theme});
 
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(
+          icon,
+          size: context.getRSize(13),
+          color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+        ),
+        SizedBox(width: context.getRSize(4)),
+        Expanded(
+          child: Text(
+            text,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: context.getRFontSize(12),
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
 
+class _EmptyState extends StatelessWidget {
+  final IconData icon;
+  final String message;
+  final ThemeData theme;
+  const _EmptyState({
+    required this.icon,
+    required this.message,
+    required this.theme,
+  });
 
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            size: context.getRSize(48),
+            color: theme.colorScheme.onSurface.withValues(alpha: 0.2),
+          ),
+          SizedBox(height: context.getRSize(12)),
+          Text(
+            message,
+            style: TextStyle(
+              fontSize: context.getRFontSize(14),
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SheetContainer extends StatelessWidget {
+  final ScrollController scrollController;
+  final Widget child;
+  const _SheetContainer({required this.scrollController, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Theme.of(context).scaffoldBackgroundColor,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      padding: EdgeInsets.fromLTRB(
+        context.getRSize(20),
+        context.getRSize(12),
+        context.getRSize(20),
+        context.getRSize(8),
+      ),
+      child: child,
+    );
+  }
+}
+
+class _SheetHandle extends StatelessWidget {
+  const _SheetHandle();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Container(
+        width: 40,
+        height: 4,
+        margin: const EdgeInsets.only(bottom: 16),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.2),
+          borderRadius: BorderRadius.circular(2),
+        ),
+      ),
+    );
+  }
+}
+
+class _SheetField extends StatelessWidget {
+  final TextEditingController controller;
+  final String label;
+  final TextInputType keyboard;
+  final String? Function(String?)? validator;
+  const _SheetField({
+    required this.controller,
+    required this.label,
+    required this.keyboard,
+    this.validator,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return TextFormField(
+      controller: controller,
+      keyboardType: keyboard,
+      validator: validator,
+      decoration: InputDecoration(
+        labelText: label,
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 14,
+        ),
+      ),
+    );
+  }
+}

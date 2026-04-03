@@ -3,15 +3,16 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../../core/database/app_database.dart';
-import '../../../core/utils/notifications.dart';
-import '../../../shared/services/auth_service.dart';
-import '../../../shared/widgets/app_button.dart';
-import 'create_pin_screen.dart';
-import 'login_screen.dart';
+import 'package:reebaplus_pos/core/database/app_database.dart';
+import 'package:reebaplus_pos/core/utils/notifications.dart';
+import 'package:reebaplus_pos/shared/services/auth_service.dart';
+import 'package:reebaplus_pos/shared/widgets/app_button.dart';
+import 'package:reebaplus_pos/features/auth/screens/create_pin_screen.dart';
+import 'package:reebaplus_pos/features/auth/screens/login_screen.dart';
+import 'package:reebaplus_pos/features/auth/screens/new_owner_name_screen.dart';
 
 class OtpVerificationScreen extends StatefulWidget {
-  final UserData user;
+  final UserData? user;
   final String email;
 
   const OtpVerificationScreen({
@@ -36,7 +37,12 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
   @override
   void initState() {
     super.initState();
-    _otpController.addListener(() => setState(() => _errorMessage = null));
+    _otpController.addListener(() {
+      setState(() => _errorMessage = null);
+      if (_otpController.text.trim().length == 6 && !_loading) {
+        _submit();
+      }
+    });
     _startResendTimer();
   }
 
@@ -82,18 +88,25 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
 
     setState(() => _loading = false);
 
-    // OTP verified — route based on whether user already has a PIN.
-    final hasPin = widget.user.pin.isNotEmpty;
-    if (hasPin) {
-      // Existing user on a new device → enter their existing PIN.
+    // OTP verified — route based on whether the user exists locally.
+    if (widget.user == null) {
+      // Brand-new owner — collect their name and create an account.
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const LoginScreen()),
+        MaterialPageRoute(builder: (_) => NewOwnerNameScreen(email: widget.email)),
       );
     } else {
-      // New staff — create their PIN for the first time.
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => CreatePinScreen(user: widget.user)),
-      );
+      final hasPin = widget.user!.pin.isNotEmpty;
+      if (hasPin) {
+        // Existing user on a new device → enter their existing PIN.
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const LoginScreen()),
+        );
+      } else {
+        // New staff — create their PIN for the first time.
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => CreatePinScreen(user: widget.user!)),
+        );
+      }
     }
   }
 
@@ -302,21 +315,27 @@ class _OtpBoxRowState extends State<_OtpBoxRow> {
             ),
           ),
           // Visible boxes
-          ListenableBuilder(
-            listenable: widget.controller,
-            builder: (_, __) {
-              final text = widget.controller.text;
-              return Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(6, (i) {
-                  final filled = i < text.length;
-                  final digit = filled ? text[i] : '';
-                  final isActive = i == text.length && _focusNode.hasFocus;
-                  return AnimatedContainer(
-                    duration: const Duration(milliseconds: 150),
-                    margin: const EdgeInsets.symmetric(horizontal: 5),
-                    width: 46,
-                    height: 56,
+          LayoutBuilder(
+            builder: (context, constraints) {
+              // Fit 6 boxes with gaps into available width, capped at 46px each.
+              const gap = 8.0;
+              final boxSize = ((constraints.maxWidth - gap * 5) / 6).clamp(0.0, 46.0);
+              final boxHeight = boxSize * (56 / 46);
+              return ListenableBuilder(
+                listenable: widget.controller,
+                builder: (_, __) {
+                  final text = widget.controller.text;
+                  return Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: List.generate(6, (i) {
+                      final filled = i < text.length;
+                      final digit = filled ? text[i] : '';
+                      final isActive = i == text.length && _focusNode.hasFocus;
+                      return AnimatedContainer(
+                        duration: const Duration(milliseconds: 150),
+                        margin: EdgeInsets.only(right: i < 5 ? gap : 0),
+                        width: boxSize,
+                        height: boxHeight,
                     decoration: BoxDecoration(
                       color: filled
                           ? Colors.white.withValues(alpha: 0.18)
@@ -342,7 +361,9 @@ class _OtpBoxRowState extends State<_OtpBoxRow> {
                       ),
                     ),
                   );
-                }),
+                    }),
+                  );
+                },
               );
             },
           ),

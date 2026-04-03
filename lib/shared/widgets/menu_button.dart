@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../core/utils/responsive.dart';
+import 'package:reebaplus_pos/core/utils/responsive.dart';
 
 class MenuButton extends StatelessWidget {
   const MenuButton({super.key});

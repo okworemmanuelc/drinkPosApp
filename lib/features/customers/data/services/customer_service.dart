@@ -1,9 +1,9 @@
 import 'package:flutter/widgets.dart';
 import 'package:drift/drift.dart';
-import '../../../../shared/services/activity_log_service.dart';
-import '../../../../core/database/app_database.dart';
-import '../models/customer.dart';
-import '../models/payment.dart';
+import 'package:reebaplus_pos/shared/services/activity_log_service.dart';
+import 'package:reebaplus_pos/core/database/app_database.dart';
+import 'package:reebaplus_pos/features/customers/data/models/customer.dart';
+import 'package:reebaplus_pos/features/customers/data/models/payment.dart';
 
 class CustomerService extends ValueNotifier<List<Customer>> {
   CustomerService() : super([]) {
@@ -27,14 +27,16 @@ class CustomerService extends ValueNotifier<List<Customer>> {
   }
 
   Future<Customer?> addCustomer(Customer customer) async {
-    final newId = await database.customersDao.addCustomer(CustomersCompanion.insert(
-      name: customer.name,
-      phone: Value(customer.phone),
-      address: Value(customer.addressText),
-      googleMapsLocation: Value(customer.googleMapsLocation),
-      customerGroup: Value(customer.customerGroup.name),
-      warehouseId: Value(customer.warehouseId),
-    ));
+    final newId = await database.customersDao.addCustomer(
+      CustomersCompanion.insert(
+        name: customer.name,
+        phone: Value(customer.phone),
+        address: Value(customer.addressText),
+        googleMapsLocation: Value(customer.googleMapsLocation),
+        customerGroup: Value(customer.customerGroup.name),
+        warehouseId: Value(customer.warehouseId),
+      ),
+    );
 
     await activityLogService.logAction(
       'Customer Created',
@@ -122,7 +124,11 @@ class CustomerService extends ValueNotifier<List<Customer>> {
     );
   }
 
-  Future<void> refundToWallet(int customerId, double amount, String note) async {
+  Future<void> refundToWallet(
+    int customerId,
+    double amount,
+    String note,
+  ) async {
     final customer = getById(customerId);
     if (customer == null) return;
 

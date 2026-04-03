@@ -1,4 +1,4 @@
-import '../../core/database/app_database.dart';
+import 'package:reebaplus_pos/core/database/app_database.dart';
 
 class ReorderAlert {
   final int productId;

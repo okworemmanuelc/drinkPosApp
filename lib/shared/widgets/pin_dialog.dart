@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import '../../core/database/app_database.dart';
-import '../../shared/widgets/app_button.dart';
+import 'package:reebaplus_pos/core/database/app_database.dart';
+import 'package:reebaplus_pos/shared/widgets/app_button.dart';
 
-import '../../shared/services/auth_service.dart';
+import 'package:reebaplus_pos/shared/services/auth_service.dart';
 
 /// Shows a PIN-entry dialog that requires a user with [minimumTier] or above.
 ///

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import '../../../core/utils/notifications.dart';
-import '../../../core/theme/design_tokens.dart';
-import '../../../shared/widgets/shared_scaffold.dart';
-import '../widgets/approval_card.dart';
+import 'package:reebaplus_pos/core/utils/notifications.dart';
+import 'package:reebaplus_pos/core/theme/design_tokens.dart';
+import 'package:reebaplus_pos/shared/widgets/shared_scaffold.dart';
+import 'package:reebaplus_pos/features/dashboard/widgets/approval_card.dart';
 
 class ApprovalsScreen extends StatelessWidget {
   const ApprovalsScreen({super.key});

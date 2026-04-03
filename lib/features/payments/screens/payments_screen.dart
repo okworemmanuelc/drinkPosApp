@@ -1,26 +1,26 @@
 import 'package:flutter/material.dart';
-import '../../../core/widgets/app_fab.dart';
+import 'package:reebaplus_pos/core/widgets/app_fab.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:intl/intl.dart';
 
-import '../../../core/theme/colors.dart';
+import 'package:reebaplus_pos/core/theme/colors.dart';
 
-import '../../../core/utils/number_format.dart';
-import '../../../core/utils/responsive.dart';
-import '../../../shared/widgets/app_drawer.dart';
-import '../data/models/payment.dart';
-import '../data/services/payment_service.dart';
-import '../widgets/add_payment_sheet.dart';
-import '../../../shared/widgets/notification_bell.dart';
-import '../../../shared/widgets/app_button.dart';
-import '../../../shared/widgets/app_dropdown.dart';
-import '../../../shared/widgets/app_input.dart';
-import '../../inventory/data/models/supplier.dart';
-import '../../inventory/data/services/supplier_service.dart';
-import '../../inventory/screens/supplier_detail_screen.dart';
-import '../../inventory/data/models/inventory_log.dart';
-import '../../inventory/data/inventory_data.dart';
-import '../../inventory/data/models/crate_group.dart';
+import 'package:reebaplus_pos/core/utils/number_format.dart';
+import 'package:reebaplus_pos/core/utils/responsive.dart';
+import 'package:reebaplus_pos/shared/widgets/app_drawer.dart';
+import 'package:reebaplus_pos/features/payments/data/models/payment.dart';
+import 'package:reebaplus_pos/features/payments/data/services/payment_service.dart';
+import 'package:reebaplus_pos/features/payments/widgets/add_payment_sheet.dart';
+import 'package:reebaplus_pos/shared/widgets/notification_bell.dart';
+import 'package:reebaplus_pos/shared/widgets/app_button.dart';
+import 'package:reebaplus_pos/shared/widgets/app_dropdown.dart';
+import 'package:reebaplus_pos/shared/widgets/app_input.dart';
+import 'package:reebaplus_pos/features/inventory/data/models/supplier.dart';
+import 'package:reebaplus_pos/features/inventory/data/services/supplier_service.dart';
+import 'package:reebaplus_pos/features/inventory/screens/supplier_detail_screen.dart';
+import 'package:reebaplus_pos/features/inventory/data/models/inventory_log.dart';
+import 'package:reebaplus_pos/features/inventory/data/inventory_data.dart';
+import 'package:reebaplus_pos/features/inventory/data/models/crate_group.dart';
 
 class PaymentsScreen extends StatefulWidget {
   const PaymentsScreen({super.key});

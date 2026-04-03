@@ -1,6 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import '../../core/theme/design_tokens.dart';
+import 'package:reebaplus_pos/core/theme/design_tokens.dart';
 
 class GlassCard extends StatelessWidget {
   final Widget child;

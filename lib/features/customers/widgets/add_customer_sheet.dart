@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
-import '../../../core/utils/responsive.dart';
-import '../../../core/database/app_database.dart';
-import '../../../shared/services/auth_service.dart';
-import '../data/models/customer.dart';
-import '../data/services/customer_service.dart';
-import '../../../shared/widgets/app_button.dart';
-import '../../../shared/widgets/app_input.dart';
-import '../../../shared/widgets/app_dropdown.dart';
+import 'package:reebaplus_pos/core/utils/responsive.dart';
+import 'package:reebaplus_pos/core/database/app_database.dart';
+import 'package:reebaplus_pos/shared/services/auth_service.dart';
+import 'package:reebaplus_pos/features/customers/data/models/customer.dart';
+import 'package:reebaplus_pos/features/customers/data/services/customer_service.dart';
+import 'package:reebaplus_pos/shared/widgets/app_button.dart';
+import 'package:reebaplus_pos/shared/widgets/app_input.dart';
+import 'package:reebaplus_pos/shared/widgets/app_dropdown.dart';
 
 class AddCustomerSheet extends StatefulWidget {
   final void Function(Customer)? onCustomerAdded;

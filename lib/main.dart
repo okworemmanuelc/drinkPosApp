@@ -5,14 +5,14 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import 'core/theme/app_theme.dart';
-import 'core/theme/theme_notifier.dart';
-import 'core/database/app_database.dart';
-import 'features/auth/screens/login_screen.dart';
-import 'features/auth/screens/email_entry_screen.dart';
-import 'features/auth/screens/warehouse_assignment_screen.dart';
-import 'shared/services/auth_service.dart';
-import 'shared/widgets/main_layout.dart';
+import 'package:reebaplus_pos/core/theme/app_theme.dart';
+import 'package:reebaplus_pos/core/theme/theme_notifier.dart';
+import 'package:reebaplus_pos/core/database/app_database.dart';
+import 'package:reebaplus_pos/features/auth/screens/login_screen.dart';
+import 'package:reebaplus_pos/features/auth/screens/email_entry_screen.dart';
+import 'package:reebaplus_pos/features/auth/screens/warehouse_assignment_screen.dart';
+import 'package:reebaplus_pos/shared/services/auth_service.dart';
+import 'package:reebaplus_pos/shared/widgets/main_layout.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -23,8 +23,9 @@ void main() async {
 
   // Initialize Supabase for OTP email authentication.
   await Supabase.initialize(
-    url: 'YOUR_SUPABASE_PROJECT_URL',
-    anonKey: 'YOUR_SUPABASE_ANON_KEY',
+    url: 'https://ewwyofbvfjyqqirrcaou.supabase.co',
+    anonKey:
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV3d3lvZmJ2Zmp5cXFpcnJjYW91Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1NzM0MTgsImV4cCI6MjA4OTE0OTQxOH0.McPYfcKMT_h7j9cEE7GiutREcluXo0x2SxdLP0YsP5Q',
   );
 
   // Load persisted theme preferences.

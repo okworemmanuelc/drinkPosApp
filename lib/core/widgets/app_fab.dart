@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../utils/responsive.dart';
+import 'package:reebaplus_pos/core/utils/responsive.dart';
 
 /// A standardized Floating Action Button for the Ribaplus design system.
 /// Features a theme-aware gradient, custom shadow, and specific minimum width.

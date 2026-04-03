@@ -2,7 +2,7 @@ import 'dart:math';
 import 'package:drift/drift.dart';
 import 'package:intl/intl.dart';
 import 'package:rxdart/rxdart.dart';
-import 'app_database.dart';
+import 'package:reebaplus_pos/core/database/app_database.dart';
 
 part 'daos.g.dart';
 
@@ -509,6 +509,11 @@ class OrdersDao extends DatabaseAccessor<AppDatabase> with _$OrdersDaoMixin {
         ..where((t) => t.status.equals('cancelled'))
         ..orderBy([(t) => OrderingTerm.desc(t.createdAt)]))
       .watch();
+  Stream<List<OrderData>> watchOrdersByCustomer(int customerId) =>
+      (select(orders)
+        ..where((t) => t.customerId.equals(customerId))
+        ..orderBy([(t) => OrderingTerm.desc(t.createdAt)]))
+      .watch();
   Future<void> markCompleted(int orderId, int staffId) async {
     await transaction(() async {
       // 1. Move order to completed
@@ -579,19 +584,26 @@ class OrdersDao extends DatabaseAccessor<AppDatabase> with _$OrdersDaoMixin {
         await into(orderItems).insert(item.copyWith(orderId: Value(orderId)));
       }
 
-      // 4. Update Wallet if there's a balance remaining (Debit/Credit Sale)
+      // 4. Record wallet transactions for every customer order
       if (customerId != null) {
-        final remainingBalance = totalAmountKobo - amountPaidKobo;
-        if (remainingBalance > 0) {
-          // This is a debit to the customer (they owe more)
-          await (db.customersDao).updateWalletBalance(
+        // Always record the full order amount as a debit (order charge)
+        await db.customersDao.updateWalletBalance(
+          customerId: customerId,
+          deltaKobo: totalAmountKobo,
+          type: 'debit',
+          referenceType: 'order_payment',
+          referenceId: orderNo,
+          staffId: staffId,
+        );
+        // If cash was received at checkout, record it as a credit (money entering wallet)
+        if (amountPaidKobo > 0) {
+          await db.customersDao.updateWalletBalance(
             customerId: customerId,
-            deltaKobo: remainingBalance,
-            type: 'debit',
-            referenceType: 'order_payment',
+            deltaKobo: amountPaidKobo,
+            type: 'credit',
+            referenceType: 'cash_received',
             referenceId: orderNo,
             staffId: staffId,
-            note: 'Balance from order $orderNo',
           );
         }
       }
@@ -707,12 +719,31 @@ class OrderItemDataWithProductData {
   OrderItemDataWithProductData(this.item, this.product);
 }
 
-@DriftAccessor(tables: [Customers, CustomerWalletTransactions, CustomerCrateBalances, CustomerWallets, WalletTransactions])
+class CrateBalanceEntry {
+  final int crateGroupId;
+  final String groupName;
+  final int balance;
+  CrateBalanceEntry({required this.crateGroupId, required this.groupName, required this.balance});
+}
+
+@DriftAccessor(tables: [Customers, CustomerWalletTransactions, CustomerCrateBalances, CustomerWallets, WalletTransactions, CrateGroups])
 class CustomersDao extends DatabaseAccessor<AppDatabase> with _$CustomersDaoMixin {
   CustomersDao(super.db);
   Stream<List<CustomerData>> watchAllCustomers() => (select(customers)..orderBy([(t) => OrderingTerm.desc(t.id)])).watch();
   Future<CustomerData?> findById(int id) => (select(customers)..where((t) => t.id.equals(id))).getSingleOrNull();
   Future<CustomerData?> findByPhone(String phone) => (select(customers)..where((t) => t.phone.equals(phone))).getSingleOrNull();
+  Stream<CustomerData?> watchCustomerById(int id) =>
+      (select(customers)..where((t) => t.id.equals(id))).watchSingleOrNull();
+  Stream<List<CrateBalanceEntry>> watchCrateBalancesWithGroups(int customerId) {
+    final query = select(customerCrateBalances).join([
+      innerJoin(crateGroups, crateGroups.id.equalsExp(customerCrateBalances.crateGroupId)),
+    ])..where(customerCrateBalances.customerId.equals(customerId));
+    return query.watch().map((rows) => rows.map((row) {
+      final b = row.readTable(customerCrateBalances);
+      final g = row.readTable(crateGroups);
+      return CrateBalanceEntry(crateGroupId: g.id, groupName: g.name, balance: b.balance);
+    }).toList());
+  }
   
   Future<int> addCustomer(CustomersCompanion customer) async {
     return transaction(() async {

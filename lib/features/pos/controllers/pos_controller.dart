@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import '../../../../core/database/app_database.dart';
-import '../../../shared/services/cart_service.dart';
-import '../../../shared/services/navigation_service.dart';
-import '../../customers/data/models/customer.dart';
+import 'package:reebaplus_pos/core/database/app_database.dart';
+import 'package:reebaplus_pos/shared/services/cart_service.dart';
+import 'package:reebaplus_pos/shared/services/navigation_service.dart';
+import 'package:reebaplus_pos/features/customers/data/models/customer.dart';
 import 'dart:async';
 
 class PosController extends ChangeNotifier {
@@ -15,7 +15,8 @@ class PosController extends ChangeNotifier {
   String searchQuery = '';
   bool isSearching = false;
   String? currentWarehouseName;
-  
+
+  bool isLoading = true;
   StreamSubscription? _productsSub;
   Timer? _debounce;
 
@@ -52,9 +53,11 @@ class PosController extends ChangeNotifier {
 
   void _subscribeToProducts() {
     _productsSub?.cancel();
-    
+
     final warehouseId = navigationService.lockedWarehouseId.value;
-    
+
+    final minLoading = Future.delayed(const Duration(seconds: 2));
+
     if (warehouseId != null) {
       // Fetch warehouse name
       database.warehousesDao.getWarehouse(warehouseId).then((w) {
@@ -64,18 +67,22 @@ class PosController extends ChangeNotifier {
 
       _productsSub = database.inventoryDao
           .watchProductDatasWithStockByWarehouse(warehouseId)
-          .listen((data) {
-        allProducts = data;
-        notifyListeners();
-      });
+          .listen((data) async {
+            await minLoading;
+            allProducts = data;
+            isLoading = false;
+            notifyListeners();
+          });
     } else {
       currentWarehouseName = null;
       _productsSub = database.inventoryDao
           .watchProductsByCategory(selectedCategoryId)
-          .listen((data) {
-        allProducts = data;
-        notifyListeners();
-      });
+          .listen((data) async {
+            await minLoading;
+            allProducts = data;
+            isLoading = false;
+            notifyListeners();
+          });
     }
   }
 
@@ -121,13 +128,16 @@ class PosController extends ChangeNotifier {
 
   List<ProductDataWithStock> get filteredProducts {
     var items = allProducts
-        .where((item) =>
-            item.totalStock > 0 &&
-            item.product.isAvailable &&
-            !item.product.isDeleted)
+        .where(
+          (item) =>
+              item.totalStock > 0 &&
+              item.product.isAvailable &&
+              !item.product.isDeleted,
+        )
         .where((item) {
           if (selectedManufacturerId == 'All') return true;
-          return item.product.manufacturerId?.toString() == selectedManufacturerId;
+          return item.product.manufacturerId?.toString() ==
+              selectedManufacturerId;
         })
         .where((item) {
           if (selectedCategoryId == null) return true;
@@ -138,9 +148,11 @@ class PosController extends ChangeNotifier {
     if (searchQuery.isNotEmpty) {
       final q = searchQuery.toLowerCase();
       items = items
-          .where((item) =>
-              item.product.name.toLowerCase().contains(q) ||
-              (item.product.subtitle?.toLowerCase().contains(q) ?? false))
+          .where(
+            (item) =>
+                item.product.name.toLowerCase().contains(q) ||
+                (item.product.subtitle?.toLowerCase().contains(q) ?? false),
+          )
           .toList();
     }
     return items;

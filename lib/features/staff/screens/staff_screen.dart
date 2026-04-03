@@ -1,25 +1,26 @@
 import 'dart:async';
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
-import '../../../core/widgets/app_fab.dart';
+import 'package:reebaplus_pos/core/widgets/app_fab.dart';
 import 'package:flutter/services.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
-import '../../../core/database/app_database.dart';
-import '../../../core/theme/colors.dart';
+import 'package:reebaplus_pos/core/database/app_database.dart';
+import 'package:reebaplus_pos/core/theme/colors.dart';
+import 'package:reebaplus_pos/shared/widgets/shimmer_loading.dart';
 
-import '../../../core/utils/responsive.dart';
-import '../../../shared/widgets/app_drawer.dart';
-import '../../../shared/widgets/menu_button.dart';
-import '../../../shared/widgets/app_bar_header.dart';
-import '../../../shared/widgets/notification_bell.dart';
-import '../../../shared/widgets/role_guard.dart';
-import 'staff_constants.dart';
-import 'staff_details_screen.dart';
-import '../../../shared/widgets/app_button.dart';
-import '../../../shared/widgets/app_dropdown.dart';
-import '../../../shared/widgets/app_input.dart';
-import '../../../core/utils/notifications.dart';
+import 'package:reebaplus_pos/core/utils/responsive.dart';
+import 'package:reebaplus_pos/shared/widgets/app_drawer.dart';
+import 'package:reebaplus_pos/shared/widgets/menu_button.dart';
+import 'package:reebaplus_pos/shared/widgets/app_bar_header.dart';
+import 'package:reebaplus_pos/shared/widgets/notification_bell.dart';
+import 'package:reebaplus_pos/shared/widgets/role_guard.dart';
+import 'package:reebaplus_pos/features/staff/screens/staff_constants.dart';
+import 'package:reebaplus_pos/features/staff/screens/staff_details_screen.dart';
+import 'package:reebaplus_pos/shared/widgets/app_button.dart';
+import 'package:reebaplus_pos/shared/widgets/app_dropdown.dart';
+import 'package:reebaplus_pos/shared/widgets/app_input.dart';
+import 'package:reebaplus_pos/core/utils/notifications.dart';
 
 const int _kAllWarehouses = -1;
 
@@ -35,11 +36,14 @@ class _StaffScreenState extends State<StaffScreen> {
   int _selectedWarehouseFilter = _kAllWarehouses;
   List<WarehouseData> _warehouses = [];
   List<UserData> _users = [];
+  bool _loading = true;
   StreamSubscription<List<UserData>>? _usersSub;
   Color get _bg => Theme.of(context).scaffoldBackgroundColor;
   Color get _surface => Theme.of(context).colorScheme.surface;
   Color get _text => Theme.of(context).colorScheme.onSurface;
-  Color get _subtext => Theme.of(context).textTheme.bodySmall?.color ?? Theme.of(context).iconTheme.color!;
+  Color get _subtext =>
+      Theme.of(context).textTheme.bodySmall?.color ??
+      Theme.of(context).iconTheme.color!;
   Color get _border => Theme.of(context).dividerColor;
   Color get _card => Theme.of(context).cardColor;
 
@@ -51,6 +55,9 @@ class _StaffScreenState extends State<StaffScreen> {
     });
     _usersSub = database.select(database.users).watch().listen((data) {
       if (mounted) setState(() => _users = data);
+    });
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted) setState(() => _loading = false);
     });
   }
 
@@ -77,10 +84,7 @@ class _StaffScreenState extends State<StaffScreen> {
               title: 'Staff Management',
               subtitle: 'Manage your team & roles',
             ),
-            actions: const [
-              NotificationBell(),
-              SizedBox(width: 8),
-            ],
+            actions: const [NotificationBell(), SizedBox(width: 8)],
             bottom: PreferredSize(
               preferredSize: const Size.fromHeight(60),
               child: Padding(
@@ -88,7 +92,11 @@ class _StaffScreenState extends State<StaffScreen> {
                 child: AppInput(
                   onChanged: (v) => setState(() => _searchQuery = v),
                   hintText: 'Search staff by name...',
-                  prefixIcon: Icon(FontAwesomeIcons.magnifyingGlass, size: 16, color: _subtext),
+                  prefixIcon: Icon(
+                    FontAwesomeIcons.magnifyingGlass,
+                    size: 16,
+                    color: _subtext,
+                  ),
                   fillColor: _bg,
                 ),
               ),
@@ -115,11 +123,15 @@ class _StaffScreenState extends State<StaffScreen> {
     var list = [...listRaw];
 
     if (_selectedWarehouseFilter != _kAllWarehouses) {
-      list = list.where((u) => u.warehouseId == _selectedWarehouseFilter).toList();
+      list = list
+          .where((u) => u.warehouseId == _selectedWarehouseFilter)
+          .toList();
     }
     if (_searchQuery.isNotEmpty) {
       list = list
-          .where((u) => u.name.toLowerCase().contains(_searchQuery.toLowerCase()))
+          .where(
+            (u) => u.name.toLowerCase().contains(_searchQuery.toLowerCase()),
+          )
           .toList();
     }
 
@@ -127,16 +139,27 @@ class _StaffScreenState extends State<StaffScreen> {
       children: [
         _buildWarehouseFilters(),
         Expanded(
-          child: list.isEmpty
+          child: _loading
+              ? ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: 6,
+                  itemBuilder: (_, __) => const ShimmerStaffCard(),
+                )
+              : list.isEmpty
               ? Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(FontAwesomeIcons.usersSlash,
-                          size: 48, color: _subtext.withValues(alpha: 0.5)),
+                      Icon(
+                        FontAwesomeIcons.usersSlash,
+                        size: 48,
+                        color: _subtext.withValues(alpha: 0.5),
+                      ),
                       const SizedBox(height: 16),
-                      Text('No staff found',
-                          style: TextStyle(color: _subtext, fontSize: 16)),
+                      Text(
+                        'No staff found',
+                        style: TextStyle(color: _subtext, fontSize: 16),
+                      ),
                     ],
                   ),
                 )
@@ -145,8 +168,12 @@ class _StaffScreenState extends State<StaffScreen> {
                   children: [
                     for (final tier in [5, 4, 3, 2, 1]) ...[
                       if (list.any((u) => roleFor(u.role).tier == tier)) ...[
-                        _buildSectionHeader(tier,
-                            list.where((u) => roleFor(u.role).tier == tier).length),
+                        _buildSectionHeader(
+                          tier,
+                          list
+                              .where((u) => roleFor(u.role).tier == tier)
+                              .length,
+                        ),
                         const SizedBox(height: 8),
                         ...list
                             .where((u) => roleFor(u.role).tier == tier)
@@ -219,17 +246,21 @@ class _StaffScreenState extends State<StaffScreen> {
         ),
         const SizedBox(height: 8),
         Text(
-          '  ${roleInfo.label.toUpperCase()}S' ,
+          '  ${roleInfo.label.toUpperCase()}S',
           style: TextStyle(
-              color: _subtext,
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 1),
+            color: _subtext,
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 1,
+          ),
         ),
         const Spacer(),
         Text(
           '$count members',
-          style: TextStyle(color: _subtext.withValues(alpha: 0.5), fontSize: 11),
+          style: TextStyle(
+            color: _subtext.withValues(alpha: 0.5),
+            fontSize: 11,
+          ),
         ),
       ],
     );
@@ -259,10 +290,8 @@ class _StaffScreenState extends State<StaffScreen> {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => StaffDetailsScreen(
-                user: user,
-                warehouses: _warehouses,
-              ),
+              builder: (context) =>
+                  StaffDetailsScreen(user: user, warehouses: _warehouses),
             ),
           );
         },
@@ -278,7 +307,10 @@ class _StaffScreenState extends State<StaffScreen> {
                 decoration: BoxDecoration(
                   color: avatarColor.withValues(alpha: 0.2),
                   shape: BoxShape.circle,
-                  border: Border.all(color: avatarColor.withValues(alpha: 0.5), width: 2),
+                  border: Border.all(
+                    color: avatarColor.withValues(alpha: 0.5),
+                    width: 2,
+                  ),
                 ),
                 child: Center(
                   child: Text(
@@ -309,8 +341,9 @@ class _StaffScreenState extends State<StaffScreen> {
                       children: [
                         Container(
                           padding: EdgeInsets.symmetric(
-                              horizontal: context.getRSize(8),
-                              vertical: context.getRSize(2)),
+                            horizontal: context.getRSize(8),
+                            vertical: context.getRSize(2),
+                          ),
                           decoration: BoxDecoration(
                             color: roleInfo.color.withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(20),
@@ -334,8 +367,11 @@ class _StaffScreenState extends State<StaffScreen> {
                 fallback: const SizedBox.shrink(),
                 child: IconButton(
                   onPressed: () => _showStaffActions(context, user),
-                  icon: Icon(FontAwesomeIcons.ellipsisVertical,
-                      size: context.getRSize(16), color: _subtext.withValues(alpha: 0.6)),
+                  icon: Icon(
+                    FontAwesomeIcons.ellipsisVertical,
+                    size: context.getRSize(16),
+                    color: _subtext.withValues(alpha: 0.6),
+                  ),
                 ),
               ),
             ],
@@ -374,10 +410,8 @@ class _StaffScreenState extends State<StaffScreen> {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => StaffDetailsScreen(
-                user: user,
-                warehouses: _warehouses,
-              ),
+              builder: (context) =>
+                  StaffDetailsScreen(user: user, warehouses: _warehouses),
             ),
           );
         },
@@ -391,10 +425,14 @@ class _StaffScreenState extends State<StaffScreen> {
       builder: (context) => AlertDialog(
         backgroundColor: _surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text('Delete Staff',
-            style: TextStyle(color: _text, fontWeight: FontWeight.bold)),
-        content: Text('Are you sure you want to remove ${user.name} from the system?',
-            style: TextStyle(color: _subtext)),
+        title: Text(
+          'Delete Staff',
+          style: TextStyle(color: _text, fontWeight: FontWeight.bold),
+        ),
+        content: Text(
+          'Are you sure you want to remove ${user.name} from the system?',
+          style: TextStyle(color: _subtext),
+        ),
         actions: [
           AppButton(
             text: 'Cancel',
@@ -448,15 +486,19 @@ class _StaffFormSheetState extends State<_StaffFormSheet> {
   bool _showPin = false;
   Color get _surface => Theme.of(context).colorScheme.surface;
   Color get _text => Theme.of(context).colorScheme.onSurface;
-  Color get _subtext => Theme.of(context).textTheme.bodySmall?.color ?? Theme.of(context).iconTheme.color!;
+  Color get _subtext =>
+      Theme.of(context).textTheme.bodySmall?.color ??
+      Theme.of(context).iconTheme.color!;
 
   @override
   void initState() {
     super.initState();
     final u = widget.user;
     _nameCtrl = TextEditingController(text: u?.name ?? '');
-    _pinCtrl  = TextEditingController(text: u?.pin  ?? '');
-    _selectedRole = u != null ? roleFor(u.role) : roleOptions[3]; // default Cashier
+    _pinCtrl = TextEditingController(text: u?.pin ?? '');
+    _selectedRole = u != null
+        ? roleFor(u.role)
+        : roleOptions[3]; // default Cashier
     _selectedWarehouseId = u?.warehouseId;
   }
 
@@ -474,13 +516,13 @@ class _StaffFormSheetState extends State<_StaffFormSheet> {
       valueListenable: themeNotifier,
       builder: (context, mode, child) {
         return Padding(
-          padding: EdgeInsets.only(
-            bottom: context.bottomInset,
-          ),
+          padding: EdgeInsets.only(bottom: context.bottomInset),
           child: Container(
             decoration: BoxDecoration(
               color: _surface,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(30),
+              ),
             ),
             padding: const EdgeInsets.all(24),
             child: Form(
@@ -501,23 +543,27 @@ class _StaffFormSheetState extends State<_StaffFormSheet> {
                     ),
                   ),
                   Text(
-                    widget.user == null ? 'Add New Staff' : 'Edit Staff Details',
+                    widget.user == null
+                        ? 'Add New Staff'
+                        : 'Edit Staff Details',
                     style: TextStyle(
-                        color: _text,
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold),
+                      color: _text,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   const SizedBox(height: 24),
-                  
+
                   AppInput(
                     controller: _nameCtrl,
                     labelText: 'Full Name',
                     hintText: 'Enter full name',
-                    validator: (v) => v == null || v.isEmpty ? 'Name is required' : null,
+                    validator: (v) =>
+                        v == null || v.isEmpty ? 'Name is required' : null,
                   ),
-                  
+
                   const SizedBox(height: 16),
-                  
+
                   // PIN field only shown when editing an existing staff member.
                   // New staff set their own 6-digit PIN on first login.
                   if (widget.user != null)
@@ -531,16 +577,20 @@ class _StaffFormSheetState extends State<_StaffFormSheet> {
                       suffixIcon: IconButton(
                         onPressed: () => setState(() => _showPin = !_showPin),
                         icon: Icon(
-                          _showPin ? FontAwesomeIcons.eyeSlash : FontAwesomeIcons.eye,
+                          _showPin
+                              ? FontAwesomeIcons.eyeSlash
+                              : FontAwesomeIcons.eye,
                           size: 16,
                           color: _subtext,
                         ),
                       ),
-                      validator: (v) => v == null || v.length != 6 ? 'PIN must be 6 digits' : null,
+                      validator: (v) => v == null || v.length != 6
+                          ? 'PIN must be 6 digits'
+                          : null,
                     ),
-                  
+
                   const SizedBox(height: 16),
-                  
+
                   AppDropdown<RoleOption>(
                     labelText: 'Role & Access Level',
                     value: _selectedRole,
@@ -552,7 +602,10 @@ class _StaffFormSheetState extends State<_StaffFormSheet> {
                             Container(
                               width: 8,
                               height: 8,
-                              decoration: BoxDecoration(color: r.color, shape: BoxShape.circle),
+                              decoration: BoxDecoration(
+                                color: r.color,
+                                shape: BoxShape.circle,
+                              ),
                             ),
                             const SizedBox(width: 12),
                             Text(r.label),
@@ -564,7 +617,7 @@ class _StaffFormSheetState extends State<_StaffFormSheet> {
                   ),
 
                   const SizedBox(height: 16),
-                  
+
                   AppDropdown<int>(
                     labelText: 'Assigned Warehouse',
                     value: _selectedWarehouseId,
@@ -575,14 +628,17 @@ class _StaffFormSheetState extends State<_StaffFormSheet> {
                         child: Text(w.name),
                       );
                     }).toList(),
-                    onChanged: (id) => setState(() => _selectedWarehouseId = id!),
+                    onChanged: (id) =>
+                        setState(() => _selectedWarehouseId = id!),
                   ),
 
                   const SizedBox(height: 32),
-                  
+
                   // Submit Button
                   AppButton(
-                    text: widget.user == null ? 'Create Account' : 'Save Changes',
+                    text: widget.user == null
+                        ? 'Create Account'
+                        : 'Save Changes',
                     onPressed: _submit,
                   ),
                 ],
@@ -599,45 +655,56 @@ class _StaffFormSheetState extends State<_StaffFormSheet> {
     if (_selectedWarehouseId == null) return;
 
     final name = _nameCtrl.text.trim();
-    final pin  = _pinCtrl.text.trim();
+    final pin = _pinCtrl.text.trim();
     final role = _selectedRole.value;
     final tier = _selectedRole.tier;
 
     // Non-managers cannot be added to a warehouse that has no manager yet.
     if (tier < 4) {
-      final staffInWarehouse = await (database.select(database.users)
-            ..where((u) => u.warehouseId.equals(_selectedWarehouseId!)))
-          .get();
+      final staffInWarehouse = await (database.select(
+        database.users,
+      )..where((u) => u.warehouseId.equals(_selectedWarehouseId!))).get();
 
       // Exclude the user being edited, then count managers.
       final otherManagers = staffInWarehouse
-          .where((u) =>
-              u.roleTier >= 4 &&
-              (widget.user == null || u.id != widget.user!.id))
+          .where(
+            (u) =>
+                u.roleTier >= 4 &&
+                (widget.user == null || u.id != widget.user!.id),
+          )
           .toList();
 
       if (otherManagers.isEmpty) {
         if (!mounted) return;
         final warehouseName = widget.warehouses
-            .firstWhere((w) => w.id == _selectedWarehouseId,
-                orElse: () => const WarehouseData(id: -1, name: 'this warehouse'))
+            .firstWhere(
+              (w) => w.id == _selectedWarehouseId,
+              orElse: () => const WarehouseData(id: -1, name: 'this warehouse'),
+            )
             .name;
         showDialog(
           context: context,
           builder: (ctx) => AlertDialog(
             backgroundColor: _surface,
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
             title: Row(
               children: [
-                const Icon(FontAwesomeIcons.triangleExclamation,
-                    color: Color(0xFFF97316), size: 18),
+                const Icon(
+                  FontAwesomeIcons.triangleExclamation,
+                  color: Color(0xFFF97316),
+                  size: 18,
+                ),
                 const SizedBox(width: 10),
-                Text('No Manager Assigned',
-                    style: TextStyle(
-                        color: _text,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16)),
+                Text(
+                  'No Manager Assigned',
+                  style: TextStyle(
+                    color: _text,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
               ],
             ),
             content: Text(
@@ -659,30 +726,38 @@ class _StaffFormSheetState extends State<_StaffFormSheet> {
     }
 
     final warehouseName = widget.warehouses
-        .firstWhere((w) => w.id == _selectedWarehouseId,
-            orElse: () => const WarehouseData(id: -1, name: 'the warehouse'))
+        .firstWhere(
+          (w) => w.id == _selectedWarehouseId,
+          orElse: () => const WarehouseData(id: -1, name: 'the warehouse'),
+        )
         .name;
 
     if (widget.user == null) {
       // Insert new staff member — PIN is empty; staff set their own on first login.
-      await database.into(database.users).insert(UsersCompanion(
-        name: Value(name),
-        pin: const Value(''),
-        role: Value(role),
-        roleTier: Value(tier),
-        warehouseId: Value(_selectedWarehouseId),
-      ));
+      await database
+          .into(database.users)
+          .insert(
+            UsersCompanion(
+              name: Value(name),
+              pin: const Value(''),
+              role: Value(role),
+              roleTier: Value(tier),
+              warehouseId: Value(_selectedWarehouseId),
+            ),
+          );
     } else {
       // Update existing staff member
-      await (database.update(database.users)
-            ..where((u) => u.id.equals(widget.user!.id)))
-          .write(UsersCompanion(
-        name: Value(name),
-        pin: Value(pin),
-        role: Value(role),
-        roleTier: Value(tier),
-        warehouseId: Value(_selectedWarehouseId),
-      ));
+      await (database.update(
+        database.users,
+      )..where((u) => u.id.equals(widget.user!.id))).write(
+        UsersCompanion(
+          name: Value(name),
+          pin: Value(pin),
+          role: Value(role),
+          roleTier: Value(tier),
+          warehouseId: Value(_selectedWarehouseId),
+        ),
+      );
     }
 
     if (!mounted) return;
@@ -691,7 +766,6 @@ class _StaffFormSheetState extends State<_StaffFormSheet> {
       '$name has been successfully assigned to $warehouseName.',
     );
   }
-
 }
 
 class _StaffActionSheet extends StatelessWidget {
@@ -711,7 +785,9 @@ class _StaffActionSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     final Color surfaceColor = Theme.of(context).colorScheme.surface;
     final Color textColor = Theme.of(context).colorScheme.onSurface;
-    final Color subtextColor = Theme.of(context).textTheme.bodySmall?.color ?? Theme.of(context).iconTheme.color!;
+    final Color subtextColor =
+        Theme.of(context).textTheme.bodySmall?.color ??
+        Theme.of(context).iconTheme.color!;
     final Color bgColor = Theme.of(context).scaffoldBackgroundColor;
 
     final roleInfo = roleFor(user.role);
@@ -729,7 +805,12 @@ class _StaffActionSheet extends StatelessWidget {
           ),
         ],
       ),
-      padding: EdgeInsets.fromLTRB(24, 16, 24, MediaQuery.of(context).padding.bottom + 24),
+      padding: EdgeInsets.fromLTRB(
+        24,
+        16,
+        24,
+        MediaQuery.of(context).padding.bottom + 24,
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -753,7 +834,10 @@ class _StaffActionSheet extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: avatarColor.withValues(alpha: 0.15),
                   shape: BoxShape.circle,
-                  border: Border.all(color: avatarColor.withValues(alpha: 0.3), width: 2),
+                  border: Border.all(
+                    color: avatarColor.withValues(alpha: 0.3),
+                    width: 2,
+                  ),
                 ),
                 child: Center(
                   child: Text(
@@ -869,7 +953,9 @@ class _StaffActionSheet extends StatelessWidget {
         decoration: BoxDecoration(
           color: bg,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: isDanger ? color.withValues(alpha: 0.1) : Colors.transparent),
+          border: Border.all(
+            color: isDanger ? color.withValues(alpha: 0.1) : Colors.transparent,
+          ),
         ),
         child: Row(
           children: [
@@ -931,7 +1017,3 @@ class _StaffActionSheet extends StatelessWidget {
     }
   }
 }
-
-
-
-

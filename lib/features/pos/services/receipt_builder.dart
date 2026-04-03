@@ -1,7 +1,7 @@
 import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart';
 
-import '../../../core/utils/number_format.dart'; // assuming fmtNumber is exported here
-import '../../../core/utils/stock_calculator.dart';
+import 'package:reebaplus_pos/core/utils/number_format.dart'; // assuming fmtNumber is exported here
+import 'package:reebaplus_pos/core/utils/stock_calculator.dart';
 
 class ThermalReceiptService {
   /// Builds a byte array of ESC/POS commands formatted for 58mm (32 chars/line)

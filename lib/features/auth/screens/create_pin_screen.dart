@@ -2,8 +2,8 @@ import 'dart:ui';
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 
-import '../../../core/database/app_database.dart';
-import '../../../shared/services/auth_service.dart';
+import 'package:reebaplus_pos/core/database/app_database.dart';
+import 'package:reebaplus_pos/shared/services/auth_service.dart';
 
 /// Shown to new staff (pin == '') after their email OTP is verified.
 /// Two-phase flow: enter PIN → confirm PIN → save to DB → auto-login.
@@ -69,8 +69,9 @@ class _CreatePinScreenState extends State<CreatePinScreen> {
             ..where((u) => u.id.equals(widget.user.id)))
           .write(UsersCompanion(pin: Value(_pin)));
 
-      final updatedUser =
-          await database.warehousesDao.getUserById(widget.user.id);
+      final updatedUser = await database.warehousesDao.getUserById(
+        widget.user.id,
+      );
 
       if (!mounted) return;
 
@@ -82,8 +83,16 @@ class _CreatePinScreenState extends State<CreatePinScreen> {
         return;
       }
 
-      // setCurrentUser triggers main.dart → MainLayout automatically
+      // Controlled delay (1.2s) to let the user feel the success
+      // before transitioning to the main dashboard.
+      await Future.delayed(const Duration(milliseconds: 1200));
+
+      // setCurrentUser changes home → MainLayout via ValueListenableBuilder.
+      // Pop all pushed routes so that new home becomes visible.
       authService.setCurrentUser(updatedUser);
+      if (mounted) {
+        Navigator.of(context).popUntil((route) => route.isFirst);
+      }
     } catch (e) {
       if (mounted) {
         setState(() {
@@ -120,7 +129,10 @@ class _CreatePinScreenState extends State<CreatePinScreen> {
           SafeArea(
             child: Center(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 32,
+                  vertical: 24,
+                ),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -128,8 +140,11 @@ class _CreatePinScreenState extends State<CreatePinScreen> {
                     Image.asset(
                       'assets/images/reebaplus_logo.png',
                       height: 80,
-                      errorBuilder: (_, __, ___) =>
-                          const Icon(Icons.storefront, size: 80, color: Colors.white),
+                      errorBuilder: (_, __, ___) => const Icon(
+                        Icons.storefront,
+                        size: 80,
+                        color: Colors.white,
+                      ),
                     ),
                     const SizedBox(height: 12),
 
@@ -205,15 +220,15 @@ class _CreatePinScreenState extends State<CreatePinScreen> {
                               ),
                             )
                           : _errorMessage != null
-                              ? Text(
-                                  _errorMessage!,
-                                  style: const TextStyle(
-                                    color: Color(0xFFFF6B6B),
-                                    fontSize: 13,
-                                  ),
-                                  textAlign: TextAlign.center,
-                                )
-                              : null,
+                          ? Text(
+                              _errorMessage!,
+                              style: const TextStyle(
+                                color: Color(0xFFFF6B6B),
+                                fontSize: 13,
+                              ),
+                              textAlign: TextAlign.center,
+                            )
+                          : null,
                     ),
                     const SizedBox(height: 24),
 
@@ -252,11 +267,11 @@ class _CreatePinScreenState extends State<CreatePinScreen> {
                         onPressed: _saving
                             ? null
                             : () => setState(() {
-                                  _pin = '';
-                                  _firstPin = '';
-                                  _confirming = false;
-                                  _errorMessage = null;
-                                }),
+                                _pin = '';
+                                _firstPin = '';
+                                _confirming = false;
+                                _errorMessage = null;
+                              }),
                         child: Text(
                           '← Back to create PIN',
                           style: TextStyle(
@@ -307,9 +322,7 @@ class _KeyBtn extends StatelessWidget {
           decoration: BoxDecoration(
             color: Colors.white.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: 0.2),
-            ),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
           ),
           child: Material(
             color: Colors.transparent,

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../theme/app_decorations.dart';
+import 'package:reebaplus_pos/core/theme/app_decorations.dart';
 
 /// Full-width gradient button with amber glow shadow.
 class AmberButton extends StatelessWidget {

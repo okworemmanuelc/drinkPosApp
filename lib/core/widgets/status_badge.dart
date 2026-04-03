@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../theme/colors.dart';
+import 'package:reebaplus_pos/core/theme/colors.dart';
 
 enum BadgeVariant { amber, red, green }
 

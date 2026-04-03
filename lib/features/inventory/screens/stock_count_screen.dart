@@ -2,15 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
-import '../../../core/database/app_database.dart';
-import '../../../core/theme/colors.dart';
+import 'package:reebaplus_pos/core/database/app_database.dart';
+import 'package:reebaplus_pos/core/theme/colors.dart';
 
-import '../../../core/utils/responsive.dart';
-import '../../../core/widgets/app_fab.dart';
-import '../../../shared/services/activity_log_service.dart';
-import '../../../shared/widgets/shared_bottom_nav_bar.dart';
-import '../../../shared/widgets/app_input.dart';
-import '../../../core/utils/notifications.dart';
+import 'package:reebaplus_pos/core/utils/responsive.dart';
+import 'package:reebaplus_pos/core/widgets/app_fab.dart';
+import 'package:reebaplus_pos/shared/services/activity_log_service.dart';
+import 'package:reebaplus_pos/shared/widgets/app_input.dart';
+import 'package:reebaplus_pos/core/utils/notifications.dart';
 
 // Flat display-list item: either a warehouse section header or a row index.
 class _DisplayItem {
@@ -493,7 +492,6 @@ class _StockCountScreenState extends State<StockCountScreen> {
       valueListenable: themeNotifier,
       builder: (_, __, ___) => Scaffold(
         backgroundColor: _bg,
-        bottomNavigationBar: const SharedBottomNavBar(),
         appBar: AppBar(
           backgroundColor: _surface,
           elevation: 0,

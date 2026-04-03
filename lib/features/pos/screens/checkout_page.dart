@@ -7,25 +7,25 @@ import 'package:screenshot/screenshot.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:path_provider/path_provider.dart';
 
-import '../../../core/database/app_database.dart';
-import '../../../shared/services/auth_service.dart';
-import '../../../shared/services/cart_service.dart';
-import '../../../shared/services/order_service.dart';
-import '../../../shared/widgets/receipt_widget.dart';
-import '../../../core/utils/responsive.dart';
-import '../../../core/utils/logger.dart';
-import '../services/receipt_builder.dart';
-import '../../customers/data/models/customer.dart';
-import '../../../core/theme/colors.dart';
+import 'package:reebaplus_pos/core/database/app_database.dart';
+import 'package:reebaplus_pos/shared/services/auth_service.dart';
+import 'package:reebaplus_pos/shared/services/cart_service.dart';
+import 'package:reebaplus_pos/shared/services/order_service.dart';
+import 'package:reebaplus_pos/shared/widgets/receipt_widget.dart';
+import 'package:reebaplus_pos/core/utils/responsive.dart';
+import 'package:reebaplus_pos/core/utils/logger.dart';
+import 'package:reebaplus_pos/features/pos/services/receipt_builder.dart';
+import 'package:reebaplus_pos/features/customers/data/models/customer.dart';
+import 'package:reebaplus_pos/core/theme/colors.dart';
 
-import '../../../core/utils/number_format.dart';
-import '../../../core/utils/notifications.dart';
-import '../../../core/utils/currency_input_formatter.dart';
-import '../../../shared/services/navigation_service.dart';
-import '../../../shared/services/printer_service.dart';
-import '../../../shared/widgets/app_input.dart';
-import '../../../shared/widgets/app_button.dart';
-import '../../../shared/widgets/printer_picker.dart';
+import 'package:reebaplus_pos/core/utils/number_format.dart';
+import 'package:reebaplus_pos/core/utils/notifications.dart';
+import 'package:reebaplus_pos/core/utils/currency_input_formatter.dart';
+import 'package:reebaplus_pos/shared/services/navigation_service.dart';
+import 'package:reebaplus_pos/shared/services/printer_service.dart';
+import 'package:reebaplus_pos/shared/widgets/app_input.dart';
+import 'package:reebaplus_pos/shared/widgets/app_button.dart';
+import 'package:reebaplus_pos/shared/widgets/printer_picker.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CheckoutPage — shown after "Proceed to Checkout" in the cart.

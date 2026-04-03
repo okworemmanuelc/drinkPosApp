@@ -1,20 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
-
-
-import '../../../core/utils/responsive.dart';
-import '../../../shared/services/activity_log_service.dart';
-import '../../inventory/data/inventory_data.dart';
-import '../../inventory/data/models/inventory_item.dart';
-import '../../inventory/data/models/inventory_log.dart';
-import '../../../core/utils/currency_input_formatter.dart';
-import '../../warehouse/data/models/warehouse.dart';
-import '../../../shared/widgets/app_dropdown.dart';
-import '../../../shared/widgets/app_button.dart';
-import '../../../shared/widgets/shared_bottom_nav_bar.dart';
-import '../../../core/utils/notifications.dart';
-import '../../../shared/widgets/app_input.dart';
+import 'package:reebaplus_pos/core/utils/responsive.dart';
+import 'package:reebaplus_pos/shared/services/activity_log_service.dart';
+import 'package:reebaplus_pos/features/inventory/data/inventory_data.dart';
+import 'package:reebaplus_pos/features/inventory/data/models/inventory_item.dart';
+import 'package:reebaplus_pos/features/inventory/data/models/inventory_log.dart';
+import 'package:reebaplus_pos/core/utils/currency_input_formatter.dart';
+import 'package:reebaplus_pos/features/warehouse/data/models/warehouse.dart';
+import 'package:reebaplus_pos/shared/widgets/app_dropdown.dart';
+import 'package:reebaplus_pos/shared/widgets/app_button.dart';
+import 'package:reebaplus_pos/core/utils/notifications.dart';
+import 'package:reebaplus_pos/shared/widgets/app_input.dart';
 
 class StockTransferScreen extends StatefulWidget {
   const StockTransferScreen({super.key});
@@ -34,7 +31,9 @@ class _StockTransferScreenState extends State<StockTransferScreen> {
   Color get _bg => Theme.of(context).scaffoldBackgroundColor;
   Color get _surface => Theme.of(context).colorScheme.surface;
   Color get _text => Theme.of(context).colorScheme.onSurface;
-  Color get _subtext => Theme.of(context).textTheme.bodySmall?.color ?? Theme.of(context).iconTheme.color!;
+  Color get _subtext =>
+      Theme.of(context).textTheme.bodySmall?.color ??
+      Theme.of(context).iconTheme.color!;
   Color get _border => Theme.of(context).dividerColor;
 
   @override
@@ -142,7 +141,10 @@ class _StockTransferScreenState extends State<StockTransferScreen> {
 
     if (!mounted) return;
 
-    AppNotification.showSuccess(context, 'Successfully transferred ${qty.toInt()} items.');
+    AppNotification.showSuccess(
+      context,
+      'Successfully transferred ${qty.toInt()} items.',
+    );
 
     Navigator.pop(context);
   }
@@ -151,12 +153,10 @@ class _StockTransferScreenState extends State<StockTransferScreen> {
     AppNotification.showError(context, msg);
   }
 
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _bg,
-      bottomNavigationBar: const SharedBottomNavBar(),
       appBar: AppBar(
         backgroundColor: _surface,
         elevation: 0,
@@ -186,11 +186,11 @@ class _StockTransferScreenState extends State<StockTransferScreen> {
               ),
             ),
           ),
-            AppButton(
-              text: 'Confirm Transfer',
-              icon: FontAwesomeIcons.rightLeft,
-              onPressed: _submit,
-            ),
+          AppButton(
+            text: 'Confirm Transfer',
+            icon: FontAwesomeIcons.rightLeft,
+            onPressed: _submit,
+          ),
         ],
       ),
     );
@@ -332,13 +332,16 @@ class _StockTransferScreenState extends State<StockTransferScreen> {
                                     vertical: 2,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                                    color: Theme.of(context).colorScheme.primary
+                                        .withValues(alpha: 0.1),
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: Text(
                                     '${stock.toInt()} in stock',
                                     style: TextStyle(
-                                      color: Theme.of(context).colorScheme.primary,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.primary,
                                       fontSize: 12,
                                       fontWeight: FontWeight.bold,
                                     ),
@@ -428,7 +431,4 @@ class _StockTransferScreenState extends State<StockTransferScreen> {
       ),
     );
   }
-
 }
-
-

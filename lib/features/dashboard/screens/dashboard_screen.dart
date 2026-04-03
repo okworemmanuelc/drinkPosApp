@@ -2,28 +2,29 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../../../core/theme/colors.dart';
+import 'package:reebaplus_pos/core/theme/colors.dart';
 
-import '../../../core/utils/number_format.dart';
-import '../../../core/utils/responsive.dart';
-import '../../../shared/widgets/shared_scaffold.dart';
-import '../../../shared/widgets/menu_button.dart';
-import '../../../shared/widgets/app_bar_header.dart';
-import '../../../shared/widgets/notification_bell.dart';
-import '../../../core/theme/design_tokens.dart';
-import '../../../shared/services/order_service.dart';
-import '../../../core/database/app_database.dart';
-import '../../customers/data/models/customer.dart';
-import '../../../shared/widgets/user_tips_modal.dart';
-import '../../../shared/widgets/app_dropdown.dart';
-import '../../../shared/services/auth_service.dart';
-import 'sales_detail_screen.dart';
-import 'reports_hub_screen.dart';
-import '../../customers/screens/customers_screen.dart';
-import '../../expenses/screens/expenses_screen.dart';
-import '../../inventory/screens/inventory_screen.dart';
-import '../../orders/screens/orders_screen.dart';
-import '../../../shared/widgets/app_button.dart';
+import 'package:reebaplus_pos/core/utils/number_format.dart';
+import 'package:reebaplus_pos/core/utils/responsive.dart';
+import 'package:reebaplus_pos/shared/widgets/shared_scaffold.dart';
+import 'package:reebaplus_pos/shared/widgets/menu_button.dart';
+import 'package:reebaplus_pos/shared/widgets/app_bar_header.dart';
+import 'package:reebaplus_pos/shared/widgets/notification_bell.dart';
+import 'package:reebaplus_pos/core/theme/design_tokens.dart';
+import 'package:reebaplus_pos/shared/services/order_service.dart';
+import 'package:reebaplus_pos/core/database/app_database.dart';
+import 'package:reebaplus_pos/features/customers/data/models/customer.dart';
+import 'package:reebaplus_pos/shared/widgets/user_tips_modal.dart';
+import 'package:reebaplus_pos/shared/widgets/app_dropdown.dart';
+import 'package:reebaplus_pos/shared/services/auth_service.dart';
+import 'package:reebaplus_pos/features/dashboard/screens/sales_detail_screen.dart';
+import 'package:reebaplus_pos/features/dashboard/screens/reports_hub_screen.dart';
+import 'package:reebaplus_pos/features/customers/screens/customers_screen.dart';
+import 'package:reebaplus_pos/features/expenses/screens/expenses_screen.dart';
+import 'package:reebaplus_pos/features/inventory/screens/inventory_screen.dart';
+import 'package:reebaplus_pos/features/orders/screens/orders_screen.dart';
+import 'package:reebaplus_pos/shared/widgets/app_button.dart';
+import 'package:reebaplus_pos/shared/widgets/shimmer_loading.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -54,6 +55,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
   List<Customer> _customers = [];
   double _totalStockValue = 0;
 
+  bool _ordersLoading = true;
+  bool _expensesLoading = true;
+  bool _customersLoading = true;
+  bool _inventoryLoading = true;
+
   StreamSubscription? _ordersSub;
   StreamSubscription? _expensesSub;
   StreamSubscription? _customersSub;
@@ -61,7 +67,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Color get _bg => Theme.of(context).scaffoldBackgroundColor;
   Color get _surface => Theme.of(context).colorScheme.surface;
   Color get _text => Theme.of(context).colorScheme.onSurface;
-  Color get _subtext => Theme.of(context).textTheme.bodySmall?.color ?? Theme.of(context).iconTheme.color!;
+  Color get _subtext =>
+      Theme.of(context).textTheme.bodySmall?.color ??
+      Theme.of(context).iconTheme.color!;
   Color get _border => Theme.of(context).dividerColor;
 
   @override
@@ -89,27 +97,50 @@ class _DashboardScreenState extends State<DashboardScreen> {
         setState(() {
           _warehouses = wh;
           if (_warehouseLocked && _selectedWarehouseId != null) {
-            _lockedWarehouseName = wh
-                .where((w) => w.id == _selectedWarehouseId)
-                .map((w) => w.name)
-                .firstOrNull ?? '';
+            _lockedWarehouseName =
+                wh
+                    .where((w) => w.id == _selectedWarehouseId)
+                    .map((w) => w.name)
+                    .firstOrNull ??
+                '';
           }
         });
       }
     });
 
-    _ordersSub = orderService.watchAllOrdersWithItems().listen((orders) {
-      if (mounted) setState(() => _allOrdersWithItems = orders);
+    // Minimum delay for shimmers to ensure they are visible
+    final minLoading = Future.delayed(const Duration(seconds: 2));
+
+    _ordersSub = orderService.watchAllOrdersWithItems().listen((orders) async {
+      await minLoading;
+      if (mounted) {
+        setState(() {
+          _allOrdersWithItems = orders;
+          _ordersLoading = false;
+        });
+      }
     });
 
-    _expensesSub = database.expensesDao.watchAll().listen((expenses) {
-      if (mounted) setState(() => _allExpenses = expenses);
+    _expensesSub = database.expensesDao.watchAll().listen((expenses) async {
+      await minLoading;
+      if (mounted) {
+        setState(() {
+          _allExpenses = expenses;
+          _expensesLoading = false;
+        });
+      }
     });
 
     _customersSub = database.customersDao.watchAllCustomers().listen((
       customers,
-    ) {
-      if (mounted) setState(() => _customers = customers.map((d) => Customer.fromDb(d)).toList());
+    ) async {
+      await minLoading;
+      if (mounted) {
+        setState(() {
+          _customers = customers.map((d) => Customer.fromDb(d)).toList();
+          _customersLoading = false;
+        });
+      }
     });
 
     // For managers locked to a warehouse, only count stock in that warehouse
@@ -117,15 +148,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ? database.inventoryDao.watchProductsByWarehouse(_selectedWarehouseId!)
         : database.inventoryDao.watchAllProductDatasWithStock();
 
-    _inventorySub = stockStream.listen((items) {
+    _inventorySub = stockStream.listen((items) async {
+      await minLoading;
       if (mounted) {
         setState(() {
           _totalStockValue = items.fold<double>(
             0,
             (sum, item) =>
-                sum +
-                (item.totalStock * item.product.sellingPriceKobo / 100.0),
+                sum + (item.totalStock * item.product.sellingPriceKobo / 100.0),
           );
+          _inventoryLoading = false;
         });
       }
     });
@@ -186,8 +218,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final filteredCustomers = _selectedWarehouseId == null
         ? _customers
         : _customers
-            .where((c) => c.warehouseId == _selectedWarehouseId)
-            .toList();
+              .where((c) => c.warehouseId == _selectedWarehouseId)
+              .toList();
 
     // Metrics
     final totalSales = filteredOrdersWithItems.fold<double>(
@@ -290,7 +322,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
       padding: EdgeInsets.all(context.spacingL),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [Theme.of(context).colorScheme.primary, Theme.of(context).colorScheme.secondary],
+          colors: [
+            Theme.of(context).colorScheme.primary,
+            Theme.of(context).colorScheme.secondary,
+          ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -468,11 +503,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.warehouse_outlined, size: context.getRSize(14), color: Theme.of(context).colorScheme.primary),
+          Icon(
+            Icons.warehouse_outlined,
+            size: context.getRSize(14),
+            color: Theme.of(context).colorScheme.primary,
+          ),
           SizedBox(width: context.getRSize(6)),
           Flexible(
             child: Text(
-              _lockedWarehouseName.isEmpty ? 'My Warehouse' : _lockedWarehouseName,
+              _lockedWarehouseName.isEmpty
+                  ? 'My Warehouse'
+                  : _lockedWarehouseName,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 fontSize: context.getRFontSize(13),
@@ -494,8 +535,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: AppDropdown<int?>(
         value: _selectedWarehouseId,
         items: [
-          const DropdownMenuItem<int?>(value: null, child: Text('All Warehouses')),
-          ..._warehouses.map((wh) => DropdownMenuItem(value: wh.id, child: Text(wh.name))),
+          const DropdownMenuItem<int?>(
+            value: null,
+            child: Text('All Warehouses'),
+          ),
+          ..._warehouses.map(
+            (wh) => DropdownMenuItem(value: wh.id, child: Text(wh.name)),
+          ),
         ],
         onChanged: (v) => setState(() => _selectedWarehouseId = v),
       ),
@@ -507,16 +553,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
       width: context.getRSize(140),
       child: AppDropdown<String>(
         value: _selectedPeriod,
-        items: _periods.map((p) => DropdownMenuItem(value: p, child: Text(p))).toList(),
+        items: _periods
+            .map((p) => DropdownMenuItem(value: p, child: Text(p)))
+            .toList(),
         onChanged: (v) => setState(() => _selectedPeriod = v ?? 'Day'),
       ),
     );
   }
 
-  void _openSalesDetail(
-    List<OrderWithItems> orders,
-    String mode,
-  ) {
+  void _openSalesDetail(List<OrderWithItems> orders, String mode) {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => SalesDetailScreen(
@@ -542,122 +587,138 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     return Column(
       children: [
-        _robustMetricCard(
-          label: 'Total Sales',
-          value: formatCurrency(sales),
-          subtitle: 'Generated from $_selectedPeriod transactions',
-          icon: FontAwesomeIcons.nairaSign,
-          color: Theme.of(context).colorScheme.primary,
-          trend: sales > 0 ? 'Active' : 'No sales',
-          isNeutral: true,
-          onTap: canDrill ? () => _openSalesDetail(filteredOrders, 'sales') : null,
-        ),
+        _ordersLoading
+            ? const Padding(
+                padding: EdgeInsets.only(bottom: 12),
+                child: ShimmerStatCard(),
+              )
+            : _robustMetricCard(
+                label: 'Total Sales',
+                value: formatCurrency(sales),
+                subtitle: 'Generated from $_selectedPeriod transactions',
+                icon: FontAwesomeIcons.nairaSign,
+                color: Theme.of(context).colorScheme.primary,
+                trend: sales > 0 ? 'Active' : 'No sales',
+                isNeutral: true,
+                onTap: canDrill
+                    ? () => _openSalesDetail(filteredOrders, 'sales')
+                    : null,
+              ),
         if (userTier >= 5) ...[
           SizedBox(height: context.spacingM),
-          _robustMetricCard(
-            label: 'Net Profit',
-            value: profit != null ? formatCurrency(profit) : '—',
-            subtitle: profit != null
-                ? 'Revenue minus cost of goods & expenses'
-                : 'Add buying prices to products to see profit',
-            icon: FontAwesomeIcons.chartLine,
-            color: profit != null
-                ? (profit >= 0 ? success : danger)
-                : Theme.of(context).colorScheme.primary,
-            trend: profit != null
-                ? (profit >= 0 ? 'Positive' : 'Negative')
-                : 'N/A',
-            isPositive: profit == null || profit >= 0,
-            onTap: profit != null ? () => _openSalesDetail(filteredOrders, 'profit') : null,
-          ),
+          _ordersLoading || _expensesLoading
+              ? const ShimmerStatCard()
+              : _robustMetricCard(
+                  label: 'Net Profit',
+                  value: profit != null ? formatCurrency(profit) : '—',
+                  subtitle: profit != null
+                      ? 'Revenue minus cost of goods & expenses'
+                      : 'Add buying prices to products to see profit',
+                  icon: FontAwesomeIcons.chartLine,
+                  color: profit != null
+                      ? (profit >= 0 ? success : danger)
+                      : Theme.of(context).colorScheme.primary,
+                  trend: profit != null
+                      ? (profit >= 0 ? 'Positive' : 'Negative')
+                      : 'N/A',
+                  isPositive: profit == null || profit >= 0,
+                  onTap: profit != null
+                      ? () => _openSalesDetail(filteredOrders, 'profit')
+                      : null,
+                ),
         ],
         SizedBox(height: context.spacingM),
-        _robustMetricCard(
-          label: 'Pending Orders',
-          value: pending.toString(),
-          subtitle: 'Orders awaiting fulfillment',
-          icon: FontAwesomeIcons.clock,
-          color: AppColors.warning,
-          trend: pending > 0 ? 'Attention' : 'Clear',
-          isNeutral: true,
-          onTap: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => const OrdersScreen(initialIndex: 0),
+        _ordersLoading
+            ? const ShimmerStatCard()
+            : _robustMetricCard(
+                label: 'Pending Orders',
+                value: pending.toString(),
+                subtitle: 'Orders awaiting fulfillment',
+                icon: FontAwesomeIcons.clock,
+                color: AppColors.warning,
+                trend: pending > 0 ? 'Attention' : 'Clear',
+                isNeutral: true,
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const OrdersScreen(initialIndex: 0),
+                    ),
+                  );
+                },
               ),
-            );
-          },
-        ),
         SizedBox(height: context.spacingM),
-        _robustMetricCard(
-          label: 'Total Expenses',
-          value: formatCurrency(expenses),
-          subtitle: 'Including operations & staff',
-          icon: FontAwesomeIcons.fileInvoiceDollar,
-          color: Theme.of(context).colorScheme.error,
-          trend: expenses > 0 ? 'Recorded' : 'None',
-          isPositive: false,
-          inverted: true,
-          onTap: () {
-            String initialPeriod = 'All Time';
-            switch (_selectedPeriod) {
-              case 'Day':
-                initialPeriod = 'Today';
-                break;
-              case 'Week':
-                initialPeriod = 'This Week';
-                break;
-              case 'Month':
-                initialPeriod = 'This Month';
-                break;
-              case 'Year':
-                initialPeriod = 'This Year';
-                break;
-              case 'To Date':
-                initialPeriod = 'All Time';
-                break;
-            }
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => ExpensesScreen(initialPeriod: initialPeriod),
+        _expensesLoading
+            ? const ShimmerStatCard()
+            : _robustMetricCard(
+                label: 'Total Expenses',
+                value: formatCurrency(expenses),
+                subtitle: 'Including operations & staff',
+                icon: FontAwesomeIcons.fileInvoiceDollar,
+                color: Theme.of(context).colorScheme.error,
+                trend: expenses > 0 ? 'Recorded' : 'None',
+                isPositive: false,
+                inverted: true,
+                onTap: () {
+                  String initialPeriod = 'All Time';
+                  switch (_selectedPeriod) {
+                    case 'Day':
+                      initialPeriod = 'Today';
+                      break;
+                    case 'Week':
+                      initialPeriod = 'This Week';
+                      break;
+                    case 'Month':
+                      initialPeriod = 'This Month';
+                      break;
+                    case 'Year':
+                      initialPeriod = 'This Year';
+                      break;
+                    case 'To Date':
+                      initialPeriod = 'All Time';
+                      break;
+                  }
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) =>
+                          ExpensesScreen(initialPeriod: initialPeriod),
+                    ),
+                  );
+                },
               ),
-            );
-          },
-        ),
         SizedBox(height: context.spacingM),
-        _robustMetricCard(
-          label: 'Stock Value',
-          value: formatCurrency(_totalStockValue),
-          subtitle: 'Estimated inventory worth',
-          icon: FontAwesomeIcons.boxesStacked,
-          color: Theme.of(context).colorScheme.primary,
-          trend: 'Live',
-          isNeutral: true,
-          onTap: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => const InventoryScreen(),
+        _inventoryLoading
+            ? const ShimmerStatCard()
+            : _robustMetricCard(
+                label: 'Stock Value',
+                value: formatCurrency(_totalStockValue),
+                subtitle: 'Estimated inventory worth',
+                icon: FontAwesomeIcons.boxesStacked,
+                color: Theme.of(context).colorScheme.primary,
+                trend: 'Live',
+                isNeutral: true,
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const InventoryScreen()),
+                  );
+                },
               ),
-            );
-          },
-        ),
         SizedBox(height: context.spacingM),
-        _robustMetricCard(
-          label: 'Customer Wallet',
-          value: 'Cr: ${formatCurrency(credit)}',
-          subtitle: 'Debt: ${formatCurrency(debt)}',
-          icon: FontAwesomeIcons.wallet,
-          color: Theme.of(context).colorScheme.primary,
-          trend: debt > 0 ? 'Pending Recov.' : 'Healthy',
-          isPositive: debt == 0,
-          onTap: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => const CustomersScreen(),
+        _customersLoading
+            ? const ShimmerStatCard()
+            : _robustMetricCard(
+                label: 'Customer Wallet',
+                value: 'Cr: ${formatCurrency(credit)}',
+                subtitle: 'Debt: ${formatCurrency(debt)}',
+                icon: FontAwesomeIcons.wallet,
+                color: Theme.of(context).colorScheme.primary,
+                trend: debt > 0 ? 'Pending Recov.' : 'Healthy',
+                isPositive: debt == 0,
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const CustomersScreen()),
+                  );
+                },
               ),
-            );
-          },
-        ),
       ],
     );
   }
@@ -685,7 +746,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
       decoration: BoxDecoration(
         color: _surface,
         borderRadius: BorderRadius.circular(context.radiusL),
-        border: Border.all(color: onTap != null ? color.withValues(alpha: 0.4) : _border),
+        border: Border.all(
+          color: onTap != null ? color.withValues(alpha: 0.4) : _border,
+        ),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.03),
@@ -787,6 +850,3 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 }
-
-
-

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../theme/app_decorations.dart';
+import 'package:reebaplus_pos/core/theme/app_decorations.dart';
 
 /// A surface card with border, radius 20, optional amber glow line.
 class ThemedCard extends StatelessWidget {

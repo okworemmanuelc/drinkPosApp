@@ -1,6 +1,6 @@
 import 'package:flutter/widgets.dart';
 
-import '../models/payment.dart';
+import 'package:reebaplus_pos/features/payments/data/models/payment.dart';
 
 class PaymentService extends ValueNotifier<List<Payment>> {
   PaymentService() : super(_initialPayments);

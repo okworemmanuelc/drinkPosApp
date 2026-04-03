@@ -1,17 +1,16 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import '../../../core/theme/design_tokens.dart';
-import '../../../core/utils/responsive.dart';
-import '../../../core/database/app_database.dart';
-import '../../../core/utils/number_format.dart';
-import '../../../shared/widgets/shared_scaffold.dart';
-import '../../../shared/widgets/shared_bottom_nav_bar.dart';
-import '../../../shared/widgets/app_bar_header.dart';
-import '../../../shared/widgets/role_guard.dart';
-import '../../../core/utils/notifications.dart';
-import '../../../shared/widgets/app_button.dart';
-import 'staff_constants.dart';
+import 'package:reebaplus_pos/core/theme/design_tokens.dart';
+import 'package:reebaplus_pos/core/utils/responsive.dart';
+import 'package:reebaplus_pos/core/database/app_database.dart';
+import 'package:reebaplus_pos/core/utils/number_format.dart';
+import 'package:reebaplus_pos/shared/widgets/shared_scaffold.dart';
+import 'package:reebaplus_pos/shared/widgets/app_bar_header.dart';
+import 'package:reebaplus_pos/shared/widgets/role_guard.dart';
+import 'package:reebaplus_pos/core/utils/notifications.dart';
+import 'package:reebaplus_pos/shared/widgets/app_button.dart';
+import 'package:reebaplus_pos/features/staff/screens/staff_constants.dart';
 
 class StaffDetailsScreen extends StatefulWidget {
   final UserData user;
@@ -28,11 +27,12 @@ class StaffDetailsScreen extends StatefulWidget {
 }
 
 class _StaffDetailsScreenState extends State<StaffDetailsScreen> {
-  
   Color get _bg => Theme.of(context).scaffoldBackgroundColor;
   Color get _surface => Theme.of(context).colorScheme.surface;
   Color get _text => Theme.of(context).colorScheme.onSurface;
-  Color get _subtext => Theme.of(context).textTheme.bodySmall?.color ?? Theme.of(context).iconTheme.color!;
+  Color get _subtext =>
+      Theme.of(context).textTheme.bodySmall?.color ??
+      Theme.of(context).iconTheme.color!;
   Color get _border => Theme.of(context).dividerColor;
   List<OrderData> _staffOrders = [];
   StreamSubscription<List<OrderData>>? _ordersSub;
@@ -44,12 +44,13 @@ class _StaffDetailsScreenState extends State<StaffDetailsScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         setState(() => _contentReady = true);
-        _ordersSub = (database.select(database.orders)
-              ..where((t) => t.staffId.equals(widget.user.id)))
-            .watch()
-            .listen((data) {
-          if (mounted) setState(() => _staffOrders = data);
-        });
+        _ordersSub =
+            (database.select(database.orders)
+                  ..where((t) => t.staffId.equals(widget.user.id)))
+                .watch()
+                .listen((data) {
+                  if (mounted) setState(() => _staffOrders = data);
+                });
       }
     });
   }
@@ -62,22 +63,29 @@ class _StaffDetailsScreenState extends State<StaffDetailsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final avatarColor = _parseColor(widget.user.avatarColor) ?? Theme.of(context).colorScheme.primary;
+    final avatarColor =
+        _parseColor(widget.user.avatarColor) ??
+        Theme.of(context).colorScheme.primary;
     final warehouseName = widget.warehouses
-        .firstWhere((w) => w.id == widget.user.warehouseId,
-            orElse: () => const WarehouseData(id: -1, name: 'Unassigned'))
+        .firstWhere(
+          (w) => w.id == widget.user.warehouseId,
+          orElse: () => const WarehouseData(id: -1, name: 'Unassigned'),
+        )
         .name;
 
     if (!_contentReady) {
       return SharedScaffold(
         activeRoute: 'staff',
         backgroundColor: _bg,
-        bottomNavigationBar: const SharedBottomNavBar(),
         appBar: AppBar(
           backgroundColor: _surface,
           elevation: 0,
           leading: IconButton(
-            icon: Icon(Icons.arrow_back_ios_new_rounded, color: _text, size: 20),
+            icon: Icon(
+              Icons.arrow_back_ios_new_rounded,
+              color: _text,
+              size: 20,
+            ),
             onPressed: () => Navigator.pop(context),
           ),
           title: AppBarHeader(
@@ -86,14 +94,17 @@ class _StaffDetailsScreenState extends State<StaffDetailsScreen> {
             subtitle: widget.user.role.toUpperCase(),
           ),
         ),
-        body: Center(child: CircularProgressIndicator(color: Theme.of(context).colorScheme.primary)),
+        body: Center(
+          child: CircularProgressIndicator(
+            color: Theme.of(context).colorScheme.primary,
+          ),
+        ),
       );
     }
 
     return SharedScaffold(
       activeRoute: 'staff',
       backgroundColor: _bg,
-      bottomNavigationBar: const SharedBottomNavBar(),
       appBar: AppBar(
         backgroundColor: _surface,
         elevation: 0,
@@ -170,7 +181,10 @@ class _StaffDetailsScreenState extends State<StaffDetailsScreen> {
             child: InkWell(
               onTap: () => _showRolePicker(context),
               borderRadius: BorderRadius.circular(20),
-              child: _buildRoleTag(roleFor(widget.user.role), isInteractive: true),
+              child: _buildRoleTag(
+                roleFor(widget.user.role),
+                isInteractive: true,
+              ),
             ),
           ),
         ],
@@ -210,20 +224,33 @@ class _StaffDetailsScreenState extends State<StaffDetailsScreen> {
     showModalBottomSheet(
       context: context,
       backgroundColor: _surface,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
       builder: (context) => Container(
         padding: EdgeInsets.fromLTRB(24, 24, 24, context.bottomInset + 16),
         child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Change Role', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _text)),
-              const SizedBox(height: 16),
-              ...roleOptions.map((role) => ListTile(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Change Role',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: _text,
+              ),
+            ),
+            const SizedBox(height: 16),
+            ...roleOptions.map(
+              (role) => ListTile(
                 leading: Container(
                   width: 12,
                   height: 12,
-                  decoration: BoxDecoration(color: role.color, shape: BoxShape.circle),
+                  decoration: BoxDecoration(
+                    color: role.color,
+                    shape: BoxShape.circle,
+                  ),
                 ),
                 title: Text(role.label, style: TextStyle(color: _text)),
                 onTap: () {
@@ -232,10 +259,11 @@ class _StaffDetailsScreenState extends State<StaffDetailsScreen> {
                     _confirmRoleChange(role);
                   }
                 },
-              )),
-            ],
-          ),
+              ),
+            ),
+          ],
         ),
+      ),
     );
   }
 
@@ -245,7 +273,10 @@ class _StaffDetailsScreenState extends State<StaffDetailsScreen> {
       builder: (context) => AlertDialog(
         backgroundColor: _surface,
         title: Text('Confirm Role Change', style: TextStyle(color: _text)),
-        content: Text('Are you sure you want to change ${widget.user.name}\'s role to ${newRole.label}?', style: TextStyle(color: _subtext)),
+        content: Text(
+          'Are you sure you want to change ${widget.user.name}\'s role to ${newRole.label}?',
+          style: TextStyle(color: _subtext),
+        ),
         actions: [
           AppButton(
             text: 'Cancel',
@@ -258,7 +289,10 @@ class _StaffDetailsScreenState extends State<StaffDetailsScreen> {
             onPressed: () async {
               Navigator.pop(context);
               // Stub — no DB write in this version
-              AppNotification.showSuccess(context, 'Role updated to ${newRole.label}');
+              AppNotification.showSuccess(
+                context,
+                'Role updated to ${newRole.label}',
+              );
             },
           ),
         ],
@@ -269,8 +303,10 @@ class _StaffDetailsScreenState extends State<StaffDetailsScreen> {
   Widget _buildPerformanceMetrics(bool isWide) {
     final orders = _staffOrders;
     final completed = orders.where((o) => o.status == 'completed').toList();
-    final totalSales =
-        completed.fold<double>(0.0, (sum, o) => sum + (o.netAmountKobo / 100.0));
+    final totalSales = completed.fold<double>(
+      0.0,
+      (sum, o) => sum + (o.netAmountKobo / 100.0),
+    );
 
     return GridView.count(
       shrinkWrap: true,
@@ -280,12 +316,24 @@ class _StaffDetailsScreenState extends State<StaffDetailsScreen> {
       crossAxisSpacing: rSize(context, 12),
       childAspectRatio: 1.2,
       children: [
-        _statCard('Total Orders', orders.length.toString(),
-            FontAwesomeIcons.receipt, Theme.of(context).colorScheme.primary),
-        _statCard('Completed', completed.length.toString(),
-            FontAwesomeIcons.checkDouble, AppColors.success),
-        _statCard('Sales Volume', formatCurrency(totalSales),
-            FontAwesomeIcons.nairaSign, const Color(0xFFA855F7)), // Fixed later if needed
+        _statCard(
+          'Total Orders',
+          orders.length.toString(),
+          FontAwesomeIcons.receipt,
+          Theme.of(context).colorScheme.primary,
+        ),
+        _statCard(
+          'Completed',
+          completed.length.toString(),
+          FontAwesomeIcons.checkDouble,
+          AppColors.success,
+        ),
+        _statCard(
+          'Sales Volume',
+          formatCurrency(totalSales),
+          FontAwesomeIcons.nairaSign,
+          const Color(0xFFA855F7),
+        ), // Fixed later if needed
       ],
     );
   }
@@ -350,9 +398,21 @@ class _StaffDetailsScreenState extends State<StaffDetailsScreen> {
             ),
           ),
           SizedBox(height: rSize(context, 16)),
-          _infoRow('Role Tier', 'Tier ${widget.user.roleTier}', FontAwesomeIcons.shieldHalved),
-          _infoRow('Biometrics', widget.user.biometricEnabled ? 'Enabled' : 'Disabled', FontAwesomeIcons.fingerprint),
-          _infoRow('Email', widget.user.email ?? 'Not provided', FontAwesomeIcons.envelope),
+          _infoRow(
+            'Role Tier',
+            'Tier ${widget.user.roleTier}',
+            FontAwesomeIcons.shieldHalved,
+          ),
+          _infoRow(
+            'Biometrics',
+            widget.user.biometricEnabled ? 'Enabled' : 'Disabled',
+            FontAwesomeIcons.fingerprint,
+          ),
+          _infoRow(
+            'Email',
+            widget.user.email ?? 'Not provided',
+            FontAwesomeIcons.envelope,
+          ),
         ],
       ),
     );
@@ -365,9 +425,19 @@ class _StaffDetailsScreenState extends State<StaffDetailsScreen> {
         children: [
           Icon(icon, size: 12, color: _subtext),
           const SizedBox(width: 12),
-          Text(label, style: TextStyle(color: _subtext, fontSize: rFontSize(context, 13))),
+          Text(
+            label,
+            style: TextStyle(color: _subtext, fontSize: rFontSize(context, 13)),
+          ),
           const Spacer(),
-          Text(value, style: TextStyle(color: _text, fontWeight: FontWeight.bold, fontSize: rFontSize(context, 13))),
+          Text(
+            value,
+            style: TextStyle(
+              color: _text,
+              fontWeight: FontWeight.bold,
+              fontSize: rFontSize(context, 13),
+            ),
+          ),
         ],
       ),
     );
@@ -388,5 +458,3 @@ class _StaffDetailsScreenState extends State<StaffDetailsScreen> {
     }
   }
 }
-
-

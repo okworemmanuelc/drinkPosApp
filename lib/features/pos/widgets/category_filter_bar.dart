@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../../core/theme/colors.dart';
-import '../../../core/utils/responsive.dart';
+import 'package:reebaplus_pos/core/theme/colors.dart';
+import 'package:reebaplus_pos/core/utils/responsive.dart';
 
 class CategoryFilterBar extends StatelessWidget {
   final List<String> categories;

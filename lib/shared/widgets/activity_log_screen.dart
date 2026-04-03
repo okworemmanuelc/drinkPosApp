@@ -1,18 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:intl/intl.dart';
-import '../../core/theme/colors.dart';
+import 'package:reebaplus_pos/core/theme/colors.dart';
 
-import '../../core/utils/responsive.dart';
-import '../models/activity_log.dart';
-import '../services/activity_log_service.dart';
-import '../../core/database/app_database.dart';
-import '../../features/inventory/data/inventory_data.dart';
-import '../../features/warehouse/data/models/warehouse.dart';
-import '../services/auth_service.dart';
-import 'app_drawer.dart';
-import 'notification_bell.dart';
-import 'app_dropdown.dart';
+import 'package:reebaplus_pos/core/utils/responsive.dart';
+import 'package:reebaplus_pos/shared/models/activity_log.dart';
+import 'package:reebaplus_pos/shared/services/activity_log_service.dart';
+import 'package:reebaplus_pos/core/database/app_database.dart';
+import 'package:reebaplus_pos/features/inventory/data/inventory_data.dart';
+import 'package:reebaplus_pos/features/warehouse/data/models/warehouse.dart';
+import 'package:reebaplus_pos/shared/services/auth_service.dart';
+import 'package:reebaplus_pos/shared/widgets/app_drawer.dart';
+import 'package:reebaplus_pos/shared/widgets/notification_bell.dart';
+import 'package:reebaplus_pos/shared/widgets/app_dropdown.dart';
 
 class ActivityLogScreen extends StatefulWidget {
   const ActivityLogScreen({super.key});

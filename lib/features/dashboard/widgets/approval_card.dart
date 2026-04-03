@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import '../../../shared/widgets/app_button.dart';
-import '../../../core/theme/design_tokens.dart';
+import 'package:reebaplus_pos/shared/widgets/app_button.dart';
+import 'package:reebaplus_pos/core/theme/design_tokens.dart';
 
 enum ApprovalType { credit, crates, transfer, other }
 

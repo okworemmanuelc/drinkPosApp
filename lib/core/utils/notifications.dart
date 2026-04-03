@@ -202,11 +202,11 @@ class _NotificationOverlayState extends State<_NotificationOverlay> with SingleT
                             ),
                           ),
                           const SizedBox(width: 8),
-                          IconButton(
-                            icon: const Icon(Icons.close, color: Colors.white70, size: 20),
+                          const IconButton(
+                            icon: Icon(Icons.close, color: Colors.white70, size: 20),
                             onPressed: AppNotification.hide,
                             padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(),
+                            constraints: BoxConstraints(),
                           ),
                         ],
                       ),

@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
-import '../models/expense.dart';
-import '../../../../shared/services/notification_service.dart';
-import '../../../../core/utils/number_format.dart';
+import 'package:reebaplus_pos/features/expenses/data/models/expense.dart';
+import 'package:reebaplus_pos/shared/services/notification_service.dart';
+import 'package:reebaplus_pos/core/utils/number_format.dart';
 
 class ExpenseService extends ValueNotifier<List<Expense>> {
   ExpenseService() : super(_initialExpenses);

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import '../../features/customers/data/models/customer.dart';
-import '../../core/database/app_database.dart';
-import 'auth_service.dart';
+import 'package:reebaplus_pos/features/customers/data/models/customer.dart';
+import 'package:reebaplus_pos/core/database/app_database.dart';
+import 'package:reebaplus_pos/shared/services/auth_service.dart';
 
 class CartService extends ValueNotifier<List<Map<String, dynamic>>> {
   final ValueNotifier<Customer?> activeCustomer = ValueNotifier<Customer?>(null);

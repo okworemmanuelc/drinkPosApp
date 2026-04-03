@@ -4,64 +4,46 @@ import 'package:flutter/material.dart';
 import 'package:reebaplus_pos/core/utils/notifications.dart';
 import 'package:reebaplus_pos/shared/services/auth_service.dart';
 import 'package:reebaplus_pos/shared/widgets/app_button.dart';
-import 'package:reebaplus_pos/features/auth/screens/login_screen.dart';
-import 'package:reebaplus_pos/features/auth/screens/otp_verification_screen.dart';
+import 'package:reebaplus_pos/features/auth/screens/create_pin_screen.dart';
 
-class EmailEntryScreen extends StatefulWidget {
-  const EmailEntryScreen({super.key});
+/// Shown after OTP verification for a brand-new owner.
+/// Collects their name, creates a CEO account in the local DB,
+/// then routes to CreatePinScreen.
+class NewOwnerNameScreen extends StatefulWidget {
+  final String email;
+
+  const NewOwnerNameScreen({super.key, required this.email});
 
   @override
-  State<EmailEntryScreen> createState() => _EmailEntryScreenState();
+  State<NewOwnerNameScreen> createState() => _NewOwnerNameScreenState();
 }
 
-class _EmailEntryScreenState extends State<EmailEntryScreen> {
-  final _emailController = TextEditingController();
+class _NewOwnerNameScreenState extends State<NewOwnerNameScreen> {
+  final _nameController = TextEditingController();
   bool _loading = false;
 
   @override
   void dispose() {
-    _emailController.dispose();
+    _nameController.dispose();
     super.dispose();
   }
 
   Future<void> _submit() async {
-    final email = _emailController.text.trim().toLowerCase();
-
-    if (!email.contains('@') || !email.contains('.')) {
-      AppNotification.showError(context, 'Enter a valid email address.');
+    final name = _nameController.text.trim();
+    if (name.isEmpty) {
+      AppNotification.showError(context, 'Please enter your name.');
       return;
     }
 
     setState(() => _loading = true);
 
-    // Check local DB first — only registered staff can log in.
-    final localUser = await authService.getUserByEmail(email);
-
-    if (!mounted) return;
-
-    // Send OTP via Supabase regardless of whether the user exists locally.
-    // New owners (not yet in the DB) will create their account after OTP verification.
-    final error = await authService.sendOtp(email);
+    final newUser = await authService.createNewOwner(widget.email, name);
 
     if (!mounted) return;
     setState(() => _loading = false);
 
-    if (error != null) {
-      AppNotification.showError(context, error);
-      return;
-    }
-
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        // localUser is null for brand-new owners — OtpVerificationScreen handles both cases.
-        builder: (_) => OtpVerificationScreen(user: localUser, email: email),
-      ),
-    );
-  }
-
-  void _goToPinDirectly() {
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const LoginScreen()),
+      MaterialPageRoute(builder: (_) => CreatePinScreen(user: newUser)),
     );
   }
 
@@ -113,7 +95,7 @@ class _EmailEntryScreenState extends State<EmailEntryScreen> {
                   const SizedBox(height: 12),
                   const Center(
                     child: Text(
-                      'Reebaplus POS',
+                      'Welcome to Reebaplus',
                       style: TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.w700,
@@ -124,7 +106,7 @@ class _EmailEntryScreenState extends State<EmailEntryScreen> {
                   const SizedBox(height: 6),
                   Center(
                     child: Text(
-                      'Enter your email to continue',
+                      "What's your name?",
                       style: TextStyle(
                         fontSize: 14,
                         color: Colors.white.withValues(alpha: 0.7),
@@ -133,7 +115,7 @@ class _EmailEntryScreenState extends State<EmailEntryScreen> {
                   ),
                   const SizedBox(height: 40),
 
-                  // Email card
+                  // Name input card
                   ClipRRect(
                     borderRadius: BorderRadius.circular(16),
                     child: BackdropFilter(
@@ -148,19 +130,20 @@ class _EmailEntryScreenState extends State<EmailEntryScreen> {
                         ),
                         padding: const EdgeInsets.all(16),
                         child: TextField(
-                          controller: _emailController,
-                          keyboardType: TextInputType.emailAddress,
-                          autofocus: false,
+                          controller: _nameController,
+                          keyboardType: TextInputType.name,
+                          textCapitalization: TextCapitalization.words,
+                          autofocus: true,
                           textInputAction: TextInputAction.done,
                           onSubmitted: (_) => _loading ? null : _submit(),
                           style: const TextStyle(color: Colors.white),
                           decoration: InputDecoration(
-                            labelText: 'Email Address',
+                            labelText: 'Full Name',
                             labelStyle: TextStyle(
                               color: Colors.white.withValues(alpha: 0.7),
                             ),
                             prefixIcon: Icon(
-                              Icons.email_outlined,
+                              Icons.person_outline,
                               color: Colors.white.withValues(alpha: 0.7),
                             ),
                             enabledBorder: OutlineInputBorder(
@@ -184,24 +167,9 @@ class _EmailEntryScreenState extends State<EmailEntryScreen> {
                   const SizedBox(height: 24),
 
                   AppButton(
-                    text: 'Send OTP',
+                    text: 'Continue',
                     isLoading: _loading,
                     onPressed: _loading ? null : _submit,
-                  ),
-                  const SizedBox(height: 20),
-
-                  Center(
-                    child: TextButton(
-                      onPressed: _goToPinDirectly,
-                      child: Text(
-                        'Already set up on this device? Login with PIN',
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.65),
-                          fontSize: 13,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
                   ),
                 ],
               ),

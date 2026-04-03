@@ -6,7 +6,7 @@ import 'package:drift/native.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 import 'package:flutter/foundation.dart';
-import 'daos.dart';
+import 'package:reebaplus_pos/core/database/daos.dart';
 export 'daos.dart';
 
 part 'app_database.g.dart';

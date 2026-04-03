@@ -1,18 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
-import '../../../../core/utils/number_format.dart';
-import '../../../../core/utils/responsive.dart';
-import '../../../../shared/services/activity_log_service.dart';
-import '../../inventory/data/models/supplier.dart';
-import '../../inventory/data/services/supplier_service.dart';
-import '../../../shared/widgets/app_dropdown.dart';
-import '../data/models/delivery.dart';
-import '../data/services/delivery_service.dart';
-import '../../../../core/database/app_database.dart';
-import '../../../../core/utils/notifications.dart';
-import '../../../../shared/widgets/app_button.dart';
-import '../../../../shared/widgets/app_input.dart';
+import 'package:reebaplus_pos/core/utils/number_format.dart';
+import 'package:reebaplus_pos/core/utils/responsive.dart';
+import 'package:reebaplus_pos/shared/services/activity_log_service.dart';
+import 'package:reebaplus_pos/features/inventory/data/models/supplier.dart';
+import 'package:reebaplus_pos/features/inventory/data/services/supplier_service.dart';
+import 'package:reebaplus_pos/shared/widgets/app_dropdown.dart';
+import 'package:reebaplus_pos/features/deliveries/data/models/delivery.dart';
+import 'package:reebaplus_pos/features/deliveries/data/services/delivery_service.dart';
+import 'package:reebaplus_pos/core/database/app_database.dart';
+import 'package:reebaplus_pos/core/utils/notifications.dart';
+import 'package:reebaplus_pos/shared/widgets/app_button.dart';
+import 'package:reebaplus_pos/shared/widgets/app_input.dart';
 
 class ReceiveDeliverySheet extends StatefulWidget {
   const ReceiveDeliverySheet({super.key});
@@ -138,7 +138,10 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
   Future<void> _submit() async {
     // Validate warehouse
     if (_selectedWarehouse == null) {
-      AppNotification.showError(context, 'Please select a destination warehouse.');
+      AppNotification.showError(
+        context,
+        'Please select a destination warehouse.',
+      );
       return;
     }
 
@@ -159,7 +162,10 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
         return;
       }
       if (l.selectedSupplier == null) {
-        AppNotification.showError(context, 'Please select a supplier for each item.');
+        AppNotification.showError(
+          context,
+          'Please select a supplier for each item.',
+        );
         return;
       }
       if (l.selectedCategory == 'Glass Crates' &&
@@ -254,17 +260,16 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
             return const Iterable<ProductData>.empty();
           }
           final q = textEditingValue.text.toLowerCase();
-          return _allProducts.where(
-            (p) => p.name.toLowerCase().contains(q),
-          );
+          return _allProducts.where((p) => p.name.toLowerCase().contains(q));
         },
         onSelected: (ProductData selection) {
           setState(() {
             line.selectedProduct = selection;
             line.productCtrl.text = selection.name;
             line.selectedCategory = 'Other';
-            line.retailPriceCtrl.text =
-                (selection.retailPriceKobo / 100).round().toString();
+            line.retailPriceCtrl.text = (selection.retailPriceKobo / 100)
+                .round()
+                .toString();
 
             if (selection.crateGroupId != null) {
               final match = _crateGroups

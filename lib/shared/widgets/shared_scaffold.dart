@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'app_drawer.dart';
-import 'menu_button.dart';
+import 'package:reebaplus_pos/shared/widgets/app_drawer.dart';
+import 'package:reebaplus_pos/shared/widgets/menu_button.dart';
 
 class SharedScaffold extends StatelessWidget {
   final PreferredSizeWidget? appBar;

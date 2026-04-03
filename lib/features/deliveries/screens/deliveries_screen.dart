@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
-import '../../../core/widgets/app_fab.dart';
+import 'package:reebaplus_pos/core/widgets/app_fab.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
-import '../../../core/theme/colors.dart';
+import 'package:reebaplus_pos/core/theme/colors.dart';
 
-import '../../../core/utils/number_format.dart';
-import '../../../core/utils/responsive.dart';
-import '../../../shared/widgets/app_drawer.dart';
-import '../data/models/delivery.dart';
-import '../data/services/delivery_service.dart';
-import '../widgets/receive_delivery_sheet.dart';
-import '../../../shared/widgets/notification_bell.dart';
+import 'package:reebaplus_pos/core/utils/number_format.dart';
+import 'package:reebaplus_pos/core/utils/responsive.dart';
+import 'package:reebaplus_pos/shared/widgets/app_drawer.dart';
+import 'package:reebaplus_pos/features/deliveries/data/models/delivery.dart';
+import 'package:reebaplus_pos/features/deliveries/data/services/delivery_service.dart';
+import 'package:reebaplus_pos/features/deliveries/widgets/receive_delivery_sheet.dart';
+import 'package:reebaplus_pos/shared/widgets/notification_bell.dart';
 
 class DeliveriesScreen extends StatefulWidget {
   const DeliveriesScreen({super.key});

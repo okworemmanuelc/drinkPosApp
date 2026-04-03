@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'colors.dart';
+import 'package:reebaplus_pos/core/theme/colors.dart';
 
 class AppTheme {
   AppTheme._();

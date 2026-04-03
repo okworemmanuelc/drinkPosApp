@@ -2,21 +2,20 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
-import '../../../core/theme/colors.dart';
+import 'package:reebaplus_pos/core/theme/colors.dart';
 
-import '../../../core/utils/number_format.dart';
-import '../../../core/utils/responsive.dart';
-import '../../../core/utils/stock_calculator.dart';
-import '../data/models/inventory_item.dart';
-import '../../../shared/widgets/app_dropdown.dart';
-import '../../../core/database/app_database.dart';
-import '../../../shared/services/auth_service.dart';
-import '../../../shared/services/activity_log_service.dart';
-import '../../../shared/widgets/app_button.dart';
-import '../../../shared/services/cart_service.dart';
-import '../../../core/utils/notifications.dart';
-import '../../../shared/widgets/shared_bottom_nav_bar.dart';
-import '../../../shared/widgets/app_input.dart';
+import 'package:reebaplus_pos/core/utils/number_format.dart';
+import 'package:reebaplus_pos/core/utils/responsive.dart';
+import 'package:reebaplus_pos/core/utils/stock_calculator.dart';
+import 'package:reebaplus_pos/features/inventory/data/models/inventory_item.dart';
+import 'package:reebaplus_pos/shared/widgets/app_dropdown.dart';
+import 'package:reebaplus_pos/core/database/app_database.dart';
+import 'package:reebaplus_pos/shared/services/auth_service.dart';
+import 'package:reebaplus_pos/shared/services/activity_log_service.dart';
+import 'package:reebaplus_pos/shared/widgets/app_button.dart';
+import 'package:reebaplus_pos/shared/services/cart_service.dart';
+import 'package:reebaplus_pos/core/utils/notifications.dart';
+import 'package:reebaplus_pos/shared/widgets/app_input.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ProductDetailScreen — full-screen product information view
@@ -25,7 +24,8 @@ import '../../../shared/widgets/app_input.dart';
 class ProductDetailScreen extends StatefulWidget {
   final InventoryItem item;
   final VoidCallback onUpdateStock;
-  final int? selectedWarehouseId; // null = "All Warehouses" — quantity editing blocked
+  final int?
+  selectedWarehouseId; // null = "All Warehouses" — quantity editing blocked
 
   const ProductDetailScreen({
     super.key,
@@ -61,7 +61,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   LastDeliveryInfo? _lastDelivery;
   bool _deliveryLoaded = false;
   bool _contentReady = false; // deferred load flag
-  bool _canEdit = true; // false for managers viewing other-warehouse products, and for staff
+  bool _canEdit =
+      true; // false for managers viewing other-warehouse products, and for staff
 
   @override
   void initState() {
@@ -73,10 +74,18 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         widget.item.totalStock % 1 == 0 ? 0 : 1,
       ),
     );
-    _buyingPriceController = TextEditingController(text: (widget.item.buyingPrice ?? 0).toString());
-    _retailPriceController = TextEditingController(text: (widget.item.retailPrice ?? 0).toString());
-    _bulkBreakerPriceController = TextEditingController(text: (widget.item.bulkBreakerPrice ?? 0).toString());
-    _distributorPriceController = TextEditingController(text: (widget.item.distributorPrice ?? 0).toString());
+    _buyingPriceController = TextEditingController(
+      text: (widget.item.buyingPrice ?? 0).toString(),
+    );
+    _retailPriceController = TextEditingController(
+      text: (widget.item.retailPrice ?? 0).toString(),
+    );
+    _bulkBreakerPriceController = TextEditingController(
+      text: (widget.item.bulkBreakerPrice ?? 0).toString(),
+    );
+    _distributorPriceController = TextEditingController(
+      text: (widget.item.distributorPrice ?? 0).toString(),
+    );
     _monthlyTargetController = TextEditingController(text: '0');
     _emptyCratesController = TextEditingController(text: '0');
     _emptyCrateValueController = TextEditingController(text: '0');
@@ -108,9 +117,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       if (mgrWarehouseId == null) {
         if (mounted) setState(() => _canEdit = false);
       } else {
-        final rows = await (database.select(database.inventory)
-              ..where((t) => t.productId.equals(productId)))
-            .get();
+        final rows = await (database.select(
+          database.inventory,
+        )..where((t) => t.productId.equals(productId))).get();
         final hasStock = rows.any((r) => r.warehouseId == mgrWarehouseId);
         if (mounted) setState(() => _canEdit = hasStock);
       }
@@ -133,7 +142,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           _monthlyTargetController.text = _monthlyTarget.toString();
           _selectedCategoryId = product.categoryId;
           _selectedManufacturerId = product.manufacturerId;
-          _emptyCrateValueController.text = (product.emptyCrateValueKobo / 100).toStringAsFixed(0);
+          _emptyCrateValueController.text = (product.emptyCrateValueKobo / 100)
+              .toStringAsFixed(0);
         }
       });
       // Load empty crate stock from manufacturer if linked
@@ -143,11 +153,15 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     }
 
     // Load sales summary from completed orders
-    final summary = await database.ordersDao.getSalesSummaryForProduct(productId);
+    final summary = await database.ordersDao.getSalesSummaryForProduct(
+      productId,
+    );
     if (mounted) setState(() => _salesSummary = summary);
 
     // Load last delivery from purchases
-    final delivery = await database.deliveriesDao.getLastDeliveryForProduct(productId);
+    final delivery = await database.deliveriesDao.getLastDeliveryForProduct(
+      productId,
+    );
     if (mounted) {
       setState(() {
         _lastDelivery = delivery;
@@ -192,7 +206,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   Color get _surface => Theme.of(context).colorScheme.surface;
   Color get _cardBg => Theme.of(context).cardColor;
   Color get _text => Theme.of(context).colorScheme.onSurface;
-  Color get _subtext => Theme.of(context).textTheme.bodySmall?.color ?? Theme.of(context).iconTheme.color!;
+  Color get _subtext =>
+      Theme.of(context).textTheme.bodySmall?.color ??
+      Theme.of(context).iconTheme.color!;
   Color get _border => Theme.of(context).dividerColor;
 
   @override
@@ -202,8 +218,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     if (!_contentReady) {
       return Scaffold(
         backgroundColor: _bg,
-        body: Center(child: CircularProgressIndicator(color: Theme.of(context).colorScheme.primary)),
-        bottomNavigationBar: const SharedBottomNavBar(),
+        body: Center(
+          child: CircularProgressIndicator(
+            color: Theme.of(context).colorScheme.primary,
+          ),
+        ),
       );
     }
 
@@ -215,7 +234,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           SliverToBoxAdapter(child: _buildBody(context)),
         ],
       ),
-      bottomNavigationBar: const SharedBottomNavBar(),
     );
   }
 
@@ -258,21 +276,24 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         onPressed: () => Navigator.pop(context),
       ),
       actions: [
-        if (_canEdit) IconButton(
-          onPressed: () => _confirmDelete(context),
-          icon: Container(
-            padding: EdgeInsets.all(context.getRSize(8)),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.error.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(
-              FontAwesomeIcons.trashCan,
-              size: context.getRSize(18),
-              color: Theme.of(context).colorScheme.error,
+        if (_canEdit)
+          IconButton(
+            onPressed: () => _confirmDelete(context),
+            icon: Container(
+              padding: EdgeInsets.all(context.getRSize(8)),
+              decoration: BoxDecoration(
+                color: Theme.of(
+                  context,
+                ).colorScheme.error.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                FontAwesomeIcons.trashCan,
+                size: context.getRSize(18),
+                color: Theme.of(context).colorScheme.error,
+              ),
             ),
           ),
-        ),
         SizedBox(width: context.getRSize(8)),
       ],
       flexibleSpace: FlexibleSpaceBar(
@@ -338,7 +359,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 ),
                 SizedBox(height: context.getRSize(14)),
                 ConstrainedBox(
-                  constraints: BoxConstraints(maxWidth: context.screenWidth * 0.8),
+                  constraints: BoxConstraints(
+                    maxWidth: context.screenWidth * 0.8,
+                  ),
                   child: AppInput(
                     controller: _nameController,
                     readOnly: !_canEdit,
@@ -398,7 +421,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
   Widget _buildBody(BuildContext context) {
     final double totalStockValue = stockValue(
-      double.tryParse(_retailPriceController.text) ?? (widget.item.retailPrice ?? 0).toDouble(),
+      double.tryParse(_retailPriceController.text) ??
+          (widget.item.retailPrice ?? 0).toDouble(),
       widget.item.totalStock,
     );
 
@@ -439,9 +463,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 child: GestureDetector(
                   onTap: widget.selectedWarehouseId == null && _canEdit
                       ? () => AppNotification.showError(
-                            context,
-                            'Select a specific warehouse to edit stock quantity.',
-                          )
+                          context,
+                          'Select a specific warehouse to edit stock quantity.',
+                        )
                       : null,
                   child: AppInput(
                     controller: _quantityController,
@@ -470,14 +494,24 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   items: [
                     DropdownMenuItem<int?>(
                       value: null,
-                      child: Text('None', style: TextStyle(color: _subtext, fontSize: context.getRFontSize(12))),
+                      child: Text(
+                        'None',
+                        style: TextStyle(
+                          color: _subtext,
+                          fontSize: context.getRFontSize(12),
+                        ),
+                      ),
                     ),
-                    ..._allManufacturers.map((m) => DropdownMenuItem<int?>(
-                      value: m.id,
-                      child: Text(m.name, overflow: TextOverflow.ellipsis),
-                    )),
+                    ..._allManufacturers.map(
+                      (m) => DropdownMenuItem<int?>(
+                        value: m.id,
+                        child: Text(m.name, overflow: TextOverflow.ellipsis),
+                      ),
+                    ),
                   ],
-                  onChanged: _canEdit ? (v) => setState(() => _selectedManufacturerId = v) : (_) {},
+                  onChanged: _canEdit
+                      ? (v) => setState(() => _selectedManufacturerId = v)
+                      : (_) {},
                 ),
               ),
             ),
@@ -495,12 +529,13 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   value: _selectedCategoryId,
                   items: [
                     const DropdownMenuItem(value: null, child: Text("None")),
-                    ..._allCategories.map((c) => DropdownMenuItem(
-                          value: c.id,
-                          child: Text(c.name),
-                        )),
+                    ..._allCategories.map(
+                      (c) => DropdownMenuItem(value: c.id, child: Text(c.name)),
+                    ),
                   ],
-                  onChanged: _canEdit ? (val) => setState(() => _selectedCategoryId = val) : (_) {},
+                  onChanged: _canEdit
+                      ? (val) => setState(() => _selectedCategoryId = val)
+                      : (_) {},
                 ),
               ),
             ),
@@ -523,17 +558,17 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: _border),
                 ),
-                  child: AppInput(
-                    controller: _emptyCrateValueController,
-                    readOnly: true,
-                    keyboardType: TextInputType.number,
-                    textAlign: TextAlign.end,
-                    onChanged: (v) => setState(() {}),
-                    border: InputBorder.none,
-                    contentPadding: EdgeInsets.zero,
-                    prefixText: '₦',
-                    fillColor: Colors.transparent,
-                  ),
+                child: AppInput(
+                  controller: _emptyCrateValueController,
+                  readOnly: true,
+                  keyboardType: TextInputType.number,
+                  textAlign: TextAlign.end,
+                  onChanged: (v) => setState(() {}),
+                  border: InputBorder.none,
+                  contentPadding: EdgeInsets.zero,
+                  prefixText: '₦',
+                  fillColor: Colors.transparent,
+                ),
               ),
             ),
             _divider(context),
@@ -550,9 +585,15 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   vertical: context.getRSize(6),
                 ),
                 decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.primary.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.2)),
+                  border: Border.all(
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.primary.withValues(alpha: 0.2),
+                  ),
                 ),
                 child: Text(
                   _emptyCrateStock?.toString() ?? '0',
@@ -669,7 +710,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.lock_outline, size: context.getRSize(16), color: _subtext),
+                  Icon(
+                    Icons.lock_outline,
+                    size: context.getRSize(16),
+                    color: _subtext,
+                  ),
                   SizedBox(width: context.getRSize(8)),
                   Flexible(
                     child: Text(
@@ -690,7 +735,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       ),
     );
   }
-
 
   // ═══════════════════════════════════════════════════════════════════════════
   // SHARED WIDGETS
@@ -984,7 +1028,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               minHeight: context.getRSize(6),
               backgroundColor: _border,
               valueColor: AlwaysStoppedAnimation<Color>(
-                progress >= 1.0 ? success : Theme.of(context).colorScheme.primary,
+                progress >= 1.0
+                    ? success
+                    : Theme.of(context).colorScheme.primary,
               ),
             ),
           ),
@@ -1003,7 +1049,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             child: SizedBox(
               width: context.getRSize(20),
               height: context.getRSize(20),
-              child: CircularProgressIndicator(strokeWidth: 2, color: Theme.of(context).colorScheme.primary),
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: Theme.of(context).colorScheme.primary,
+              ),
             ),
           ),
         ),
@@ -1017,7 +1066,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           child: Center(
             child: Text(
               'No deliveries recorded yet',
-              style: TextStyle(color: _subtext, fontSize: context.getRFontSize(13)),
+              style: TextStyle(
+                color: _subtext,
+                fontSize: context.getRFontSize(13),
+              ),
             ),
           ),
         ),
@@ -1062,8 +1114,18 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
   String _fmtDate(DateTime dt) {
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     return '${dt.day} ${months[dt.month - 1]} ${dt.year}';
   }
@@ -1105,7 +1167,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       return;
     }
 
-    final newQty = double.tryParse(_quantityController.text) ?? widget.item.totalStock;
+    final newQty =
+        double.tryParse(_quantityController.text) ?? widget.item.totalStock;
     final buying = double.tryParse(_buyingPriceController.text) ?? 0;
     final retail = double.tryParse(_retailPriceController.text) ?? 0;
     final bulk = double.tryParse(_bulkBreakerPriceController.text) ?? 0;
@@ -1128,7 +1191,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
     try {
       // 1. Update Products table — name, manufacturer, prices, empty crate value, category
-      final mfr = _allManufacturers.where((m) => m.id == _selectedManufacturerId).firstOrNull;
+      final mfr = _allManufacturers
+          .where((m) => m.id == _selectedManufacturerId)
+          .firstOrNull;
       await database.catalogDao.updateProductDetails(
         productId,
         name: name,
@@ -1137,7 +1202,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         buyingPriceKobo: (buying * 100).round(),
         retailPriceKobo: (retail * 100).round(),
         bulkBreakerPriceKobo: bulk > 0 ? (bulk * 100).round() : null,
-        distributorPriceKobo: distributor > 0 ? (distributor * 100).round() : null,
+        distributorPriceKobo: distributor > 0
+            ? (distributor * 100).round()
+            : null,
         emptyCrateValueKobo: (emptyVal * 100).round(),
         categoryId: _selectedCategoryId,
       );
@@ -1151,7 +1218,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         final originalCrates = _emptyCrateStock ?? 0;
         final crateDelta = newCrates - originalCrates;
         if (crateDelta > 0) {
-          await database.inventoryDao.addEmptyCrates(_selectedManufacturerId!, crateDelta);
+          await database.inventoryDao.addEmptyCrates(
+            _selectedManufacturerId!,
+            crateDelta,
+          );
           await activityLogService.logAction(
             'crate_stock_update',
             '${authService.currentUser?.name ?? 'Unknown'} added $crateDelta empty crates for $name',
@@ -1159,7 +1229,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             relatedEntityType: 'product',
           );
         } else if (crateDelta < 0) {
-          await database.inventoryDao.deductEmptyCrates(_selectedManufacturerId!, -crateDelta);
+          await database.inventoryDao.deductEmptyCrates(
+            _selectedManufacturerId!,
+            -crateDelta,
+          );
           await activityLogService.logAction(
             'crate_stock_update',
             '${authService.currentUser?.name ?? 'Unknown'} removed ${-crateDelta} empty crates for $name',
@@ -1172,7 +1245,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
       // 4. Adjust stock quantity if changed
       final warehouseId = widget.item.warehouseStock.keys.isNotEmpty
-          ? int.tryParse(widget.item.warehouseStock.keys.first.replaceAll('w', '')) ?? 1
+          ? int.tryParse(
+                  widget.item.warehouseStock.keys.first.replaceAll('w', ''),
+                ) ??
+                1
           : 1;
       final diff = (newQty - widget.item.totalStock).toInt();
       if (diff != 0) {
@@ -1211,8 +1287,16 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       final user = authService.currentUser;
       if (user != null && user.roleTier == 4) {
         final changes = <String>[];
-        if (retail != oldRetail) changes.add('Retail: ₦${oldRetail.toStringAsFixed(0)}→₦${retail.toStringAsFixed(0)}');
-        if (buying != oldBuying) changes.add('Buying: ₦${oldBuying.toStringAsFixed(0)}→₦${buying.toStringAsFixed(0)}');
+        if (retail != oldRetail) {
+          changes.add(
+            'Retail: ₦${oldRetail.toStringAsFixed(0)}→₦${retail.toStringAsFixed(0)}',
+          );
+        }
+        if (buying != oldBuying) {
+          changes.add(
+            'Buying: ₦${oldBuying.toStringAsFixed(0)}→₦${buying.toStringAsFixed(0)}',
+          );
+        }
         final summaryText = changes.isEmpty
             ? '${user.name} updated $name'
             : '${user.name} updated $name — ${changes.join(', ')}';
@@ -1295,4 +1379,3 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     );
   }
 }
-

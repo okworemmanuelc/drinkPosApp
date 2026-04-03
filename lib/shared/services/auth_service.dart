@@ -2,8 +2,8 @@ import 'package:flutter/widgets.dart';
 import 'package:drift/drift.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../../core/database/app_database.dart';
-import 'navigation_service.dart';
+import 'package:reebaplus_pos/core/database/app_database.dart';
+import 'package:reebaplus_pos/shared/services/navigation_service.dart';
 
 /// Holds the currently logged-in user.
 /// `value` is null when nobody is logged in.
@@ -187,6 +187,22 @@ class AuthService extends ValueNotifier<UserData?> {
   Future<bool> verifyPinForTier(String pin, int minimumTier) async {
     final matches = await getUsersByPin(pin);
     return matches.any((u) => u.roleTier >= minimumTier);
+  }
+
+  /// Creates a new owner (CEO) account in the local database after OTP verification.
+  /// Returns the newly created [UserData] record.
+  Future<UserData> createNewOwner(String email, String name) async {
+    final id = await database.into(database.users).insert(
+      UsersCompanion(
+        name: Value(name),
+        email: Value(email),
+        pin: const Value(''),
+        role: const Value('CEO'),
+        roleTier: const Value(5),
+        avatarColor: const Value('#8B5CF6'),
+      ),
+    );
+    return (database.select(database.users)..where((u) => u.id.equals(id))).getSingle();
   }
 
   // ── Stubs kept for backward compatibility ───────────────────────────────

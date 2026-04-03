@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:barcode_widget/barcode_widget.dart';
-import '../../core/utils/responsive.dart';
-import '../../core/utils/number_format.dart';
-import '../../core/theme/colors.dart';
-import '../../core/utils/stock_calculator.dart';
+import 'package:reebaplus_pos/core/utils/responsive.dart';
+import 'package:reebaplus_pos/core/utils/number_format.dart';
+import 'package:reebaplus_pos/core/theme/colors.dart';
+import 'package:reebaplus_pos/core/utils/stock_calculator.dart';
 
 class ReceiptWidget extends StatelessWidget {
   final String orderId;

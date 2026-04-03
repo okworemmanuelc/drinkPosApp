@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../utils/responsive.dart';
+import 'package:reebaplus_pos/core/utils/responsive.dart';
 
 extension DesignTokenExtension on BuildContext {
   double get spacingXs => getRSize(AppSpacing.xs);

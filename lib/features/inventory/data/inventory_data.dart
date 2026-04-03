@@ -1,8 +1,8 @@
 // kWarehouses, kCrateStocks, kInventoryItems, kInventoryLogs
-import 'models/inventory_item.dart';
-import 'models/crate_stock.dart';
-import 'models/inventory_log.dart';
-import '../../warehouse/data/models/warehouse.dart';
+import 'package:reebaplus_pos/features/inventory/data/models/inventory_item.dart';
+import 'package:reebaplus_pos/features/inventory/data/models/crate_stock.dart';
+import 'package:reebaplus_pos/features/inventory/data/models/inventory_log.dart';
+import 'package:reebaplus_pos/features/warehouse/data/models/warehouse.dart';
 
 final List<Warehouse> kWarehouses = [];
 
