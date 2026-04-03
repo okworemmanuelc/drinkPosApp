@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/widgets.dart';
 import 'package:drift/drift.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -17,9 +18,9 @@ class AuthService extends ValueNotifier<UserData?> {
   /// There may be more than one match (e.g. two staff share a PIN),
   /// so we return a list and let the UI ask the user to pick one.
   Future<List<UserData>> getUsersByPin(String pin) async {
-    final result = await (database.select(database.users)
-          ..where((u) => u.pin.equals(pin)))
-        .get();
+    final result = await (database.select(
+      database.users,
+    )..where((u) => u.pin.equals(pin))).get();
     return result;
   }
 
@@ -90,22 +91,22 @@ class AuthService extends ValueNotifier<UserData?> {
   /// Marks [user] as the active logged-in user and applies warehouse lock.
   void setCurrentUser(UserData user) {
     try {
-      value = user;
+      // Side-effects first — navigationService fully ready before any rebuild
       navigationService.applyUserWarehouseLock(user.roleTier, user.warehouseId);
-
-      // Managers and above → Dashboard (index 0), everyone else → POS (index 1)
       if (user.roleTier >= 4) {
         navigationService.setIndex(0);
       } else {
         navigationService.setIndex(1);
       }
-
-      // Persist this user's ID so next launch skips the email screen.
       saveDeviceUserId(user.id);
 
-      // Check for warehouse assignment alerts for staff below CEO
+      // Notify listeners after call stack unwinds — safe on cold start
+      scheduleMicrotask(() {
+        value = user;
+      });
+
       if (user.roleTier < 5 && user.warehouseId == null) {
-        _handleOnboardingAlerts(user);
+        scheduleMicrotask(() => _handleOnboardingAlerts(user));
       }
     } catch (e) {
       debugPrint('[AuthService] CRITICAL ERROR in setCurrentUser: $e');
@@ -120,17 +121,21 @@ class AuthService extends ValueNotifier<UserData?> {
 
       // 1. Initialize createdAt if null
       if (currentUser.createdAt == null) {
-        await (database.update(database.users)..where((u) => u.id.equals(currentUser.id)))
+        await (database.update(database.users)
+              ..where((u) => u.id.equals(currentUser.id)))
             .write(UsersCompanion(createdAt: Value(now)));
         // Refresh local state
-        currentUser = await (database.select(database.users)..where((u) => u.id.equals(currentUser.id))).getSingle();
+        currentUser = await (database.select(
+          database.users,
+        )..where((u) => u.id.equals(currentUser.id))).getSingle();
         value = currentUser;
       }
 
       final joinDate = currentUser.createdAt ?? now;
       final hoursSinceJoin = now.difference(joinDate).inHours;
       final deadline = joinDate.add(const Duration(hours: 48));
-      final deadlineStr = '${deadline.hour.toString().padLeft(2, '0')}:${deadline.minute.toString().padLeft(2, '0')} on ${deadline.day}/${deadline.month}';
+      final deadlineStr =
+          '${deadline.hour.toString().padLeft(2, '0')}:${deadline.minute.toString().padLeft(2, '0')} on ${deadline.day}/${deadline.month}';
 
       // 2. Initial notification to CEO
       if (currentUser.lastNotificationSentAt == null) {
@@ -139,8 +144,9 @@ class AuthService extends ValueNotifier<UserData?> {
           'Assignment Required: ${currentUser.name} has joined. Please assign a warehouse before the 48h deadline ($deadlineStr).',
           linkedRecordId: currentUser.id.toString(),
         );
-        
-        await (database.update(database.users)..where((u) => u.id.equals(currentUser.id)))
+
+        await (database.update(database.users)
+              ..where((u) => u.id.equals(currentUser.id)))
             .write(UsersCompanion(lastNotificationSentAt: Value(now)));
       }
 
@@ -153,14 +159,17 @@ class AuthService extends ValueNotifier<UserData?> {
             'URGENT: 48h Countdown expired for ${currentUser.name} (Deadline: $deadlineStr). Warehouse assignment remains pending.',
             linkedRecordId: currentUser.id.toString(),
           );
-          
-          await (database.update(database.users)..where((u) => u.id.equals(currentUser.id)))
+
+          await (database.update(database.users)
+                ..where((u) => u.id.equals(currentUser.id)))
               .write(UsersCompanion(lastNotificationSentAt: Value(now)));
         }
       }
 
       // Refresh final state once after all updates (if any)
-      final finalUser = await (database.select(database.users)..where((u) => u.id.equals(currentUser.id))).getSingle();
+      final finalUser = await (database.select(
+        database.users,
+      )..where((u) => u.id.equals(currentUser.id))).getSingle();
       if (finalUser != value) {
         value = finalUser;
       }
@@ -192,23 +201,34 @@ class AuthService extends ValueNotifier<UserData?> {
   /// Creates a new owner (CEO) account in the local database after OTP verification.
   /// Returns the newly created [UserData] record.
   Future<UserData> createNewOwner(String email, String name) async {
-    final id = await database.into(database.users).insert(
-      UsersCompanion(
-        name: Value(name),
-        email: Value(email),
-        pin: const Value(''),
-        role: const Value('CEO'),
-        roleTier: const Value(5),
-        avatarColor: const Value('#8B5CF6'),
-      ),
-    );
-    return (database.select(database.users)..where((u) => u.id.equals(id))).getSingle();
+    final id = await database
+        .into(database.users)
+        .insert(
+          UsersCompanion(
+            name: Value(name),
+            email: Value(email),
+            pin: const Value(''),
+            role: const Value('CEO'),
+            roleTier: const Value(5),
+            avatarColor: const Value('#8B5CF6'),
+          ),
+        );
+    return (database.select(
+      database.users,
+    )..where((u) => u.id.equals(id))).getSingle();
   }
 
   // ── Stubs kept for backward compatibility ───────────────────────────────
   Future<void> init() async {}
-  Future<String?> signUpWithEmail({required String name, required String email, required String password}) async => null;
-  Future<String?> signInWithEmail({required String email, required String password}) async => null;
+  Future<String?> signUpWithEmail({
+    required String name,
+    required String email,
+    required String password,
+  }) async => null;
+  Future<String?> signInWithEmail({
+    required String email,
+    required String password,
+  }) async => null;
   Future<bool> userExists(String email) async => false;
   Future<String?> signInWithGoogle({bool isSignUp = false}) async => null;
   Future<void> setPin(String pin) async {}

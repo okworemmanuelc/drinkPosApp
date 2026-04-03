@@ -7,6 +7,8 @@ import 'package:reebaplus_pos/core/utils/responsive.dart';
 import 'package:reebaplus_pos/core/utils/notifications.dart';
 import 'package:reebaplus_pos/features/auth/screens/email_entry_screen.dart';
 
+import 'package:reebaplus_pos/main.dart' show dbWarmup;
+
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -50,21 +52,15 @@ class _LoginScreenState extends State<LoginScreen>
     _waitForDb();
   }
 
-  /// Checks if the DB is ready before allowing PIN entry.
-  /// If main.dart's warmup already confirmed readiness, skips the wait entirely.
-  /// Only fires a DB query when main.dart timed out (rare — slow first install).
+  /// Awaits the shared dbWarmup future from main.dart instead of issuing
+  /// a separate SELECT 1 query — this avoids duplicating migration work.
   void _waitForDb() {
-    // Already ready (main.dart warmup succeeded) — nothing to do.
     if (_dbReady) return;
-    // main.dart timed out — DB is still initializing in the background. Wait for it.
-    database
-        .customSelect('SELECT 1')
-        .get()
+    dbWarmup
         .then((_) {
           if (mounted) setState(() => _dbReady = true);
         })
         .catchError((_) {
-          // Fail open — let the PIN query handle any real DB error itself.
           if (mounted) setState(() => _dbReady = true);
         });
   }
@@ -78,7 +74,7 @@ class _LoginScreenState extends State<LoginScreen>
   // ── PIN input helpers ──────────────────────────────────────────────────────
 
   void _onDigit(String digit) {
-    if (!_dbReady || _pin.length >= 6 || _checking || _loginSuccess) return;
+    if (_pin.length >= 6 || _checking || _loginSuccess) return;
     setState(() {
       _pin += digit;
     });
@@ -86,7 +82,7 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   void _onBackspace() {
-    if (!_dbReady || _pin.isEmpty || _checking || _loginSuccess) return;
+    if (_pin.isEmpty || _checking || _loginSuccess) return;
     setState(() {
       _pin = _pin.substring(0, _pin.length - 1);
     });
@@ -94,6 +90,15 @@ class _LoginScreenState extends State<LoginScreen>
 
   Future<void> _submit() async {
     setState(() => _checking = true);
+
+    // If the DB is still initializing (fresh install), wait for it now.
+    // By the time the user types 6 digits this is almost always already done.
+    if (!_dbReady) {
+      try {
+        await dbWarmup;
+      } catch (_) {}
+      if (mounted) _dbReady = true;
+    }
 
     List<UserData> matches;
     try {
@@ -149,6 +154,12 @@ class _LoginScreenState extends State<LoginScreen>
     await Future.delayed(const Duration(milliseconds: 1200));
 
     authService.setCurrentUser(user);
+
+    // When LoginScreen was pushed (e.g. from OTP flow on fresh install),
+    // pop back to the root so the rebuilt home (MainLayout) is visible.
+    if (mounted) {
+      Navigator.of(context).popUntil((route) => route.isFirst);
+    }
   }
 
   /// Clears device persistence and navigates to email entry so the user can
@@ -231,26 +242,8 @@ class _LoginScreenState extends State<LoginScreen>
             ),
           ),
 
-          // ── DB Readiness Gate ─────────────────────────────────────────
-          // Shown only on first-run while the DB is still initializing.
-          // Prevents the user from entering a PIN that would hang.
-          if (!_dbReady)
-            Positioned.fill(
-              child: Container(
-                color: Colors.black.withValues(alpha: 0.65),
-                child: const Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    CircularProgressIndicator(color: Colors.white),
-                    SizedBox(height: 16),
-                    Text(
-                      'Setting up, please wait…',
-                      style: TextStyle(color: Colors.white70, fontSize: 14),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+          // DB overlay removed — PIN entry is always available immediately.
+          // If DB is still initializing on fresh install, _submit() awaits it.
         ],
       ),
     );

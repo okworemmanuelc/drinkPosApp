@@ -14,6 +14,10 @@ import 'package:reebaplus_pos/features/auth/screens/warehouse_assignment_screen.
 import 'package:reebaplus_pos/shared/services/auth_service.dart';
 import 'package:reebaplus_pos/shared/widgets/main_layout.dart';
 
+/// Shared future that LoginScreen can await instead of issuing its own SELECT 1.
+/// Completes when the database is fully ready (tables created + essential data seeded).
+late final Future<void> dbWarmup;
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -21,35 +25,45 @@ void main() async {
     const SystemUiOverlayStyle(statusBarColor: Colors.transparent),
   );
 
-  // Initialize Supabase for OTP email authentication.
-  await Supabase.initialize(
+  // Fire Supabase init in the background — never blocks runApp().
+  // OTP email auth is only needed in the EmailEntryScreen flow, not PIN login.
+  Supabase.initialize(
     url: 'https://ewwyofbvfjyqqirrcaou.supabase.co',
     anonKey:
         'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV3d3lvZmJ2Zmp5cXFpcnJjYW91Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1NzM0MTgsImV4cCI6MjA4OTE0OTQxOH0.McPYfcKMT_h7j9cEE7GiutREcluXo0x2SxdLP0YsP5Q',
   );
 
-  // Load persisted theme preferences.
-  await themeController.init();
+  // Run theme init and DB file check in parallel.
+  late final bool dbExists;
+  await Future.wait([
+    themeController.init(),
+    getApplicationDocumentsDirectory().then((dir) {
+      final file = File(p.join(dir.path, 'reebaplus_pos.sqlite'));
+      dbExists = file.existsSync();
+    }),
+  ]);
 
-  // Check if the DB file already exists on disk.
-  // - Existing install: file present → mark ready immediately, no overlay needed.
-  // - Fresh install: file absent → kick off warmup in background and let the
-  //   LoginScreen "Setting up…" overlay show while onCreate seeds the data.
-  // Either way runApp() fires immediately so the login screen appears at once.
-  final dbDir = await getApplicationDocumentsDirectory();
-  final dbFile = File(p.join(dbDir.path, 'reebaplus_pos.sqlite'));
-
-  if (dbFile.existsSync()) {
-    // Existing install — DB is already set up, no wait needed.
+  if (dbExists) {
+    // Existing install — DB is already set up, no overlay needed.
     dbReady = true;
-    // Still open the DB connection in the background so first PIN query is fast.
-    () async { try { await database.customSelect('SELECT 1').get(); } catch (_) {} }();
+    // Open the connection in the background so the first PIN query is fast.
+    dbWarmup = database
+        .customSelect('SELECT 1')
+        .get()
+        .then((_) {})
+        .catchError((_) {});
   } else {
-    // Fresh install — run onCreate + seed data in the background.
-    // LoginScreen._waitForDb() will show the overlay until this completes.
-    () async {
-      try { await database.customSelect('SELECT 1').get(); dbReady = true; } catch (_) {}
-    }();
+    // Fresh install — onCreate will create tables + seed essential auth data.
+    // LoginScreen can await dbWarmup to dismiss its overlay.
+    dbWarmup = database
+        .customSelect('SELECT 1')
+        .get()
+        .then((_) {
+          dbReady = true;
+        })
+        .catchError((_) {
+          dbReady = true;
+        });
   }
 
   runApp(const ReebaplusPosApp());
@@ -117,7 +131,9 @@ class _ReebaplusPosAppState extends State<ReebaplusPosApp> {
                 if (_hasDeviceUser == null) return const SizedBox.shrink();
                 // Returning user on this device → skip email, go to PIN screen.
                 // New device / fresh install → go to email entry flow.
-                return _hasDeviceUser! ? const LoginScreen() : const EmailEntryScreen();
+                return _hasDeviceUser!
+                    ? const LoginScreen()
+                    : const EmailEntryScreen();
               }
               if (user.roleTier < 5 && user.warehouseId == null) {
                 return WarehouseAssignmentScreen(user: user);

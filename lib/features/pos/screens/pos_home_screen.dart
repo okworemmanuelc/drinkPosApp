@@ -32,14 +32,19 @@ class PosHomeScreen extends StatefulWidget {
 }
 
 class _PosHomeScreenState extends State<PosHomeScreen> {
-  late PosController _controller;
+  PosController? _controller;
   final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    _controller = PosController();
-    _initWarehouse();
+    Future.microtask(() {
+      if (!mounted) return;
+      setState(() {
+        _controller = PosController();
+      });
+      _initWarehouse();
+    });
   }
 
   Future<void> _initWarehouse() async {
@@ -56,15 +61,24 @@ class _PosHomeScreenState extends State<PosHomeScreen> {
 
   @override
   void dispose() {
-    _controller.dispose();
+    _controller?.dispose();
     _searchController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_controller == null) {
+      final bgCol = Theme.of(context).scaffoldBackgroundColor;
+      return SharedScaffold(
+        activeRoute: 'pos',
+        backgroundColor: bgCol,
+        body: const SafeArea(child: ShimmerGrid(count: 6)),
+      );
+    }
+
     return ListenableBuilder(
-      listenable: _controller,
+      listenable: _controller!,
       builder: (context, _) {
         final themeNotifier = ValueNotifier<ThemeMode>(ThemeMode.system);
         return ValueListenableBuilder<ThemeMode>(
@@ -97,55 +111,56 @@ class _PosHomeScreenState extends State<PosHomeScreen> {
                       subtextCol,
                       borderCol,
                     ),
-                    if (_controller.isSearching)
+                    if (_controller!.isSearching)
                       _buildSearchField(
                         surfaceCol,
                         cardCol,
                         textCol,
                         subtextCol,
                       ),
-                    _controller.isLoading
+                    _controller!.isLoading
                         ? const ShimmerCategoryBar()
                         : CategoryFilterBar(
                             categories: [
                               'All',
-                              ..._controller.categories.map((c) => c.name),
+                              ..._controller!.categories.map((c) => c.name),
                             ],
                             selectedCategory:
-                                _controller.selectedCategoryId == null
+                                _controller!.selectedCategoryId == null
                                 ? 'All'
-                                : _controller.categories
+                                : _controller!.categories
                                       .firstWhere(
                                         (c) =>
                                             c.id ==
-                                            _controller.selectedCategoryId,
+                                            _controller!.selectedCategoryId,
                                       )
                                       .name,
                             onCategorySelected: (name) {
                               if (name == 'All') {
-                                _controller.selectCategory(null);
+                                _controller!.selectCategory(null);
                               } else {
-                                final cat = _controller.categories.firstWhere(
+                                final cat = _controller!.categories.firstWhere(
                                   (c) => c.name == name,
                                 );
-                                _controller.selectCategory(cat.id);
+                                _controller!.selectCategory(cat.id);
                               }
                             },
                             textCol: textCol,
                             borderCol: borderCol,
                           ),
                     Expanded(
-                      child: _controller.isLoading
+                      // ...
+                      child: _controller!.isLoading
                           ? const ShimmerGrid(count: 6)
                           : ProductGrid(
-                              products: _controller.filteredProducts,
+                              products: _controller!.filteredProducts,
                               onProductTap: (product) =>
                                   _addToCart(context, product),
                               cardCol: cardCol,
                               textCol: textCol,
                               subtextCol: subtextCol,
                               borderCol: borderCol,
-                              controller: _controller,
+                              controller: _controller!,
                             ),
                     ),
                   ],
@@ -171,20 +186,20 @@ class _PosHomeScreenState extends State<PosHomeScreen> {
       title: AppBarHeader(
         icon: FontAwesomeIcons.beerMugEmpty,
         title: 'Reebaplus POS',
-        subtitle: _controller.currentWarehouseName ?? 'Point of Sale',
+        subtitle: _controller!.currentWarehouseName ?? 'Point of Sale',
       ),
       actions: [
         IconButton(
           icon: Icon(
-            _controller.isSearching
+            _controller!.isSearching
                 ? FontAwesomeIcons.xmark
                 : FontAwesomeIcons.magnifyingGlass,
             size: 17,
             color: subtextCol,
           ),
           onPressed: () {
-            _controller.toggleSearch();
-            if (!_controller.isSearching) _searchController.clear();
+            _controller!.toggleSearch();
+            if (!_controller!.isSearching) _searchController.clear();
           },
         ),
         if (authService.currentUser?.roleTier == 5)
@@ -219,10 +234,10 @@ class _PosHomeScreenState extends State<PosHomeScreen> {
         children: [
           Expanded(
             flex: 4,
-            child: _controller.isLoading
+            child: _controller!.isLoading
                 ? const ShimmerDropdown()
                 : AppDropdown<CustomerGroup>(
-                    value: _controller.selectedGroup,
+                    value: _controller!.selectedGroup,
                     items: const [
                       DropdownMenuItem(
                         value: CustomerGroup.retailer,
@@ -234,20 +249,20 @@ class _PosHomeScreenState extends State<PosHomeScreen> {
                       ),
                     ],
                     onChanged: (val) {
-                      if (val != null) _controller.selectGroup(val);
+                      if (val != null) _controller!.selectGroup(val);
                     },
                   ),
           ),
           SizedBox(width: context.getRSize(8)),
           Expanded(
             flex: 5,
-            child: _controller.isLoading
+            child: _controller!.isLoading
                 ? const ShimmerDropdown()
                 : AppDropdown<String>(
-                    value: _controller.selectedManufacturerId,
+                    value: _controller!.selectedManufacturerId,
                     items: [
                       const DropdownMenuItem(value: 'All', child: Text('All')),
-                      ..._controller.manufacturers.map(
+                      ..._controller!.manufacturers.map(
                         (m) => DropdownMenuItem(
                           value: m.id.toString(),
                           child: Text(m.name),
@@ -255,7 +270,7 @@ class _PosHomeScreenState extends State<PosHomeScreen> {
                       ),
                     ],
                     onChanged: (val) {
-                      if (val != null) _controller.selectManufacturer(val);
+                      if (val != null) _controller!.selectManufacturer(val);
                     },
                   ),
           ),
@@ -347,7 +362,7 @@ class _PosHomeScreenState extends State<PosHomeScreen> {
       child: AppInput(
         controller: _searchController,
         autofocus: true,
-        onChanged: (v) => _controller.updateSearch(v),
+        onChanged: (v) => _controller!.updateSearch(v),
         hintText: 'Search products...',
         prefixIcon: Icon(
           FontAwesomeIcons.magnifyingGlass,

@@ -22,55 +22,8 @@ import 'package:reebaplus_pos/shared/models/order.dart';
 import 'package:reebaplus_pos/core/utils/notifications.dart';
 import 'package:reebaplus_pos/shared/widgets/tab_navigator.dart';
 
-// ── Lazy IndexedStack ──────────────────────────────────────────────────────
-// Only builds a child widget the very first time that tab is visited.
-// After that first build the child is kept alive forever (identical to a
-// normal IndexedStack), preserving scroll position and stream state.
-class _LazyIndexedStack extends StatefulWidget {
-  final int index;
-  final List<Widget> children;
-
-  const _LazyIndexedStack({required this.index, required this.children});
-
-  @override
-  State<_LazyIndexedStack> createState() => _LazyIndexedStackState();
-}
-
-class _LazyIndexedStackState extends State<_LazyIndexedStack> {
-  late final List<bool> _activated;
-
-  @override
-  void initState() {
-    super.initState();
-    // Mark only the first visible tab as activated; everything else is a stub.
-    _activated = List.generate(
-      widget.children.length,
-      (i) => i == widget.index,
-    );
-  }
-
-  @override
-  void didUpdateWidget(_LazyIndexedStack oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    // First time the user visits a tab: activate it so the real widget builds.
-    if (!_activated[widget.index]) {
-      setState(() => _activated[widget.index] = true);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return IndexedStack(
-      index: widget.index,
-      children: List.generate(widget.children.length, (i) {
-        // Unvisited tabs get a bare SizedBox so nothing is built yet.
-        return _activated[i] ? widget.children[i] : const SizedBox.shrink();
-      }),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
+// The LazyIndexedStack has been replaced with the direct Offstage + Set approach
+// requested for eliminating mount jank on cold start.
 
 class MainLayout extends StatefulWidget {
   const MainLayout({super.key});
@@ -88,6 +41,11 @@ class _MainLayoutState extends State<MainLayout> {
     (_) => GlobalKey<NavigatorState>(),
   );
 
+  // Track which tabs have ever been visited
+  final Set<int> _initializedTabs = {};
+
+  late final List<Widget Function()> _tabBuilders;
+
   // Persistent pending-orders count — subscribed once, never recreated.
   int _pendingOrderCount = 0;
   StreamSubscription<List<Order>>? _pendingOrdersSub;
@@ -99,6 +57,28 @@ class _MainLayoutState extends State<MainLayout> {
   @override
   void initState() {
     super.initState();
+    _tabBuilders = [
+      () => const DashboardScreen(), // 0
+      () => const PosHomeScreen(), // 1
+      () => const InventoryScreen(), // 2
+      () => const OrdersScreen(), // 3
+      () => const CustomersScreen(), // 4
+      () => const PaymentsScreen(), // 5
+      () => const ExpensesScreen(), // 6
+      () => const WarehouseScreen(), // 7
+      () => const StaffScreen(), // 8
+      () => const CartScreen(
+        cart: [],
+        crateDeposit: 0.0,
+        onCustomerChanged: _voidOnCustomerChanged,
+      ), // 9
+      () => const DeliveriesScreen(), // 10
+      () => const ActivityLogScreen(), // 11
+    ];
+
+    // Only pre-load the landing tab
+    _initializedTabs.add(navigationService.currentIndex.value);
+
     _pendingOrdersSub = orderService.watchPendingOrders().listen((orders) {
       if (mounted) setState(() => _pendingOrderCount = orders.length);
     });
@@ -116,6 +96,8 @@ class _MainLayoutState extends State<MainLayout> {
     return ValueListenableBuilder<int>(
       valueListenable: navigationService.currentIndex,
       builder: (context, currentIndex, _) {
+        _initializedTabs.add(currentIndex); // mark as visited
+
         return PopScope(
           canPop: false,
           onPopInvokedWithResult: (didPop, result) async {
@@ -154,66 +136,26 @@ class _MainLayoutState extends State<MainLayout> {
             }
           },
           child: Scaffold(
-            // IndexedStack keeps all screens alive for state preservation.
-            // RepaintBoundary isolates each screen's painting so Flutter does
-            // not repaint inactive screens when a detail route is pushed.
-            body: _LazyIndexedStack(
-              index: currentIndex,
-              children: [
-                TabNavigator(
-                  navigatorKey: _navigatorKeys[0],
-                  rootScreen: const DashboardScreen(),
-                ), // 0
-                TabNavigator(
-                  navigatorKey: _navigatorKeys[1],
-                  rootScreen: const PosHomeScreen(),
-                ), // 1
-                TabNavigator(
-                  navigatorKey: _navigatorKeys[2],
-                  rootScreen: const InventoryScreen(),
-                ), // 2
-                TabNavigator(
-                  navigatorKey: _navigatorKeys[3],
-                  rootScreen: const OrdersScreen(),
-                ), // 3
-                TabNavigator(
-                  navigatorKey: _navigatorKeys[4],
-                  rootScreen: const CustomersScreen(),
-                ), // 4
-                TabNavigator(
-                  navigatorKey: _navigatorKeys[5],
-                  rootScreen: const PaymentsScreen(),
-                ), // 5
-                TabNavigator(
-                  navigatorKey: _navigatorKeys[6],
-                  rootScreen: const ExpensesScreen(),
-                ), // 6
-                TabNavigator(
-                  navigatorKey: _navigatorKeys[7],
-                  rootScreen: const WarehouseScreen(),
-                ), // 7
-                TabNavigator(
-                  navigatorKey: _navigatorKeys[8],
-                  rootScreen: const StaffScreen(),
-                ), // 8
-                TabNavigator(
-                  // 9
-                  navigatorKey: _navigatorKeys[9],
-                  rootScreen: const CartScreen(
-                    cart: [],
-                    crateDeposit: 0.0,
-                    onCustomerChanged: _voidOnCustomerChanged,
+            // Offstage keeps the widget alive and mounted for streams/scroll,
+            // while `_initializedTabs` ensures exactly zero unused tabs are mounted initially.
+            body: Stack(
+              children: List.generate(12, (i) {
+                if (!_initializedTabs.contains(i)) {
+                  // Not yet visited — render nothing
+                  return const SizedBox.shrink();
+                }
+                return Offstage(
+                  offstage: i != currentIndex,
+                  // TickerMode guarantees animations on offstage tabs don't tick
+                  child: TickerMode(
+                    enabled: i == currentIndex,
+                    child: TabNavigator(
+                      navigatorKey: _navigatorKeys[i],
+                      rootScreen: _tabBuilders[i](),
+                    ),
                   ),
-                ),
-                TabNavigator(
-                  navigatorKey: _navigatorKeys[10],
-                  rootScreen: const DeliveriesScreen(),
-                ), // 10
-                TabNavigator(
-                  navigatorKey: _navigatorKeys[11],
-                  rootScreen: const ActivityLogScreen(),
-                ), // 11
-              ],
+                );
+              }),
             ),
             bottomNavigationBar: ValueListenableBuilder(
               valueListenable: authService,

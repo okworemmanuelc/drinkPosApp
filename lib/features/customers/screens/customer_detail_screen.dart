@@ -404,21 +404,30 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
   }
 
   Widget _buildContent(ThemeData theme) {
-    return Column(
-      children: [
-        _buildHeader(theme),
-        _buildWalletCard(theme),
-        _buildTabBar(theme),
-        Expanded(
-          child: TabBarView(
-            children: [
-              _buildWalletHistoryTab(theme),
-              _buildOrdersTab(theme),
-              _buildCratesTab(theme),
-            ],
+    return NestedScrollView(
+      headerSliverBuilder: (context, innerBoxIsScrolled) {
+        return [
+          SliverToBoxAdapter(child: _buildHeader(theme)),
+          SliverToBoxAdapter(child: _buildWalletCard(theme)),
+          SliverPersistentHeader(
+            pinned: true,
+            delegate: _SliverTabBarDelegate(
+              child: Container(
+                color: theme.scaffoldBackgroundColor,
+                padding: EdgeInsets.symmetric(horizontal: context.getRSize(20)),
+                child: _buildTabBar(theme),
+              ),
+            ),
           ),
-        ),
-      ],
+        ];
+      },
+      body: TabBarView(
+        children: [
+          _buildWalletHistoryTab(theme),
+          _buildOrdersTab(theme),
+          _buildCratesTab(theme),
+        ],
+      ),
     );
   }
 
@@ -617,31 +626,23 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
   // ── Tab Bar ─────────────────────────────────────────────────────────────────
 
   Widget _buildTabBar(ThemeData theme) {
-    return Padding(
-      padding: EdgeInsets.fromLTRB(
-        context.getRSize(20),
-        context.getRSize(16),
-        context.getRSize(20),
-        0,
+    return TabBar(
+      labelColor: amberPrimary,
+      unselectedLabelColor: theme.colorScheme.onSurface.withAlpha(115),
+      indicatorColor: amberPrimary,
+      indicatorSize: TabBarIndicatorSize.tab,
+      labelStyle: TextStyle(
+        fontSize: context.getRFontSize(13),
+        fontWeight: FontWeight.w700,
       ),
-      child: TabBar(
-        labelColor: amberPrimary,
-        unselectedLabelColor: theme.colorScheme.onSurface.withAlpha(115),
-        indicatorColor: amberPrimary,
-        indicatorSize: TabBarIndicatorSize.tab,
-        labelStyle: TextStyle(
-          fontSize: context.getRFontSize(13),
-          fontWeight: FontWeight.w700,
+      tabs: const [
+        Tab(
+          icon: Icon(FontAwesomeIcons.clockRotateLeft, size: 16),
+          text: 'Wallet',
         ),
-        tabs: const [
-          Tab(
-            icon: Icon(FontAwesomeIcons.clockRotateLeft, size: 16),
-            text: 'Wallet',
-          ),
-          Tab(icon: Icon(FontAwesomeIcons.fileLines, size: 16), text: 'Orders'),
-          Tab(icon: Icon(FontAwesomeIcons.boxOpen, size: 16), text: 'Crates'),
-        ],
-      ),
+        Tab(icon: Icon(FontAwesomeIcons.fileLines, size: 16), text: 'Orders'),
+        Tab(icon: Icon(FontAwesomeIcons.boxOpen, size: 16), text: 'Crates'),
+      ],
     );
   }
 
@@ -1069,5 +1070,29 @@ class _SheetField extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class _SliverTabBarDelegate extends SliverPersistentHeaderDelegate {
+  final Widget child;
+  _SliverTabBarDelegate({required this.child});
+
+  @override
+  double get minExtent => 60;
+  @override
+  double get maxExtent => 60;
+
+  @override
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
+    return child;
+  }
+
+  @override
+  bool shouldRebuild(_SliverTabBarDelegate oldDelegate) {
+    return false;
   }
 }

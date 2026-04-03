@@ -75,7 +75,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   void initState() {
     super.initState();
+    Future.microtask(() => _initializeData());
+  }
 
+  Future<void> _initializeData() async {
     // Track login count to hide pro tips after first visit
     SharedPreferences.getInstance().then((prefs) {
       final count = (prefs.getInt('dashboard_visit_count') ?? 0) + 1;
@@ -87,8 +90,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final currentUser = authService.currentUser;
     final userTier = currentUser?.roleTier ?? 5;
     if (userTier < 5 && currentUser?.warehouseId != null) {
-      _warehouseLocked = true;
-      _selectedWarehouseId = currentUser!.warehouseId;
+      if (mounted) {
+        setState(() {
+          _warehouseLocked = true;
+          _selectedWarehouseId = currentUser!.warehouseId;
+        });
+      }
     }
 
     // Warehouses for the filter dropdown
@@ -109,7 +116,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     });
 
     // Minimum delay for shimmers to ensure they are visible
-    final minLoading = Future.delayed(const Duration(seconds: 2));
+    final minLoading = Future.delayed(const Duration(milliseconds: 500));
 
     _ordersSub = orderService.watchAllOrdersWithItems().listen((orders) async {
       await minLoading;
