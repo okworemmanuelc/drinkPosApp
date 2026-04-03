@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'colors.dart';
+import 'package:reebaplus_pos/core/theme/colors.dart';
 
 /// Reusable decorations for the Ribaplus design system.
 class AppDecorations {

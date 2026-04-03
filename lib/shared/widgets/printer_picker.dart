@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:print_bluetooth_thermal/print_bluetooth_thermal.dart';
-import '../services/printer_service.dart';
-import '../../../core/utils/responsive.dart';
+import 'package:reebaplus_pos/shared/services/printer_service.dart';
+import 'package:reebaplus_pos/core/utils/responsive.dart';
 
 class PrinterPicker extends StatefulWidget {
   final Function(BluetoothInfo) onSelected;

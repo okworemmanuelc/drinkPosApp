@@ -1,6 +1,6 @@
 import 'package:drift/drift.dart';
-import '../models/order.dart' as domain;
-import '../../core/database/app_database.dart';
+import 'package:reebaplus_pos/shared/models/order.dart' as domain;
+import 'package:reebaplus_pos/core/database/app_database.dart';
 
 class OrderService {
   final _ordersDao = database.ordersDao;

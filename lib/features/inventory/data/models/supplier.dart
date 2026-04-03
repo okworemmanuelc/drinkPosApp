@@ -1,6 +1,6 @@
 // Supplier model
 // TODO: define Supplier class
-import 'crate_group.dart';
+import 'package:reebaplus_pos/features/inventory/data/models/crate_group.dart';
 
 class Supplier {
   final String id;

@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:intl/intl.dart';
-import '../../../core/database/daos.dart';
-import '../../../core/utils/number_format.dart';
-import '../../../core/utils/responsive.dart';
-import '../../../core/theme/design_tokens.dart';
+import 'package:reebaplus_pos/core/database/daos.dart';
+import 'package:reebaplus_pos/core/utils/number_format.dart';
+import 'package:reebaplus_pos/core/utils/responsive.dart';
+import 'package:reebaplus_pos/core/theme/design_tokens.dart';
 
 /// Shows when the user taps "Total Sales" or "Net Profit" on the dashboard.
 /// [mode] = 'sales' → revenue-focused columns.

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import '../services/notification_service.dart';
-import '../../core/utils/responsive.dart';
-import 'notifications_modal.dart';
+import 'package:reebaplus_pos/shared/services/notification_service.dart';
+import 'package:reebaplus_pos/core/utils/responsive.dart';
+import 'package:reebaplus_pos/shared/widgets/notifications_modal.dart';
 
 class NotificationBell extends StatelessWidget {
   const NotificationBell({super.key});

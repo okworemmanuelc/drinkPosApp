@@ -2,15 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
-import '../../../core/database/app_database.dart';
-import '../../../core/theme/colors.dart';
+import 'package:reebaplus_pos/core/database/app_database.dart';
+import 'package:reebaplus_pos/core/theme/colors.dart';
 
-import '../../../core/utils/responsive.dart';
-import '../../../core/widgets/app_fab.dart';
-import '../../../shared/services/activity_log_service.dart';
-import '../../../shared/widgets/shared_bottom_nav_bar.dart';
-import '../../../shared/widgets/app_input.dart';
-import '../../../core/utils/notifications.dart';
+import 'package:reebaplus_pos/core/utils/responsive.dart';
+import 'package:reebaplus_pos/core/widgets/app_fab.dart';
+import 'package:reebaplus_pos/shared/services/activity_log_service.dart';
+import 'package:reebaplus_pos/shared/widgets/app_input.dart';
+import 'package:reebaplus_pos/core/utils/notifications.dart';
+import 'package:reebaplus_pos/shared/widgets/shimmer_loading.dart';
 
 // Flat display-list item: either a warehouse section header or a row index.
 class _DisplayItem {
@@ -75,7 +75,10 @@ class _StockCountScreenState extends State<StockCountScreen> {
           TextEditingController(text: item.totalStock.toString()),
         );
       }
-      _loading = false;
+      // Artificial delay for shimmers
+      Future.delayed(const Duration(seconds: 2), () {
+        if (mounted) setState(() => _loading = false);
+      });
     });
   }
 
@@ -493,7 +496,6 @@ class _StockCountScreenState extends State<StockCountScreen> {
       valueListenable: themeNotifier,
       builder: (_, __, ___) => Scaffold(
         backgroundColor: _bg,
-        bottomNavigationBar: const SharedBottomNavBar(),
         appBar: AppBar(
           backgroundColor: _surface,
           elevation: 0,
@@ -549,11 +551,16 @@ class _StockCountScreenState extends State<StockCountScreen> {
           ],
         ),
         body: _loading
-            ? Center(
-                child: CircularProgressIndicator(
-                  color: Theme.of(context).colorScheme.primary,
-                  strokeWidth: 2,
-                ),
+            ? Column(
+                children: [
+                  _buildTableHeader(context),
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: 8,
+                      itemBuilder: (_, __) => const ShimmerStockCountRow(),
+                    ),
+                  ),
+                ],
               )
             : _items.isEmpty
             ? Center(

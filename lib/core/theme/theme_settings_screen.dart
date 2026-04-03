@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import '../../core/utils/responsive.dart';
-import 'theme_notifier.dart';
-import 'colors.dart';
+import 'package:reebaplus_pos/core/utils/responsive.dart';
+import 'package:reebaplus_pos/core/theme/theme_notifier.dart';
+import 'package:reebaplus_pos/core/theme/colors.dart';
 
 /// Full-screen theme settings page. Pushed from the drawer.
 class ThemeSettingsScreen extends StatelessWidget {

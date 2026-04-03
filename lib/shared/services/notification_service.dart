@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
-import '../../core/database/app_database.dart';
-import '../models/notification.dart';
+import 'package:reebaplus_pos/core/database/app_database.dart';
+import 'package:reebaplus_pos/shared/models/notification.dart';
 
 class NotificationService extends ValueNotifier<List<NotificationModel>> {
   NotificationService() : super([]) {
@@ -13,8 +13,16 @@ class NotificationService extends ValueNotifier<List<NotificationModel>> {
     });
   }
 
-  Future<void> createNotification(String type, String message, {String? linkedRecordId}) async {
-    await database.notificationsDao.create(type, message, linkedRecordId: linkedRecordId);
+  Future<void> createNotification(
+    String type,
+    String message, {
+    String? linkedRecordId,
+  }) async {
+    await database.notificationsDao.create(
+      type,
+      message,
+      linkedRecordId: linkedRecordId,
+    );
   }
 
   Future<void> markAsRead(String id) async {

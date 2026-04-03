@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:reebaplus_pos/features/deliveries/data/models/delivery.dart';
-import '../../../../shared/services/notification_service.dart';
+import 'package:reebaplus_pos/shared/services/notification_service.dart';
 
 class DeliveryService extends ValueNotifier<List<Delivery>> {
   DeliveryService() : super(_initialDeliveries);

@@ -8,27 +8,29 @@ import 'package:screenshot/screenshot.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:path_provider/path_provider.dart';
 
-import '../../../core/theme/colors.dart';
+import 'package:reebaplus_pos/core/theme/colors.dart';
 
-import '../../../core/utils/number_format.dart';
-import '../../../core/utils/responsive.dart';
-import '../../../core/database/app_database.dart';
-import '../../../shared/widgets/app_button.dart';
-import '../../../shared/services/activity_log_service.dart';
+import 'package:reebaplus_pos/core/utils/number_format.dart';
+import 'package:reebaplus_pos/core/utils/responsive.dart';
+import 'package:reebaplus_pos/core/database/app_database.dart';
+import 'package:reebaplus_pos/shared/widgets/app_button.dart';
+import 'package:reebaplus_pos/shared/services/activity_log_service.dart';
 // staff.dart import removed as it was moved to DB fetch
-import '../../../shared/services/order_service.dart';
-import '../../../shared/widgets/receipt_widget.dart';
-import '../../../shared/widgets/shared_scaffold.dart';
-import '../../deliveries/data/models/delivery_receipt.dart' as model;
-import '../../../shared/widgets/menu_button.dart';
-import '../../../shared/widgets/app_bar_header.dart';
-import '../../../shared/widgets/notification_bell.dart';
+import 'package:reebaplus_pos/shared/services/order_service.dart';
+import 'package:reebaplus_pos/shared/widgets/receipt_widget.dart';
+import 'package:reebaplus_pos/shared/widgets/shared_scaffold.dart';
+import 'package:reebaplus_pos/features/deliveries/data/models/delivery_receipt.dart'
+    as model;
+import 'package:reebaplus_pos/shared/widgets/menu_button.dart';
+import 'package:reebaplus_pos/shared/widgets/app_bar_header.dart';
+import 'package:reebaplus_pos/shared/widgets/notification_bell.dart';
 // customer_service.dart import removed as it was unused
-import '../../pos/services/receipt_builder.dart';
-import '../../../core/utils/notifications.dart';
-import '../widgets/crate_return_modal.dart';
-import '../../../shared/services/printer_service.dart';
-import '../../../shared/widgets/printer_picker.dart';
+import 'package:reebaplus_pos/features/pos/services/receipt_builder.dart';
+import 'package:reebaplus_pos/core/utils/notifications.dart';
+import 'package:reebaplus_pos/features/orders/widgets/crate_return_modal.dart';
+import 'package:reebaplus_pos/shared/services/printer_service.dart';
+import 'package:reebaplus_pos/shared/widgets/printer_picker.dart';
+import 'package:reebaplus_pos/shared/widgets/shimmer_loading.dart';
 
 class OrdersScreen extends StatefulWidget {
   final int initialIndex;
@@ -43,12 +45,15 @@ class _OrdersScreenState extends State<OrdersScreen>
   late TabController _tabController;
   final ScreenshotController _screenshotCtrl = ScreenshotController();
   String _completedFilter = 'All Time';
+  bool _isFirstLoad = true;
   StreamSubscription<List<OrderWithItems>>? _ordersSub;
   List<OrderWithItems> _allOrdersWithItems = [];
   Color get _bg => Theme.of(context).scaffoldBackgroundColor;
   Color get surfaceCol => Theme.of(context).colorScheme.surface;
   Color get textCol => Theme.of(context).colorScheme.onSurface;
-  Color get subtextCol => Theme.of(context).textTheme.bodySmall?.color ?? Theme.of(context).iconTheme.color!;
+  Color get subtextCol =>
+      Theme.of(context).textTheme.bodySmall?.color ??
+      Theme.of(context).iconTheme.color!;
   Color get borderCol => Theme.of(context).dividerColor;
 
   @override
@@ -59,8 +64,16 @@ class _OrdersScreenState extends State<OrdersScreen>
       vsync: this,
       initialIndex: widget.initialIndex,
     );
-    _ordersSub = orderService.watchAllOrdersWithItems().listen((data) {
-      if (mounted) setState(() => _allOrdersWithItems = data);
+    final minLoading = Future.delayed(const Duration(seconds: 2));
+
+    _ordersSub = orderService.watchAllOrdersWithItems().listen((data) async {
+      await minLoading;
+      if (mounted) {
+        setState(() {
+          _allOrdersWithItems = data;
+          _isFirstLoad = false;
+        });
+      }
     });
   }
 
@@ -84,13 +97,17 @@ class _OrdersScreenState extends State<OrdersScreen>
           body: Builder(
             builder: (context) {
               final allOrdersWithItems = _allOrdersWithItems;
-              
-              final pending = allOrdersWithItems.where((o) => o.order.status == 'pending').toList();
+
+              final pending = allOrdersWithItems
+                  .where((o) => o.order.status == 'pending')
+                  .toList();
 
               // Apply date filters for Completed
               final now = DateTime.now();
-              final separatedCompleted = allOrdersWithItems.where((o) => o.order.status == 'completed').toList();
-              
+              final separatedCompleted = allOrdersWithItems
+                  .where((o) => o.order.status == 'completed')
+                  .toList();
+
               final completed = separatedCompleted.where((o) {
                 if (_completedFilter == 'All Time') return true;
                 final t = o.order.completedAt ?? o.order.createdAt;
@@ -105,7 +122,15 @@ class _OrdersScreenState extends State<OrdersScreen>
                 return true;
               }).toList();
 
-              final cancelled = allOrdersWithItems.where((o) => o.order.status == 'cancelled').toList();
+              final cancelled = allOrdersWithItems
+                  .where((o) => o.order.status == 'cancelled')
+                  .toList();
+
+              if (_isFirstLoad) {
+                return const SingleChildScrollView(
+                  child: ShimmerOrderList(count: 7),
+                );
+              }
 
               return TabBarView(
                 controller: _tabController,
@@ -263,13 +288,13 @@ class _OrdersScreenState extends State<OrdersScreen>
           onMarkAsDelivered: status == 'pending'
               ? () => _markAsDelivered(item)
               : null,
-          onCancel: status == 'pending'
-              ? () => _cancelOrder(item.order)
-              : null,
+          onCancel: status == 'pending' ? () => _cancelOrder(item.order) : null,
           onAssignRider: status == 'pending'
               ? (orderId) => _showRiderSelection(context, orderId)
               : null,
-          onRefund: status == 'cancelled' ? () => _showRefundChoice(context, item.order) : null,
+          onRefund: status == 'cancelled'
+              ? () => _showRefundChoice(context, item.order)
+              : null,
           onViewReceipt: () => _viewReceipt(context, item),
         );
       },
@@ -331,7 +356,10 @@ class _OrdersScreenState extends State<OrdersScreen>
     model.deliveryReceiptService.addReceipt(receipt);
 
     if (mounted) {
-      AppNotification.showSuccess(context, 'Order #${order.id} marked as completed.');
+      AppNotification.showSuccess(
+        context,
+        'Order #${order.id} marked as completed.',
+      );
     }
 
     // 3. If the order has a customer, let the modal decide whether to open
@@ -386,7 +414,10 @@ class _OrdersScreenState extends State<OrdersScreen>
         context: context,
         builder: (ctx) => AlertDialog(
           backgroundColor: surfaceCol,
-          title: Text('Refund Payment', style: TextStyle(color: textCol, fontWeight: FontWeight.bold)),
+          title: Text(
+            'Refund Payment',
+            style: TextStyle(color: textCol, fontWeight: FontWeight.bold),
+          ),
           content: Text(
             'Partial payment was made (${formatCurrency(order.amountPaidKobo / 100.0)} of ${formatCurrency(order.netAmountKobo / 100.0)}). '
             'The refund will be credited to ${order.orderNumber}\'s wallet.',
@@ -427,47 +458,71 @@ class _OrdersScreenState extends State<OrdersScreen>
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-            Padding(
-              padding: EdgeInsets.all(context.getRSize(16)),
-              child: Text(
-                'Refund Method',
-                style: TextStyle(fontSize: context.getRFontSize(18), fontWeight: FontWeight.bold, color: textCol),
+              Padding(
+                padding: EdgeInsets.all(context.getRSize(16)),
+                child: Text(
+                  'Refund Method',
+                  style: TextStyle(
+                    fontSize: context.getRFontSize(18),
+                    fontWeight: FontWeight.bold,
+                    color: textCol,
+                  ),
+                ),
               ),
-            ),
-            Text(
-              'Select how you want to refund ${formatCurrency(order.amountPaidKobo / 100.0)}',
-              style: TextStyle(color: subtextCol, fontSize: 13),
-            ),
-            const SizedBox(height: 16),
-            ListTile(
-              leading: Icon(FontAwesomeIcons.wallet, color: success, size: context.getRSize(18)),
-              title: Text('Refund to Wallet', style: TextStyle(color: textCol)),
-              subtitle: Text('Add balance to customer\'s wallet', style: TextStyle(color: subtextCol, fontSize: 12)),
-              onTap: () {
-                Navigator.pop(ctx);
-                _processRefund(order, toWallet: true);
-              },
-            ),
-            ListTile(
-              leading: Icon(FontAwesomeIcons.moneyBillWave, color: Theme.of(context).colorScheme.primary, size: context.getRSize(18)),
-              title: Text('Refund to Cash', style: TextStyle(color: textCol)),
-              subtitle: Text('Record as cash payout', style: TextStyle(color: subtextCol, fontSize: 12)),
-              onTap: () {
-                Navigator.pop(ctx);
-                _processRefund(order, toWallet: false);
-              },
-            ),
-            SizedBox(height: context.getRSize(20)),
-          ],
+              Text(
+                'Select how you want to refund ${formatCurrency(order.amountPaidKobo / 100.0)}',
+                style: TextStyle(color: subtextCol, fontSize: 13),
+              ),
+              const SizedBox(height: 16),
+              ListTile(
+                leading: Icon(
+                  FontAwesomeIcons.wallet,
+                  color: success,
+                  size: context.getRSize(18),
+                ),
+                title: Text(
+                  'Refund to Wallet',
+                  style: TextStyle(color: textCol),
+                ),
+                subtitle: Text(
+                  'Add balance to customer\'s wallet',
+                  style: TextStyle(color: subtextCol, fontSize: 12),
+                ),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _processRefund(order, toWallet: true);
+                },
+              ),
+              ListTile(
+                leading: Icon(
+                  FontAwesomeIcons.moneyBillWave,
+                  color: Theme.of(context).colorScheme.primary,
+                  size: context.getRSize(18),
+                ),
+                title: Text('Refund to Cash', style: TextStyle(color: textCol)),
+                subtitle: Text(
+                  'Record as cash payout',
+                  style: TextStyle(color: subtextCol, fontSize: 12),
+                ),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _processRefund(order, toWallet: false);
+                },
+              ),
+              SizedBox(height: context.getRSize(20)),
+            ],
+          ),
         ),
       ),
-    ),
-  );
-}
+    );
+  }
 
   void _processRefund(OrderData order, {required bool toWallet}) {
     // orderService.refundOrder(order.id, toWallet: toWallet); // Not yet implemented in Service
-    AppNotification.showSuccess(context, 'Refund of ${formatCurrency(order.amountPaidKobo / 100.0)} processed to ${toWallet ? 'Wallet' : 'Cash'}.');
+    AppNotification.showSuccess(
+      context,
+      'Refund of ${formatCurrency(order.amountPaidKobo / 100.0)} processed to ${toWallet ? 'Wallet' : 'Cash'}.',
+    );
   }
 
   void _showRiderSelection(BuildContext context, int orderId) {
@@ -480,13 +535,16 @@ class _OrdersScreenState extends State<OrdersScreen>
           future: orderService.getRiders(),
           builder: (context, snapshot) {
             final riders = snapshot.data ?? [];
-            final isLoading = snapshot.connectionState == ConnectionState.waiting;
-            
+            final isLoading =
+                snapshot.connectionState == ConnectionState.waiting;
+
             return SafeArea(
               child: Container(
                 decoration: BoxDecoration(
                   color: surfaceCol,
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(20),
+                  ),
                 ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -521,26 +579,53 @@ class _OrdersScreenState extends State<OrdersScreen>
                           shrinkWrap: true,
                           children: [
                             ListTile(
-                              leading: Icon(FontAwesomeIcons.store, color: subtextCol, size: context.getRSize(18)),
-                              title: Text('Pick-up Order', style: TextStyle(color: textCol)),
+                              leading: Icon(
+                                FontAwesomeIcons.store,
+                                color: subtextCol,
+                                size: context.getRSize(18),
+                              ),
+                              title: Text(
+                                'Pick-up Order',
+                                style: TextStyle(color: textCol),
+                              ),
                               onTap: () {
-                                orderService.assignRider(orderId, 'Pick-up Order');
+                                orderService.assignRider(
+                                  orderId,
+                                  'Pick-up Order',
+                                );
                                 Navigator.pop(ctx);
                               },
                             ),
-                            ...riders.map((staff) => ListTile(
-                                  leading: Icon(FontAwesomeIcons.motorcycle, color: Theme.of(context).colorScheme.primary, size: context.getRSize(18)),
-                                  title: Text(staff.name, style: TextStyle(color: textCol)),
-                                  subtitle: Text(staff.role.toUpperCase(), style: TextStyle(color: subtextCol, fontSize: 12)),
-                                  onTap: () {
-                                    orderService.assignRider(orderId, staff.name);
-                                    Navigator.pop(ctx);
-                                  },
-                                )),
+                            ...riders.map(
+                              (staff) => ListTile(
+                                leading: Icon(
+                                  FontAwesomeIcons.motorcycle,
+                                  color: Theme.of(context).colorScheme.primary,
+                                  size: context.getRSize(18),
+                                ),
+                                title: Text(
+                                  staff.name,
+                                  style: TextStyle(color: textCol),
+                                ),
+                                subtitle: Text(
+                                  staff.role.toUpperCase(),
+                                  style: TextStyle(
+                                    color: subtextCol,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                onTap: () {
+                                  orderService.assignRider(orderId, staff.name);
+                                  Navigator.pop(ctx);
+                                },
+                              ),
+                            ),
                           ],
                         ),
                       ),
-                    SizedBox(height: context.getRSize(40)), // Increased padding for system navigation
+                    SizedBox(
+                      height: context.getRSize(40),
+                    ), // Increased padding for system navigation
                   ],
                 ),
               ),
@@ -568,12 +653,16 @@ class _OrdersScreenState extends State<OrdersScreen>
               height: MediaQuery.of(context).size.height * 0.85,
               decoration: BoxDecoration(
                 color: surfaceCol,
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(20),
+                ),
               ),
               child: Column(
                 children: [
                   Container(
-                    margin: EdgeInsets.symmetric(vertical: context.getRSize(12)),
+                    margin: EdgeInsets.symmetric(
+                      vertical: context.getRSize(12),
+                    ),
                     width: context.getRSize(40),
                     height: context.getRSize(5),
                     decoration: BoxDecoration(
@@ -593,17 +682,23 @@ class _OrdersScreenState extends State<OrdersScreen>
                         controller: _screenshotCtrl,
                         child: ReceiptWidget(
                           orderId: currentOrder.orderNumber,
-                          cart: richOrder.items.map((ri) => {
-                            'name': ri.product.name,
-                            'qty': ri.item.quantity,
-                            'price': ri.item.unitPriceKobo / 100.0,
-                          }).toList(),
+                          cart: richOrder.items
+                              .map(
+                                (ri) => {
+                                  'name': ri.product.name,
+                                  'qty': ri.item.quantity,
+                                  'price': ri.item.unitPriceKobo / 100.0,
+                                },
+                              )
+                              .toList(),
                           subtotal: currentOrder.totalAmountKobo / 100.0,
-                          crateDeposit: 0, 
+                          crateDeposit: 0,
                           total: currentOrder.netAmountKobo / 100.0,
                           paymentMethod: currentOrder.paymentType,
-                          customerName: richOrder.customer?.name ?? 'Walk-in Customer',
-                          customerAddress: richOrder.customer?.addressText ?? 'N/A',
+                          customerName:
+                              richOrder.customer?.name ?? 'Walk-in Customer',
+                          customerAddress:
+                              richOrder.customer?.addressText ?? 'N/A',
                           cashReceived: currentOrder.amountPaidKobo / 100.0,
                           walletBalance: richOrder.customer?.customerWallet,
                           reprintDate: reprintDate,
@@ -641,11 +736,15 @@ class _OrdersScreenState extends State<OrdersScreen>
                                 text: 'Refund',
                                 icon: FontAwesomeIcons.rotateLeft,
                                 variant: AppButtonVariant.danger,
-                                onPressed: (currentOrder.paymentType == 'Credit')
+                                onPressed:
+                                    (currentOrder.paymentType == 'Credit')
                                     ? null
                                     : () {
                                         Navigator.pop(modalCtx);
-                                        _showRefundChoice(context, currentOrder);
+                                        _showRefundChoice(
+                                          context,
+                                          currentOrder,
+                                        );
                                       },
                               ),
                             ),
@@ -661,9 +760,15 @@ class _OrdersScreenState extends State<OrdersScreen>
                                   reshareDate = DateTime.now();
                                 });
                                 // Small delay to ensure UI updates before capture
-                                await Future.delayed(const Duration(milliseconds: 100));
+                                await Future.delayed(
+                                  const Duration(milliseconds: 100),
+                                );
                                 if (context.mounted) {
-                                  _shareReceipt(context, richOrder, reshareDate: reshareDate);
+                                  _shareReceipt(
+                                    context,
+                                    richOrder,
+                                    reshareDate: reshareDate,
+                                  );
                                 }
                               },
                             ),
@@ -684,21 +789,30 @@ class _OrdersScreenState extends State<OrdersScreen>
     });
   }
 
-  Future<void> _printReceipt(BuildContext context, OrderWithItems richOrder) async {
+  Future<void> _printReceipt(
+    BuildContext context,
+    OrderWithItems richOrder,
+  ) async {
     final order = richOrder.order;
-    
-    final receiptMapping = richOrder.items.map((ri) => {
-      'name': ri.product.name,
-      'qty': ri.item.quantity,
-      'price': ri.item.unitPriceKobo / 100.0,
-    }).toList();
 
-    final deliveryReceipt = model.deliveryReceiptService.getByOrderId(order.id.toString());
+    final receiptMapping = richOrder.items
+        .map(
+          (ri) => {
+            'name': ri.product.name,
+            'qty': ri.item.quantity,
+            'price': ri.item.unitPriceKobo / 100.0,
+          },
+        )
+        .toList();
+
+    final deliveryReceipt = model.deliveryReceiptService.getByOrderId(
+      order.id.toString(),
+    );
 
     try {
       final granted = await printerService.requestPermissions();
       if (!granted) {
-        if (!mounted) return;
+        if (!context.mounted) return;
         AppNotification.showError(context, 'Bluetooth permissions denied');
         return;
       }
@@ -714,25 +828,25 @@ class _OrdersScreenState extends State<OrdersScreen>
         customerAddress: richOrder.customer?.addressText ?? 'N/A',
         cashReceived: order.amountPaidKobo / 100.0,
         walletBalance: richOrder.customer?.customerWallet,
-        reprintDate: DateTime.now(), 
+        reprintDate: DateTime.now(),
         riderName: order.riderName,
         deliveryRef: deliveryReceipt?.referenceNumber,
         orderStatus: order.status,
         refundAmount: order.amountPaidKobo / 100.0,
       );
 
-      if (!mounted) return;
+      if (!context.mounted) return;
 
       final success = await printerService.printBytes(bytes);
       if (success) {
-        if (!mounted) return;
+        if (!context.mounted) return;
         AppNotification.showSuccess(context, 'Print successful');
         _logReprint(order.id.toString());
         return;
       }
 
       // If print failed (not connected), show printer picker
-      if (mounted) {
+      if (context.mounted) {
         showModalBottomSheet(
           context: context,
           isScrollControlled: true,
@@ -745,38 +859,49 @@ class _OrdersScreenState extends State<OrdersScreen>
           ),
           builder: (_) => PrinterPicker(
             onSelected: (device) async {
-              if (!mounted) return;
+              if (!context.mounted) return;
               Navigator.pop(context);
-              
-              if (!mounted) return;
-              AppNotification.showSuccess(context, 'Connecting to ${device.name}...');
-              
+
+              if (!context.mounted) return;
+              AppNotification.showSuccess(
+                context,
+                'Connecting to ${device.name}...',
+              );
+
               final connected = await printerService.connect(device.macAdress);
               if (!mounted) return;
-              
+
               if (connected) {
                 await printerService.printBytes(bytes);
-                if (!mounted) return;
+                if (!context.mounted) return;
                 AppNotification.showSuccess(context, 'Print successful');
                 _logReprint(order.id.toString());
               } else {
-                AppNotification.showError(context, 'Failed to connect to ${device.name}');
+                if (!context.mounted) return;
+                AppNotification.showError(
+                  context,
+                  'Failed to connect to ${device.name}',
+                );
               }
             },
           ),
         );
       }
     } catch (e) {
-      if (mounted) {
+      if (context.mounted) {
         AppNotification.showError(context, 'Error printing: $e');
       }
     }
   }
 
-  Future<void> _shareReceipt(BuildContext context, OrderWithItems richOrder, {DateTime? reshareDate}) async {
+  Future<void> _shareReceipt(
+    BuildContext context,
+    OrderWithItems richOrder, {
+    DateTime? reshareDate,
+  }) async {
     final order = richOrder.order;
     // orderService.addReprint(order.id);
-    
+
     // Wait for UI to update with 'REPRINTED' or 'RESHARED' stamp before taking screenshot
     await Future.delayed(const Duration(milliseconds: 100));
 
@@ -785,7 +910,7 @@ class _OrdersScreenState extends State<OrdersScreen>
         delay: const Duration(milliseconds: 50),
         pixelRatio: 3.0,
       );
-      
+
       if (imageBytes == null) {
         if (context.mounted) {
           AppNotification.showError(context, 'Failed to capture receipt');
@@ -800,7 +925,9 @@ class _OrdersScreenState extends State<OrdersScreen>
       );
       await file.writeAsBytes(imageBytes);
 
-      await Share.shareXFiles([XFile(file.path)], text: 'Reebaplus POS Receipt Reprint #${order.id}');
+      await Share.shareXFiles([
+        XFile(file.path),
+      ], text: 'Reebaplus POS Receipt Reprint #${order.id}');
       _logReprint(order.id.toString());
     } catch (e) {
       if (context.mounted) {
@@ -841,7 +968,9 @@ class _OrderCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textCol = Theme.of(context).colorScheme.onSurface;
-    final subtextCol = Theme.of(context).textTheme.bodySmall?.color ?? Theme.of(context).iconTheme.color!;
+    final subtextCol =
+        Theme.of(context).textTheme.bodySmall?.color ??
+        Theme.of(context).iconTheme.color!;
     final borderCol = Theme.of(context).dividerColor;
     final cardCol = Theme.of(context).cardColor;
     final surfaceCol = Theme.of(context).colorScheme.surface;
@@ -894,7 +1023,9 @@ class _OrderCard extends StatelessWidget {
                     Container(
                       padding: EdgeInsets.all(context.getRSize(10)),
                       decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.primary.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Icon(
@@ -965,20 +1096,22 @@ class _OrderCard extends StatelessWidget {
                           vertical: context.getRSize(6),
                         ),
                         decoration: BoxDecoration(
-                          color: (order.status == 'completed'
-                                  ? success
-                                  : (order.status == 'refunded'
-                                      ? blueMain
-                                      : danger))
-                              .withValues(alpha: 0.1),
+                          color:
+                              (order.status == 'completed'
+                                      ? success
+                                      : (order.status == 'refunded'
+                                            ? blueMain
+                                            : danger))
+                                  .withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(
-                            color: (order.status == 'completed'
-                                    ? success
-                                    : (order.status == 'refunded'
-                                        ? blueMain
-                                        : danger))
-                                .withValues(alpha: 0.2),
+                            color:
+                                (order.status == 'completed'
+                                        ? success
+                                        : (order.status == 'refunded'
+                                              ? blueMain
+                                              : danger))
+                                    .withValues(alpha: 0.2),
                           ),
                         ),
                         child: Row(
@@ -988,14 +1121,14 @@ class _OrderCard extends StatelessWidget {
                               order.status == 'completed'
                                   ? FontAwesomeIcons.check
                                   : (order.status == 'refunded'
-                                      ? FontAwesomeIcons.rotateLeft
-                                      : FontAwesomeIcons.ban),
+                                        ? FontAwesomeIcons.rotateLeft
+                                        : FontAwesomeIcons.ban),
                               size: context.getRSize(10),
                               color: order.status == 'completed'
                                   ? success
                                   : (order.status == 'refunded'
-                                      ? blueMain
-                                      : danger),
+                                        ? blueMain
+                                        : danger),
                             ),
                             SizedBox(width: context.getRSize(6)),
                             Text(
@@ -1004,8 +1137,8 @@ class _OrderCard extends StatelessWidget {
                                 color: order.status == 'completed'
                                     ? success
                                     : (order.status == 'refunded'
-                                        ? blueMain
-                                        : danger),
+                                          ? blueMain
+                                          : danger),
                                 fontWeight: FontWeight.bold,
                                 fontSize: context.getRFontSize(11),
                               ),
@@ -1186,7 +1319,7 @@ class _OrderCard extends StatelessWidget {
                       if (onMarkAsDelivered != null)
                         Expanded(
                           child: AppButton(
-                            text: 'Confirm Order',
+                            text: 'Confirm',
                             icon: FontAwesomeIcons.truckFast,
                             onPressed: onMarkAsDelivered,
                           ),
@@ -1210,7 +1343,3 @@ class _OrderCard extends StatelessWidget {
     );
   }
 }
-
-
-
-

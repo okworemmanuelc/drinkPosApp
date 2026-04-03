@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:print_bluetooth_thermal/print_bluetooth_thermal.dart';
-import '../../../core/utils/logger.dart';
+import 'package:reebaplus_pos/core/utils/logger.dart';
 
 class PrinterService {
   PrinterService();

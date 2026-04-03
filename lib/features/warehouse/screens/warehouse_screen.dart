@@ -2,21 +2,21 @@ import 'dart:async';
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import '../../../core/widgets/app_fab.dart';
-import '../../../shared/widgets/shared_scaffold.dart';
-import '../../../shared/widgets/menu_button.dart';
-import '../../../shared/widgets/app_bar_header.dart';
-import '../../../shared/widgets/notification_bell.dart';
-import '../../../shared/widgets/app_button.dart';
-import '../../../shared/widgets/app_input.dart';
+import 'package:reebaplus_pos/core/widgets/app_fab.dart';
+import 'package:reebaplus_pos/shared/widgets/shared_scaffold.dart';
+import 'package:reebaplus_pos/shared/widgets/menu_button.dart';
+import 'package:reebaplus_pos/shared/widgets/app_bar_header.dart';
+import 'package:reebaplus_pos/shared/widgets/notification_bell.dart';
+import 'package:reebaplus_pos/shared/widgets/app_button.dart';
+import 'package:reebaplus_pos/shared/widgets/app_input.dart';
 
 
-import '../../../core/theme/design_tokens.dart';
-import '../../../core/utils/responsive.dart';
-import '../../../core/database/app_database.dart';
-import '../../../shared/services/navigation_service.dart';
-import '../../../core/utils/notifications.dart';
-import 'warehouse_details_screen.dart';
+import 'package:reebaplus_pos/core/theme/design_tokens.dart';
+import 'package:reebaplus_pos/core/utils/responsive.dart';
+import 'package:reebaplus_pos/core/database/app_database.dart';
+import 'package:reebaplus_pos/shared/services/navigation_service.dart';
+import 'package:reebaplus_pos/core/utils/notifications.dart';
+import 'package:reebaplus_pos/features/warehouse/screens/warehouse_details_screen.dart';
 
 class WarehouseScreen extends StatefulWidget {
   const WarehouseScreen({super.key});

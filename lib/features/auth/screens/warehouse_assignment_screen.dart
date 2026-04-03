@@ -2,9 +2,9 @@ import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import '../../../core/database/app_database.dart';
-import '../../../shared/services/auth_service.dart';
-import '../../../shared/widgets/app_button.dart';
+import 'package:reebaplus_pos/core/database/app_database.dart';
+import 'package:reebaplus_pos/shared/services/auth_service.dart';
+import 'package:reebaplus_pos/shared/widgets/app_button.dart';
 
 class WarehouseAssignmentScreen extends StatefulWidget {
   final UserData user;

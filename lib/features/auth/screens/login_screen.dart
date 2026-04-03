@@ -1,10 +1,11 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import '../../../core/database/app_database.dart';
+import 'package:reebaplus_pos/core/database/app_database.dart';
 
-import '../../../shared/services/auth_service.dart';
-import '../../../core/utils/responsive.dart';
-import '../../../core/utils/notifications.dart';
+import 'package:reebaplus_pos/shared/services/auth_service.dart';
+import 'package:reebaplus_pos/core/utils/responsive.dart';
+import 'package:reebaplus_pos/core/utils/notifications.dart';
+import 'package:reebaplus_pos/features/auth/screens/email_entry_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -56,12 +57,16 @@ class _LoginScreenState extends State<LoginScreen>
     // Already ready (main.dart warmup succeeded) — nothing to do.
     if (_dbReady) return;
     // main.dart timed out — DB is still initializing in the background. Wait for it.
-    database.customSelect('SELECT 1').get().then((_) {
-      if (mounted) setState(() => _dbReady = true);
-    }).catchError((_) {
-      // Fail open — let the PIN query handle any real DB error itself.
-      if (mounted) setState(() => _dbReady = true);
-    });
+    database
+        .customSelect('SELECT 1')
+        .get()
+        .then((_) {
+          if (mounted) setState(() => _dbReady = true);
+        })
+        .catchError((_) {
+          // Fail open — let the PIN query handle any real DB error itself.
+          if (mounted) setState(() => _dbReady = true);
+        });
   }
 
   @override
@@ -73,11 +78,11 @@ class _LoginScreenState extends State<LoginScreen>
   // ── PIN input helpers ──────────────────────────────────────────────────────
 
   void _onDigit(String digit) {
-    if (!_dbReady || _pin.length >= 4 || _checking || _loginSuccess) return;
+    if (!_dbReady || _pin.length >= 6 || _checking || _loginSuccess) return;
     setState(() {
       _pin += digit;
     });
-    if (_pin.length == 4) _submit();
+    if (_pin.length == 6) _submit();
   }
 
   void _onBackspace() {
@@ -99,7 +104,9 @@ class _LoginScreenState extends State<LoginScreen>
         _pin = '';
         _checking = false;
       });
-      if (mounted) AppNotification.showError(context, 'Login failed. Please try again.');
+      if (mounted) {
+        AppNotification.showError(context, 'Login failed. Please try again.');
+      }
       return;
     }
 
@@ -110,7 +117,9 @@ class _LoginScreenState extends State<LoginScreen>
         _pin = '';
         _checking = false;
       });
-      if (mounted) AppNotification.showError(context, 'Wrong PIN. Please try again.');
+      if (mounted) {
+        AppNotification.showError(context, 'Wrong PIN. Please try again.');
+      }
       return;
     }
 
@@ -121,22 +130,35 @@ class _LoginScreenState extends State<LoginScreen>
 
     // Multiple people share this PIN — ask which one is logging in
     setState(() => _checking = false);
-    if (mounted) _showUserPicker(matches);
+    if (mounted) {
+      _showUserPicker(matches);
+    }
   }
 
   /// Plays the success animation then opens the app.
-  void _enterApp(UserData user) {
+  Future<void> _enterApp(UserData user) async {
     setState(() {
       _loginSuccess = true;
       _loggedInUser = user;
       _checking = false;
     });
     _checkAnim.forward();
-    // Wait for animation to finish (600ms) + brief pause (400ms) then open app
-    Future.delayed(const Duration(milliseconds: 500), () {
-      if (!mounted) return;
-      authService.setCurrentUser(user); // main.dart listener switches the screen
-    });
+
+    // Controlled delay (1.2s) to show the "Welcome" overlay and completion animation.
+    // This allows the user to feel the successful entry before background loading starts.
+    await Future.delayed(const Duration(milliseconds: 1200));
+
+    authService.setCurrentUser(user);
+  }
+
+  /// Clears device persistence and navigates to email entry so the user can
+  /// log in with a different account or on a new device.
+  Future<void> _switchToEmail() async {
+    await authService.clearDeviceUserId();
+    if (!mounted) return;
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (_) => const EmailEntryScreen()),
+    );
   }
 
   void _showUserPicker(List<UserData> users) {
@@ -172,14 +194,12 @@ class _LoginScreenState extends State<LoginScreen>
                   Container(color: Colors.black),
             ),
           ),
-          
+
           // ── Glass Blur Layer ──────────────────────────────────────────
           Positioned.fill(
             child: BackdropFilter(
               filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-              child: Container(
-                color: Colors.black.withValues(alpha: 0.45),
-              ),
+              child: Container(color: Colors.black.withValues(alpha: 0.45)),
             ),
           ),
 
@@ -206,6 +226,7 @@ class _LoginScreenState extends State<LoginScreen>
                       subtextColor: Colors.white.withValues(alpha: 0.6),
                       onDigit: _onDigit,
                       onBackspace: _onBackspace,
+                      onSwitchToEmail: _switchToEmail,
                     ),
             ),
           ),
@@ -285,11 +306,7 @@ class _SuccessOverlay extends StatelessWidget {
                   shape: BoxShape.circle,
                   border: Border.all(color: avatarColor, width: 3),
                 ),
-                child: Icon(
-                  Icons.check_rounded,
-                  size: 52,
-                  color: avatarColor,
-                ),
+                child: Icon(Icons.check_rounded, size: 52, color: avatarColor),
               ),
             ),
             const SizedBox(height: 24),
@@ -306,10 +323,7 @@ class _SuccessOverlay extends StatelessWidget {
             const SizedBox(height: 6),
             Text(
               'Opening Reebaplus POS...',
-              style: TextStyle(
-                fontSize: 14,
-                color: subtextColor,
-              ),
+              style: TextStyle(fontSize: 14, color: subtextColor),
             ),
             const SizedBox(height: 32),
 
@@ -347,7 +361,9 @@ class _LoadingDotsState extends State<_LoadingDots>
       _controllers.add(ctrl);
       // Stagger each dot by 200ms
       Future.delayed(Duration(milliseconds: i * 200), () {
-        if (mounted) ctrl.repeat(reverse: true);
+        if (mounted) {
+          ctrl.repeat(reverse: true);
+        }
       });
     }
   }
@@ -397,6 +413,7 @@ class _PinPad extends StatelessWidget {
   final Color subtextColor;
   final void Function(String) onDigit;
   final VoidCallback onBackspace;
+  final VoidCallback? onSwitchToEmail;
 
   const _PinPad({
     super.key,
@@ -408,6 +425,7 @@ class _PinPad extends StatelessWidget {
     required this.subtextColor,
     required this.onDigit,
     required this.onBackspace,
+    this.onSwitchToEmail,
   });
 
   @override
@@ -431,15 +449,15 @@ class _PinPad extends StatelessWidget {
             ),
             const SizedBox(height: 6),
             Text(
-              'Enter your PIN to continue',
+              'Enter your 6-digit PIN to continue',
               style: TextStyle(fontSize: 14, color: subtextColor),
             ),
             const SizedBox(height: 40),
 
-            // ── Four dots ───────────────────────────────────────────────
+            // ── Six dots ────────────────────────────────────────────────
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(4, (i) {
+              children: List.generate(6, (i) {
                 final filled = i < pin.length;
                 return AnimatedContainer(
                   duration: const Duration(milliseconds: 150),
@@ -448,9 +466,13 @@ class _PinPad extends StatelessWidget {
                   height: 18,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: filled ? Theme.of(context).colorScheme.primary : Colors.white.withValues(alpha: 0.1),
+                    color: filled
+                        ? Theme.of(context).colorScheme.primary
+                        : Colors.white.withValues(alpha: 0.1),
                     border: Border.all(
-                      color: filled ? Theme.of(context).colorScheme.primary : Colors.white.withValues(alpha: 0.4),
+                      color: filled
+                          ? Theme.of(context).colorScheme.primary
+                          : Colors.white.withValues(alpha: 0.4),
                       width: 2,
                     ),
                   ),
@@ -498,11 +520,20 @@ class _PinPad extends StatelessWidget {
               ),
             ),
 
-            const SizedBox(height: 32),
+            const SizedBox(height: 24),
 
-            // ── Loading indicator while checking PIN ─────────────────────
-            // Removed the old small loader here as we use the overlay
-
+            // ── Switch-account link ───────────────────────────────────────
+            if (onSwitchToEmail != null)
+              TextButton(
+                onPressed: onSwitchToEmail,
+                child: Text(
+                  'Login with a different account',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.65),
+                    fontSize: 13,
+                  ),
+                ),
+              ),
           ],
         ),
       ),
@@ -594,16 +625,15 @@ class _UserPickerSheet extends StatelessWidget {
   final List<UserData> users;
   final ValueChanged<UserData> onSelected;
 
-  const _UserPickerSheet({
-    required this.users,
-    required this.onSelected,
-  });
+  const _UserPickerSheet({required this.users, required this.onSelected});
 
   @override
   Widget build(BuildContext context) {
     final surface = Theme.of(context).colorScheme.surface;
     final textColor = Theme.of(context).colorScheme.onSurface;
-    final subtextColor = Theme.of(context).textTheme.bodySmall?.color ?? Theme.of(context).iconTheme.color!;
+    final subtextColor =
+        Theme.of(context).textTheme.bodySmall?.color ??
+        Theme.of(context).iconTheme.color!;
 
     return Container(
       decoration: BoxDecoration(
@@ -653,8 +683,7 @@ class _UserPickerSheet extends StatelessWidget {
               ),
               title: Text(
                 u.name,
-                style:
-                    TextStyle(fontWeight: FontWeight.w600, color: textColor),
+                style: TextStyle(fontWeight: FontWeight.w600, color: textColor),
               ),
               subtitle: Text(
                 _roleLabel(u.role),
@@ -693,4 +722,3 @@ class _UserPickerSheet extends StatelessWidget {
     }
   }
 }
-

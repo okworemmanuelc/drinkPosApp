@@ -1,4 +1,4 @@
-import '../../../../core/utils/stock_calculator.dart';
+import 'package:reebaplus_pos/core/utils/stock_calculator.dart';
 
 class DeliveryItem {
   final String productId; // InventoryItem.id (empty for manual)

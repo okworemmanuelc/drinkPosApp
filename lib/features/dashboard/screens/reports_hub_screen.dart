@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import '../../../core/theme/design_tokens.dart';
-import '../../../shared/widgets/shared_scaffold.dart';
-import '../../../shared/widgets/app_dropdown.dart';
-import 'approvals_screen.dart';
+import 'package:reebaplus_pos/core/theme/design_tokens.dart';
+import 'package:reebaplus_pos/shared/widgets/shared_scaffold.dart';
+import 'package:reebaplus_pos/shared/widgets/app_dropdown.dart';
+import 'package:reebaplus_pos/features/dashboard/screens/approvals_screen.dart';
 
 class ReportsHubScreen extends StatefulWidget {
   const ReportsHubScreen({super.key});

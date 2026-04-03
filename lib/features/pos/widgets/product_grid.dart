@@ -3,14 +3,14 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import '../../../core/database/app_database.dart';
-import '../../../core/theme/colors.dart';
-import '../../../core/utils/responsive.dart';
-import '../../../core/utils/number_format.dart';
-import '../../customers/data/models/customer.dart';
-import '../controllers/pos_controller.dart';
-import '../../../shared/services/cart_service.dart';
-import './product_preview_modal.dart';
+import 'package:reebaplus_pos/core/database/app_database.dart';
+import 'package:reebaplus_pos/core/theme/colors.dart';
+import 'package:reebaplus_pos/core/utils/responsive.dart';
+import 'package:reebaplus_pos/core/utils/number_format.dart';
+import 'package:reebaplus_pos/features/customers/data/models/customer.dart';
+import 'package:reebaplus_pos/features/pos/controllers/pos_controller.dart';
+import 'package:reebaplus_pos/shared/services/cart_service.dart';
+import 'package:reebaplus_pos/features/pos/widgets/product_preview_modal.dart';
 
 class ProductGrid extends StatelessWidget {
   final List<ProductDataWithStock> products;

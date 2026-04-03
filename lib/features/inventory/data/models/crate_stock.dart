@@ -1,7 +1,7 @@
 // CrateStock model
 // TODO: define CrateStock class
 import 'package:flutter/material.dart';
-import 'crate_group.dart';
+import 'package:reebaplus_pos/features/inventory/data/models/crate_group.dart';
 
 class CrateStock {
   CrateGroup group;

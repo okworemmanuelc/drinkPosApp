@@ -1,7 +1,7 @@
 import 'package:flutter/widgets.dart';
-import '../models/supplier.dart';
-import '../models/crate_group.dart';
-import '../../../../core/database/app_database.dart';
+import 'package:reebaplus_pos/features/inventory/data/models/supplier.dart';
+import 'package:reebaplus_pos/features/inventory/data/models/crate_group.dart';
+import 'package:reebaplus_pos/core/database/app_database.dart';
 
 class SupplierService extends ValueNotifier<List<Supplier>> {
   SupplierService() : super([]) {

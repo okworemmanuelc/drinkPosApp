@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import '../../core/database/app_database.dart';
-import '../../shared/widgets/app_button.dart';
+import 'package:reebaplus_pos/core/database/app_database.dart';
+import 'package:reebaplus_pos/shared/widgets/app_button.dart';
 
-import '../../shared/services/auth_service.dart';
+import 'package:reebaplus_pos/shared/services/auth_service.dart';
 
 /// Shows a PIN-entry dialog that requires a user with [minimumTier] or above.
 ///
@@ -52,12 +52,12 @@ class _PinDialogState extends State<PinDialog> {
   bool _checking = false;
 
   void _onDigit(String digit) {
-    if (_pin.length >= 4 || _checking) return;
+    if (_pin.length >= 6 || _checking) return;
     setState(() {
       _pin += digit;
       _errorMessage = null;
     });
-    if (_pin.length == 4) _submit();
+    if (_pin.length == 6) _submit();
   }
 
   void _onBackspace() {
@@ -123,16 +123,16 @@ class _PinDialogState extends State<PinDialog> {
             ),
             const SizedBox(height: 6),
             Text(
-              'Enter a manager PIN to continue',
+              'Enter a 6-digit manager PIN to continue',
               style: TextStyle(fontSize: 12, color: subtextColor),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 24),
 
-            // ── Four dots ────────────────────────────────────────────────
+            // ── Six dots ─────────────────────────────────────────────────
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(4, (i) {
+              children: List.generate(6, (i) {
                 final filled = i < _pin.length;
                 return AnimatedContainer(
                   duration: const Duration(milliseconds: 150),

@@ -1,7 +1,7 @@
 import 'package:flutter/widgets.dart';
-import '../../core/database/app_database.dart';
-import '../models/activity_log.dart';
-import 'auth_service.dart';
+import 'package:reebaplus_pos/core/database/app_database.dart';
+import 'package:reebaplus_pos/shared/models/activity_log.dart';
+import 'package:reebaplus_pos/shared/services/auth_service.dart';
 
 class ActivityLogService extends ValueNotifier<List<ActivityLog>> {
   ActivityLogService() : super([]) {

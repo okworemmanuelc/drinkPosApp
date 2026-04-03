@@ -1,14 +1,13 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import '../../../core/theme/design_tokens.dart';
-import '../../../core/utils/responsive.dart';
-import '../../../core/database/app_database.dart';
-import '../../../shared/services/navigation_service.dart';
-import '../../../shared/widgets/shared_scaffold.dart';
-import '../../../shared/widgets/shared_bottom_nav_bar.dart';
-import '../../../shared/widgets/app_bar_header.dart';
-import '../../../core/utils/number_format.dart';
+import 'package:reebaplus_pos/core/theme/design_tokens.dart';
+import 'package:reebaplus_pos/core/utils/responsive.dart';
+import 'package:reebaplus_pos/core/database/app_database.dart';
+import 'package:reebaplus_pos/shared/services/navigation_service.dart';
+import 'package:reebaplus_pos/shared/widgets/shared_scaffold.dart';
+import 'package:reebaplus_pos/shared/widgets/app_bar_header.dart';
+import 'package:reebaplus_pos/core/utils/number_format.dart';
 
 class WarehouseDetailsScreen extends StatefulWidget {
   final WarehouseData warehouse;
@@ -28,11 +27,12 @@ class _WarehouseDetailsScreenState extends State<WarehouseDetailsScreen> {
   StreamSubscription<List<ProductDataWithStock>>? _inventorySub;
   StreamSubscription<List<UserData>>? _staffSub;
 
-  
   Color get _bg => Theme.of(context).scaffoldBackgroundColor;
   Color get _surface => Theme.of(context).colorScheme.surface;
   Color get _text => Theme.of(context).colorScheme.onSurface;
-  Color get _subtext => Theme.of(context).textTheme.bodySmall?.color ?? Theme.of(context).iconTheme.color!;
+  Color get _subtext =>
+      Theme.of(context).textTheme.bodySmall?.color ??
+      Theme.of(context).iconTheme.color!;
   Color get _border => Theme.of(context).dividerColor;
 
   WarehouseData get _warehouse => _liveWarehouse ?? widget.warehouse;
@@ -48,8 +48,8 @@ class _WarehouseDetailsScreenState extends State<WarehouseDetailsScreen> {
     _inventorySub = database.inventoryDao
         .watchProductDatasWithStockByWarehouse(id)
         .listen((list) {
-      if (mounted) setState(() => _inventory = list);
-    });
+          if (mounted) setState(() => _inventory = list);
+        });
     _staffSub = database.warehousesDao.watchStaffByWarehouse(id).listen((list) {
       if (mounted) setState(() => _staff = list);
     });
@@ -72,22 +72,24 @@ class _WarehouseDetailsScreenState extends State<WarehouseDetailsScreen> {
     );
     final activeProducts = _inventory.where((p) => p.totalStock > 0).length;
     final lowStock = _inventory
-        .where((p) =>
-            p.totalStock > 0 &&
-            p.totalStock <= p.product.lowStockThreshold)
+        .where(
+          (p) =>
+              p.totalStock > 0 && p.totalStock <= p.product.lowStockThreshold,
+        )
         .length;
     final managers = _staff.where((u) => u.roleTier >= 4).length;
     final riders = _staff
-        .where((u) =>
-            u.role.toLowerCase().contains('rider') ||
-            u.role.toLowerCase().contains('driver'))
+        .where(
+          (u) =>
+              u.role.toLowerCase().contains('rider') ||
+              u.role.toLowerCase().contains('driver'),
+        )
         .length;
     final regularStaff = _staff.length - managers;
 
     return SharedScaffold(
       activeRoute: 'warehouse',
       backgroundColor: _bg,
-      bottomNavigationBar: const SharedBottomNavBar(),
       appBar: AppBar(
         backgroundColor: _surface,
         elevation: 0,
@@ -110,7 +112,13 @@ class _WarehouseDetailsScreenState extends State<WarehouseDetailsScreen> {
               _buildMetricOverview(totalStock, totalValue),
               SizedBox(height: rSize(context, 20)),
               _buildStatsGrid(
-                  isWide, managers, regularStaff, riders, activeProducts, lowStock),
+                isWide,
+                managers,
+                regularStaff,
+                riders,
+                activeProducts,
+                lowStock,
+              ),
               SizedBox(height: rSize(context, 24)),
               _buildInventoryList(),
               SizedBox(height: rSize(context, 16)),
@@ -130,7 +138,10 @@ class _WarehouseDetailsScreenState extends State<WarehouseDetailsScreen> {
       padding: EdgeInsets.all(rSize(context, 20)),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [Theme.of(context).colorScheme.primary, Theme.of(context).colorScheme.secondary],
+          colors: [
+            Theme.of(context).colorScheme.primary,
+            Theme.of(context).colorScheme.secondary,
+          ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -171,7 +182,9 @@ class _WarehouseDetailsScreenState extends State<WarehouseDetailsScreen> {
           ),
           Container(
             padding: EdgeInsets.symmetric(
-                horizontal: rSize(context, 16), vertical: rSize(context, 8)),
+              horizontal: rSize(context, 16),
+              vertical: rSize(context, 8),
+            ),
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(12),
@@ -201,8 +214,14 @@ class _WarehouseDetailsScreenState extends State<WarehouseDetailsScreen> {
     );
   }
 
-  Widget _buildStatsGrid(bool isWide, int managers, int regularStaff,
-      int riders, int activeProducts, int lowStock) {
+  Widget _buildStatsGrid(
+    bool isWide,
+    int managers,
+    int regularStaff,
+    int riders,
+    int activeProducts,
+    int lowStock,
+  ) {
     return GridView.count(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
@@ -211,22 +230,46 @@ class _WarehouseDetailsScreenState extends State<WarehouseDetailsScreen> {
       crossAxisSpacing: rSize(context, 12),
       childAspectRatio: 1.1,
       children: [
-        _buildStatCard('Managers', managers.toString(),
-            FontAwesomeIcons.userTie, const Color(0xFFA855F7)),
-        _buildStatCard('Staff', regularStaff.toString(),
-            FontAwesomeIcons.userGroup, Theme.of(context).colorScheme.primary),
-        _buildStatCard('Riders', riders.toString(),
-            FontAwesomeIcons.motorcycle, AppColors.warning),
-        _buildStatCard('Products', activeProducts.toString(),
-            FontAwesomeIcons.boxesStacked, AppColors.success),
-        _buildStatCard('Low Stock', lowStock.toString(),
-            FontAwesomeIcons.triangleExclamation, AppColors.danger),
+        _buildStatCard(
+          'Managers',
+          managers.toString(),
+          FontAwesomeIcons.userTie,
+          const Color(0xFFA855F7),
+        ),
+        _buildStatCard(
+          'Staff',
+          regularStaff.toString(),
+          FontAwesomeIcons.userGroup,
+          Theme.of(context).colorScheme.primary,
+        ),
+        _buildStatCard(
+          'Riders',
+          riders.toString(),
+          FontAwesomeIcons.motorcycle,
+          AppColors.warning,
+        ),
+        _buildStatCard(
+          'Products',
+          activeProducts.toString(),
+          FontAwesomeIcons.boxesStacked,
+          AppColors.success,
+        ),
+        _buildStatCard(
+          'Low Stock',
+          lowStock.toString(),
+          FontAwesomeIcons.triangleExclamation,
+          AppColors.danger,
+        ),
       ],
     );
   }
 
   Widget _buildStatCard(
-      String label, String value, IconData icon, Color color) {
+    String label,
+    String value,
+    IconData icon,
+    Color color,
+  ) {
     return Container(
       padding: EdgeInsets.all(rSize(context, 16)),
       decoration: BoxDecoration(
@@ -287,16 +330,21 @@ class _WarehouseDetailsScreenState extends State<WarehouseDetailsScreen> {
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
         child: ExpansionTile(
           initiallyExpanded: true,
-          tilePadding:
-              EdgeInsets.symmetric(horizontal: rSize(context, 16), vertical: 0),
+          tilePadding: EdgeInsets.symmetric(
+            horizontal: rSize(context, 16),
+            vertical: 0,
+          ),
           leading: Container(
             padding: EdgeInsets.all(rSize(context, 8)),
             decoration: BoxDecoration(
               color: AppColors.success.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(FontAwesomeIcons.boxesStacked,
-                color: AppColors.success, size: rSize(context, 14)),
+            child: Icon(
+              FontAwesomeIcons.boxesStacked,
+              color: AppColors.success,
+              size: rSize(context, 14),
+            ),
           ),
           title: Text(
             'Inventory',
@@ -316,13 +364,17 @@ class _WarehouseDetailsScreenState extends State<WarehouseDetailsScreen> {
                     padding: EdgeInsets.all(rSize(context, 20)),
                     child: Text(
                       'No stock in this warehouse yet.',
-                      style: TextStyle(color: _subtext, fontSize: rFontSize(context, 13)),
+                      style: TextStyle(
+                        color: _subtext,
+                        fontSize: rFontSize(context, 13),
+                      ),
                       textAlign: TextAlign.center,
                     ),
                   ),
                 ]
               : stocked.map((item) {
-                  final isLow = item.totalStock <= item.product.lowStockThreshold;
+                  final isLow =
+                      item.totalStock <= item.product.lowStockThreshold;
                   return Container(
                     decoration: BoxDecoration(
                       border: Border(top: BorderSide(color: _border)),
@@ -366,7 +418,9 @@ class _WarehouseDetailsScreenState extends State<WarehouseDetailsScreen> {
                             ),
                             decoration: BoxDecoration(
                               color: isLow
-                                  ? Theme.of(context).colorScheme.error.withValues(alpha: 0.1)
+                                  ? Theme.of(
+                                      context,
+                                    ).colorScheme.error.withValues(alpha: 0.1)
                                   : AppColors.success.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(8),
                             ),
@@ -375,7 +429,9 @@ class _WarehouseDetailsScreenState extends State<WarehouseDetailsScreen> {
                               style: TextStyle(
                                 fontSize: rFontSize(context, 12),
                                 fontWeight: FontWeight.bold,
-                                color: isLow ? AppColors.danger : AppColors.success,
+                                color: isLow
+                                    ? AppColors.danger
+                                    : AppColors.success,
                               ),
                             ),
                           ),
@@ -401,16 +457,21 @@ class _WarehouseDetailsScreenState extends State<WarehouseDetailsScreen> {
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
         child: ExpansionTile(
           initiallyExpanded: true,
-          tilePadding:
-              EdgeInsets.symmetric(horizontal: rSize(context, 16), vertical: 0),
+          tilePadding: EdgeInsets.symmetric(
+            horizontal: rSize(context, 16),
+            vertical: 0,
+          ),
           leading: Container(
             padding: EdgeInsets.all(rSize(context, 8)),
             decoration: BoxDecoration(
               color: const Color(0xFFA855F7).withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(FontAwesomeIcons.userGroup,
-                color: const Color(0xFFA855F7), size: rSize(context, 14)),
+            child: Icon(
+              FontAwesomeIcons.userGroup,
+              color: const Color(0xFFA855F7),
+              size: rSize(context, 14),
+            ),
           ),
           title: Text(
             'Assigned Staff',
@@ -430,7 +491,10 @@ class _WarehouseDetailsScreenState extends State<WarehouseDetailsScreen> {
                     padding: EdgeInsets.all(rSize(context, 20)),
                     child: Text(
                       'No staff assigned to this warehouse.',
-                      style: TextStyle(color: _subtext, fontSize: rFontSize(context, 13)),
+                      style: TextStyle(
+                        color: _subtext,
+                        fontSize: rFontSize(context, 13),
+                      ),
                       textAlign: TextAlign.center,
                     ),
                   ),
@@ -453,8 +517,7 @@ class _WarehouseDetailsScreenState extends State<WarehouseDetailsScreen> {
                         children: [
                           CircleAvatar(
                             radius: rSize(context, 18),
-                            backgroundColor:
-                                roleColor.withValues(alpha: 0.15),
+                            backgroundColor: roleColor.withValues(alpha: 0.15),
                             child: Text(
                               member.name.isNotEmpty
                                   ? member.name[0].toUpperCase()
@@ -541,8 +604,10 @@ class _WarehouseDetailsScreenState extends State<WarehouseDetailsScreen> {
                 FontAwesomeIcons.boxesStacked,
                 Theme.of(context).colorScheme.primary,
                 () {
-                  navigationService.selectedWarehouseId.value =
-                      widget.warehouse.id.toString();
+                  navigationService.selectedWarehouseId.value = widget
+                      .warehouse
+                      .id
+                      .toString();
                   navigationService.setIndex(2);
                 },
               ),
@@ -566,8 +631,13 @@ class _WarehouseDetailsScreenState extends State<WarehouseDetailsScreen> {
     );
   }
 
-  Widget _actionTile(String title, String subtitle, IconData icon, Color color,
-      VoidCallback onTap) {
+  Widget _actionTile(
+    String title,
+    String subtitle,
+    IconData icon,
+    Color color,
+    VoidCallback onTap,
+  ) {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(16),
@@ -614,4 +684,3 @@ class _WarehouseDetailsScreenState extends State<WarehouseDetailsScreen> {
     );
   }
 }
-

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../theme/colors.dart';
+import 'package:reebaplus_pos/core/theme/colors.dart';
 
 /// Amber circle with a number inside.
 class CartQtyBubble extends StatelessWidget {

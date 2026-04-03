@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import '../../../core/utils/responsive.dart';
-import '../../../shared/services/cart_service.dart';
-import '../../../shared/widgets/app_input.dart';
-import '../../../shared/widgets/app_button.dart';
-import '../../../core/utils/notifications.dart';
+import 'package:reebaplus_pos/core/utils/responsive.dart';
+import 'package:reebaplus_pos/shared/services/cart_service.dart';
+import 'package:reebaplus_pos/shared/widgets/app_input.dart';
+import 'package:reebaplus_pos/shared/widgets/app_button.dart';
+import 'package:reebaplus_pos/core/utils/notifications.dart';
 
 class QuickSaleModal extends StatefulWidget {
   final Color surfaceCol;

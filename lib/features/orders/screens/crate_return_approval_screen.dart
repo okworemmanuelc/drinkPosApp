@@ -4,10 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:intl/intl.dart';
 
-import '../../../core/database/app_database.dart';
-import '../../../core/utils/responsive.dart';
-import '../../../core/utils/notifications.dart';
-import '../../../shared/widgets/app_button.dart';
+import 'package:reebaplus_pos/core/database/app_database.dart';
+import 'package:reebaplus_pos/core/utils/responsive.dart';
+import 'package:reebaplus_pos/core/utils/notifications.dart';
+import 'package:reebaplus_pos/shared/widgets/app_button.dart';
 
 class CrateReturnApprovalScreen extends StatefulWidget {
   final int pendingReturnId;

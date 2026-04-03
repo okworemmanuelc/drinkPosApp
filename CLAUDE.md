@@ -3,7 +3,7 @@
 Reebaplus POS is a modern Flutter-based Point of Sale application designed specifically for drinks distributors. It features offline-first capabilities with local SQLite storage and seamless cloud synchronization.
 
 ## 📝 Summary of Major Recent Updates
-- **PIN-based Authentication**: Secure login with role-based navigation and warehouse access control.
+- **Email + OTP + 6-digit PIN Authentication**: Three-scenario login flow — (1) returning user on same device → PIN screen directly; (2) new user/new device → Email → Supabase OTP → create PIN; (3) existing user on new device → Email → OTP → enter existing PIN. Device session persisted via `SharedPreferences` key `device_user_id`. All PINs migrated from 4-digit to 6-digit (schema v29). New staff registered by admin have `pin = ''`; they set their PIN on first login via `CreatePinScreen`.
 - **Crate Management 2.0**: Physical crate stocks moved to `Manufacturers` table; added manual **Empty Crate Return** modal with role-based short-return handling (staff → pending notification; manager → PIN authorisation).
 - **Crate Deposit Tracking**: `Orders.crateDepositPaidKobo` (schema v26) stores the deposit collected at checkout. `CrateReturnModal.show()` auto-skips if no glass items are in the order or if the full deposit was already paid.
 - **Performance Optimizations**: Implemented `LazyIndexedStack` for main navigation and deferred content rendering for detail screens to eliminate lag.
@@ -26,7 +26,7 @@ Reebaplus POS is a modern Flutter-based Point of Sale application designed speci
 -   **Frontend**: Flutter (v3.10.7+)
 -   **Local Database**: [Drift](https://drift.simonbinder.eu/) (SQLite)
 -   **Remote Backend**: [Supabase](https://supabase.com/) (Auth, PostgreSQL, Real-time Sync)
--   **Authentication**: PIN-based login via `LoginScreen`. `AuthService` holds the active `UserData?` as a `ValueNotifier`. `main.dart` switches between `LoginScreen` → `WarehouseAssignmentScreen` → `MainLayout` based on `authService.value`. `WarehouseAssignmentScreen` polls the DB every 5 s; when a `warehouseId` is assigned it calls `authService.setCurrentUser(updatedUser)` to unblock the user.
+-   **Authentication**: Email + Supabase OTP + 6-digit PIN. On cold start `main.dart` reads `SharedPreferences` key `device_user_id`: if present → `LoginScreen` (6-digit PIN); if absent → `EmailEntryScreen`. After OTP verification, new staff (pin == '') go to `CreatePinScreen`; existing staff go to `LoginScreen`. `AuthService` holds `UserData?` as `ValueNotifier`; `setCurrentUser()` auto-persists `device_user_id`; `logout()` clears it. `main.dart` switches between `EmailEntryScreen` / `LoginScreen` → `WarehouseAssignmentScreen` → `MainLayout`. Auth screens: `email_entry_screen.dart`, `otp_verification_screen.dart`, `create_pin_screen.dart`, `login_screen.dart`.
 -   **Printing**: ESC/POS Bluetooth Thermal Printing
 
 ## 📂 Project Structure
@@ -39,7 +39,7 @@ lib/
 │   ├── database/       # Drift database definition (app_database.dart, daos.dart)
 │   └── theme/          # Premium UI tokens and AppTheme
 ├── features/           # Modular feature implementations
-│   ├── auth/           # LoginScreen (PIN entry), WarehouseAssignmentScreen (unassigned staff waiting screen)
+│   ├── auth/           # EmailEntryScreen, OtpVerificationScreen, CreatePinScreen, LoginScreen (6-digit PIN), WarehouseAssignmentScreen
 │   ├── inventory/      # Product management, Stock tracking
 │   ├── pos/            # Checkout, Cart, Sales interface
 │   ├── orders/         # Order history and status management
@@ -111,7 +111,8 @@ lib/
 6.  **Schema Migrations**: Every time `schemaVersion` is bumped, add a matching `if (from < newVersion)` block inside `onUpgrade` in `app_database.dart`. Use `m.createTable(table)` for new tables. For new columns on existing tables use `m.addColumn(table, table.column)`. Never drop tables in `onUpgrade` — that wipes user data. The fallback `for (final table in allTables) { await m.createTable(table).catchError((_) => ...); }` loop at the end of `onUpgrade` safely handles any tables not yet explicitly handled — already-existing tables are silently skipped.
 7.  **MainLayout — lazy IndexedStack**: `main_layout.dart` wraps the 12-screen `IndexedStack` in a `_LazyIndexedStack` widget (defined in the same file). It only builds a screen the first time that tab is visited; unvisited tabs hold a `SizedBox.shrink()`. Once built, a screen stays alive forever (same behaviour as a plain `IndexedStack`). This prevents a 12-screen simultaneous build on first login. Do NOT replace `_LazyIndexedStack` with a plain `IndexedStack` or a `_buildScreen` switch.
 8.  **MainLayout — pending orders stream**: The pending-orders badge count is driven by a single `StreamSubscription<List<Order>>` stored in `_pendingOrdersSub` (initiated in `initState`, cancelled in `dispose`). Do NOT move it back into `build()` as a `StreamBuilder` — this creates a new Drift watcher on every bottom-nav rebuild.
-9.  **Seed data split**: `_seedData()` (called from both `onCreate` and `_seedDefaultStaff()`) inserts only system defaults: crate groups and categories. `_seedBusinessData()` (called only from `onCreate`) inserts the real branch data. Do NOT merge them — `_seedDefaultStaff()` is a recovery method for broken upgrades and must not re-insert warehouses or business staff. PIN list for fresh installs: 0000=CEO, 1111=Pankshin manager, 2222–3333=stock keepers, 4444=rider, 5555=Keffi manager, 6666=stock keeper, 7777=Tafawa Balewa manager, 8888–0011=riders, 2233–7788=cashiers, 8899–1010=cleaners.
+9.  **Seed data split**: `_seedData()` (called from both `onCreate` and `_seedDefaultStaff()`) inserts only system defaults: crate groups and categories. `_seedBusinessData()` (called only from `onCreate`) inserts the real branch data. Do NOT merge them — `_seedDefaultStaff()` is a recovery method for broken upgrades and must not re-insert warehouses or business staff. PIN list for fresh installs (all 6-digit): 000000=CEO, 111100=Pankshin manager, 222200–333300=stock keepers, 444400=rider, 555500=Keffi manager, 666600=stock keeper, 777700=Tafawa Balewa manager, 888800–001100=riders, 223300–778800=cashiers, 889900–101000=cleaners. Schema v29 migration pads all existing 4-digit PINs with '00' suffix (e.g. '1111' → '111100').
+10. **Device Persistence**: `AuthService` uses `SharedPreferences` key `'device_user_id'` (int) to persist the logged-in user's ID across app restarts. On cold start, `main.dart` reads this key; if present → `LoginScreen` (6-digit PIN); if absent → `EmailEntryScreen`. `setCurrentUser()` auto-saves the ID; `logout()` auto-clears it. New staff have `pin = ''` in DB until they complete `CreatePinScreen` on first login.
 
 ## 📦 Assets
 -   **Images**: Stored in `assets/images/`, including branding (Ribaplus logo) and decorative backgrounds.

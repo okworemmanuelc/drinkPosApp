@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
-import '../../core/theme/theme_settings_screen.dart';
-import '../../core/utils/responsive.dart';
-import '../../shared/services/navigation_service.dart';
-import '../../shared/services/auth_service.dart';
-import '../../shared/widgets/user_tips_modal.dart';
-import '../../core/database/app_database.dart';
+import 'package:reebaplus_pos/core/theme/theme_settings_screen.dart';
+import 'package:reebaplus_pos/core/utils/responsive.dart';
+import 'package:reebaplus_pos/shared/services/navigation_service.dart';
+import 'package:reebaplus_pos/shared/services/auth_service.dart';
+import 'package:reebaplus_pos/shared/widgets/user_tips_modal.dart';
+import 'package:reebaplus_pos/core/database/app_database.dart';
 
 class AppDrawer extends StatelessWidget {
   // Pass 'pos' or 'inventory' to highlight the correct nav item

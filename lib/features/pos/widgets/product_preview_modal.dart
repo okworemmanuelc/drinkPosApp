@@ -1,9 +1,9 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import '../../../core/database/app_database.dart';
-import '../../../core/utils/number_format.dart';
-import '../../../core/utils/responsive.dart';
+import 'package:reebaplus_pos/core/database/app_database.dart';
+import 'package:reebaplus_pos/core/utils/number_format.dart';
+import 'package:reebaplus_pos/core/utils/responsive.dart';
 
 class ProductPreviewModal extends StatefulWidget {
   final ProductData product;

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/utils/responsive.dart';
+import 'package:reebaplus_pos/core/utils/responsive.dart';
 
 class WarehousePlaceholderScreen extends StatelessWidget {
   const WarehousePlaceholderScreen({super.key});

@@ -1,20 +1,21 @@
 import 'package:flutter/material.dart';
-import '../../../core/widgets/app_fab.dart';
+import 'package:reebaplus_pos/core/widgets/app_fab.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
-import '../../../core/database/app_database.dart';
-import '../../../core/theme/colors.dart';
-import '../../../core/utils/number_format.dart';
-import '../../../core/utils/responsive.dart';
-import '../../../shared/services/auth_service.dart';
-import '../../../shared/services/navigation_service.dart';
-import '../../../shared/widgets/app_drawer.dart';
-import '../../../shared/widgets/notification_bell.dart';
-import '../data/models/customer.dart';
-import '../data/services/customer_service.dart';
-import '../widgets/add_customer_sheet.dart';
-import 'customer_detail_screen.dart';
-import '../../../shared/widgets/app_dropdown.dart';
+import 'package:reebaplus_pos/core/database/app_database.dart';
+import 'package:reebaplus_pos/core/theme/colors.dart';
+import 'package:reebaplus_pos/core/utils/number_format.dart';
+import 'package:reebaplus_pos/core/utils/responsive.dart';
+import 'package:reebaplus_pos/shared/services/auth_service.dart';
+import 'package:reebaplus_pos/shared/services/navigation_service.dart';
+import 'package:reebaplus_pos/shared/widgets/app_drawer.dart';
+import 'package:reebaplus_pos/shared/widgets/notification_bell.dart';
+import 'package:reebaplus_pos/features/customers/data/models/customer.dart';
+import 'package:reebaplus_pos/features/customers/data/services/customer_service.dart';
+import 'package:reebaplus_pos/features/customers/widgets/add_customer_sheet.dart';
+import 'package:reebaplus_pos/features/customers/screens/customer_detail_screen.dart';
+import 'package:reebaplus_pos/shared/widgets/app_dropdown.dart';
+import 'package:reebaplus_pos/shared/widgets/shimmer_loading.dart';
 
 class CustomersScreen extends StatefulWidget {
   const CustomersScreen({super.key});
@@ -24,6 +25,7 @@ class CustomersScreen extends StatefulWidget {
 }
 
 class _CustomersScreenState extends State<CustomersScreen> {
+  bool _isFirstLoad = true;
   List<WarehouseData> _warehouses = [];
   // null = "All Warehouses"
   int? _selectedWarehouseId;
@@ -49,10 +51,14 @@ class _CustomersScreenState extends State<CustomersScreen> {
     }
     // Staff (< 4): no dropdown — always their warehouse (handled in filter)
 
+    final minLoading = Future.delayed(const Duration(seconds: 2));
+    await minLoading;
+
     if (mounted) {
       setState(() {
         _warehouses = ws;
         _selectedWarehouseId = defaultId;
+        _isFirstLoad = false;
       });
     }
   }
@@ -66,7 +72,9 @@ class _CustomersScreenState extends State<CustomersScreen> {
         final bgCol = Theme.of(context).scaffoldBackgroundColor;
         final surfaceCol = Theme.of(context).colorScheme.surface;
         final textCol = Theme.of(context).colorScheme.onSurface;
-        final subtextCol = Theme.of(context).textTheme.bodySmall?.color ?? Theme.of(context).iconTheme.color!;
+        final subtextCol =
+            Theme.of(context).textTheme.bodySmall?.color ??
+            Theme.of(context).iconTheme.color!;
         final borderCol = Theme.of(context).dividerColor;
         final cardCol = Theme.of(context).cardColor;
 
@@ -82,12 +90,22 @@ class _CustomersScreenState extends State<CustomersScreen> {
             children: [
               // ── Warehouse filter dropdown (managers and CEO only) ──
               if (isManagerOrAbove)
-                _buildWarehouseFilter(context, surfaceCol, textCol, subtextCol, borderCol),
+                _buildWarehouseFilter(
+                  context,
+                  surfaceCol,
+                  textCol,
+                  subtextCol,
+                  borderCol,
+                ),
 
               Expanded(
                 child: ValueListenableBuilder<List<Customer>>(
                   valueListenable: customerService,
                   builder: (context, customers, child) {
+                    if (_isFirstLoad) {
+                      return const ShimmerList(count: 8);
+                    }
+
                     List<Customer> filtered;
 
                     if (roleTier < 4) {
@@ -109,9 +127,9 @@ class _CustomersScreenState extends State<CustomersScreen> {
                       return const Center(child: Text('No customers found.'));
                     }
                     return ListView.separated(
-                      padding: context.rPadding(16).copyWith(
-                            bottom: context.getRSize(100),
-                          ),
+                      padding: context
+                          .rPadding(16)
+                          .copyWith(bottom: context.getRSize(100)),
                       itemCount: filtered.length,
                       separatorBuilder: (context, index) =>
                           SizedBox(height: context.getRSize(12)),
@@ -150,7 +168,6 @@ class _CustomersScreenState extends State<CustomersScreen> {
     Color subtextCol,
     Color borderCol,
   ) {
-
     return Container(
       color: surfaceCol,
       padding: EdgeInsets.fromLTRB(
@@ -179,7 +196,7 @@ class _CustomersScreenState extends State<CustomersScreen> {
             child: AppDropdown<int?>(
               value: _selectedWarehouseId,
               items: [
-                DropdownMenuItem<int?>(
+                const DropdownMenuItem<int?>(
                   value: null,
                   child: Text(
                     'All Warehouses',
@@ -189,10 +206,7 @@ class _CustomersScreenState extends State<CustomersScreen> {
                 ..._warehouses.map(
                   (w) => DropdownMenuItem<int?>(
                     value: w.id,
-                    child: Text(
-                      w.name,
-                      overflow: TextOverflow.ellipsis,
-                    ),
+                    child: Text(w.name, overflow: TextOverflow.ellipsis),
                   ),
                 ),
               ],
@@ -261,11 +275,18 @@ class _CustomersScreenState extends State<CustomersScreen> {
           Container(
             padding: EdgeInsets.all(context.getRSize(8)),
             decoration: BoxDecoration(
-              gradient: LinearGradient(colors: [Theme.of(context).colorScheme.primary.withValues(alpha: 0.7), Theme.of(context).colorScheme.primary]),
+              gradient: LinearGradient(
+                colors: [
+                  Theme.of(context).colorScheme.primary.withValues(alpha: 0.7),
+                  Theme.of(context).colorScheme.primary,
+                ],
+              ),
               borderRadius: BorderRadius.circular(12),
               boxShadow: [
                 BoxShadow(
-                  color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.primary.withValues(alpha: 0.3),
                   blurRadius: 8,
                   offset: const Offset(0, 2),
                 ),
@@ -356,9 +377,13 @@ class _CustomersScreenState extends State<CustomersScreen> {
             children: [
               CircleAvatar(
                 radius: context.getRSize(24),
-                backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                backgroundColor: Theme.of(
+                  context,
+                ).colorScheme.primary.withValues(alpha: 0.1),
                 child: Text(
-                  customer.name.isNotEmpty ? customer.name.substring(0, 1).toUpperCase() : '?',
+                  customer.name.isNotEmpty
+                      ? customer.name.substring(0, 1).toUpperCase()
+                      : '?',
                   style: TextStyle(
                     color: Theme.of(context).colorScheme.primary,
                     fontWeight: FontWeight.bold,
@@ -398,9 +423,15 @@ class _CustomersScreenState extends State<CustomersScreen> {
                         vertical: context.getRSize(2),
                       ),
                       decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.primary.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.2)),
+                        border: Border.all(
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.primary.withValues(alpha: 0.2),
+                        ),
                       ),
                       child: Text(
                         customer.customerGroup.name.toUpperCase(),

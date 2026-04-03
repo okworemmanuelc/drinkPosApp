@@ -1,19 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
-import '../../../core/theme/colors.dart';
+import 'package:reebaplus_pos/core/theme/colors.dart';
 
-import '../../../core/utils/number_format.dart';
-import '../../../core/utils/responsive.dart';
-import '../../../core/utils/stock_calculator.dart';
-import '../data/inventory_data.dart';
-import '../data/models/supplier.dart';
-import '../data/models/inventory_item.dart';
-import '../data/models/crate_group.dart';
-import '../data/models/crate_stock.dart';
-import '../data/models/inventory_log.dart';
-import '../../pos/data/products_data.dart';
-import '../../../shared/widgets/shared_bottom_nav_bar.dart';
+import 'package:reebaplus_pos/core/utils/number_format.dart';
+import 'package:reebaplus_pos/core/utils/responsive.dart';
+import 'package:reebaplus_pos/core/utils/stock_calculator.dart';
+import 'package:reebaplus_pos/features/inventory/data/inventory_data.dart';
+import 'package:reebaplus_pos/features/inventory/data/models/supplier.dart';
+import 'package:reebaplus_pos/features/inventory/data/models/inventory_item.dart';
+import 'package:reebaplus_pos/features/inventory/data/models/crate_group.dart';
+import 'package:reebaplus_pos/features/inventory/data/models/crate_stock.dart';
+import 'package:reebaplus_pos/features/inventory/data/models/inventory_log.dart';
+import 'package:reebaplus_pos/features/pos/data/products_data.dart';
 
 class SupplierDetailScreen extends StatefulWidget {
   final Supplier supplier;
@@ -30,7 +29,9 @@ class _SupplierDetailScreenState extends State<SupplierDetailScreen> {
   Color get _surface => Theme.of(context).colorScheme.surface;
   Color get _cardBg => Theme.of(context).cardColor;
   Color get _text => Theme.of(context).colorScheme.onSurface;
-  Color get _subtext => Theme.of(context).textTheme.bodySmall?.color ?? Theme.of(context).iconTheme.color!;
+  Color get _subtext =>
+      Theme.of(context).textTheme.bodySmall?.color ??
+      Theme.of(context).iconTheme.color!;
   Color get _border => Theme.of(context).dividerColor;
 
   @override
@@ -40,7 +41,6 @@ class _SupplierDetailScreenState extends State<SupplierDetailScreen> {
       valueListenable: themeNotifier,
       builder: (ctx, val, child) => Scaffold(
         backgroundColor: _bg,
-        bottomNavigationBar: const SharedBottomNavBar(),
         appBar: AppBar(
           backgroundColor: _surface,
           elevation: 0,
@@ -212,7 +212,9 @@ class _SupplierDetailScreenState extends State<SupplierDetailScreen> {
                 width: context.getRSize(40),
                 height: context.getRSize(40),
                 decoration: BoxDecoration(
-                  color: widget.supplier.crateGroup.color.withValues(alpha: 0.1),
+                  color: widget.supplier.crateGroup.color.withValues(
+                    alpha: 0.1,
+                  ),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(
@@ -468,7 +470,3 @@ class _SupplierDetailScreenState extends State<SupplierDetailScreen> {
     );
   }
 }
-
-
-
-

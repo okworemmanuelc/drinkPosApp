@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import '../../core/theme/colors.dart';
+import 'package:reebaplus_pos/core/theme/colors.dart';
 
-import '../../core/utils/responsive.dart';
-import '../../shared/widgets/app_button.dart';
+import 'package:reebaplus_pos/core/utils/responsive.dart';
+import 'package:reebaplus_pos/shared/widgets/app_button.dart';
 
 class UserTipsModal extends StatefulWidget {
   const UserTipsModal({super.key});

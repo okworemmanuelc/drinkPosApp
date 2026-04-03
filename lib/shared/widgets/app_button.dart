@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
-import '../../core/utils/responsive.dart';
-import '../../core/theme/colors.dart';
+import 'package:reebaplus_pos/core/utils/responsive.dart';
+import 'package:reebaplus_pos/core/theme/colors.dart';
 
 enum AppButtonVariant { primary, secondary, outline, danger, ghost }
+
 enum AppButtonSize { small, normal, large }
 
 class AppButton extends StatelessWidget {
@@ -93,13 +94,21 @@ class AppButton extends StatelessWidget {
           Icon(icon, size: context.getRSize(18), color: textColor),
           SizedBox(width: context.getRSize(10)),
         ],
-        Text(
-          text,
-          style: TextStyle(
-            color: textColor,
-            fontSize: context.getRFontSize(size == AppButtonSize.small ? 13 : (size == AppButtonSize.large ? 17 : 15)),
-            fontWeight: FontWeight.bold,
-            letterSpacing: 0.3,
+        Flexible(
+          child: Text(
+            text,
+            overflow: TextOverflow.ellipsis,
+            maxLines: 1,
+            style: TextStyle(
+              color: textColor,
+              fontSize: context.getRFontSize(
+                size == AppButtonSize.small
+                    ? 13
+                    : (size == AppButtonSize.large ? 17 : 15),
+              ),
+              fontWeight: FontWeight.bold,
+              letterSpacing: 0.3,
+            ),
           ),
         ),
         if (!isLoading && trailingIcon != null) ...[
@@ -113,23 +122,33 @@ class AppButton extends StatelessWidget {
       opacity: isDisabled ? 0.7 : 1.0,
       child: Container(
         width: isFullWidth ? (width ?? double.infinity) : width,
-        height: height ?? context.getRSize(size == AppButtonSize.small ? 40 : (size == AppButtonSize.large ? 60 : 54)),
+        height:
+            height ??
+            context.getRSize(
+              size == AppButtonSize.small
+                  ? 40
+                  : (size == AppButtonSize.large ? 60 : 54),
+            ),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(14),
-          gradient: gradient != null ? LinearGradient(
-            colors: gradient,
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ) : null,
+          gradient: gradient != null
+              ? LinearGradient(
+                  colors: gradient,
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                )
+              : null,
           color: gradient == null ? bgColor : null,
           border: border != null ? Border.fromBorderSide(border) : null,
-          boxShadow: variant == AppButtonVariant.primary && !isDisabled ? [
-            BoxShadow(
-              color: blueDark.withValues(alpha: 0.3),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
-            )
-          ] : null,
+          boxShadow: variant == AppButtonVariant.primary && !isDisabled
+              ? [
+                  BoxShadow(
+                    color: blueDark.withValues(alpha: 0.3),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ]
+              : null,
         ),
         child: Material(
           color: Colors.transparent,
@@ -137,7 +156,9 @@ class AppButton extends StatelessWidget {
             onTap: isDisabled ? null : onPressed,
             borderRadius: BorderRadius.circular(14),
             child: Padding(
-              padding: padding ?? EdgeInsets.symmetric(horizontal: context.getRSize(16)),
+              padding:
+                  padding ??
+                  EdgeInsets.symmetric(horizontal: context.getRSize(16)),
               child: Center(child: content),
             ),
           ),

@@ -1,27 +1,28 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import '../../../core/widgets/app_fab.dart';
+import 'package:reebaplus_pos/core/widgets/app_fab.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import '../../../core/theme/colors.dart';
+import 'package:reebaplus_pos/core/theme/colors.dart';
 
-import '../../../core/utils/responsive.dart';
-import '../../../shared/services/cart_service.dart';
-import '../../../shared/widgets/shared_scaffold.dart';
-import '../../../shared/widgets/menu_button.dart';
-import '../../../shared/widgets/app_bar_header.dart';
-import '../../../shared/widgets/notification_bell.dart';
-import '../../../shared/widgets/app_dropdown.dart';
-import '../../../shared/widgets/app_input.dart';
-import '../../customers/data/models/customer.dart';
-import '../controllers/pos_controller.dart';
-import '../widgets/product_grid.dart';
-import '../widgets/category_filter_bar.dart';
-import '../widgets/quick_sale_modal.dart';
-import '../../../shared/widgets/pin_dialog.dart';
-import '../../../shared/services/auth_service.dart';
-import '../../../shared/services/navigation_service.dart';
-import '../../../core/database/app_database.dart';
-import '../../../core/utils/notifications.dart';
+import 'package:reebaplus_pos/core/utils/responsive.dart';
+import 'package:reebaplus_pos/shared/services/cart_service.dart';
+import 'package:reebaplus_pos/shared/widgets/shared_scaffold.dart';
+import 'package:reebaplus_pos/shared/widgets/menu_button.dart';
+import 'package:reebaplus_pos/shared/widgets/app_bar_header.dart';
+import 'package:reebaplus_pos/shared/widgets/notification_bell.dart';
+import 'package:reebaplus_pos/shared/widgets/app_dropdown.dart';
+import 'package:reebaplus_pos/shared/widgets/app_input.dart';
+import 'package:reebaplus_pos/features/customers/data/models/customer.dart';
+import 'package:reebaplus_pos/features/pos/controllers/pos_controller.dart';
+import 'package:reebaplus_pos/features/pos/widgets/product_grid.dart';
+import 'package:reebaplus_pos/features/pos/widgets/category_filter_bar.dart';
+import 'package:reebaplus_pos/features/pos/widgets/quick_sale_modal.dart';
+import 'package:reebaplus_pos/shared/widgets/pin_dialog.dart';
+import 'package:reebaplus_pos/shared/services/auth_service.dart';
+import 'package:reebaplus_pos/shared/services/navigation_service.dart';
+import 'package:reebaplus_pos/core/database/app_database.dart';
+import 'package:reebaplus_pos/core/utils/notifications.dart';
+import 'package:reebaplus_pos/shared/widgets/shimmer_loading.dart';
 
 class PosHomeScreen extends StatefulWidget {
   const PosHomeScreen({super.key});
@@ -66,54 +67,86 @@ class _PosHomeScreenState extends State<PosHomeScreen> {
       listenable: _controller,
       builder: (context, _) {
         final themeNotifier = ValueNotifier<ThemeMode>(ThemeMode.system);
-    return ValueListenableBuilder<ThemeMode>(
-      valueListenable: themeNotifier,
+        return ValueListenableBuilder<ThemeMode>(
+          valueListenable: themeNotifier,
           builder: (_, mode, __) {
-            
             final bgCol = Theme.of(context).scaffoldBackgroundColor;
             final surfaceCol = Theme.of(context).colorScheme.surface;
             final cardCol = Theme.of(context).cardColor;
             final textCol = Theme.of(context).colorScheme.onSurface;
-            final subtextCol = Theme.of(context).textTheme.bodySmall?.color ?? Theme.of(context).iconTheme.color!;
+            final subtextCol =
+                Theme.of(context).textTheme.bodySmall?.color ??
+                Theme.of(context).iconTheme.color!;
             final borderCol = Theme.of(context).dividerColor;
 
             return SharedScaffold(
               activeRoute: 'pos',
               backgroundColor: bgCol,
               appBar: _buildAppBar(context, surfaceCol, textCol, subtextCol),
-              floatingActionButton: context.isPhone ? _buildCartFab(context) : null,
+              floatingActionButton: context.isPhone
+                  ? _buildCartFab(context)
+                  : null,
               body: SafeArea(
                 top: false,
                 child: Column(
                   children: [
-                    _buildHeader(context, surfaceCol, textCol, subtextCol, borderCol),
-                    if (_controller.isSearching) _buildSearchField(surfaceCol, cardCol, textCol, subtextCol),
-                    CategoryFilterBar(
-                      categories: ['All', ..._controller.categories.map((c) => c.name)],
-                      selectedCategory: _controller.selectedCategoryId == null 
-                          ? 'All' 
-                          : _controller.categories.firstWhere((c) => c.id == _controller.selectedCategoryId).name,
-                      onCategorySelected: (name) {
-                        if (name == 'All') {
-                          _controller.selectCategory(null);
-                        } else {
-                          final cat = _controller.categories.firstWhere((c) => c.name == name);
-                          _controller.selectCategory(cat.id);
-                        }
-                      },
-                      textCol: textCol,
-                      borderCol: borderCol,
+                    _buildHeader(
+                      context,
+                      surfaceCol,
+                      textCol,
+                      subtextCol,
+                      borderCol,
                     ),
-                    Expanded(
-                      child: ProductGrid(
-                        products: _controller.filteredProducts,
-                        onProductTap: (product) => _addToCart(context, product),
-                        cardCol: cardCol,
-                        textCol: textCol,
-                        subtextCol: subtextCol,
-                        borderCol: borderCol,
-                        controller: _controller,
+                    if (_controller.isSearching)
+                      _buildSearchField(
+                        surfaceCol,
+                        cardCol,
+                        textCol,
+                        subtextCol,
                       ),
+                    _controller.isLoading
+                        ? const ShimmerCategoryBar()
+                        : CategoryFilterBar(
+                            categories: [
+                              'All',
+                              ..._controller.categories.map((c) => c.name),
+                            ],
+                            selectedCategory:
+                                _controller.selectedCategoryId == null
+                                ? 'All'
+                                : _controller.categories
+                                      .firstWhere(
+                                        (c) =>
+                                            c.id ==
+                                            _controller.selectedCategoryId,
+                                      )
+                                      .name,
+                            onCategorySelected: (name) {
+                              if (name == 'All') {
+                                _controller.selectCategory(null);
+                              } else {
+                                final cat = _controller.categories.firstWhere(
+                                  (c) => c.name == name,
+                                );
+                                _controller.selectCategory(cat.id);
+                              }
+                            },
+                            textCol: textCol,
+                            borderCol: borderCol,
+                          ),
+                    Expanded(
+                      child: _controller.isLoading
+                          ? const ShimmerGrid(count: 6)
+                          : ProductGrid(
+                              products: _controller.filteredProducts,
+                              onProductTap: (product) =>
+                                  _addToCart(context, product),
+                              cardCol: cardCol,
+                              textCol: textCol,
+                              subtextCol: subtextCol,
+                              borderCol: borderCol,
+                              controller: _controller,
+                            ),
                     ),
                   ],
                 ),
@@ -125,7 +158,12 @@ class _PosHomeScreenState extends State<PosHomeScreen> {
     );
   }
 
-  PreferredSizeWidget _buildAppBar(BuildContext context, Color surfaceCol, Color textCol, Color subtextCol) {
+  PreferredSizeWidget _buildAppBar(
+    BuildContext context,
+    Color surfaceCol,
+    Color textCol,
+    Color subtextCol,
+  ) {
     return AppBar(
       backgroundColor: surfaceCol,
       elevation: 0,
@@ -138,7 +176,9 @@ class _PosHomeScreenState extends State<PosHomeScreen> {
       actions: [
         IconButton(
           icon: Icon(
-            _controller.isSearching ? FontAwesomeIcons.xmark : FontAwesomeIcons.magnifyingGlass,
+            _controller.isSearching
+                ? FontAwesomeIcons.xmark
+                : FontAwesomeIcons.magnifyingGlass,
             size: 17,
             color: subtextCol,
           ),
@@ -152,8 +192,8 @@ class _PosHomeScreenState extends State<PosHomeScreen> {
             icon: Icon(
               FontAwesomeIcons.warehouse,
               size: 16,
-              color: navigationService.lockedWarehouseId.value == null 
-                  ? subtextCol 
+              color: navigationService.lockedWarehouseId.value == null
+                  ? subtextCol
                   : Theme.of(context).colorScheme.primary,
             ),
             tooltip: 'Select Warehouse',
@@ -165,7 +205,13 @@ class _PosHomeScreenState extends State<PosHomeScreen> {
     );
   }
 
-  Widget _buildHeader(BuildContext context, Color surfaceCol, Color textCol, Color subtextCol, Color borderCol) {
+  Widget _buildHeader(
+    BuildContext context,
+    Color surfaceCol,
+    Color textCol,
+    Color subtextCol,
+    Color borderCol,
+  ) {
     return Container(
       color: surfaceCol,
       padding: EdgeInsets.all(context.getRSize(16)),
@@ -173,30 +219,45 @@ class _PosHomeScreenState extends State<PosHomeScreen> {
         children: [
           Expanded(
             flex: 4,
-            child: AppDropdown<CustomerGroup>(
-              value: _controller.selectedGroup,
-              items: const [
-                DropdownMenuItem(value: CustomerGroup.retailer, child: Text('Retailer')),
-                DropdownMenuItem(value: CustomerGroup.wholesaler, child: Text('Wholesaler')),
-              ],
-              onChanged: (val) {
-                if (val != null) _controller.selectGroup(val);
-              },
-            ),
+            child: _controller.isLoading
+                ? const ShimmerDropdown()
+                : AppDropdown<CustomerGroup>(
+                    value: _controller.selectedGroup,
+                    items: const [
+                      DropdownMenuItem(
+                        value: CustomerGroup.retailer,
+                        child: Text('Retailer'),
+                      ),
+                      DropdownMenuItem(
+                        value: CustomerGroup.wholesaler,
+                        child: Text('Wholesaler'),
+                      ),
+                    ],
+                    onChanged: (val) {
+                      if (val != null) _controller.selectGroup(val);
+                    },
+                  ),
           ),
           SizedBox(width: context.getRSize(8)),
           Expanded(
             flex: 5,
-            child: AppDropdown<String>(
-              value: _controller.selectedManufacturerId,
-              items: [
-                const DropdownMenuItem(value: 'All', child: Text('All')),
-                ..._controller.manufacturers.map((m) => DropdownMenuItem(value: m.id.toString(), child: Text(m.name))),
-              ],
-              onChanged: (val) {
-                if (val != null) _controller.selectManufacturer(val);
-              },
-            ),
+            child: _controller.isLoading
+                ? const ShimmerDropdown()
+                : AppDropdown<String>(
+                    value: _controller.selectedManufacturerId,
+                    items: [
+                      const DropdownMenuItem(value: 'All', child: Text('All')),
+                      ..._controller.manufacturers.map(
+                        (m) => DropdownMenuItem(
+                          value: m.id.toString(),
+                          child: Text(m.name),
+                        ),
+                      ),
+                    ],
+                    onChanged: (val) {
+                      if (val != null) _controller.selectManufacturer(val);
+                    },
+                  ),
           ),
           SizedBox(width: context.getRSize(12)),
           _buildQuickSaleBtn(context),
@@ -209,13 +270,22 @@ class _PosHomeScreenState extends State<PosHomeScreen> {
     return GestureDetector(
       onTap: () => _showQuickSaleModal(context),
       child: Container(
-        padding: EdgeInsets.symmetric(horizontal: context.getRSize(16), vertical: context.getRSize(10)),
+        padding: EdgeInsets.symmetric(
+          horizontal: context.getRSize(16),
+          vertical: context.getRSize(10),
+        ),
         decoration: BoxDecoration(
           color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.2)),
+          border: Border.all(
+            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.2),
+          ),
         ),
-        child: Icon(FontAwesomeIcons.bolt, size: context.getRSize(18), color: Theme.of(context).colorScheme.primary),
+        child: Icon(
+          FontAwesomeIcons.bolt,
+          size: context.getRSize(18),
+          color: Theme.of(context).colorScheme.primary,
+        ),
       ),
     );
   }
@@ -226,7 +296,10 @@ class _PosHomeScreenState extends State<PosHomeScreen> {
       builder: (context, cartItems, _) {
         if (cartItems.isEmpty) return const SizedBox.shrink();
 
-        final double totalQty = cartItems.fold(0.0, (sum, item) => sum + (item['qty'] as num).toDouble());
+        final double totalQty = cartItems.fold(
+          0.0,
+          (sum, item) => sum + (item['qty'] as num).toDouble(),
+        );
         final String badgeText = totalQty == totalQty.roundToDouble()
             ? totalQty.toInt().toString()
             : totalQty.toStringAsFixed(1);
@@ -257,16 +330,29 @@ class _PosHomeScreenState extends State<PosHomeScreen> {
     );
   }
 
-  Widget _buildSearchField(Color surfaceCol, Color cardCol, Color textCol, Color subtextCol) {
+  Widget _buildSearchField(
+    Color surfaceCol,
+    Color cardCol,
+    Color textCol,
+    Color subtextCol,
+  ) {
     return Container(
       color: surfaceCol,
-      padding: EdgeInsets.fromLTRB(context.getRSize(16), 0, context.getRSize(16), context.getRSize(12)),
+      padding: EdgeInsets.fromLTRB(
+        context.getRSize(16),
+        0,
+        context.getRSize(16),
+        context.getRSize(12),
+      ),
       child: AppInput(
         controller: _searchController,
         autofocus: true,
         onChanged: (v) => _controller.updateSearch(v),
         hintText: 'Search products...',
-        prefixIcon: Icon(FontAwesomeIcons.magnifyingGlass, size: context.getRSize(16)),
+        prefixIcon: Icon(
+          FontAwesomeIcons.magnifyingGlass,
+          size: context.getRSize(16),
+        ),
       ),
     );
   }
@@ -287,14 +373,19 @@ class _PosHomeScreenState extends State<PosHomeScreen> {
       builder: (ctx) => QuickSaleModal(
         surfaceCol: Theme.of(context).colorScheme.surface,
         textCol: Theme.of(context).colorScheme.onSurface,
-        subtextCol: (Theme.of(context).textTheme.bodySmall?.color ?? Theme.of(context).iconTheme.color!),
+        subtextCol:
+            (Theme.of(context).textTheme.bodySmall?.color ??
+            Theme.of(context).iconTheme.color!),
         cardCol: Theme.of(context).cardColor,
         isDark: Theme.of(context).brightness == Brightness.dark,
       ),
     );
   }
 
-  Future<void> _showWarehousePicker(BuildContext context, Color subtextCol) async {
+  Future<void> _showWarehousePicker(
+    BuildContext context,
+    Color subtextCol,
+  ) async {
     final warehouses = await database.select(database.warehouses).get();
     if (!context.mounted) return;
     final surface = Theme.of(context).colorScheme.surface;
@@ -345,7 +436,9 @@ class _PosHomeScreenState extends State<PosHomeScreen> {
                   Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.primary.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Icon(
@@ -380,7 +473,8 @@ class _PosHomeScreenState extends State<PosHomeScreen> {
                   itemCount: warehouses.length,
                   itemBuilder: (ctx, i) {
                     final w = warehouses[i];
-                    final isSelected = navigationService.lockedWarehouseId.value == w.id;
+                    final isSelected =
+                        navigationService.lockedWarehouseId.value == w.id;
                     return InkWell(
                       onTap: () {
                         navigationService.setLockedWarehouse(w.id);
@@ -392,21 +486,28 @@ class _PosHomeScreenState extends State<PosHomeScreen> {
                         duration: const Duration(milliseconds: 250),
                         curve: Curves.easeOut,
                         decoration: BoxDecoration(
-                          color: isSelected 
-                              ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.08) 
+                          color: isSelected
+                              ? Theme.of(
+                                  context,
+                                ).colorScheme.primary.withValues(alpha: 0.08)
                               : (Theme.of(context).dividerColor),
                           borderRadius: BorderRadius.circular(20),
                           border: Border.all(
-                            color: isSelected ? blueMain : border.withValues(alpha: 0.3),
+                            color: isSelected
+                                ? blueMain
+                                : border.withValues(alpha: 0.3),
                             width: isSelected ? 2 : 1,
                           ),
-                          boxShadow: isSelected ? [
-                            BoxShadow(
-                              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.15),
-                              blurRadius: 12,
-                              offset: const Offset(0, 4),
-                            )
-                          ] : [],
+                          boxShadow: isSelected
+                              ? [
+                                  BoxShadow(
+                                    color: Theme.of(context).colorScheme.primary
+                                        .withValues(alpha: 0.15),
+                                    blurRadius: 12,
+                                    offset: const Offset(0, 4),
+                                  ),
+                                ]
+                              : [],
                         ),
                         child: Stack(
                           children: [
@@ -414,19 +515,24 @@ class _PosHomeScreenState extends State<PosHomeScreen> {
                               padding: const EdgeInsets.all(16.0),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
                                 children: [
                                   Icon(
                                     FontAwesomeIcons.buildingCircleCheck,
                                     size: 22,
-                                    color: isSelected ? blueMain : subtextCol.withValues(alpha: 0.5),
+                                    color: isSelected
+                                        ? blueMain
+                                        : subtextCol.withValues(alpha: 0.5),
                                   ),
                                   Text(
                                     w.name,
                                     style: TextStyle(
                                       color: text,
                                       fontSize: 14,
-                                      fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                                      fontWeight: isSelected
+                                          ? FontWeight.w800
+                                          : FontWeight.w600,
                                       letterSpacing: -0.2,
                                     ),
                                     maxLines: 2,
@@ -442,7 +548,9 @@ class _PosHomeScreenState extends State<PosHomeScreen> {
                                 child: Container(
                                   padding: const EdgeInsets.all(4),
                                   decoration: BoxDecoration(
-                                    color: Theme.of(context).colorScheme.primary,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.primary,
                                     shape: BoxShape.circle,
                                   ),
                                   child: const Icon(
@@ -467,9 +575,3 @@ class _PosHomeScreenState extends State<PosHomeScreen> {
     );
   }
 }
-
-
-
-
-
-

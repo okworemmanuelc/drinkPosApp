@@ -2,32 +2,33 @@ import 'dart:async';
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import '../../../core/widgets/app_fab.dart';
-import '../../../shared/services/navigation_service.dart';
-import '../../../shared/services/auth_service.dart';
-import '../../../shared/services/activity_log_service.dart';
+import 'package:reebaplus_pos/core/widgets/app_fab.dart';
+import 'package:reebaplus_pos/shared/services/navigation_service.dart';
+import 'package:reebaplus_pos/shared/services/auth_service.dart';
+import 'package:reebaplus_pos/shared/services/activity_log_service.dart';
 
-import '../../../core/theme/colors.dart';
+import 'package:reebaplus_pos/core/theme/colors.dart';
 
-import '../../../core/utils/responsive.dart'; // RESPONSIVE: utility imported
-import '../data/models/crate_group.dart';
-import '../data/models/supplier.dart';
-import '../data/services/supplier_service.dart';
-import '../data/models/inventory_item.dart';
-import '../../../shared/widgets/shared_scaffold.dart';
-import '../../../shared/widgets/app_dropdown.dart';
-import '../../../shared/widgets/notification_bell.dart';
-import '../../../shared/widgets/menu_button.dart';
-import '../../../shared/widgets/app_bar_header.dart';
-import '../../../shared/widgets/app_input.dart';
-import '../../../shared/widgets/app_button.dart';
-import 'supplier_detail_screen.dart';
-import 'stock_count_screen.dart';
-import 'product_detail_screen.dart';
-import '../../../core/theme/design_tokens.dart';
-import '../../../core/database/app_database.dart';
-import '../widgets/add_product_sheet.dart';
-import '../../pos/widgets/category_filter_bar.dart';
+import 'package:reebaplus_pos/core/utils/responsive.dart'; // RESPONSIVE: utility imported
+import 'package:reebaplus_pos/features/inventory/data/models/crate_group.dart';
+import 'package:reebaplus_pos/features/inventory/data/models/supplier.dart';
+import 'package:reebaplus_pos/features/inventory/data/services/supplier_service.dart';
+import 'package:reebaplus_pos/features/inventory/data/models/inventory_item.dart';
+import 'package:reebaplus_pos/shared/widgets/shared_scaffold.dart';
+import 'package:reebaplus_pos/shared/widgets/app_dropdown.dart';
+import 'package:reebaplus_pos/shared/widgets/notification_bell.dart';
+import 'package:reebaplus_pos/shared/widgets/menu_button.dart';
+import 'package:reebaplus_pos/shared/widgets/app_bar_header.dart';
+import 'package:reebaplus_pos/shared/widgets/app_input.dart';
+import 'package:reebaplus_pos/shared/widgets/app_button.dart';
+import 'package:reebaplus_pos/features/inventory/screens/supplier_detail_screen.dart';
+import 'package:reebaplus_pos/features/inventory/screens/stock_count_screen.dart';
+import 'package:reebaplus_pos/features/inventory/screens/product_detail_screen.dart';
+import 'package:reebaplus_pos/core/theme/design_tokens.dart';
+import 'package:reebaplus_pos/core/database/app_database.dart';
+import 'package:reebaplus_pos/features/inventory/widgets/add_product_sheet.dart';
+import 'package:reebaplus_pos/features/pos/widgets/category_filter_bar.dart';
+import 'package:reebaplus_pos/shared/widgets/shimmer_loading.dart';
 
 class InventoryScreen extends StatefulWidget {
   const InventoryScreen({super.key});
@@ -52,6 +53,8 @@ class _InventoryScreenState extends State<InventoryScreen>
   int _totalCrateAssetsSum = 0;
   List<CrateGroupData> _dbCrateGroups = [];
 
+  bool _isFirstLoad = true;
+  late Future<void> _minLoading;
   StreamSubscription<List<ProductDataWithStock>>? _productsSub;
   StreamSubscription<List<ManufacturerData>>? _manufacturersSub;
   StreamSubscription<List<CategoryData>>? _categoriesSub;
@@ -76,6 +79,7 @@ class _InventoryScreenState extends State<InventoryScreen>
   @override
   void initState() {
     super.initState();
+    _minLoading = Future.delayed(const Duration(seconds: 2));
     _tabController = TabController(length: 4, vsync: this);
     _tabController.addListener(() {
       if (mounted && _tabController.index != _currentTab) {
@@ -185,14 +189,22 @@ class _InventoryScreenState extends State<InventoryScreen>
           )
         : database.inventoryDao.watchAllProductDatasWithStock();
 
-    _productsSub = productStream.listen((data) {
-      if (mounted) setState(() => _dbProducts = data);
+    _productsSub = productStream.listen((data) async {
+      await _minLoading;
+      if (mounted) {
+        setState(() {
+          _dbProducts = data;
+          _isFirstLoad = false;
+        });
+      }
     }, onError: (e) => debugPrint('Error watching inventory: $e'));
 
     _emptyCratesSumSub = database.inventoryDao.watchTotalCrateAssets().listen((
       count,
     ) {
-      if (mounted) setState(() => _totalCrateAssetsSum = count);
+      if (mounted) {
+        setState(() => _totalCrateAssetsSum = count);
+      }
     });
   }
 
@@ -265,6 +277,7 @@ class _InventoryScreenState extends State<InventoryScreen>
   }
 
   Widget _buildSummaryCards(BuildContext context) {
+    if (_isFirstLoad) return const ShimmerInventoryStats();
     final products = _dbProducts;
 
     final totalItems = products.length;
@@ -443,6 +456,22 @@ class _InventoryScreenState extends State<InventoryScreen>
   }
 
   Widget _buildProductsTab(BuildContext context) {
+    if (_isFirstLoad) {
+      return Column(
+        children: [
+          _buildSupplierFilter(context),
+          const ShimmerCategoryBar(),
+          Expanded(
+            child: ListView.builder(
+              padding: EdgeInsets.symmetric(horizontal: context.getRSize(16)),
+              itemCount: 6,
+              itemBuilder: (_, __) => const ShimmerInventoryRow(),
+            ),
+          ),
+        ],
+      );
+    }
+
     var list = _dbProducts;
 
     if (_stockFilter == 'low') {
@@ -642,54 +671,61 @@ class _InventoryScreenState extends State<InventoryScreen>
       child: Row(
         children: [
           Expanded(
-            child: navigationService.warehouseLocked.value
-                ? _buildLockedWarehouseChip()
-                : AppDropdown<String>(
-                    value: _selectedWarehouseId,
-                    labelText: 'Warehouse',
-                    items: [
-                      DropdownMenuItem(
-                        value: 'all',
-                        child: Text(
-                          'All Warehouses',
-                          style: TextStyle(color: _text),
-                        ),
-                      ),
-                      ..._warehouses.map(
-                        (w) => DropdownMenuItem(
-                          value: w.id.toString(),
-                          child: Text(w.name, style: TextStyle(color: _text)),
-                        ),
-                      ),
-                    ],
-                    onChanged: (val) {
-                      if (val != null) {
-                        setState(() => _selectedWarehouseId = val);
-                        _subscribeToProducts();
-                      }
-                    },
-                  ),
+            child: _isFirstLoad
+                ? const ShimmerDropdown()
+                : (navigationService.warehouseLocked.value
+                      ? _buildLockedWarehouseChip()
+                      : AppDropdown<String>(
+                          value: _selectedWarehouseId,
+                          labelText: 'Warehouse',
+                          items: [
+                            DropdownMenuItem(
+                              value: 'all',
+                              child: Text(
+                                'All Warehouses',
+                                style: TextStyle(color: _text),
+                              ),
+                            ),
+                            ..._warehouses.map(
+                              (w) => DropdownMenuItem(
+                                value: w.id.toString(),
+                                child: Text(
+                                  w.name,
+                                  style: TextStyle(color: _text),
+                                ),
+                              ),
+                            ),
+                          ],
+                          onChanged: (val) {
+                            if (val != null) {
+                              setState(() => _selectedWarehouseId = val);
+                              _subscribeToProducts();
+                            }
+                          },
+                        )),
           ),
           SizedBox(width: context.getRSize(12)),
           Expanded(
-            child: AppDropdown<String>(
-              value: _selectedManufacturer,
-              labelText: 'Manufacturer',
-              items: [
-                DropdownMenuItem(
-                  value: 'all',
-                  child: Text('All', style: TextStyle(color: _text)),
-                ),
-                ..._dbManufacturers.map(
-                  (m) => DropdownMenuItem(
-                    value: m.name,
-                    child: Text(m.name, style: TextStyle(color: _text)),
+            child: _isFirstLoad
+                ? const ShimmerDropdown()
+                : AppDropdown<String>(
+                    value: _selectedManufacturer,
+                    labelText: 'Manufacturer',
+                    items: [
+                      DropdownMenuItem(
+                        value: 'all',
+                        child: Text('All', style: TextStyle(color: _text)),
+                      ),
+                      ..._dbManufacturers.map(
+                        (m) => DropdownMenuItem(
+                          value: m.name,
+                          child: Text(m.name, style: TextStyle(color: _text)),
+                        ),
+                      ),
+                    ],
+                    onChanged: (val) =>
+                        setState(() => _selectedManufacturer = val ?? 'all'),
                   ),
-                ),
-              ],
-              onChanged: (val) =>
-                  setState(() => _selectedManufacturer = val ?? 'all'),
-            ),
           ),
         ],
       ),
@@ -1350,7 +1386,7 @@ class _InventoryScreenState extends State<InventoryScreen>
                     '${authService.currentUser?.name ?? 'Unknown'} added manufacturer: $mfrName',
                     relatedEntityType: 'manufacturer',
                   );
-                  if (mounted) Navigator.pop(ctx);
+                  if (context.mounted) Navigator.pop(ctx);
                 },
               ),
             ],
@@ -1628,7 +1664,7 @@ class _InventoryScreenState extends State<InventoryScreen>
                       '${authService.currentUser?.name ?? 'Unknown'} updated crate stock/deposit for ${mfr.name}',
                       relatedEntityType: 'manufacturer',
                     );
-                    if (mounted) Navigator.pop(ctx);
+                    if (context.mounted) Navigator.pop(ctx);
                   },
                 ),
               ],
@@ -1666,7 +1702,6 @@ class _InventoryScreenState extends State<InventoryScreen>
       ),
     );
   }
-
 
   Widget _styledDialogField(
     TextEditingController ctrl,
@@ -1849,7 +1884,7 @@ class _InventoryScreenState extends State<InventoryScreen>
                     '${authService.currentUser?.name ?? 'Unknown'} set ${grp.name} crate stock to $newStock',
                     relatedEntityType: 'crate_group',
                   );
-                  if (mounted) Navigator.pop(ctx);
+                  if (context.mounted) Navigator.pop(ctx);
                 },
               ),
             ],
