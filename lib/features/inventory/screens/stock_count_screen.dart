@@ -10,6 +10,7 @@ import 'package:reebaplus_pos/core/widgets/app_fab.dart';
 import 'package:reebaplus_pos/shared/services/activity_log_service.dart';
 import 'package:reebaplus_pos/shared/widgets/app_input.dart';
 import 'package:reebaplus_pos/core/utils/notifications.dart';
+import 'package:reebaplus_pos/shared/widgets/shimmer_loading.dart';
 
 // Flat display-list item: either a warehouse section header or a row index.
 class _DisplayItem {
@@ -74,7 +75,10 @@ class _StockCountScreenState extends State<StockCountScreen> {
           TextEditingController(text: item.totalStock.toString()),
         );
       }
-      _loading = false;
+      // Artificial delay for shimmers
+      Future.delayed(const Duration(seconds: 2), () {
+        if (mounted) setState(() => _loading = false);
+      });
     });
   }
 
@@ -547,11 +551,16 @@ class _StockCountScreenState extends State<StockCountScreen> {
           ],
         ),
         body: _loading
-            ? Center(
-                child: CircularProgressIndicator(
-                  color: Theme.of(context).colorScheme.primary,
-                  strokeWidth: 2,
-                ),
+            ? Column(
+                children: [
+                  _buildTableHeader(context),
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: 8,
+                      itemBuilder: (_, __) => const ShimmerStockCountRow(),
+                    ),
+                  ),
+                ],
               )
             : _items.isEmpty
             ? Center(

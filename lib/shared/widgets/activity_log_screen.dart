@@ -13,6 +13,7 @@ import 'package:reebaplus_pos/shared/services/auth_service.dart';
 import 'package:reebaplus_pos/shared/widgets/app_drawer.dart';
 import 'package:reebaplus_pos/shared/widgets/notification_bell.dart';
 import 'package:reebaplus_pos/shared/widgets/app_dropdown.dart';
+import 'package:reebaplus_pos/shared/widgets/shimmer_loading.dart';
 
 class ActivityLogScreen extends StatefulWidget {
   const ActivityLogScreen({super.key});
@@ -25,11 +26,15 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
   String? _selectedWarehouseId;
   // userId → roleTier map, loaded once on init
   Map<int, int> _userTiers = {};
+  bool _loading = true;
 
   @override
   void initState() {
     super.initState();
     _loadUserTiers();
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted) setState(() => _loading = false);
+    });
   }
 
   Future<void> _loadUserTiers() async {
@@ -47,11 +52,12 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
     return ValueListenableBuilder<ThemeMode>(
       valueListenable: themeNotifier,
       builder: (_, mode, _) {
-        
         final bgCol = Theme.of(context).scaffoldBackgroundColor;
         final surfaceCol = Theme.of(context).colorScheme.surface;
         final textCol = Theme.of(context).colorScheme.onSurface;
-        final subtextCol = Theme.of(context).textTheme.bodySmall?.color ?? Theme.of(context).iconTheme.color!;
+        final subtextCol =
+            Theme.of(context).textTheme.bodySmall?.color ??
+            Theme.of(context).iconTheme.color!;
         final borderCol = Theme.of(context).dividerColor;
         final cardCol = Theme.of(context).cardColor;
 
@@ -162,12 +168,28 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
           drawer: const AppDrawer(activeRoute: 'activity_logs'),
           body: Column(
             children: [
-              _buildWarehouseFilter(context, surfaceCol, textCol, subtextCol, borderCol),
+              _buildWarehouseFilter(
+                context,
+                surfaceCol,
+                textCol,
+                subtextCol,
+                borderCol,
+              ),
               Expanded(
                 child: ValueListenableBuilder<List<ActivityLog>>(
                   valueListenable: activityLogService,
                   builder: (context, logs, child) {
                     final filteredLogs = _filterLogs(logs);
+
+                    if (_loading) {
+                      return ListView.separated(
+                        padding: context.rPadding(16),
+                        itemCount: 8,
+                        separatorBuilder: (context, index) =>
+                            SizedBox(height: context.getRSize(12)),
+                        itemBuilder: (_, __) => const ShimmerListTile(),
+                      );
+                    }
 
                     if (filteredLogs.isEmpty) {
                       return _buildEmptyState(context, textCol, subtextCol);
@@ -223,7 +245,10 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
         labelText: 'Filter by Warehouse',
         value: _selectedWarehouseId,
         items: [
-          const DropdownMenuItem<String?>(value: null, child: Text('All Warehouses')),
+          const DropdownMenuItem<String?>(
+            value: null,
+            child: Text('All Warehouses'),
+          ),
           ...kWarehouses.map((w) {
             return DropdownMenuItem<String?>(value: w.id, child: Text(w.name));
           }),
@@ -253,10 +278,11 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
     if (_selectedWarehouseId == null) return roleFiltered;
 
     return roleFiltered.where((log) {
-      final isInventory = log.relatedEntityType == 'inventory' ||
-                         log.action.toLowerCase().contains('inventory') ||
-                         log.action.toLowerCase().contains('stock') ||
-                         log.action.toLowerCase().contains('delivery');
+      final isInventory =
+          log.relatedEntityType == 'inventory' ||
+          log.action.toLowerCase().contains('inventory') ||
+          log.action.toLowerCase().contains('stock') ||
+          log.action.toLowerCase().contains('delivery');
       if (!isInventory) return true;
       return log.warehouseId == _selectedWarehouseId;
     }).toList();
@@ -294,9 +320,9 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
           ),
           SizedBox(height: context.getRSize(8)),
           Text(
-            _selectedWarehouseId == null 
-               ? 'Actions performed in the app will appear here.'
-               : 'No activity found for the selected warehouse.',
+            _selectedWarehouseId == null
+                ? 'Actions performed in the app will appear here.'
+                : 'No activity found for the selected warehouse.',
             style: TextStyle(
               fontSize: context.getRFontSize(14),
               color: subtextCol,
@@ -321,7 +347,9 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
     IconData icon = FontAwesomeIcons.bolt;
     Color iconColor = blueMain;
 
-    if (actionLower.contains('order') || actionLower.contains('pos') || actionLower.contains('sale')) {
+    if (actionLower.contains('order') ||
+        actionLower.contains('pos') ||
+        actionLower.contains('sale')) {
       icon = FontAwesomeIcons.cashRegister;
       iconColor = success;
     } else if (actionLower.contains('inventory') ||
@@ -422,7 +450,16 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
-                            kWarehouses.firstWhere((w) => w.id == log.warehouseId, orElse: () => Warehouse(id: '', name: 'N/A', location: '')).name,
+                            kWarehouses
+                                .firstWhere(
+                                  (w) => w.id == log.warehouseId,
+                                  orElse: () => Warehouse(
+                                    id: '',
+                                    name: 'N/A',
+                                    location: '',
+                                  ),
+                                )
+                                .name,
                             style: TextStyle(
                               fontSize: context.getRFontSize(10),
                               fontWeight: FontWeight.bold,
@@ -452,8 +489,3 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
     return DateFormat('MMM d').format(timestamp);
   }
 }
-
-
-
-
-
