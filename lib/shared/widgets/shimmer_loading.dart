@@ -11,10 +11,11 @@ class _ShimmerWrap extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    // Darker colors for dark mode to satisfy user request.
     return Shimmer.fromColors(
-      baseColor: isDark ? const Color(0xFF121A26) : const Color(0xFFE8EDF2),
+      baseColor: isDark ? const Color(0xFF0C111D) : const Color(0xFFE8EDF2),
       highlightColor: isDark
-          ? const Color(0xFF1C2636)
+          ? const Color(0xFF1F2937)
           : const Color(0xFFF7F9FC),
       period: const Duration(milliseconds: 1500),
       child: child,
@@ -175,61 +176,42 @@ class ShimmerStatCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    return _ShimmerWrap(
-      child: Container(
-        height: 100,
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF1E293B) : Colors.white,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Row(
-          children: [
-            Container(
+    final cardCol = isDark ? const Color(0xFF1E293B) : Colors.white;
+
+    return Container(
+      height: 100,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: cardCol,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          _ShimmerWrap(
+            child: Container(
               width: 56,
               height: 56,
               decoration: BoxDecoration(
-                color: Colors.grey[300],
+                color: Colors.white,
                 borderRadius: BorderRadius.circular(16),
               ),
             ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    width: 70,
-                    height: 12,
-                    decoration: BoxDecoration(
-                      color: Colors.grey[300],
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Container(
-                    width: 110,
-                    height: 22,
-                    decoration: BoxDecoration(
-                      color: Colors.grey[300],
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Container(
-                    width: 140,
-                    height: 10,
-                    decoration: BoxDecoration(
-                      color: Colors.grey[300],
-                      borderRadius: BorderRadius.circular(5),
-                    ),
-                  ),
-                ],
-              ),
+          ),
+          const SizedBox(width: 16),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                ShimmerLine(height: 12, widthFraction: 0.4),
+                SizedBox(height: 10),
+                ShimmerLine(height: 22, widthFraction: 0.6),
+                SizedBox(height: 10),
+                ShimmerLine(height: 10, widthFraction: 0.8),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -258,7 +240,7 @@ class ShimmerGridCard extends StatelessWidget {
               child: Container(
                 width: double.infinity,
                 decoration: BoxDecoration(
-                  color: Colors.grey[100],
+                  color: isDark ? Colors.white.withAlpha(12) : Colors.grey[100],
                   borderRadius: const BorderRadius.vertical(
                     top: Radius.circular(16),
                   ),
@@ -274,7 +256,9 @@ class ShimmerGridCard extends StatelessWidget {
                     width: 80,
                     height: 10,
                     decoration: BoxDecoration(
-                      color: Colors.grey[300],
+                      color: isDark
+                          ? Colors.white.withAlpha(20)
+                          : Colors.grey[300],
                       borderRadius: BorderRadius.circular(5),
                     ),
                   ),
@@ -283,7 +267,9 @@ class ShimmerGridCard extends StatelessWidget {
                     width: 60,
                     height: 12,
                     decoration: BoxDecoration(
-                      color: Colors.grey[300],
+                      color: isDark
+                          ? Colors.white.withAlpha(20)
+                          : Colors.grey[300],
                       borderRadius: BorderRadius.circular(6),
                     ),
                   ),
@@ -295,7 +281,9 @@ class ShimmerGridCard extends StatelessWidget {
                         width: 50,
                         height: 8,
                         decoration: BoxDecoration(
-                          color: Colors.grey[200],
+                          color: isDark
+                              ? Colors.white.withAlpha(15)
+                              : Colors.grey[200],
                           borderRadius: BorderRadius.circular(4),
                         ),
                       ),
@@ -303,7 +291,9 @@ class ShimmerGridCard extends StatelessWidget {
                         width: 12,
                         height: 12,
                         decoration: BoxDecoration(
-                          color: Colors.grey[200],
+                          color: isDark
+                              ? Colors.white.withAlpha(15)
+                              : Colors.grey[200],
                           shape: BoxShape.circle,
                         ),
                       ),
@@ -325,116 +315,71 @@ class ShimmerOrderCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _ShimmerWrap(
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.grey[200]!),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(14),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Container(
-                    width: 90,
-                    height: 13,
-                    decoration: BoxDecoration(
-                      color: Colors.grey[300],
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                  ),
-                  Container(
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardCol = isDark ? const Color(0xFF1E293B) : Colors.white;
+    final borderCol = isDark ? Colors.white10 : Colors.grey[200]!;
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      decoration: BoxDecoration(
+        color: cardCol,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: borderCol),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(14),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const ShimmerLine(height: 13, widthFraction: 0.3),
+                _ShimmerWrap(
+                  child: Container(
                     width: 70,
                     height: 22,
                     decoration: BoxDecoration(
-                      color: Colors.grey[300],
+                      color: Colors.white,
                       borderRadius: BorderRadius.circular(8),
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-            Container(height: 1, color: Colors.grey[200]),
-            Padding(
-              padding: const EdgeInsets.all(14),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Container(
-                        width: 120,
-                        height: 12,
-                        decoration: BoxDecoration(
-                          color: Colors.grey[300],
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                      ),
-                      Container(
-                        width: 60,
-                        height: 12,
-                        decoration: BoxDecoration(
-                          color: Colors.grey[300],
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Container(
-                    width: 140,
-                    height: 10,
-                    decoration: BoxDecoration(
-                      color: Colors.grey[200],
-                      borderRadius: BorderRadius.circular(5),
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Container(
-                    width: 100,
-                    height: 10,
-                    decoration: BoxDecoration(
-                      color: Colors.grey[200],
-                      borderRadius: BorderRadius.circular(5),
-                    ),
-                  ),
-                ],
-              ),
+          ),
+          Container(height: 1, color: borderCol),
+          const Padding(
+            padding: EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    ShimmerLine(height: 12, widthFraction: 0.4),
+                    ShimmerLine(height: 12, widthFraction: 0.2),
+                  ],
+                ),
+                SizedBox(height: 12),
+                ShimmerLine(height: 10, widthFraction: 0.5),
+                SizedBox(height: 6),
+                ShimmerLine(height: 10, widthFraction: 0.3),
+              ],
             ),
-            Container(height: 1, color: Colors.grey[200]),
-            Padding(
-              padding: const EdgeInsets.all(14),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Container(
-                    width: 110,
-                    height: 14,
-                    decoration: BoxDecoration(
-                      color: Colors.grey[300],
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                  ),
-                  Container(
-                    width: 130,
-                    height: 24,
-                    decoration: BoxDecoration(
-                      color: Colors.grey[200],
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                ],
-              ),
+          ),
+          Container(height: 1, color: borderCol),
+          const Padding(
+            padding: EdgeInsets.all(14),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                ShimmerLine(height: 14, widthFraction: 0.4),
+                ShimmerBox(width: 80, height: 24, radius: 8),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -555,11 +500,12 @@ class ShimmerDropdown extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return _ShimmerWrap(
       child: Container(
         height: 52,
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: isDark ? const Color(0xFF1E293B) : Colors.white,
           borderRadius: BorderRadius.circular(14),
         ),
         padding: const EdgeInsets.symmetric(horizontal: 14),
@@ -570,13 +516,13 @@ class ShimmerDropdown extends StatelessWidget {
               width: 60,
               height: 14,
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: isDark ? Colors.white.withAlpha(20) : Colors.white,
                 borderRadius: BorderRadius.circular(4),
               ),
             ),
-            const Icon(
+            Icon(
               Icons.keyboard_arrow_down,
-              color: Colors.white,
+              color: isDark ? Colors.white.withAlpha(128) : Colors.white,
               size: 13,
             ),
           ],
@@ -605,7 +551,9 @@ class ShimmerCategoryBar extends StatelessWidget {
             child: Container(
               width: index == 0 ? 50 : 80,
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? Colors.white.withAlpha(20)
+                    : Colors.white,
                 borderRadius: BorderRadius.circular(25),
               ),
             ),
@@ -632,12 +580,13 @@ class ShimmerInventoryStats extends StatelessWidget {
         separatorBuilder: (_, __) => const SizedBox(width: 12),
         itemBuilder: (context, index) {
           final isPhone = MediaQuery.of(context).size.width < 600;
+          final isDark = Theme.of(context).brightness == Brightness.dark;
           return _ShimmerWrap(
             child: Container(
               width: isPhone ? 130 : 180,
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: isDark ? const Color(0xFF1E293B) : Colors.white,
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Column(
@@ -646,8 +595,8 @@ class ShimmerInventoryStats extends StatelessWidget {
                   Container(
                     width: 20,
                     height: 20,
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
+                    decoration: BoxDecoration(
+                      color: isDark ? Colors.white.withAlpha(20) : Colors.white,
                       shape: BoxShape.circle,
                     ),
                   ),
@@ -656,7 +605,7 @@ class ShimmerInventoryStats extends StatelessWidget {
                     width: 70,
                     height: 22,
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: isDark ? Colors.white.withAlpha(20) : Colors.white,
                       borderRadius: BorderRadius.circular(4),
                     ),
                   ),
@@ -665,7 +614,7 @@ class ShimmerInventoryStats extends StatelessWidget {
                     width: 50,
                     height: 12,
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: isDark ? Colors.white.withAlpha(15) : Colors.white,
                       borderRadius: BorderRadius.circular(3),
                     ),
                   ),
@@ -685,13 +634,17 @@ class ShimmerInventoryRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardCol = isDark ? const Color(0xFF1E293B) : Colors.white;
+    final borderCol = isDark ? Colors.white10 : Colors.grey[200]!;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: cardCol,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey[200]!),
+        border: Border.all(color: borderCol),
       ),
       child: Row(
         children: [
@@ -932,10 +885,7 @@ class ShimmerStockCountRow extends StatelessWidget {
       ),
       child: const Row(
         children: [
-          Expanded(
-            flex: 5,
-            child: ShimmerLine(height: 14, widthFraction: 0.6),
-          ),
+          Expanded(flex: 5, child: ShimmerLine(height: 14, widthFraction: 0.6)),
           SizedBox(
             width: 56,
             child: Center(child: ShimmerBox(width: 24, height: 14, radius: 4)),

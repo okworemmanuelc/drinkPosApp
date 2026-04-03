@@ -445,6 +445,42 @@ class _CheckoutPageState extends State<CheckoutPage> {
       return;
     }
 
+    // Debt limit validations (partial cash / credit sale only)
+    if (_paymentType == PaymentType.partialCash ||
+        _paymentType == PaymentType.credit) {
+      final customer = widget.customer!;
+      final limitKobo = customer.walletLimitKobo;
+
+      // Block if no debt limit has been set
+      if (limitKobo <= 0) {
+        AppNotification.showError(
+          context,
+          '${customer.name} has no debt limit set. '
+          'Set a debt limit in the customer profile before allowing credit or partial payments.',
+        );
+        return;
+      }
+
+      // Block if this purchase would push the customer over their debt limit
+      final totalKobo = (widget.total * 100).round();
+      final amountPaidKobo = _paymentType == PaymentType.partialCash
+          ? (_cashReceivedValue * 100).round()
+          : 0;
+      final remainingKobo = totalKobo - amountPaidKobo;
+      final newBalanceKobo = customer.walletBalanceKobo - remainingKobo;
+
+      if (newBalanceKobo < -limitKobo) {
+        final overByKobo = (-newBalanceKobo) - limitKobo;
+        AppNotification.showError(
+          context,
+          'This sale exceeds ${customer.name}\'s debt limit of '
+          '${formatCurrency(limitKobo / 100.0)}. '
+          'Over limit by ${formatCurrency(overByKobo / 100.0)}.',
+        );
+        return;
+      }
+    }
+
     setState(() => _isProcessing = true);
 
     try {
