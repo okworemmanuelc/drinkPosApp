@@ -100,10 +100,8 @@ class AuthService extends ValueNotifier<UserData?> {
       }
       saveDeviceUserId(user.id);
 
-      // Notify listeners after call stack unwinds — safe on cold start
-      scheduleMicrotask(() {
-        value = user;
-      });
+      // Set synchronously so VLB listener fires before any route pop cleans up
+      value = user;
 
       if (user.roleTier < 5 && user.warehouseId == null) {
         scheduleMicrotask(() => _handleOnboardingAlerts(user));

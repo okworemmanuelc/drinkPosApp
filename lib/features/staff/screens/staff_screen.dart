@@ -480,6 +480,7 @@ class _StaffFormSheet extends StatefulWidget {
 class _StaffFormSheetState extends State<_StaffFormSheet> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _nameCtrl;
+  late TextEditingController _emailCtrl;
   late TextEditingController _pinCtrl;
   late RoleOption _selectedRole;
   int? _selectedWarehouseId;
@@ -495,6 +496,7 @@ class _StaffFormSheetState extends State<_StaffFormSheet> {
     super.initState();
     final u = widget.user;
     _nameCtrl = TextEditingController(text: u?.name ?? '');
+    _emailCtrl = TextEditingController(text: u?.email ?? '');
     _pinCtrl = TextEditingController(text: u?.pin ?? '');
     _selectedRole = u != null
         ? roleFor(u.role)
@@ -505,6 +507,7 @@ class _StaffFormSheetState extends State<_StaffFormSheet> {
   @override
   void dispose() {
     _nameCtrl.dispose();
+    _emailCtrl.dispose();
     _pinCtrl.dispose();
     super.dispose();
   }
@@ -560,6 +563,22 @@ class _StaffFormSheetState extends State<_StaffFormSheet> {
                     hintText: 'Enter full name',
                     validator: (v) =>
                         v == null || v.isEmpty ? 'Name is required' : null,
+                  ),
+                  const SizedBox(height: 16),
+                  AppInput(
+                    controller: _emailCtrl,
+                    labelText: 'Email Address',
+                    hintText: 'Enter email address',
+                    keyboardType: TextInputType.emailAddress,
+                    validator: (v) {
+                      if (v == null || v.isEmpty) return 'Email is required';
+                      if (!RegExp(
+                        r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+                      ).hasMatch(v)) {
+                        return 'Enter a valid email';
+                      }
+                      return null;
+                    },
                   ),
 
                   const SizedBox(height: 16),
@@ -655,6 +674,7 @@ class _StaffFormSheetState extends State<_StaffFormSheet> {
     if (_selectedWarehouseId == null) return;
 
     final name = _nameCtrl.text.trim();
+    final email = _emailCtrl.text.trim();
     final pin = _pinCtrl.text.trim();
     final role = _selectedRole.value;
     final tier = _selectedRole.tier;
@@ -739,6 +759,7 @@ class _StaffFormSheetState extends State<_StaffFormSheet> {
           .insert(
             UsersCompanion(
               name: Value(name),
+              email: Value(email),
               pin: const Value(''),
               role: Value(role),
               roleTier: Value(tier),
@@ -752,6 +773,7 @@ class _StaffFormSheetState extends State<_StaffFormSheet> {
       )..where((u) => u.id.equals(widget.user!.id))).write(
         UsersCompanion(
           name: Value(name),
+          email: Value(email),
           pin: Value(pin),
           role: Value(role),
           roleTier: Value(tier),
