@@ -11,6 +11,7 @@ import 'package:reebaplus_pos/shared/widgets/app_button.dart';
 import 'package:reebaplus_pos/features/auth/screens/create_pin_screen.dart';
 import 'package:reebaplus_pos/features/auth/screens/login_screen.dart';
 import 'package:reebaplus_pos/features/auth/screens/business_type_selection_screen.dart';
+import 'package:reebaplus_pos/core/theme/animations.dart';
 
 class OtpVerificationScreen extends StatefulWidget {
   final UserData? user;
@@ -252,139 +253,143 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
             ),
           ),
           SafeArea(
-            child: SingleChildScrollView(
+            child: AnimatedPadding(
+              duration: AppAnimations.normal,
+              curve: AppAnimations.defaultCurve,
               padding: EdgeInsets.fromLTRB(
                 28,
                 40,
                 28,
                 MediaQuery.of(context).viewInsets.bottom + 24,
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // Back button
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: IconButton(
-                      icon: const Icon(
-                        Icons.arrow_back_ios,
-                        color: Colors.white,
-                        size: 20,
-                      ),
-                      onPressed: () => Navigator.of(context).pop(),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Logo
-                  Center(
-                    child: Image.asset(
-                      'assets/images/reebaplus_logo.png',
-                      height: 72,
-                      errorBuilder: (_, __, ___) => const Icon(
-                        Icons.storefront,
-                        size: 72,
-                        color: Colors.white,
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Back button
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: IconButton(
+                        icon: const Icon(
+                          Icons.arrow_back_ios,
+                          color: Colors.white,
+                          size: 20,
+                        ),
+                        onPressed: () => Navigator.of(context).pop(),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 20),
+                    const SizedBox(height: 16),
 
-                  const Center(
-                    child: Text(
-                      'Check your email',
-                      style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
+                    // Logo
+                    Center(
+                      child: Image.asset(
+                        'assets/images/reebaplus_logo.png',
+                        height: 72,
+                        errorBuilder: (_, __, ___) => const Icon(
+                          Icons.storefront,
+                          size: 72,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  Center(
-                    child: Text(
-                      'Enter the 6-digit code sent to\n${_maskEmail(widget.email)}',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: Colors.white.withValues(alpha: 0.7),
+                    const SizedBox(height: 20),
+
+                    const Center(
+                      child: Text(
+                        'Check your email',
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
                       ),
-                      textAlign: TextAlign.center,
                     ),
-                  ),
-                  const SizedBox(height: 36),
-
-                  // OTP input — single invisible field driving 6 styled boxes
-                  _ShakeWidget(
-                    key: _shakeKey,
-                    child: _OtpBoxRow(
-                      controller: _otpController,
-                      hasError: _errorMessage != null,
-                      onSubmit: _canSubmit ? _submit : null,
-                      ignorePointers: _isLockedOut,
-                      readOnly: _loading,
+                    const SizedBox(height: 8),
+                    Center(
+                      child: Text(
+                        'Enter the 6-digit code sent to\n${_maskEmail(widget.email)}',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.white.withValues(alpha: 0.7),
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 12),
+                    const SizedBox(height: 36),
 
-                  const Center(
-                    child: Text(
-                      'Code expires in 10 minutes',
-                      style: TextStyle(color: Colors.white54, fontSize: 13),
+                    // OTP input — single invisible field driving 6 styled boxes
+                    _ShakeWidget(
+                      key: _shakeKey,
+                      child: _OtpBoxRow(
+                        controller: _otpController,
+                        hasError: _errorMessage != null,
+                        onSubmit: _canSubmit ? _submit : null,
+                        ignorePointers: _isLockedOut,
+                        readOnly: _loading,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 12),
+                    const SizedBox(height: 12),
 
-                  // Error message
-                  AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 200),
-                    child: _errorMessage != null
-                        ? Padding(
-                            key: const ValueKey('err'),
-                            padding: const EdgeInsets.only(bottom: 4),
-                            child: Text(
-                              _errorMessage!,
-                              style: const TextStyle(
-                                color: Color(0xFFFF6B6B),
-                                fontSize: 13,
+                    const Center(
+                      child: Text(
+                        'Code expires in 10 minutes',
+                        style: TextStyle(color: Colors.white54, fontSize: 13),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Error message
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 200),
+                      child: _errorMessage != null
+                          ? Padding(
+                              key: const ValueKey('err'),
+                              padding: const EdgeInsets.only(bottom: 4),
+                              child: Text(
+                                _errorMessage!,
+                                style: const TextStyle(
+                                  color: Color(0xFFFF6B6B),
+                                  fontSize: 13,
+                                ),
+                                textAlign: TextAlign.center,
                               ),
-                              textAlign: TextAlign.center,
-                            ),
-                          )
-                        : const SizedBox(key: ValueKey('no-err'), height: 18),
-                  ),
-                  const SizedBox(height: 16),
+                            )
+                          : const SizedBox(key: ValueKey('no-err'), height: 18),
+                    ),
+                    const SizedBox(height: 16),
 
-                  AppButton(
-                    text: 'Verify',
-                    isLoading: _loading,
-                    onPressed: _canSubmit ? _submit : null,
-                  ),
-                  const SizedBox(height: 20),
+                    AppButton(
+                      text: 'Verify',
+                      isLoading: _loading,
+                      onPressed: _canSubmit ? _submit : null,
+                    ),
+                    const SizedBox(height: 20),
 
-                  // Resend button with countdown
-                  Center(
-                    child: _resendCountdown > 0
-                        ? Text(
-                            'Resend code in 0:${_resendCountdown.toString().padLeft(2, '0')}',
-                            style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.5),
-                              fontSize: 13,
-                            ),
-                          )
-                        : TextButton(
-                            onPressed: (_loading || _isLockedOut)
-                                ? null
-                                : _resend,
-                            child: Text(
-                              'Resend code',
+                    // Resend button with countdown
+                    Center(
+                      child: _resendCountdown > 0
+                          ? Text(
+                              'Resend code in 0:${_resendCountdown.toString().padLeft(2, '0')}',
                               style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.75),
+                                color: Colors.white.withValues(alpha: 0.5),
                                 fontSize: 13,
                               ),
+                            )
+                          : TextButton(
+                              onPressed: (_loading || _isLockedOut)
+                                  ? null
+                                  : _resend,
+                              child: Text(
+                                'Resend code',
+                                style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.75),
+                                  fontSize: 13,
+                                ),
+                              ),
                             ),
-                          ),
-                  ),
-                ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
