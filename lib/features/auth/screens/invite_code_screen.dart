@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:reebaplus_pos/shared/services/auth_service.dart';
 import 'package:reebaplus_pos/shared/widgets/app_button.dart';
 import 'package:reebaplus_pos/features/auth/screens/role_confirmation_screen.dart';
+import 'package:reebaplus_pos/features/auth/widgets/onboarding_step_indicator.dart';
 
 class InviteCodeScreen extends StatefulWidget {
   final String email;
@@ -107,6 +108,12 @@ class _InviteCodeScreenState extends State<InviteCodeScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    const OnboardingStepIndicator(
+                      currentStep: 2,
+                      totalSteps: 6,
+                      stepLabels: OnboardingStepIndicator.pathBLabels,
+                    ),
+                    const SizedBox(height: 16),
                     const Center(
                       child: Text(
                         'Join Business',

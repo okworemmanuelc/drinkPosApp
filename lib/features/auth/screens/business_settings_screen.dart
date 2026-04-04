@@ -2,6 +2,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 
 import 'package:reebaplus_pos/shared/widgets/app_button.dart';
+import 'package:reebaplus_pos/features/auth/widgets/onboarding_step_indicator.dart';
 import 'package:reebaplus_pos/core/database/app_database.dart';
 import 'package:reebaplus_pos/features/auth/screens/create_pin_screen.dart';
 import 'package:drift/drift.dart' hide Column;
@@ -133,6 +134,12 @@ class _BusinessSettingsScreenState extends State<BusinessSettingsScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
+                      const OnboardingStepIndicator(
+                        currentStep: 5,
+                        totalSteps: 7,
+                        stepLabels: OnboardingStepIndicator.pathALabels,
+                      ),
+                      const SizedBox(height: 16),
                       const Center(
                         child: Text(
                           'Business Settings',

@@ -2,6 +2,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 
 import 'package:reebaplus_pos/shared/widgets/app_button.dart';
+import 'package:reebaplus_pos/features/auth/widgets/onboarding_step_indicator.dart';
 import 'package:reebaplus_pos/core/database/app_database.dart';
 import 'package:reebaplus_pos/features/auth/screens/business_settings_screen.dart';
 import 'package:drift/drift.dart' as drift;
@@ -103,6 +104,12 @@ class _LocationDetailsScreenState extends State<LocationDetailsScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
+                      const OnboardingStepIndicator(
+                        currentStep: 4,
+                        totalSteps: 7,
+                        stepLabels: OnboardingStepIndicator.pathALabels,
+                      ),
+                      const SizedBox(height: 16),
                       const Center(
                         child: Text(
                           'First Location',

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:reebaplus_pos/shared/widgets/app_button.dart';
 import 'package:reebaplus_pos/features/auth/screens/join_name_entry_screen.dart';
 import 'package:reebaplus_pos/shared/services/auth_service.dart';
+import 'package:reebaplus_pos/features/auth/widgets/onboarding_step_indicator.dart';
 
 class RoleConfirmationScreen extends StatelessWidget {
   final String email;
@@ -69,6 +70,12 @@ class RoleConfirmationScreen extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
+                          const OnboardingStepIndicator(
+                            currentStep: 3,
+                            totalSteps: 6,
+                            stepLabels: OnboardingStepIndicator.pathBLabels,
+                          ),
+                          const SizedBox(height: 16),
                           const Text(
                             'Confirm Invitation',
                             textAlign: TextAlign.center,

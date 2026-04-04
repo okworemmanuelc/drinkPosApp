@@ -1,4 +1,5 @@
 import 'dart:ui';
+import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:reebaplus_pos/core/database/app_database.dart';
 
@@ -7,6 +8,7 @@ import 'package:reebaplus_pos/core/utils/responsive.dart';
 import 'package:reebaplus_pos/core/utils/notifications.dart';
 import 'package:reebaplus_pos/features/auth/screens/email_entry_screen.dart';
 import 'package:reebaplus_pos/features/auth/screens/otp_verification_screen.dart';
+import 'package:reebaplus_pos/shared/widgets/main_layout.dart';
 import 'dart:async';
 import 'package:local_auth/local_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -22,6 +24,7 @@ class _LoginScreenState extends State<LoginScreen>
     with SingleTickerProviderStateMixin {
   String _pin = '';
   bool _checking = false;
+  bool _biometricsAvailable = false;
 
   // ── Returning User & Lockout State ──────────────────────────────────────────
   UserData? _identifiedUser;
@@ -81,9 +84,7 @@ class _LoginScreenState extends State<LoginScreen>
       }
     }
 
-    if (_lockoutUntil == null) {
-      _checkBiometrics();
-    }
+    _checkBiometricAvailability();
   }
 
   void _startLockoutTimer() {
@@ -108,42 +109,69 @@ class _LoginScreenState extends State<LoginScreen>
     });
   }
 
-  Future<void> _checkBiometrics() async {
-    if (authService.bypassNextBiometric) {
-      authService.bypassNextBiometric = false;
-      return;
-    }
-
-    final prefs = await SharedPreferences.getInstance();
-    final useBio = prefs.getBool('use_biometrics') ?? false;
-
-    if (useBio) {
-      final LocalAuthentication auth = LocalAuthentication();
-      final canAuth =
+  /// Checks whether the device supports biometrics and updates [_biometricsAvailable].
+  /// Never shows a dialog — purely a capability check.
+  Future<void> _checkBiometricAvailability() async {
+    try {
+      final auth = LocalAuthentication();
+      final available =
           await auth.canCheckBiometrics || await auth.isDeviceSupported();
-      if (canAuth && mounted) {
-        try {
-          final authenticated = await auth.authenticate(
-            localizedReason: 'Please authenticate to log in',
-            options: const AuthenticationOptions(
-              stickyAuth: true,
-              biometricOnly:
-                  false, // UI handles "use PIN instead" fallback natively
-            ),
-          );
+      if (mounted) setState(() => _biometricsAvailable = available);
+    } catch (_) {}
+  }
 
-          if (authenticated && mounted) {
-            final userId = await authService.getDeviceUserId();
-            if (userId != null) {
-              final user = await database.warehousesDao.getUserById(userId);
-              if (user != null) {
-                _enterApp(user);
-              }
-            }
-          }
-        } catch (e) {
-          // ignore, they can fall back to PIN pad
+  /// Called when the user explicitly taps "Sign in with Biometrics".
+  Future<void> _triggerBiometrics() async {
+    final auth = LocalAuthentication();
+    try {
+      // Check if any biometrics are enrolled on the device
+      final enrolled = await auth.getAvailableBiometrics();
+      if (enrolled.isEmpty) {
+        if (mounted) {
+          AppNotification.showError(
+            context,
+            'No biometrics enrolled. Please set up fingerprint or Face ID in your device settings.',
+          );
         }
+        return;
+      }
+
+      final authenticated = await auth.authenticate(
+        localizedReason: 'Please authenticate to log in',
+        options: const AuthenticationOptions(
+          stickyAuth: false,
+          biometricOnly: false,
+        ),
+      );
+      if (!mounted) return;
+      if (authenticated) {
+        final userId = await authService.getDeviceUserId();
+        if (userId != null) {
+          final user = await database.warehousesDao.getUserById(userId);
+          if (user != null) _enterApp(user);
+        }
+      } else {
+        // User cancelled or biometric not recognised — show a hint
+        AppNotification.showError(
+          context,
+          'Biometric not recognised. Please try again or use your PIN.',
+        );
+      }
+    } on PlatformException catch (e) {
+      if (!mounted) return;
+      final message = switch (e.code) {
+        'NotEnrolled' => 'No biometrics enrolled. Set up fingerprint or Face ID in device settings.',
+        'NotAvailable' || 'HardwareUnavailable' => 'Biometric hardware is not available on this device.',
+        'LockedOut' || 'PermanentlyLockedOut' => 'Biometrics locked out due to too many attempts. Use your PIN.',
+        _ => 'Biometric authentication failed. Please use your PIN instead.',
+      };
+      AppNotification.showError(context, message);
+    } catch (_) {
+      if (mounted) {
+        AppNotification.showError(
+          context,
+          'Biometric authentication failed. Please use your PIN instead.',
+        );
       }
     }
   }
@@ -257,11 +285,24 @@ class _LoginScreenState extends State<LoginScreen>
 
     authService.setCurrentUser(user);
 
-    // When LoginScreen was pushed (e.g. from OTP flow on fresh install),
-    // pop back to the root so the rebuilt home (MainLayout) is visible.
-    if (mounted) {
-      Navigator.of(context).popUntil((route) => route.isFirst);
+    if (!mounted) return;
+
+    // If LoginScreen is the home route ('/'), VLB swaps it for MainLayout — no
+    // navigation needed.  But if it was pushed by the OTP flow (pushReplacement
+    // removed the home route), VLB is disposed and can never fire, so we must
+    // navigate explicitly.
+    final isHomeRoute = ModalRoute.of(context)?.settings.name == '/';
+    if (isHomeRoute) {
+      // VLB will handle the swap — nothing to do here.
+      return;
     }
+
+    // LoginScreen was pushed on top of (or replacing) the home route.
+    // Clear the entire stack and go straight to MainLayout.
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const MainLayout()),
+      (route) => false,
+    );
   }
 
   /// Clears device persistence and navigates to email entry so the user can
@@ -270,7 +311,24 @@ class _LoginScreenState extends State<LoginScreen>
     await authService.clearDeviceUserId();
     if (!mounted) return;
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const EmailEntryScreen()),
+      PageRouteBuilder(
+        pageBuilder: (context, animation, secondaryAnimation) =>
+            const EmailEntryScreen(),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          final curve = CurvedAnimation(
+            parent: animation,
+            curve: Curves.easeInOutCubic,
+          );
+          return FadeTransition(
+            opacity: curve,
+            child: ScaleTransition(
+              scale: Tween<double>(begin: 0.96, end: 1.0).animate(curve),
+              child: child,
+            ),
+          );
+        },
+        transitionDuration: const Duration(milliseconds: 500),
+      ),
     );
   }
 
@@ -371,6 +429,8 @@ class _LoginScreenState extends State<LoginScreen>
                       onBackspace: _onBackspace,
                       onSwitchToEmail: _switchToEmail,
                       onForgotPin: _forgotPin,
+                      biometricsAvailable: _biometricsAvailable,
+                      onBiometrics: _biometricsAvailable ? _triggerBiometrics : null,
                     ),
             ),
           ),
@@ -541,6 +601,8 @@ class _PinPad extends StatelessWidget {
   final VoidCallback onBackspace;
   final VoidCallback? onSwitchToEmail;
   final VoidCallback? onForgotPin;
+  final bool biometricsAvailable;
+  final VoidCallback? onBiometrics;
 
   const _PinPad({
     super.key,
@@ -557,6 +619,8 @@ class _PinPad extends StatelessWidget {
     required this.onBackspace,
     this.onSwitchToEmail,
     this.onForgotPin,
+    this.biometricsAvailable = false,
+    this.onBiometrics,
   });
 
   Color _hexColor(BuildContext context, String hex) {
@@ -762,6 +826,21 @@ class _PinPad extends StatelessWidget {
                   ],
                 ),
               ),
+
+              // ── Biometrics button ────────────────────────────────────────
+              if (biometricsAvailable && onBiometrics != null) ...[
+                const SizedBox(height: 8),
+                TextButton.icon(
+                  onPressed: onBiometrics,
+                  icon: const Icon(Icons.fingerprint_rounded, size: 22),
+                  label: const Text('Sign in with Biometrics'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: Colors.white.withValues(alpha: 0.8),
+                    textStyle: const TextStyle(fontSize: 14),
+                  ),
+                ),
+              ],
+
               const SizedBox(height: 32),
 
               // ── Switch-account / Not You link ──────────────────────────────
@@ -776,6 +855,19 @@ class _PinPad extends StatelessWidget {
                       color: Colors.white.withValues(alpha: 0.65),
                       fontSize: 14,
                       decoration: TextDecoration.underline,
+                    ),
+                  ),
+                ),
+
+              // ── Forgot PIN link ──────────────────────────────────────────
+              if (identifiedUser != null && onForgotPin != null)
+                TextButton(
+                  onPressed: onForgotPin,
+                  child: Text(
+                    'Forgot PIN?',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.5),
+                      fontSize: 13,
                     ),
                   ),
                 ),

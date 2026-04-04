@@ -9,7 +9,6 @@ import 'package:reebaplus_pos/features/auth/screens/login_screen.dart';
 import 'package:reebaplus_pos/features/auth/screens/otp_verification_screen.dart';
 import 'package:reebaplus_pos/core/database/app_database.dart' show UserData;
 import 'package:reebaplus_pos/main.dart' show supabaseReady;
-import 'package:reebaplus_pos/core/theme/animations.dart';
 
 class EmailEntryScreen extends StatefulWidget {
   const EmailEntryScreen({super.key});
@@ -114,16 +113,38 @@ class _EmailEntryScreenState extends State<EmailEntryScreen> {
     }
 
     Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => OtpVerificationScreen(user: localUser, email: email),
+      PageRouteBuilder(
+        pageBuilder: (context, animation, secondaryAnimation) =>
+            OtpVerificationScreen(user: localUser, email: email),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          return FadeTransition(opacity: animation, child: child);
+        },
+        transitionDuration: const Duration(milliseconds: 500),
       ),
     );
   }
 
   void _goToPinDirectly() {
-    Navigator.of(
-      context,
-    ).pushReplacement(MaterialPageRoute(builder: (_) => const LoginScreen()));
+    Navigator.of(context).pushReplacement(
+      PageRouteBuilder(
+        pageBuilder: (context, animation, secondaryAnimation) =>
+            const LoginScreen(),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          final curve = CurvedAnimation(
+            parent: animation,
+            curve: Curves.easeInOutCubic,
+          );
+          return FadeTransition(
+            opacity: curve,
+            child: ScaleTransition(
+              scale: Tween<double>(begin: 0.96, end: 1.0).animate(curve),
+              child: child,
+            ),
+          );
+        },
+        transitionDuration: const Duration(milliseconds: 500),
+      ),
+    );
   }
 
   @override
@@ -149,160 +170,156 @@ class _EmailEntryScreenState extends State<EmailEntryScreen> {
             ),
           ),
           SafeArea(
-            child: AnimatedPadding(
-              duration: AppAnimations.normal,
-              curve: AppAnimations.defaultCurve,
+            child: SingleChildScrollView(
               padding: EdgeInsets.fromLTRB(
                 28,
                 40,
                 28,
                 MediaQuery.of(context).viewInsets.bottom + 24,
               ),
-              child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // Logo
-                    Center(
-                      child: Image.asset(
-                        'assets/images/reebaplus_logo.png',
-                        height: 90,
-                        errorBuilder: (_, __, ___) => const Icon(
-                          Icons.storefront,
-                          size: 90,
-                          color: Colors.white,
-                        ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Logo
+                  Center(
+                    child: Image.asset(
+                      'assets/images/reebaplus_logo.png',
+                      height: 90,
+                      errorBuilder: (_, __, ___) => const Icon(
+                        Icons.storefront,
+                        size: 90,
+                        color: Colors.white,
                       ),
                     ),
-                    const SizedBox(height: 12),
-                    const Center(
-                      child: Text(
-                        'Reebaplus POS',
-                        style: TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
-                        ),
+                  ),
+                  const SizedBox(height: 12),
+                  const Center(
+                    child: Text(
+                      'Reebaplus POS',
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
                       ),
                     ),
-                    const SizedBox(height: 6),
-                    Center(
-                      child: Text(
-                        'Enter your email to continue',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.white.withValues(alpha: 0.7),
-                        ),
+                  ),
+                  const SizedBox(height: 6),
+                  Center(
+                    child: Text(
+                      'Enter your email to continue',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.white.withValues(alpha: 0.7),
                       ),
                     ),
-                    const SizedBox(height: 40),
+                  ),
+                  const SizedBox(height: 40),
 
-                    // Email card
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(16),
-                      child: BackdropFilter(
-                        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(
-                              color: Colors.white.withValues(alpha: 0.2),
-                            ),
-                          ),
-                          padding: const EdgeInsets.all(16),
-                          child: TextField(
-                            controller: _emailController,
-                            keyboardType: TextInputType.emailAddress,
-                            autofocus: false,
-                            textInputAction: TextInputAction.done,
-                            onSubmitted: (_) => _loading ? null : _submit(),
-                            style: const TextStyle(color: Colors.white),
-                            decoration: InputDecoration(
-                              labelText: 'Email Address',
-                              labelStyle: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.7),
-                              ),
-                              prefixIcon: Icon(
-                                Icons.email_outlined,
-                                color: Colors.white.withValues(alpha: 0.7),
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(10),
-                                borderSide: BorderSide(
-                                  color: Colors.white.withValues(alpha: 0.3),
-                                ),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(10),
-                                borderSide: const BorderSide(
-                                  color: Colors.white,
-                                  width: 1.5,
-                                ),
-                              ),
-                            ),
+                  // Email card
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.2),
                           ),
                         ),
+                        padding: const EdgeInsets.all(16),
+                        child: TextField(
+                          controller: _emailController,
+                          keyboardType: TextInputType.emailAddress,
+                          autofocus: false,
+                          textInputAction: TextInputAction.done,
+                          onSubmitted: (_) => _loading ? null : _submit(),
+                          style: const TextStyle(color: Colors.white),
+                          decoration: InputDecoration(
+                            labelText: 'Email Address',
+                            labelStyle: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.7),
+                            ),
+                            prefixIcon: Icon(
+                              Icons.email_outlined,
+                              color: Colors.white.withValues(alpha: 0.7),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: BorderSide(
+                                color: Colors.white.withValues(alpha: 0.3),
+                              ),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: const BorderSide(
+                                color: Colors.white,
+                                width: 1.5,
+                              ),
+                            ),
+                          ),
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 16),
+                  ),
+                  const SizedBox(height: 16),
 
-                    // Terms and Privacy Policy
-                    Center(
-                      child: RichText(
+                  // Terms and Privacy Policy
+                  Center(
+                    child: RichText(
+                      textAlign: TextAlign.center,
+                      text: TextSpan(
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.white.withValues(alpha: 0.6),
+                          height: 1.5,
+                        ),
+                        children: const [
+                          TextSpan(text: 'By continuing, you agree to our\n'),
+                          TextSpan(
+                            text: 'Terms of Service',
+                            style: TextStyle(
+                              decoration: TextDecoration.underline,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          TextSpan(text: ' and '),
+                          TextSpan(
+                            text: 'Privacy Policy',
+                            style: TextStyle(
+                              decoration: TextDecoration.underline,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 24),
+
+                  AppButton(
+                    text: 'Send Code',
+                    isLoading: _loading,
+                    onPressed: (_loading || !_isEmailValid) ? null : _submit,
+                  ),
+                  const SizedBox(height: 20),
+
+                  Center(
+                    child: TextButton(
+                      onPressed: _goToPinDirectly,
+                      child: Text(
+                        'Already set up on this device? Login with PIN',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.65),
+                          fontSize: 13,
+                        ),
                         textAlign: TextAlign.center,
-                        text: TextSpan(
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.white.withValues(alpha: 0.6),
-                            height: 1.5,
-                          ),
-                          children: const [
-                            TextSpan(text: 'By continuing, you agree to our\n'),
-                            TextSpan(
-                              text: 'Terms of Service',
-                              style: TextStyle(
-                                decoration: TextDecoration.underline,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            TextSpan(text: ' and '),
-                            TextSpan(
-                              text: 'Privacy Policy',
-                              style: TextStyle(
-                                decoration: TextDecoration.underline,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
                       ),
                     ),
-
-                    const SizedBox(height: 24),
-
-                    AppButton(
-                      text: 'Send Code',
-                      isLoading: _loading,
-                      onPressed: (_loading || !_isEmailValid) ? null : _submit,
-                    ),
-                    const SizedBox(height: 20),
-
-                    Center(
-                      child: TextButton(
-                        onPressed: _goToPinDirectly,
-                        child: Text(
-                          'Already set up on this device? Login with PIN',
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.65),
-                            fontSize: 13,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ),

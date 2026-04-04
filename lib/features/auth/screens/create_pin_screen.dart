@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import 'package:reebaplus_pos/core/database/app_database.dart';
 import 'package:reebaplus_pos/features/auth/screens/biometric_setup_screen.dart';
+import 'package:reebaplus_pos/features/auth/widgets/onboarding_step_indicator.dart';
 
 /// Shown to new staff (pin == '') after their email OTP is verified.
 /// Two-phase flow: enter PIN → confirm PIN → save to DB → auto-login.
@@ -211,11 +212,22 @@ class _CreatePinScreenState extends State<CreatePinScreen> {
     );
   }
 
+  bool get _isOnboarding => widget.isNewBusinessSetup || widget.isJoinFlow;
+
   Widget _buildInputState(Color primary) {
     return Column(
       key: ValueKey(_confirming ? 'confirm' : 'create'),
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
+        if (_isOnboarding)
+          OnboardingStepIndicator(
+            currentStep: widget.isNewBusinessSetup ? 6 : 5,
+            totalSteps: widget.isNewBusinessSetup ? 7 : 6,
+            stepLabels: widget.isNewBusinessSetup
+                ? OnboardingStepIndicator.pathALabels
+                : OnboardingStepIndicator.pathBLabels,
+          ),
+        if (_isOnboarding) const SizedBox(height: 16),
         // Logo
         Image.asset(
           'assets/images/reebaplus_logo.png',

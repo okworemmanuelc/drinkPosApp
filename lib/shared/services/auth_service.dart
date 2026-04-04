@@ -131,8 +131,8 @@ class AuthService extends ValueNotifier<UserData?> {
       if (user.roleTier < 5 && user.warehouseId == null) {
         scheduleMicrotask(() => _handleOnboardingAlerts(user));
       }
-    } catch (e) {
-      debugPrint('[AuthService] CRITICAL ERROR in setCurrentUser: $e');
+    } catch (e, stack) {
+      debugPrint('[AuthService] CRITICAL ERROR in setCurrentUser: $e\n$stack');
     }
   }
 

@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:reebaplus_pos/shared/widgets/app_button.dart';
 import 'package:reebaplus_pos/core/database/app_database.dart';
+import 'package:reebaplus_pos/features/auth/widgets/onboarding_step_indicator.dart';
 import 'package:reebaplus_pos/shared/widgets/main_layout.dart';
 import 'package:reebaplus_pos/features/auth/screens/success_dashboard_entry_screen.dart';
 import 'package:reebaplus_pos/features/auth/screens/access_granted_screen.dart';
@@ -129,6 +130,16 @@ class _BiometricSetupScreenState extends State<BiometricSetupScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  if (widget.isNewBusinessSetup || widget.isJoinFlow)
+                    OnboardingStepIndicator(
+                      currentStep: widget.isNewBusinessSetup ? 7 : 6,
+                      totalSteps: widget.isNewBusinessSetup ? 7 : 6,
+                      stepLabels: widget.isNewBusinessSetup
+                          ? OnboardingStepIndicator.pathALabels
+                          : OnboardingStepIndicator.pathBLabels,
+                    ),
+                  if (widget.isNewBusinessSetup || widget.isJoinFlow)
+                    const SizedBox(height: 16),
                   const Icon(Icons.fingerprint, size: 80, color: Colors.white),
                   const SizedBox(height: 24),
                   const Text(

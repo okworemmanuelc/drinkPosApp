@@ -2,6 +2,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:reebaplus_pos/features/auth/screens/new_owner_name_screen.dart';
 import 'package:reebaplus_pos/features/auth/screens/invite_code_screen.dart';
+import 'package:reebaplus_pos/features/auth/widgets/onboarding_step_indicator.dart';
 
 class BusinessTypeSelectionScreen extends StatelessWidget {
   final String email;
@@ -47,6 +48,12 @@ class BusinessTypeSelectionScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  const OnboardingStepIndicator(
+                    currentStep: 1,
+                    totalSteps: 7,
+                    stepLabels: OnboardingStepIndicator.pathALabels,
+                  ),
+                  const SizedBox(height: 16),
                   Center(
                     child: Image.asset(
                       'assets/images/reebaplus_logo.png',

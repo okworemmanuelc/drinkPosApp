@@ -7,6 +7,7 @@ import 'package:reebaplus_pos/shared/widgets/app_button.dart';
 import 'package:reebaplus_pos/features/auth/screens/create_pin_screen.dart';
 import 'package:reebaplus_pos/shared/services/auth_service.dart';
 import 'package:reebaplus_pos/core/utils/notifications.dart';
+import 'package:reebaplus_pos/features/auth/widgets/onboarding_step_indicator.dart';
 
 class JoinNameEntryScreen extends StatefulWidget {
   final String email;
@@ -102,6 +103,12 @@ class _JoinNameEntryScreenState extends State<JoinNameEntryScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  const OnboardingStepIndicator(
+                    currentStep: 4,
+                    totalSteps: 6,
+                    stepLabels: OnboardingStepIndicator.pathBLabels,
+                  ),
+                  const SizedBox(height: 16),
                   const Center(
                     child: Text(
                       'Welcome to the Team',
