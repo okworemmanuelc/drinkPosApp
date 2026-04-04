@@ -11,7 +11,8 @@ class WarehouseAssignmentScreen extends StatefulWidget {
   const WarehouseAssignmentScreen({super.key, required this.user});
 
   @override
-  State<WarehouseAssignmentScreen> createState() => _WarehouseAssignmentScreenState();
+  State<WarehouseAssignmentScreen> createState() =>
+      _WarehouseAssignmentScreenState();
 }
 
 class _WarehouseAssignmentScreenState extends State<WarehouseAssignmentScreen> {
@@ -23,21 +24,29 @@ class _WarehouseAssignmentScreenState extends State<WarehouseAssignmentScreen> {
   @override
   void initState() {
     super.initState();
-    _expiry = (widget.user.createdAt ?? DateTime.now()).add(const Duration(hours: 48));
+    _expiry = (widget.user.createdAt ?? DateTime.now()).add(
+      const Duration(hours: 48),
+    );
     _calculateTimeLeft();
-    _timer = Timer.periodic(const Duration(seconds: 1), (_) => _calculateTimeLeft());
-    
+    _timer = Timer.periodic(
+      const Duration(seconds: 1),
+      (_) => _calculateTimeLeft(),
+    );
+
     // Poll for assignment every 5 seconds
-    _assignmentCheckTimer = Timer.periodic(const Duration(seconds: 5), (_) => _checkAssignment());
+    _assignmentCheckTimer = Timer.periodic(
+      const Duration(seconds: 5),
+      (_) => _checkAssignment(),
+    );
   }
 
   Future<void> _checkAssignment() async {
-    final updatedUser = await (database.select(database.users)
-          ..where((u) => u.id.equals(widget.user.id)))
-        .getSingleOrNull();
-    
+    final updatedUser = await (database.select(
+      database.users,
+    )..where((u) => u.id.equals(widget.user.id))).getSingleOrNull();
+
     if (updatedUser != null && updatedUser.warehouseId != null) {
-      // Assignment detected! 
+      // Assignment detected!
       authService.setCurrentUser(updatedUser);
     }
   }
@@ -92,11 +101,13 @@ class _WarehouseAssignmentScreenState extends State<WarehouseAssignmentScreen> {
             child: BackdropFilter(
               filter: ImageFilter.blur(sigmaX: 40, sigmaY: 40),
               child: Container(
-                color: Colors.black.withValues(alpha: 0.4), // Extra darkening overlay
+                color: Colors.black.withValues(
+                  alpha: 0.4,
+                ), // Extra darkening overlay
               ),
             ),
           ),
-          
+
           // Main Content
           SafeArea(
             child: Center(
@@ -125,10 +136,13 @@ class _WarehouseAssignmentScreenState extends State<WarehouseAssignmentScreen> {
                       ),
                     ),
                     const SizedBox(height: 32),
-                    
+
                     // Glassy Finish for Text
                     _GlassContainer(
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 16,
+                      ),
                       borderRadius: 16,
                       child: Column(
                         children: [
@@ -146,8 +160,8 @@ class _WarehouseAssignmentScreenState extends State<WarehouseAssignmentScreen> {
                             'Hello ${widget.user.name.split(' ')[0]}, your account is active but hasn\'t been assigned a warehouse yet.',
                             textAlign: TextAlign.center,
                             style: TextStyle(
-                              fontSize: 15, 
-                              color: subtext, 
+                              fontSize: 15,
+                              color: subtext,
                               height: 1.5,
                             ),
                           ),
@@ -155,7 +169,7 @@ class _WarehouseAssignmentScreenState extends State<WarehouseAssignmentScreen> {
                       ),
                     ),
                     const SizedBox(height: 48),
-                    
+
                     _GlassContainer(
                       width: double.infinity,
                       padding: const EdgeInsets.all(24),
@@ -184,7 +198,9 @@ class _WarehouseAssignmentScreenState extends State<WarehouseAssignmentScreen> {
                           const SizedBox(height: 8),
                           LinearProgressIndicator(
                             value: _timeLeft.inSeconds / (48 * 3600),
-                            backgroundColor: Colors.white.withValues(alpha: 0.2),
+                            backgroundColor: Colors.white.withValues(
+                              alpha: 0.2,
+                            ),
                             color: Colors.white.withValues(alpha: 0.9),
                             minHeight: 6,
                             borderRadius: BorderRadius.circular(3),
@@ -193,9 +209,12 @@ class _WarehouseAssignmentScreenState extends State<WarehouseAssignmentScreen> {
                       ),
                     ),
                     const SizedBox(height: 48),
-                    
+
                     _GlassContainer(
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 12,
+                      ),
                       borderRadius: 12,
                       child: Text(
                         'The CEO has been notified. This timer secures your onboarding window.',
@@ -204,13 +223,13 @@ class _WarehouseAssignmentScreenState extends State<WarehouseAssignmentScreen> {
                       ),
                     ),
                     const SizedBox(height: 24),
-                    
+
                     AppButton(
                       text: 'Log Out',
                       icon: FontAwesomeIcons.rightFromBracket,
                       variant: AppButtonVariant.ghost,
                       isFullWidth: false,
-                      onPressed: () => authService.logout(),
+                      onPressed: () => authService.fullLogout(),
                     ),
                   ],
                 ),

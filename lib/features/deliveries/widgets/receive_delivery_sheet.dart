@@ -168,11 +168,10 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
         );
         return;
       }
-      if (l.selectedCategory == 'Glass Crates' &&
-          l.selectedCrateGroup == null) {
+      if (l.selectedCategory == 'Alcoholic' && l.selectedCrateGroup == null) {
         AppNotification.showError(
           context,
-          'Select a Crate Company for Glass Crate items.',
+          'Select a Crate Company for Crate items.',
         );
         return;
       }
@@ -197,7 +196,7 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
         null,
       );
 
-      // Auto-add empty crates for glass products
+      // Auto-add empty crates for crate products
       if (l.selectedCrateGroup != null) {
         await database.inventoryDao.addEmptyCrates(
           l.selectedCrateGroup!.id,
@@ -483,7 +482,7 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
               labelText: 'Category',
               value: line.selectedCategory,
               items: [
-                'Glass Crates',
+                'Alcoholic',
                 'Cans & PET',
                 'Kegs',
                 'Other',
@@ -491,7 +490,7 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
               onChanged: (v) => setState(() => line.selectedCategory = v!),
             ),
 
-            if (line.selectedCategory == 'Glass Crates') ...[
+            if (line.selectedCategory == 'Alcoholic') ...[
               const SizedBox(height: 12),
               AppDropdown<CrateGroupData>(
                 labelText: 'Crate Company *',

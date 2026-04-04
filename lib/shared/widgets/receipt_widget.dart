@@ -23,6 +23,7 @@ class ReceiptWidget extends StatelessWidget {
   final String? deliveryRef;
   final String? orderStatus;
   final double? refundAmount;
+
   /// manufacturerId → name — used to label crate deposit rows by manufacturer.
   final Map<int, String>? manufacturerNames;
 
@@ -52,7 +53,9 @@ class ReceiptWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     final bg = Theme.of(context).cardColor;
     final textCol = Theme.of(context).colorScheme.onSurface;
-    final sub = Theme.of(context).textTheme.bodySmall?.color ?? Theme.of(context).iconTheme.color!;
+    final sub =
+        Theme.of(context).textTheme.bodySmall?.color ??
+        Theme.of(context).iconTheme.color!;
     final divCol = Theme.of(context).dividerColor;
     final primary = Theme.of(context).colorScheme.primary;
 
@@ -198,11 +201,17 @@ class ReceiptWidget extends StatelessWidget {
               children: [
                 Text(
                   'Order: #$orderId',
-                  style: TextStyle(fontSize: context.getRFontSize(12), color: sub),
+                  style: TextStyle(
+                    fontSize: context.getRFontSize(12),
+                    color: sub,
+                  ),
                 ),
                 Text(
                   'Date: ${_formatDate(DateTime.now())}',
-                  style: TextStyle(fontSize: context.getRFontSize(12), color: sub),
+                  style: TextStyle(
+                    fontSize: context.getRFontSize(12),
+                    color: sub,
+                  ),
                 ),
                 if (reprintDate != null)
                   Text(
@@ -223,11 +232,15 @@ class ReceiptWidget extends StatelessWidget {
 
           ...cart.map((item) {
             final rawQty = item['qty'];
-            final double qty = rawQty is num ? rawQty.toDouble() : double.tryParse(rawQty.toString()) ?? 0.0;
-            
+            final double qty = rawQty is num
+                ? rawQty.toDouble()
+                : double.tryParse(rawQty.toString()) ?? 0.0;
+
             final rawPrice = item['price'];
-            final double price = rawPrice is num ? rawPrice.toDouble() : double.tryParse(rawPrice.toString()) ?? 0.0;
-            
+            final double price = rawPrice is num
+                ? rawPrice.toDouble()
+                : double.tryParse(rawPrice.toString()) ?? 0.0;
+
             final lineTotal = stockValue(price, qty).round();
             return Padding(
               padding: EdgeInsets.symmetric(vertical: context.getRSize(4)),
@@ -265,12 +278,15 @@ class ReceiptWidget extends StatelessWidget {
             // Build per-manufacturer crate breakdown when names are available.
             if (manufacturerNames != null && manufacturerNames!.isNotEmpty) ...[
               () {
-                // Group glass cart items by manufacturerId
+                // Group crate cart items by manufacturerId
                 final Map<int, double> mfrQty = {};
                 for (final item in cart) {
                   final mid = item['manufacturerId'];
-                  if (mid is int && (item['crateGroupId'] != null || ((item['emptyCrateValueKobo'] ?? 0) as num) > 0)) {
-                    mfrQty[mid] = (mfrQty[mid] ?? 0) + (item['qty'] as num).toDouble();
+                  if (mid is int &&
+                      (item['crateGroupId'] != null ||
+                          ((item['emptyCrateValueKobo'] ?? 0) as num) > 0)) {
+                    mfrQty[mid] =
+                        (mfrQty[mid] ?? 0) + (item['qty'] as num).toDouble();
                   }
                 }
                 if (mfrQty.isEmpty) {
@@ -283,36 +299,53 @@ class ReceiptWidget extends StatelessWidget {
                     return nameA.compareTo(nameB);
                   });
                 return Column(
-                  children: sortedEntries.map((e) {
-                    final mfrName = manufacturerNames![e.key] ?? 'Unknown';
-                    return Padding(
-                      padding: EdgeInsets.symmetric(vertical: context.getRSize(2)),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            '$mfrName (${e.value.toStringAsFixed(0)} crates)',
-                            style: TextStyle(fontSize: context.getRFontSize(12), color: sub),
+                  children:
+                      sortedEntries.map((e) {
+                        final mfrName = manufacturerNames![e.key] ?? 'Unknown';
+                        return Padding(
+                          padding: EdgeInsets.symmetric(
+                            vertical: context.getRSize(2),
                           ),
-                        ],
-                      ),
-                    );
-                  }).toList()
-                    ..add(
-                      Padding(
-                        padding: EdgeInsets.symmetric(vertical: context.getRSize(2)),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text('Crate Deposit', style: TextStyle(fontSize: context.getRFontSize(13), color: sub)),
-                            Text(
-                              formatCurrency(crateDeposit),
-                              style: TextStyle(fontSize: context.getRFontSize(13), fontWeight: FontWeight.w600, color: sub),
-                            ),
-                          ],
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                '$mfrName (${e.value.toStringAsFixed(0)} crates)',
+                                style: TextStyle(
+                                  fontSize: context.getRFontSize(12),
+                                  color: sub,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }).toList()..add(
+                        Padding(
+                          padding: EdgeInsets.symmetric(
+                            vertical: context.getRSize(2),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'Crate Deposit',
+                                style: TextStyle(
+                                  fontSize: context.getRFontSize(13),
+                                  color: sub,
+                                ),
+                              ),
+                              Text(
+                                formatCurrency(crateDeposit),
+                                style: TextStyle(
+                                  fontSize: context.getRFontSize(13),
+                                  fontWeight: FontWeight.w600,
+                                  color: sub,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-                    ),
                 );
               }(),
             ] else
@@ -476,4 +509,3 @@ class ReceiptWidget extends StatelessWidget {
         '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
   }
 }
-

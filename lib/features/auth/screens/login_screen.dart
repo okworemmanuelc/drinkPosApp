@@ -180,12 +180,6 @@ class _LoginScreenState extends State<LoginScreen>
   Future<void> _submit() async {
     setState(() => _checking = true);
 
-    // Await the Completer-guarded DB future — returns instantly if already
-    // complete, blocks safely on fresh install until migrations finish.
-    try {
-      await dbReady;
-    } catch (_) {}
-
     if (!mounted) return;
 
     List<UserData> matches;
@@ -350,86 +344,34 @@ class _LoginScreenState extends State<LoginScreen>
           ),
 
           SafeArea(
-            child: FutureBuilder<void>(
-              future: dbReady,
-              builder: (context, snapshot) {
-                // DB still initializing — show branded loading
-                if (snapshot.connectionState != ConnectionState.done) {
-                  return Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Image.asset(
-                          'assets/images/reebaplus_logo.png',
-                          height: 90,
-                          errorBuilder: (_, __, ___) => const Icon(
-                            Icons.storefront,
-                            size: 90,
-                            color: Colors.white,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        const Text(
-                          'Reebaplus POS',
-                          style: TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Setting up...',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.white.withValues(alpha: 0.7),
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-                        const SizedBox(
-                          width: 24,
-                          height: 24,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2.5,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ],
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 300),
+              child: _loginSuccess
+                  ? _SuccessOverlay(
+                      key: const ValueKey('success'),
+                      user: _loggedInUser!,
+                      checkScale: _checkScale,
+                      checkFade: _checkFade,
+                      bg: bg,
+                      textColor: Colors.white,
+                      subtextColor: Colors.white.withValues(alpha: 0.7),
+                    )
+                  : _PinPad(
+                      key: const ValueKey('pinpad'),
+                      pin: _pin,
+                      checking: _checking,
+                      identifiedUser: _identifiedUser,
+                      lockoutUntil: _lockoutUntil,
+                      warningText: _pinWarning,
+                      bg: bg,
+                      surface: Colors.white.withValues(alpha: 0.1),
+                      textColor: Colors.white,
+                      subtextColor: Colors.white.withValues(alpha: 0.6),
+                      onDigit: _onDigit,
+                      onBackspace: _onBackspace,
+                      onSwitchToEmail: _switchToEmail,
+                      onForgotPin: _forgotPin,
                     ),
-                  );
-                }
-
-                // DB ready — show PIN pad or success overlay
-                return AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 300),
-                  child: _loginSuccess
-                      ? _SuccessOverlay(
-                          key: const ValueKey('success'),
-                          user: _loggedInUser!,
-                          checkScale: _checkScale,
-                          checkFade: _checkFade,
-                          bg: bg,
-                          textColor: Colors.white,
-                          subtextColor: Colors.white.withValues(alpha: 0.7),
-                        )
-                      : _PinPad(
-                          key: const ValueKey('pinpad'),
-                          pin: _pin,
-                          checking: _checking,
-                          identifiedUser: _identifiedUser,
-                          lockoutUntil: _lockoutUntil,
-                          warningText: _pinWarning,
-                          bg: bg,
-                          surface: Colors.white.withValues(alpha: 0.1),
-                          textColor: Colors.white,
-                          subtextColor: Colors.white.withValues(alpha: 0.6),
-                          onDigit: _onDigit,
-                          onBackspace: _onBackspace,
-                          onSwitchToEmail: _switchToEmail,
-                          onForgotPin: _forgotPin,
-                        ),
-                );
-              },
             ),
           ),
         ],

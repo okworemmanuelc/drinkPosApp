@@ -426,9 +426,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       widget.item.totalStock,
     );
 
-    // Display crate size nicely (big → Big, medium → Medium, small → Small)
-    final crateSizeLabel = widget.item.crateSize != null
-        ? '${widget.item.crateSize![0].toUpperCase()}${widget.item.crateSize!.substring(1)}'
+    // Display size nicely (big → Big, medium → Medium, small → Small)
+    final sizeLabel = widget.item.size != null
+        ? '${widget.item.size![0].toUpperCase()}${widget.item.size!.substring(1)}'
         : 'N/A';
 
     return Padding(
@@ -606,12 +606,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               ),
             ),
             _divider(context),
-            // Crate Size — read-only, shows the value saved at product creation
             _infoRow(
               context,
               FontAwesomeIcons.layerGroup,
-              'Crate Size',
-              crateSizeLabel,
+              'Size',
+              sizeLabel,
               const Color(0xFF8B5CF6),
             ),
           ]),

@@ -74,10 +74,7 @@ class _ProductPreviewModalState extends State<ProductPreviewModal>
           builder: (context, child) {
             return Transform.scale(
               scale: _scaleAnimation.value,
-              child: Opacity(
-                opacity: _opacityAnimation.value,
-                child: child,
-              ),
+              child: Opacity(opacity: _opacityAnimation.value, child: child),
             );
           },
           child: Container(
@@ -86,7 +83,10 @@ class _ProductPreviewModalState extends State<ProductPreviewModal>
             decoration: BoxDecoration(
               color: widget.cardCol.withValues(alpha: 0.9),
               borderRadius: BorderRadius.circular(32),
-              border: Border.all(color: widget.textCol.withValues(alpha: 0.1), width: 1),
+              border: Border.all(
+                color: widget.textCol.withValues(alpha: 0.1),
+                width: 1,
+              ),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.2),
@@ -129,7 +129,8 @@ class _ProductPreviewModalState extends State<ProductPreviewModal>
                                 color: widget.textCol,
                               ),
                             ),
-                            if (product.subtitle != null && product.subtitle!.isNotEmpty)
+                            if (product.subtitle != null &&
+                                product.subtitle!.isNotEmpty)
                               Text(
                                 product.subtitle!,
                                 style: TextStyle(
@@ -143,7 +144,7 @@ class _ProductPreviewModalState extends State<ProductPreviewModal>
                     ],
                   ),
                   SizedBox(height: context.getRSize(24)),
-                  
+
                   // Details Grid
                   _buildDetailRow(
                     context,
@@ -185,11 +186,11 @@ class _ProductPreviewModalState extends State<ProductPreviewModal>
                   _buildDetailRow(
                     context,
                     FontAwesomeIcons.boxOpen,
-                    'Crate Size',
-                    product.crateSize ?? 'N/A',
+                    'Size',
+                    product.size ?? 'N/A',
                     const Color(0xFFEC4899),
                   ),
-                  
+
                   SizedBox(height: context.getRSize(16)),
                   Center(
                     child: Text(
@@ -211,7 +212,12 @@ class _ProductPreviewModalState extends State<ProductPreviewModal>
   }
 
   Widget _buildDetailRow(
-      BuildContext context, IconData icon, String label, String value, Color iconColor) {
+    BuildContext context,
+    IconData icon,
+    String label,
+    String value,
+    Color iconColor,
+  ) {
     return Padding(
       padding: EdgeInsets.symmetric(vertical: context.getRSize(6)),
       child: Row(

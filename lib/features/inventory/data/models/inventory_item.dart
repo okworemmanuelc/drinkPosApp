@@ -25,7 +25,7 @@ class InventoryItem {
   String? pairedCrateItemId;
   String? imagePath;
   String? manufacturer;
-  String? crateSize; // 'big' | 'medium' | 'small'
+  String? size; // 'big' | 'medium' | 'small'
 
   InventoryItem({
     required this.id,
@@ -47,7 +47,7 @@ class InventoryItem {
     this.pairedCrateItemId,
     this.imagePath,
     this.manufacturer,
-    this.crateSize,
+    this.size,
   });
 
   double get totalStock =>
@@ -77,7 +77,7 @@ class InventoryItem {
     String? pairedCrateItemId,
     String? imagePath,
     String? manufacturer,
-    String? crateSize,
+    String? size,
   }) {
     return InventoryItem(
       id: id ?? this.id,
@@ -99,7 +99,7 @@ class InventoryItem {
       pairedCrateItemId: pairedCrateItemId ?? this.pairedCrateItemId,
       imagePath: imagePath ?? this.imagePath,
       manufacturer: manufacturer ?? this.manufacturer,
-      crateSize: crateSize ?? this.crateSize,
+      size: size ?? this.size,
     );
   }
 }

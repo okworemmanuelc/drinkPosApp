@@ -7,6 +7,7 @@ import 'package:reebaplus_pos/core/theme/colors.dart';
 
 import 'package:reebaplus_pos/core/utils/number_format.dart';
 import 'package:reebaplus_pos/core/utils/responsive.dart';
+import 'package:reebaplus_pos/shared/services/auth_service.dart';
 import 'package:reebaplus_pos/shared/widgets/app_drawer.dart';
 import 'package:reebaplus_pos/features/payments/data/models/payment.dart';
 import 'package:reebaplus_pos/features/payments/data/services/payment_service.dart';
@@ -542,7 +543,7 @@ class _PaymentsScreenState extends State<PaymentsScreen>
                     );
                     final log = InventoryLog(
                       timestamp: DateTime.now(),
-                      user: 'John Cashier',
+                      user: authService.currentUser?.name ?? 'Unknown',
                       itemId: newSupplier.id,
                       itemName: newSupplier.name,
                       action: 'new_supplier',

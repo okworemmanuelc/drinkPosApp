@@ -166,177 +166,197 @@ class _CreatePinScreenState extends State<CreatePinScreen> {
                   horizontal: 32,
                   vertical: 24,
                 ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    // Logo
-                    Image.asset(
-                      'assets/images/reebaplus_logo.png',
-                      height: 80,
-                      errorBuilder: (_, __, ___) => const Icon(
-                        Icons.storefront,
-                        size: 80,
-                        color: Colors.white,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-
-                    Text(
-                      _confirming ? 'Confirm your PIN' : 'Create a PIN',
-                      style: const TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Welcome, ${widget.user.name}!',
-                      style: TextStyle(
-                        fontSize: 15,
-                        color: Colors.white.withValues(alpha: 0.8),
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      _confirming
-                          ? 'Re-enter the same PIN to confirm'
-                          : 'Choose a 6-digit PIN for quick login',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: Colors.white.withValues(alpha: 0.6),
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    if (!_confirming) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        'You\'ll use this PIN every time you log in',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: _errorMessage != null
-                              ? Colors.transparent
-                              : Colors.white.withValues(alpha: 0.4),
-                          fontStyle: FontStyle.italic,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ],
-                    const SizedBox(height: 36),
-
-                    // Six dots
-                    _ShakeWidget(
-                      key: _shakeKey,
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: List.generate(6, (i) {
-                          final filled = i < _pin.length;
-                          return AnimatedContainer(
-                            duration: const Duration(milliseconds: 150),
-                            margin: const EdgeInsets.symmetric(horizontal: 8),
-                            width: 18,
-                            height: 18,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: filled
-                                  ? primary
-                                  : Colors.white.withValues(alpha: 0.1),
-                              border: Border.all(
-                                color: filled
-                                    ? primary
-                                    : Colors.white.withValues(alpha: 0.4),
-                                width: 2,
-                              ),
-                            ),
-                          );
-                        }),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-
-                    // Error / saving feedback
-                    SizedBox(
-                      height: 20,
-                      child: _saving
-                          ? const Center(
-                              child: SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            )
-                          : _errorMessage != null
-                          ? Text(
-                              _errorMessage!,
-                              style: const TextStyle(
-                                color: Color(0xFFFF6B6B),
-                                fontSize: 13,
-                              ),
-                              textAlign: TextAlign.center,
-                            )
-                          : null,
-                    ),
-                    const SizedBox(height: 24),
-
-                    // Numpad
-                    ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 300),
-                      child: Column(
-                        children: [
-                          _buildKeyRow(['1', '2', '3']),
-                          const SizedBox(height: 12),
-                          _buildKeyRow(['4', '5', '6']),
-                          const SizedBox(height: 12),
-                          _buildKeyRow(['7', '8', '9']),
-                          const SizedBox(height: 12),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const SizedBox(width: 80, height: 80),
-                              const SizedBox(width: 12),
-                              _KeyBtn(label: '0', onTap: () => _onDigit('0')),
-                              const SizedBox(width: 12),
-                              _KeyBtn(
-                                icon: Icons.backspace_outlined,
-                                onTap: _onBackspace,
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    // Phase indicator
-                    const SizedBox(height: 24),
-                    if (_confirming)
-                      TextButton(
-                        onPressed: _saving
-                            ? null
-                            : () => setState(() {
-                                _pin = '';
-                                _firstPin = '';
-                                _confirming = false;
-                                _errorMessage = null;
-                              }),
-                        child: Text(
-                          '← Back to create PIN',
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.55),
-                            fontSize: 13,
-                          ),
-                        ),
-                      ),
-                  ],
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 500),
+                  child: _saving
+                      ? _buildSavingState(primary)
+                      : _buildInputState(primary),
                 ),
               ),
             ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildSavingState(Color primary) {
+    return Column(
+      key: const ValueKey('saving'),
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        CircleAvatar(
+          radius: 44,
+          backgroundColor: primary.withValues(alpha: 0.1),
+          child: const Icon(Icons.check_rounded, size: 48, color: Colors.white),
+        ),
+        const SizedBox(height: 24),
+        const Text(
+          'PIN Setup Complete',
+          style: TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.w700,
+            color: Colors.white,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Securing your account...',
+          style: TextStyle(
+            fontSize: 14,
+            color: Colors.white.withValues(alpha: 0.6),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildInputState(Color primary) {
+    return Column(
+      key: ValueKey(_confirming ? 'confirm' : 'create'),
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        // Logo
+        Image.asset(
+          'assets/images/reebaplus_logo.png',
+          height: 80,
+          errorBuilder: (_, __, ___) =>
+              const Icon(Icons.storefront, size: 80, color: Colors.white),
+        ),
+        const SizedBox(height: 12),
+
+        Text(
+          _confirming ? 'Confirm your PIN' : 'Create a PIN',
+          style: const TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.w700,
+            color: Colors.white,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'Welcome, ${widget.user.name}!',
+          style: TextStyle(
+            fontSize: 15,
+            color: Colors.white.withValues(alpha: 0.8),
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          _confirming
+              ? 'Re-enter the same PIN to confirm'
+              : 'Choose a 6-digit PIN for quick login',
+          style: TextStyle(
+            fontSize: 13,
+            color: Colors.white.withValues(alpha: 0.6),
+          ),
+          textAlign: TextAlign.center,
+        ),
+        if (!_confirming) ...[
+          const SizedBox(height: 4),
+          Text(
+            'You\'ll use this PIN every time you log in',
+            style: TextStyle(
+              fontSize: 12,
+              color: _errorMessage != null
+                  ? Colors.transparent
+                  : Colors.white.withValues(alpha: 0.4),
+              fontStyle: FontStyle.italic,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+        const SizedBox(height: 36),
+
+        // Six dots
+        _ShakeWidget(
+          key: _shakeKey,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: List.generate(6, (i) {
+              final filled = i < _pin.length;
+              return AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                margin: const EdgeInsets.symmetric(horizontal: 8),
+                width: 18,
+                height: 18,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: filled ? primary : Colors.white.withValues(alpha: 0.1),
+                  border: Border.all(
+                    color: filled
+                        ? primary
+                        : Colors.white.withValues(alpha: 0.4),
+                    width: 2,
+                  ),
+                ),
+              );
+            }),
+          ),
+        ),
+        const SizedBox(height: 12),
+
+        // Error feedback
+        SizedBox(
+          height: 20,
+          child: _errorMessage != null
+              ? Text(
+                  _errorMessage!,
+                  style: const TextStyle(
+                    color: Color(0xFFFF6B6B),
+                    fontSize: 13,
+                  ),
+                  textAlign: TextAlign.center,
+                )
+              : null,
+        ),
+        const SizedBox(height: 24),
+
+        // Numpad
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 300),
+          child: Column(
+            children: [
+              _buildKeyRow(['1', '2', '3']),
+              const SizedBox(height: 12),
+              _buildKeyRow(['4', '5', '6']),
+              const SizedBox(height: 12),
+              _buildKeyRow(['7', '8', '9']),
+              const SizedBox(height: 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const SizedBox(width: 80, height: 80),
+                  const SizedBox(width: 12),
+                  _KeyBtn(label: '0', onTap: () => _onDigit('0')),
+                  const SizedBox(width: 12),
+                  _KeyBtn(icon: Icons.backspace_outlined, onTap: _onBackspace),
+                ],
+              ),
+            ],
+          ),
+        ),
+
+        // Phase indicator / Back button
+        const SizedBox(height: 24),
+        if (_confirming)
+          TextButton(
+            onPressed: () => setState(() {
+              _pin = '';
+              _firstPin = '';
+              _confirming = false;
+              _errorMessage = null;
+            }),
+            child: Text(
+              '← Back to create PIN',
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.55),
+                fontSize: 13,
+              ),
+            ),
+          ),
+      ],
     );
   }
 

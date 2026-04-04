@@ -92,7 +92,7 @@ class Products extends Table {
       integer().nullable().references(Categories, #id)();
   IntColumn get crateGroupId =>
       integer().nullable().references(CrateGroups, #id)();
-  TextColumn get crateSize => text().nullable()(); // 'big' | 'medium' | 'small'
+  TextColumn get size => text().nullable()(); // 'big' | 'medium' | 'small'
   TextColumn get name => text()();
   TextColumn get subtitle => text().nullable()();
   TextColumn get sku => text().nullable()();
@@ -585,7 +585,7 @@ class AppDatabase extends _$AppDatabase {
   MigrationStrategy get migration => MigrationStrategy(
     onCreate: (m) async {
       debugPrint('[AppDatabase] onCreate: Creating database tables...');
-      await m.createAll();
+      await transaction(() => m.createAll());
       debugPrint('[AppDatabase] onCreate: DB setup complete.');
     },
     onUpgrade: (m, from, to) async {
@@ -677,58 +677,17 @@ class AppDatabase extends _$AppDatabase {
           } catch (_) {}
         }
 
-        // Fallback: Create any other new tables that do not yet exist
-        for (final table in allTables) {
-          await m.createTable(table).catchError((_) => Future.value());
-        }
         await customStatement('PRAGMA foreign_keys = ON');
       } catch (e) {
         debugPrint('[AppDatabase] MIGRATION ERROR: $e');
       }
     },
+    beforeOpen: (details) async {
+      await customStatement('PRAGMA foreign_keys = ON');
+      await customStatement('PRAGMA journal_mode = WAL');
+      await customStatement('PRAGMA synchronous = NORMAL');
+    },
   );
-
-  Future<void> _seedData() async {
-    await batch((b) {
-      // Crate groups — system defaults used for deposit calculations
-      b.insert(
-        crateGroups,
-        const CrateGroupsCompanion(
-          name: Value('Big Crate 12'),
-          size: Value(12),
-          depositAmountKobo: Value(150000),
-        ),
-      );
-      b.insert(
-        crateGroups,
-        const CrateGroupsCompanion(
-          name: Value('Medium Crate 20'),
-          size: Value(20),
-          depositAmountKobo: Value(150000),
-        ),
-      );
-      b.insert(
-        crateGroups,
-        const CrateGroupsCompanion(
-          name: Value('Small Crate 24'),
-          size: Value(24),
-          depositAmountKobo: Value(120000),
-        ),
-      );
-
-      // Product categories
-      b.insert(
-        categories,
-        const CategoriesCompanion(name: Value('Glass Crates')),
-      );
-      b.insert(
-        categories,
-        const CategoriesCompanion(name: Value('Cans & PET')),
-      );
-      b.insert(categories, const CategoriesCompanion(name: Value('Kegs')));
-      b.insert(categories, const CategoriesCompanion(name: Value('Other')));
-    });
-  }
 
   Future<void> clearAllData() async {
     await transaction(() async {
@@ -742,7 +701,6 @@ class AppDatabase extends _$AppDatabase {
 
   Future<void> resetDatabase() async {
     await clearAllData();
-    await _seedData();
   }
 }
 
@@ -772,17 +730,17 @@ LazyDatabase _openConnection() {
   return LazyDatabase(() async {
     final dbFolder = await getApplicationDocumentsDirectory();
     final file = File(p.join(dbFolder.path, 'reebaplus_pos.sqlite'));
-    return NativeDatabase.createInBackground(
+
+    // Using standard NativeDatabase to avoid Isolate-related hangs on first launch.
+    return NativeDatabase(
       file,
+      logStatements: false, // Set to true for deep debugging
       setup: (db) {
-        // Enable WAL mode for faster concurrent reads/writes.
         db.execute('PRAGMA journal_mode = WAL');
-        // NORMAL is safe for app data and skips expensive per-write OS syncs.
         db.execute('PRAGMA synchronous = NORMAL');
-        // 8 MB in-memory page cache to reduce disk I/O during table creation.
         db.execute('PRAGMA cache_size = -8000');
-        // Keep temp tables in RAM instead of on disk.
         db.execute('PRAGMA temp_store = MEMORY');
+        db.execute('PRAGMA foreign_keys = ON');
       },
     );
   });

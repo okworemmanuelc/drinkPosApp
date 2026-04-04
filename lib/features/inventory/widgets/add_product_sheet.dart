@@ -31,7 +31,7 @@ class _AddProductSheetState extends State<AddProductSheet> {
 
   String _unit = 'Bottle';
   String _colorHex = '#3B82F6';
-  String? _crateSize; // null = not a glass product
+  String? _size; // null = not a crate-based product
   WarehouseData? _selectedWarehouse;
   SupplierData? _selectedSupplier;
   CategoryData? _selectedCategory;
@@ -48,7 +48,7 @@ class _AddProductSheetState extends State<AddProductSheet> {
   List<ProductData> _productSuggestions = [];
   bool _isSaving = false;
 
-  static const _units = ['Bottle', 'Crate', 'Pack', 'Carton', 'Keg', 'Can'];
+  static const _units = ['Crate', 'Bottle', 'Pack', 'Carton', 'Keg', 'Can'];
   static const _colors = [
     '#3B82F6',
     '#EF4444',
@@ -76,8 +76,26 @@ class _AddProductSheetState extends State<AddProductSheet> {
     final whs = await database.select(database.warehouses).get();
     final suppliers = await database.catalogDao.getAllSuppliers();
     final manufacturers = await database.inventoryDao.getAllManufacturers();
-    final cats = await database.select(database.categories).get();
-    final productsList = await (database.select(database.products)..where((t) => t.isDeleted.not())).get();
+    var cats = await database.select(database.categories).get();
+    final productsList = await (database.select(
+      database.products,
+    )..where((t) => t.isDeleted.not())).get();
+
+    if (cats.isEmpty) {
+      final defaultCats = [
+        'Alcoholic',
+        'Non-Alcoholic',
+        'Energy Drinks',
+        'Wines',
+        'Spirits',
+      ];
+      for (final name in defaultCats) {
+        await database
+            .into(database.categories)
+            .insert(CategoriesCompanion.insert(name: name));
+      }
+      cats = await database.select(database.categories).get();
+    }
 
     if (mounted) {
       setState(() {
@@ -179,19 +197,21 @@ class _AddProductSheetState extends State<AddProductSheet> {
     _retailPriceCtrl.text = (product.retailPriceKobo / 100).toStringAsFixed(2);
     _buyingPriceCtrl.text = (product.buyingPriceKobo / 100).toStringAsFixed(2);
     _lowStockCtrl.text = product.lowStockThreshold.toString();
-    
+
     setState(() {
       _unit = product.unit;
       _colorHex = product.colorHex ?? '#3B82F6';
-      _crateSize = product.crateSize;
+      _size = product.size;
       _selectedCategory = _allCategories.cast<CategoryData?>().firstWhere(
         (c) => c?.id == product.categoryId,
         orElse: () => _selectedCategory,
       );
-      _selectedManufacturer = _allManufacturers.cast<ManufacturerData?>().firstWhere(
-        (m) => m?.id == product.manufacturerId,
-        orElse: () => null,
-      );
+      _selectedManufacturer = _allManufacturers
+          .cast<ManufacturerData?>()
+          .firstWhere(
+            (m) => m?.id == product.manufacturerId,
+            orElse: () => null,
+          );
       if (_selectedManufacturer != null) {
         _manufacturerCtrl.text = _selectedManufacturer!.name;
       }
@@ -280,7 +300,10 @@ class _AddProductSheetState extends State<AddProductSheet> {
     final existing = await database.catalogDao.findByName(name);
     if (existing != null) {
       if (mounted) {
-        AppNotification.showError(context, 'A product named "$name" already exists.');
+        AppNotification.showError(
+          context,
+          'A product named "$name" already exists.',
+        );
       }
       return;
     }
@@ -305,7 +328,7 @@ class _AddProductSheetState extends State<AddProductSheet> {
           buyingPriceKobo: drift.Value(buyingKobo),
           unit: drift.Value(_unit),
           colorHex: drift.Value(_colorHex),
-          crateSize: drift.Value(_crateSize),
+          size: drift.Value(_size),
           lowStockThreshold: drift.Value(lowStock),
           // Store both the FK id and the display name so existing text queries work
           manufacturerId: drift.Value(_selectedManufacturer?.id),
@@ -323,6 +346,14 @@ class _AddProductSheetState extends State<AddProductSheet> {
           'Initial stock by ${authService.currentUser?.name ?? 'Unknown'}',
           authService.currentUser?.id,
         );
+
+        // If unit is 'Crate', also add to manufacturer's empty crate pool
+        if (_unit == 'Crate' && _selectedManufacturer != null) {
+          await database.inventoryDao.addEmptyCrates(
+            _selectedManufacturer!.id,
+            initialStock,
+          );
+        }
       }
 
       await activityLogService.logAction(
@@ -350,13 +381,13 @@ class _AddProductSheetState extends State<AddProductSheet> {
     final bg = Theme.of(context).colorScheme.surface;
     final card = Theme.of(context).cardColor;
     final textColor = Theme.of(context).colorScheme.onSurface;
-    final subtext = Theme.of(context).textTheme.bodySmall?.color ?? Theme.of(context).iconTheme.color!;
+    final subtext =
+        Theme.of(context).textTheme.bodySmall?.color ??
+        Theme.of(context).iconTheme.color!;
     final border = Theme.of(context).dividerColor;
 
     return Padding(
-      padding: EdgeInsets.only(
-        bottom: context.bottomInset,
-      ),
+      padding: EdgeInsets.only(bottom: context.bottomInset),
       child: Container(
         constraints: BoxConstraints(
           maxHeight: MediaQuery.of(context).size.height * 0.92,
@@ -391,7 +422,9 @@ class _AddProductSheetState extends State<AddProductSheet> {
                     width: 44,
                     height: 44,
                     decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.12),
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.primary.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Icon(
@@ -437,15 +470,17 @@ class _AddProductSheetState extends State<AddProductSheet> {
                     ),
                     if (_productSuggestions.isNotEmpty)
                       _suggestionList(
-                        children: _productSuggestions.map(
-                          (p) => _suggestionTile(
-                            label: p.name,
-                            textColor: textColor,
-                            card: card,
-                            border: border,
-                            onTap: () => _selectProduct(p),
-                          ),
-                        ).toList(),
+                        children: _productSuggestions
+                            .map(
+                              (p) => _suggestionTile(
+                                label: p.name,
+                                textColor: textColor,
+                                card: card,
+                                border: border,
+                                onTap: () => _selectProduct(p),
+                              ),
+                            )
+                            .toList(),
                         card: card,
                         border: border,
                       ),
@@ -484,7 +519,9 @@ class _AddProductSheetState extends State<AddProductSheet> {
                             controller: _retailPriceCtrl,
                             labelText: 'Retail Price (₦) *',
                             hintText: '0.00',
-                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -494,7 +531,10 @@ class _AddProductSheetState extends State<AddProductSheet> {
                               controller: _buyingPriceCtrl,
                               labelText: 'Buying Price (₦) *',
                               hintText: '0.00',
-                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                    decimal: true,
+                                  ),
                             ),
                           ),
                       ],
@@ -514,7 +554,9 @@ class _AddProductSheetState extends State<AddProductSheet> {
                     AppDropdown<String>(
                       value: _unit,
                       items: _units
-                          .map((u) => DropdownMenuItem(value: u, child: Text(u)))
+                          .map(
+                            (u) => DropdownMenuItem(value: u, child: Text(u)),
+                          )
                           .toList(),
                       onChanged: (v) {
                         if (v != null) setState(() => _unit = v);
@@ -567,22 +609,25 @@ class _AddProductSheetState extends State<AddProductSheet> {
                     const SizedBox(height: 16),
 
                     // ── CRATE SIZE ─────────────────────────────────────────
-                    _sectionLabel('CRATE SIZE', subtext),
+                    _sectionLabel('SIZE', subtext),
                     const SizedBox(height: 4),
                     Text(
-                      'Only select for glass / bottle products',
+                      'Only select for crate / bottle products',
                       style: TextStyle(fontSize: 11, color: subtext),
                     ),
                     const SizedBox(height: 8),
                     AppDropdown<String?>(
-                      value: _crateSize,
+                      value: _size,
                       items: const [
                         DropdownMenuItem(value: null, child: Text('None')),
                         DropdownMenuItem(value: 'big', child: Text('Big')),
-                        DropdownMenuItem(value: 'medium', child: Text('Medium')),
+                        DropdownMenuItem(
+                          value: 'medium',
+                          child: Text('Medium'),
+                        ),
                         DropdownMenuItem(value: 'small', child: Text('Small')),
                       ],
-                      onChanged: (v) => setState(() => _crateSize = v),
+                      onChanged: (v) => setState(() => _size = v),
                     ),
                     const SizedBox(height: 16),
 
@@ -619,17 +664,21 @@ class _AddProductSheetState extends State<AddProductSheet> {
                             ),
                           ),
                           if (_manufacturerCtrl.text.trim().isNotEmpty &&
-                              !_manufacturerSuggestions.any((m) =>
-                                  m.name.toLowerCase() ==
-                                  _manufacturerCtrl.text.trim().toLowerCase()))
+                              !_manufacturerSuggestions.any(
+                                (m) =>
+                                    m.name.toLowerCase() ==
+                                    _manufacturerCtrl.text.trim().toLowerCase(),
+                              ))
                             _suggestionTile(
-                              label: 'Create "${_manufacturerCtrl.text.trim()}"',
+                              label:
+                                  'Create "${_manufacturerCtrl.text.trim()}"',
                               icon: Icons.add_circle_outline,
                               textColor: Theme.of(context).colorScheme.primary,
                               card: card,
                               border: border,
                               onTap: () => _createNewManufacturer(
-                                  _manufacturerCtrl.text.trim()),
+                                _manufacturerCtrl.text.trim(),
+                              ),
                             ),
                         ],
                         card: card,
@@ -670,17 +719,19 @@ class _AddProductSheetState extends State<AddProductSheet> {
                             ),
                           ),
                           if (_supplierCtrl.text.trim().isNotEmpty &&
-                              !_supplierSuggestions.any((s) =>
-                                  s.name.toLowerCase() ==
-                                  _supplierCtrl.text.trim().toLowerCase()))
+                              !_supplierSuggestions.any(
+                                (s) =>
+                                    s.name.toLowerCase() ==
+                                    _supplierCtrl.text.trim().toLowerCase(),
+                              ))
                             _suggestionTile(
                               label: 'Create "${_supplierCtrl.text.trim()}"',
                               icon: Icons.add_circle_outline,
                               textColor: Theme.of(context).colorScheme.primary,
                               card: card,
                               border: border,
-                              onTap: () => _createNewSupplier(
-                                  _supplierCtrl.text.trim()),
+                              onTap: () =>
+                                  _createNewSupplier(_supplierCtrl.text.trim()),
                             ),
                         ],
                         card: card,
@@ -715,10 +766,7 @@ class _AddProductSheetState extends State<AddProductSheet> {
                             ),
                             child: Text(
                               'No warehouses',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: subtext,
-                              ),
+                              style: TextStyle(fontSize: 14, color: subtext),
                             ),
                           )
                         else
@@ -773,8 +821,6 @@ class _AddProductSheetState extends State<AddProductSheet> {
     ),
   );
 
-
-
   Widget _suggestionList({
     required List<Widget> children,
     required Color card,
@@ -825,4 +871,3 @@ class _AddProductSheetState extends State<AddProductSheet> {
     );
   }
 }
-

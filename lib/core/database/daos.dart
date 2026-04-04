@@ -392,13 +392,10 @@ class InventoryDao extends DatabaseAccessor<AppDatabase>
   Future<void> assignCrateGroup(
     int productId,
     int? crateGroupId,
-    String? crateSize,
+    String? size,
   ) async {
     await (update(products)..where((t) => t.id.equals(productId))).write(
-      ProductsCompanion(
-        crateGroupId: Value(crateGroupId),
-        crateSize: Value(crateSize),
-      ),
+      ProductsCompanion(crateGroupId: Value(crateGroupId), size: Value(size)),
     );
   }
 
@@ -440,12 +437,11 @@ class InventoryDao extends DatabaseAccessor<AppDatabase>
     }
   }
 
-  /// Streams total glass bottle inventory per manufacturer for products in 'Glass' categories.
+  /// Streams total crate bottle inventory per manufacturer for products with crate sizes.
   /// Groups by manufacturer name for display in the 'Full Crates' column.
   Stream<Map<String, int>> watchFullCratesByManufacturer() {
     final qty = inventory.quantity.sum();
     final mfrName = manufacturers.name;
-    final catName = categories.name;
 
     return (selectOnly(products)
           ..join([
@@ -463,7 +459,7 @@ class InventoryDao extends DatabaseAccessor<AppDatabase>
             ),
           ])
           ..where(
-            catName.like('%glass%') &
+            products.size.isNotNull() &
                 products.manufacturerId.isNotNull() &
                 products.isDeleted.not(),
           )
@@ -480,7 +476,6 @@ class InventoryDao extends DatabaseAccessor<AppDatabase>
         });
   }
 
-  /// Streams physical empty crates per manufacturer directly from the Manufacturers table.
   Stream<Map<String, int>> watchEmptyCratesByManufacturer() {
     return select(
       manufacturers,
@@ -494,13 +489,13 @@ class InventoryDao extends DatabaseAccessor<AppDatabase>
     return query.watchSingleOrNull().map((row) => row?.read(qty) ?? 0);
   }
 
-  /// Streams the combined total of full crates (glass products in inventory)
+  /// Streams the combined total of full crates (products with size in inventory)
   /// and empty crates (physical stock in manufacturers table).
   Stream<int> watchTotalCrateAssets() {
     // 1. Watch total empty crates
     final emptyCratesStream = watchTotalManufacturerEmptyCrates();
 
-    // 2. Watch total full crates (glass products)
+    // 2. Watch total full crates (products with sizes)
     final qty = inventory.quantity.sum();
     final fullCratesStream =
         (selectOnly(products)
@@ -514,9 +509,7 @@ class InventoryDao extends DatabaseAccessor<AppDatabase>
                   categories.id.equalsExp(products.categoryId),
                 ),
               ])
-              ..where(
-                categories.name.like('%glass%') & products.isDeleted.not(),
-              )
+              ..where(products.size.isNotNull() & products.isDeleted.not())
               ..addColumns([qty]))
             .watchSingleOrNull()
             .map((row) => row?.read(qty) ?? 0);
@@ -702,7 +695,7 @@ class OrdersDao extends DatabaseAccessor<AppDatabase> with _$OrdersDaoMixin {
           item.quantity,
         );
 
-        // Glass products: returning bottles creates empty crates for the manufacturer
+        // Crate products: returning bottles creates empty crates for the manufacturer
         final productWithCat = await (select(products).join([
           leftOuterJoin(
             categories,
@@ -713,8 +706,14 @@ class OrdersDao extends DatabaseAccessor<AppDatabase> with _$OrdersDaoMixin {
         final p = productWithCat?.readTable(products);
         final c = productWithCat?.readTableOrNull(categories);
 
-        if (p?.manufacturerId != null &&
-            (c?.name.toLowerCase().contains('glass') == true)) {
+        if (c != null &&
+            [
+              'Alcoholic',
+              'Non-Alcoholic',
+              'Energy Drinks',
+              'Wines',
+              'Spirits',
+            ].contains(c.name)) {
           await db.inventoryDao.addEmptyCrates(
             p!.manufacturerId!,
             item.quantity,

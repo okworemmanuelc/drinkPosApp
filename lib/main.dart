@@ -12,7 +12,6 @@ import 'package:reebaplus_pos/shared/services/auth_service.dart';
 import 'package:reebaplus_pos/shared/widgets/main_layout.dart';
 import 'package:reebaplus_pos/shared/widgets/auto_lock_wrapper.dart';
 import 'package:reebaplus_pos/shared/widgets/force_update_wrapper.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 /// Shared future — completes when Supabase client is ready for OTP calls.
 late final Future<void> supabaseReady;
@@ -24,34 +23,23 @@ void main() async {
     const SystemUiOverlayStyle(statusBarColor: Colors.transparent),
   );
 
-  // Start init tasks in parallel — none blocks the UI.
+  // Start Supabase in background — screens await supabaseReady before OTP calls.
   supabaseReady = Supabase.initialize(
     url: 'https://ewwyofbvfjyqqirrcaou.supabase.co',
     anonKey:
         'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV3d3lvZmJ2Zmp5cXFpcnJjYW91Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1NzM0MTgsImV4cCI6MjA4OTE0OTQxOH0.McPYfcKMT_h7j9cEE7GiutREcluXo0x2SxdLP0YsP5Q',
   ).then((_) {}).catchError((_) {});
 
-  // DB warmup — triggers LazyDatabase open + onCreate. Completer guards
-  // against multiple screens racing to init. markDbReady() is idempotent.
-  database
-      .customSelect('SELECT 1')
-      .get()
-      .then((_) async {
-        // TEMP CLEANUP SCRIPT: Delete all users except owner to fix user testing stuck state
-        await database.customStatement('DELETE FROM users WHERE id > 1');
-        // Make sure we wipe the device-level login remembering if they got stuck as Cashier.
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.remove('device_user_id');
-        markDbReady();
-      })
-      .catchError((_) async {
-        markDbReady();
-      });
+  try {
+    await database
+        .customSelect('SELECT 1')
+        .get()
+        .timeout(const Duration(seconds: 5));
+  } catch (_) {}
+  markDbReady();
 
   await themeController.init();
 
-  // Don't await DB or Supabase here — they run in background.
-  // Each screen awaits the one it needs right before use.
   runApp(const ReebaplusPosApp());
 }
 
@@ -72,13 +60,29 @@ class _ReebaplusPosAppState extends State<ReebaplusPosApp> {
   void initState() {
     super.initState();
     _checkDeviceUser();
+    authService.deviceUserIdNotifier.addListener(_onDeviceUserChanged);
+  }
+
+  void _onDeviceUserChanged() {
+    if (mounted) {
+      setState(
+        () => _hasDeviceUser = authService.deviceUserIdNotifier.value != null,
+      );
+    }
   }
 
   Future<void> _checkDeviceUser() async {
     final userId = await authService.getDeviceUserId();
     if (mounted) {
+      authService.deviceUserIdNotifier.value = userId;
       setState(() => _hasDeviceUser = userId != null);
     }
+  }
+
+  @override
+  void dispose() {
+    authService.deviceUserIdNotifier.removeListener(_onDeviceUserChanged);
+    super.dispose();
   }
 
   @override

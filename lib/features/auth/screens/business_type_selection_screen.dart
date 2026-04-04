@@ -42,7 +42,7 @@ class BusinessTypeSelectionScreen extends StatelessWidget {
             ),
           ),
           SafeArea(
-            child: Padding(
+            child: SingleChildScrollView(
               padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 40),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,

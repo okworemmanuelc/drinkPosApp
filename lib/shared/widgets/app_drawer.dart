@@ -82,9 +82,14 @@ class AppDrawer extends StatelessWidget {
               if (count == 0) return const SizedBox.shrink();
               return Container(
                 margin: const EdgeInsets.only(bottom: 12),
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.1),
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.onSurface.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Row(
@@ -102,7 +107,9 @@ class AppDrawer extends StatelessWidget {
                     Text(
                       'Syncing $count file${count == 1 ? '' : 's'}…',
                       style: TextStyle(
-                        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.8),
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.primary.withValues(alpha: 0.8),
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
                       ),
@@ -113,7 +120,7 @@ class AppDrawer extends StatelessWidget {
             },
           ),
           Text(
-            authService.currentUser?.name ?? 'John Cashier',
+            authService.currentUser?.name ?? '',
             style: TextStyle(
               color: Theme.of(context).colorScheme.onSurface,
               fontSize: context.getRFontSize(18),
@@ -127,13 +134,17 @@ class AppDrawer extends StatelessWidget {
               vertical: context.getRSize(4),
             ),
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.1),
+              color: Theme.of(
+                context,
+              ).colorScheme.onSurface.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(20),
             ),
             child: Text(
               'Terminal 01',
               style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.8),
+                color: Theme.of(
+                  context,
+                ).colorScheme.onSurface.withValues(alpha: 0.8),
                 fontSize: context.getRFontSize(12),
                 fontWeight: FontWeight.w600,
               ),
@@ -274,7 +285,8 @@ class AppDrawer extends StatelessWidget {
           labelColor: t.colorScheme.error,
           onTap: () {
             Navigator.pop(context); // close the drawer first
-            authService.logout();   // clears the user → main.dart shows login screen
+            authService
+                .fullLogout(); // terminally logs out → main.dart shows email screen
           },
         ),
         SizedBox(height: context.getRSize(12)),
@@ -282,7 +294,9 @@ class AppDrawer extends StatelessWidget {
         SizedBox(height: context.getRSize(12)),
         _buildAppearanceTile(context),
         // Extra space for system navigation bar
-        SizedBox(height: MediaQuery.of(context).padding.bottom + context.getRSize(20)),
+        SizedBox(
+          height: MediaQuery.of(context).padding.bottom + context.getRSize(20),
+        ),
       ],
     );
   }
@@ -338,7 +352,9 @@ class AppDrawer extends StatelessWidget {
       margin: EdgeInsets.only(bottom: context.getRSize(6)),
       decoration: outlined
           ? BoxDecoration(
-              border: Border.all(color: t.colorScheme.error.withValues(alpha: 0.5)),
+              border: Border.all(
+                color: t.colorScheme.error.withValues(alpha: 0.5),
+              ),
               borderRadius: BorderRadius.circular(14),
             )
           : null,
@@ -414,9 +430,7 @@ class AppDrawer extends StatelessWidget {
         onTap: () {
           Navigator.pop(context); // close drawer
           Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => const ThemeSettingsScreen(),
-            ),
+            MaterialPageRoute(builder: (_) => const ThemeSettingsScreen()),
           );
         },
         child: Container(

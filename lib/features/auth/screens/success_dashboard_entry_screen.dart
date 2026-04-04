@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import 'package:reebaplus_pos/shared/widgets/app_button.dart';
 import 'package:reebaplus_pos/shared/widgets/main_layout.dart';
+import 'package:reebaplus_pos/shared/services/navigation_service.dart';
 
 class SuccessDashboardEntryScreen extends StatelessWidget {
   const SuccessDashboardEntryScreen({super.key});
@@ -91,18 +92,40 @@ class SuccessDashboardEntryScreen extends StatelessWidget {
 
                           // Next Steps Checklist
                           _buildChecklistItem(
+                            context,
                             Icons.inventory_2_rounded,
                             'Add your first product',
+                            onTap: () {
+                              navigationService.setIndex(2); // Inventory
+                              Navigator.of(context).pushAndRemoveUntil(
+                                MaterialPageRoute(
+                                  builder: (_) => const MainLayout(),
+                                ),
+                                (route) => false,
+                              );
+                            },
                           ),
                           const SizedBox(height: 16),
                           _buildChecklistItem(
+                            context,
                             Icons.group_add_rounded,
                             'Invite your team',
+                            onTap: () {
+                              navigationService.setIndex(8); // Staff
+                              Navigator.of(context).pushAndRemoveUntil(
+                                MaterialPageRoute(
+                                  builder: (_) => const MainLayout(),
+                                ),
+                                (route) => false,
+                              );
+                            },
                           ),
                           const SizedBox(height: 16),
                           _buildChecklistItem(
+                            context,
                             Icons.point_of_sale_rounded,
-                            'Set up a payment method',
+                            'Set up a payment method (Coming Soon)',
+                            enabled: false,
                           ),
 
                           const Spacer(),
@@ -132,41 +155,55 @@ class SuccessDashboardEntryScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildChecklistItem(IconData icon, String text) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.1),
+  Widget _buildChecklistItem(
+    BuildContext context,
+    IconData icon,
+    String text, {
+    VoidCallback? onTap,
+    bool enabled = true,
+  }) {
+    return Opacity(
+      opacity: enabled ? 1.0 : 0.5,
+      child: InkWell(
+        onTap: enabled ? onTap : null,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: Colors.blueAccent.withValues(alpha: 0.2),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, color: Colors.blueAccent, size: 24),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
           ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Text(
-              text,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-                color: Colors.white,
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.blueAccent.withValues(alpha: 0.2),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, color: Colors.blueAccent, size: 24),
               ),
-            ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Text(
+                  text,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+              if (enabled)
+                Icon(
+                  Icons.arrow_forward_ios_rounded,
+                  color: Colors.white.withValues(alpha: 0.3),
+                  size: 16,
+                ),
+            ],
           ),
-          Icon(
-            Icons.arrow_forward_ios_rounded,
-            color: Colors.white.withValues(alpha: 0.3),
-            size: 16,
-          ),
-        ],
+        ),
       ),
     );
   }

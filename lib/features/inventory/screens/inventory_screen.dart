@@ -821,7 +821,7 @@ class _InventoryScreenState extends State<InventoryScreen>
           buyingPrice: product.buyingPriceKobo / 100.0,
           category: product.categoryId?.toString(),
           manufacturer: product.manufacturer,
-          crateSize: product.crateSize,
+          size: product.size,
         );
         Navigator.push(
           context,
@@ -1048,7 +1048,7 @@ class _InventoryScreenState extends State<InventoryScreen>
         Expanded(
           child: _miniCrateStatCard(
             context,
-            'Full (Glass)',
+            'Full (Crate)',
             totalFull.toString(),
             FontAwesomeIcons.wineBottle,
             Theme.of(context).colorScheme.primary,
@@ -2093,8 +2093,8 @@ class _InventoryScreenState extends State<InventoryScreen>
               ),
               const SizedBox(height: 4),
               Text(
-                'Enter the company and contact details',
-                style: TextStyle(fontSize: 13, color: _subtext),
+                'Only select for crate / bottle products',
+                style: TextStyle(fontSize: 11, color: _subtext),
               ),
               const SizedBox(height: 20),
               _styledDialogField(

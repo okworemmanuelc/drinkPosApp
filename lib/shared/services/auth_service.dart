@@ -12,6 +12,9 @@ import 'package:reebaplus_pos/shared/services/navigation_service.dart';
 class AuthService extends ValueNotifier<UserData?> {
   AuthService() : super(null); // no user on startup
 
+  /// Notifies listeners whenever the device-level user ID changes.
+  final ValueNotifier<int?> deviceUserIdNotifier = ValueNotifier<int?>(null);
+
   /// The currently logged-in user, or null if nobody is logged in.
   UserData? get currentUser => value;
 
@@ -40,12 +43,14 @@ class AuthService extends ValueNotifier<UserData?> {
   Future<void> saveDeviceUserId(int userId) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_deviceUserKey, userId);
+    deviceUserIdNotifier.value = userId;
   }
 
   /// Clears the persisted device session (call on explicit logout).
   Future<void> clearDeviceUserId() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_deviceUserKey);
+    deviceUserIdNotifier.value = null;
   }
 
   // ── Supabase OTP ───────────────────────────────────────────────────────────
@@ -53,15 +58,19 @@ class AuthService extends ValueNotifier<UserData?> {
   /// Sends a one-time password to [email] via Supabase.
   /// Returns null on success, or an error string on failure.
   Future<String?> sendOtp(String email) async {
+    debugPrint('[AuthService] Attempting to send OTP to $email...');
     try {
       await Supabase.instance.client.auth.signInWithOtp(
         email: email,
         shouldCreateUser: true,
       );
+      debugPrint('[AuthService] OTP send command success.');
       return null;
     } on AuthException catch (e) {
+      debugPrint('[AuthService] Supabase AuthException: ${e.message}');
       return e.message;
     } catch (e) {
+      debugPrint('[AuthService] OTP send generic error: $e');
       if (e.toString().toLowerCase().contains('socketexception') ||
           e.toString().toLowerCase().contains('failed host lookup') ||
           e.toString().toLowerCase().contains('clientexception')) {
@@ -94,8 +103,13 @@ class AuthService extends ValueNotifier<UserData?> {
   }
 
   /// Looks up a user in the local database by email.
-  Future<UserData?> getUserByEmail(String email) =>
-      database.warehousesDao.getUserByEmail(email);
+  Future<UserData?> getUserByEmail(String email) {
+    debugPrint('[AuthService] Querying local user for $email...');
+    return database.warehousesDao.getUserByEmail(email).then((u) {
+      debugPrint('[AuthService] Query done for $email. Found: ${u != null}');
+      return u;
+    });
+  }
 
   // ── Session management ─────────────────────────────────────────────────────
 
@@ -202,9 +216,22 @@ class AuthService extends ValueNotifier<UserData?> {
   /// Completely wipes the session, reverting the device to a fresh state.
   /// Next launch will demand Email + OTP.
   Future<void> fullLogout() async {
+    // 1. Wipe device association FIRST so the notifier fires and _hasDeviceUser
+    //    becomes false before the ValueListenableBuilder rebuilds.
+    await clearDeviceUserId();
+
+    // 2. Terminate all sessions globally via Supabase (fire-and-forget —
+    //    network failures should not prevent local logout).
+    Supabase.instance.client.auth
+        .signOut(scope: SignOutScope.global)
+        .catchError(
+          (e) => debugPrint('[AuthService] Supabase signOut error: $e'),
+        );
+
+    // 3. Clear local state — triggers the ValueListenableBuilder to rebuild.
+    //    At this point _hasDeviceUser is already false → routes to EmailEntryScreen.
     value = null;
     navigationService.clearWarehouseLock();
-    await clearDeviceUserId();
   }
 
   /// Returns true if [pin] belongs to at least one user whose

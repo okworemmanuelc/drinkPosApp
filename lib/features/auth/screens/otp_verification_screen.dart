@@ -320,7 +320,8 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                       controller: _otpController,
                       hasError: _errorMessage != null,
                       onSubmit: _canSubmit ? _submit : null,
-                      ignorePointers: _isLockedOut || _loading,
+                      ignorePointers: _isLockedOut,
+                      readOnly: _loading,
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -454,12 +455,14 @@ class _OtpBoxRow extends StatefulWidget {
   final bool hasError;
   final VoidCallback? onSubmit;
   final bool ignorePointers;
+  final bool readOnly;
 
   const _OtpBoxRow({
     required this.controller,
     required this.hasError,
     this.onSubmit,
     this.ignorePointers = false,
+    this.readOnly = false,
   });
 
   @override
@@ -470,9 +473,28 @@ class _OtpBoxRowState extends State<_OtpBoxRow> {
   final _focusNode = FocusNode();
 
   @override
+  void initState() {
+    super.initState();
+    _focusNode.addListener(_handleFocusChange);
+  }
+
+  @override
   void dispose() {
+    _focusNode.removeListener(_handleFocusChange);
     _focusNode.dispose();
     super.dispose();
+  }
+
+  void _handleFocusChange() {
+    // If focus is lost and we aren't in a locked-out state, re-request it.
+    if (!_focusNode.hasFocus && mounted && !widget.ignorePointers) {
+      // Small delay to allow the framework to settle
+      Future.microtask(() {
+        if (mounted && !_focusNode.hasFocus) {
+          _focusNode.requestFocus();
+        }
+      });
+    }
   }
 
   @override
@@ -492,10 +514,11 @@ class _OtpBoxRowState extends State<_OtpBoxRow> {
                 focusNode: _focusNode,
                 keyboardType: TextInputType.number,
                 maxLength: 6,
-                textInputAction: TextInputAction.done,
+                textInputAction: TextInputAction.none,
                 onSubmitted: (_) => widget.onSubmit?.call(),
                 inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                 autofocus: true,
+                readOnly: widget.readOnly,
                 decoration: const InputDecoration(counterText: ''),
               ),
             ),

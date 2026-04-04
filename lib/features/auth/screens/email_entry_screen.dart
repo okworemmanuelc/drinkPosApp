@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 
@@ -6,8 +7,9 @@ import 'package:reebaplus_pos/shared/services/auth_service.dart';
 import 'package:reebaplus_pos/shared/widgets/app_button.dart';
 import 'package:reebaplus_pos/features/auth/screens/login_screen.dart';
 import 'package:reebaplus_pos/features/auth/screens/otp_verification_screen.dart';
-import 'package:reebaplus_pos/core/database/app_database.dart' show dbReady;
+import 'package:reebaplus_pos/core/database/app_database.dart' show UserData;
 import 'package:reebaplus_pos/main.dart' show supabaseReady;
+import 'package:reebaplus_pos/core/theme/animations.dart';
 
 class EmailEntryScreen extends StatefulWidget {
   const EmailEntryScreen({super.key});
@@ -52,34 +54,67 @@ class _EmailEntryScreenState extends State<EmailEntryScreen> {
 
     setState(() => _loading = true);
 
-    // Ensure DB and Supabase are ready before making calls.
+    if (!mounted) return;
+
+    // Run DB lookup and OTP send in parallel.
+    // supabaseReady is chained inside sendOtp only — getUserByEmail starts
+    // immediately so we don't block the DB query on Supabase init.
+    UserData? localUser;
+    String? otpError;
+    bool dbCheckDone = false;
+    bool otpSent = false;
     try {
-      await dbReady;
-      await supabaseReady;
-    } catch (_) {}
+      debugPrint('[EmailEntry] Starting DB + Supabase parallel tasks...');
+      await Future.wait([
+        authService
+            .getUserByEmail(email)
+            .then((u) {
+              debugPrint('[EmailEntry] Local user check done: ${u != null}');
+              localUser = u;
+              dbCheckDone = true;
+            })
+            .catchError((e) {
+              debugPrint('[EmailEntry] Local user check error: $e');
+            }),
+        supabaseReady
+            .then((_) {
+              debugPrint('[EmailEntry] Supabase ready. Sending OTP...');
+              return authService.sendOtp(email);
+            })
+            .then((e) {
+              debugPrint('[EmailEntry] Send OTP result: ${e ?? "Success"}');
+              otpError = e;
+              otpSent = true;
+            })
+            .catchError((e) {
+              debugPrint('[EmailEntry] Supabase/OTP error: $e');
+            }),
+      ]).timeout(const Duration(seconds: 10));
+    } on TimeoutException {
+      debugPrint(
+        '[EmailEntry] Task timed out. DB: $dbCheckDone, OTP: $otpSent',
+      );
+      if (!dbCheckDone) {
+        otpError = 'Database response delayed. Please restart the app.';
+      } else {
+        otpError = 'Network timeout. Please check your internet connection.';
+      }
+    } catch (e) {
+      debugPrint('[EmailEntry] Submit error: $e');
+      otpError = 'Something went wrong. Please try again.';
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
 
     if (!mounted) return;
 
-    // Check local DB first — only registered staff can log in.
-    final localUser = await authService.getUserByEmail(email);
-
-    if (!mounted) return;
-
-    // Send OTP via Supabase regardless of whether the user exists locally.
-    // New owners (not yet in the DB) will create their account after OTP verification.
-    final error = await authService.sendOtp(email);
-
-    if (!mounted) return;
-    setState(() => _loading = false);
-
-    if (error != null) {
-      AppNotification.showError(context, error);
+    if (otpError != null) {
+      AppNotification.showError(context, otpError!);
       return;
     }
 
     Navigator.of(context).push(
       MaterialPageRoute(
-        // localUser is null for brand-new owners — OtpVerificationScreen handles both cases.
         builder: (_) => OtpVerificationScreen(user: localUser, email: email),
       ),
     );
@@ -114,14 +149,17 @@ class _EmailEntryScreenState extends State<EmailEntryScreen> {
             ),
           ),
           SafeArea(
-            child: SingleChildScrollView(
+            child: AnimatedPadding(
+              duration: AppAnimations.normal,
+              curve: AppAnimations.defaultCurve,
               padding: EdgeInsets.fromLTRB(
                 28,
                 40,
                 28,
                 MediaQuery.of(context).viewInsets.bottom + 24,
               ),
-              child: Column(
+              child: SingleChildScrollView(
+                child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   // Logo
@@ -267,7 +305,7 @@ class _EmailEntryScreenState extends State<EmailEntryScreen> {
               ),
             ),
           ),
-        ],
+        ),
       ),
     );
   }

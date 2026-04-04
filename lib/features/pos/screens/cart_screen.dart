@@ -52,7 +52,6 @@ class _CartScreenState extends State<CartScreen>
   Customer? _activeCustomer;
   List<CrateGroupData> _crateGroups = [];
   List<ManufacturerData> _manufacturers = [];
-  List<CategoryData> _categories = [];
   List<WarehouseData> _warehouses = [];
 
   // ── Clear animation ──
@@ -91,9 +90,6 @@ class _CartScreenState extends State<CartScreen>
     database.select(database.manufacturers).watch().listen((data) {
       if (mounted) setState(() => _manufacturers = data);
     });
-    database.select(database.categories).watch().listen((data) {
-      if (mounted) setState(() => _categories = data);
-    });
   }
 
   @override
@@ -109,7 +105,9 @@ class _CartScreenState extends State<CartScreen>
   }
 
   void _onActiveCustomerChanged() {
-    if (mounted) setState(() => _activeCustomer = cartService.activeCustomer.value);
+    if (mounted) {
+      setState(() => _activeCustomer = cartService.activeCustomer.value);
+    }
   }
 
   Future<void> _clearWithAnimation() async {
@@ -160,17 +158,19 @@ class _CartScreenState extends State<CartScreen>
 
     if (name != null && name.isNotEmpty) {
       final cartJson = jsonEncode(cartService.value);
-      await database.ordersDao.saveCart(SavedCartsCompanion.insert(
-        name: name,
-        customerId: drift.Value(_activeCustomer?.id),
-        cartData: cartJson,
-        createdAt: drift.Value(DateTime.now()),
-      ));
+      await database.ordersDao.saveCart(
+        SavedCartsCompanion.insert(
+          name: name,
+          customerId: drift.Value(_activeCustomer?.id),
+          cartData: cartJson,
+          createdAt: drift.Value(DateTime.now()),
+        ),
+      );
 
       if (mounted) {
-      if (mounted) {
-        AppNotification.showSuccess(context, 'Cart saved successfully');
-      }
+        if (mounted) {
+          AppNotification.showSuccess(context, 'Cart saved successfully');
+        }
       }
     }
   }
@@ -230,13 +230,19 @@ class _CartScreenState extends State<CartScreen>
                       itemBuilder: (context, index) {
                         final cart = carts[index];
                         return ListTile(
-                          title: Text(cart.name, style: TextStyle(color: _text)),
+                          title: Text(
+                            cart.name,
+                            style: TextStyle(color: _text),
+                          ),
                           subtitle: Text(
                             'Saved on ${cart.createdAt.toString().split('.')[0]}',
                             style: TextStyle(color: _subtext),
                           ),
                           trailing: IconButton(
-                            icon: const Icon(Icons.delete_outline, color: Colors.red),
+                            icon: const Icon(
+                              Icons.delete_outline,
+                              color: Colors.red,
+                            ),
                             onPressed: () async {
                               await database.ordersDao.deleteSavedCart(cart.id);
                             },
@@ -246,7 +252,9 @@ class _CartScreenState extends State<CartScreen>
                                 .cast<Map<String, dynamic>>();
                             Customer? customer;
                             if (cart.customerId != null) {
-                              customer = customerService.getById(cart.customerId!);
+                              customer = customerService.getById(
+                                cart.customerId!,
+                              );
                             }
                             cartService.loadCart(items, customer);
                             Navigator.pop(modalCtx);
@@ -264,11 +272,14 @@ class _CartScreenState extends State<CartScreen>
       },
     );
   }
+
   Color get _bg => Theme.of(context).scaffoldBackgroundColor;
   Color get _surface => Theme.of(context).colorScheme.surface;
-  
+
   Color get _text => Theme.of(context).colorScheme.onSurface;
-  Color get _subtext => Theme.of(context).textTheme.bodySmall?.color ?? Theme.of(context).iconTheme.color!;
+  Color get _subtext =>
+      Theme.of(context).textTheme.bodySmall?.color ??
+      Theme.of(context).iconTheme.color!;
   Color get _border => Theme.of(context).dividerColor;
 
   void _showChangeCustomerModal() {
@@ -304,7 +315,6 @@ class _CartScreenState extends State<CartScreen>
             builder: (context, scrollController) {
               return StatefulBuilder(
                 builder: (dialogCtx, setDialogState) {
-
                   return GestureDetector(
                     onTap: () {}, // Prevent tap from reaching the barrier
                     child: Container(
@@ -365,9 +375,16 @@ class _CartScreenState extends State<CartScreen>
                                         AddCustomerSheet.show(
                                           context,
                                           onCustomerAdded: (newCustomer) {
-                                            setState(() => _activeCustomer = newCustomer);
-                                            widget.onCustomerChanged(newCustomer);
-                                            cartService.setActiveCustomer(newCustomer);
+                                            setState(
+                                              () =>
+                                                  _activeCustomer = newCustomer,
+                                            );
+                                            widget.onCustomerChanged(
+                                              newCustomer,
+                                            );
+                                            cartService.setActiveCustomer(
+                                              newCustomer,
+                                            );
                                           },
                                         );
                                       },
@@ -408,9 +425,13 @@ class _CartScreenState extends State<CartScreen>
                                           child: Text(
                                             'All Warehouses',
                                             style: TextStyle(
-                                              fontSize: modalCtx.getRFontSize(13),
+                                              fontSize: modalCtx.getRFontSize(
+                                                13,
+                                              ),
                                               fontWeight: FontWeight.w600,
-                                              color: Theme.of(context).colorScheme.primary,
+                                              color: Theme.of(
+                                                context,
+                                              ).colorScheme.primary,
                                             ),
                                           ),
                                         ),
@@ -421,15 +442,21 @@ class _CartScreenState extends State<CartScreen>
                                               w.name,
                                               overflow: TextOverflow.ellipsis,
                                               style: TextStyle(
-                                                fontSize: modalCtx.getRFontSize(13),
+                                                fontSize: modalCtx.getRFontSize(
+                                                  13,
+                                                ),
                                                 fontWeight: FontWeight.w600,
-                                                color: Theme.of(context).colorScheme.primary,
+                                                color: Theme.of(
+                                                  context,
+                                                ).colorScheme.primary,
                                               ),
                                             ),
                                           ),
                                         ),
                                       ],
-                                      onChanged: (id) => setDialogState(() => pickerWarehouseId = id),
+                                      onChanged: (id) => setDialogState(
+                                        () => pickerWarehouseId = id,
+                                      ),
                                     ),
                                   ),
                                 ],
@@ -469,7 +496,8 @@ class _CartScreenState extends State<CartScreen>
                                   if (searchQuery.isEmpty) return true;
                                   final q = searchQuery.toLowerCase();
                                   return c.name.toLowerCase().contains(q) ||
-                                      (c.phone?.toLowerCase().contains(q) ?? false);
+                                      (c.phone?.toLowerCase().contains(q) ??
+                                          false);
                                 }).toList();
                                 return ListView(
                                   controller: scrollController,
@@ -534,7 +562,9 @@ class _CartScreenState extends State<CartScreen>
             Container(
               padding: EdgeInsets.all(modalCtx.getRSize(10)),
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.15),
+                color: Theme.of(
+                  context,
+                ).colorScheme.primary.withValues(alpha: 0.15),
                 shape: BoxShape.circle,
               ),
               child: Icon(
@@ -570,7 +600,7 @@ class _CartScreenState extends State<CartScreen>
                               : (isOwe ? danger : success),
                         ),
                         Text(
-                                    ' Bal: ${formatCurrency(customerWallet)}',
+                          ' Bal: ${formatCurrency(customerWallet)}',
                           style: TextStyle(
                             fontSize: modalCtx.getRFontSize(12),
                             color: customerWallet == 0
@@ -698,9 +728,15 @@ class _CartScreenState extends State<CartScreen>
         decoration: BoxDecoration(
           color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3)),
+          border: Border.all(
+            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
+          ),
         ),
-        child: Icon(icon, size: context.getRSize(16), color: Theme.of(context).colorScheme.primary),
+        child: Icon(
+          icon,
+          size: context.getRSize(16),
+          color: Theme.of(context).colorScheme.primary,
+        ),
       ),
     );
   }
@@ -759,7 +795,12 @@ class _CartScreenState extends State<CartScreen>
                             padding: EdgeInsets.all(context.getRSize(10)),
                             decoration: BoxDecoration(
                               gradient: LinearGradient(
-                                colors: [Theme.of(context).colorScheme.primary.withValues(alpha: 0.7), Theme.of(context).colorScheme.primary],
+                                colors: [
+                                  Theme.of(
+                                    context,
+                                  ).colorScheme.primary.withValues(alpha: 0.7),
+                                  Theme.of(context).colorScheme.primary,
+                                ],
                               ),
                               borderRadius: BorderRadius.circular(12),
                             ),
@@ -883,16 +924,12 @@ class _CartScreenState extends State<CartScreen>
           ),
     );
 
-    // ── Glass detection & crate deposit computation ──
-    // Only items in "Glass Crates" or "Kegs" categories generate a crate deposit.
-    final depositCatIds = _categories
-        .where((c) => c.name == 'Glass Crates' || c.name == 'Kegs')
-        .map((c) => c.id)
-        .toSet();
-    final glassItems = cartItems
-        .where((i) => depositCatIds.contains(i['category']))
+    // ── Crate detection & crate deposit computation ──
+    // Items with a crateGroupId generate a crate deposit.
+    final crateItems = cartItems
+        .where((i) => i['crateGroupId'] != null)
         .toList();
-    final hasGlass = glassItems.isNotEmpty;
+    final hasCrates = crateItems.isNotEmpty;
 
     // Compute aggregate deposit across items
     double computedDeposit = 0;
@@ -907,7 +944,7 @@ class _CartScreenState extends State<CartScreen>
     final Map<String, double> ungroupedAmounts = {};
     final Map<String, double> ungroupedQtys = {};
 
-    for (final item in glassItems) {
+    for (final item in crateItems) {
       final groupId = item['crateGroupId'] as int?;
       final mfrId = item['manufacturerId'] as int?;
       final productValue = (item['emptyCrateValueKobo'] ?? 0) as num;
@@ -973,7 +1010,7 @@ class _CartScreenState extends State<CartScreen>
 
     // Customer crate balance offset
     double customerCrateCredit = 0;
-    if (hasGlass && _activeCustomer != null) {
+    if (hasCrates && _activeCustomer != null) {
       for (final entry in groupQtys.entries) {
         final cg = _crateGroups.where((g) => g.id == entry.key).firstOrNull;
         if (cg == null) continue;
@@ -1021,9 +1058,15 @@ class _CartScreenState extends State<CartScreen>
                     vertical: context.getRSize(4),
                   ),
                   decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.error.withValues(alpha: 0.1),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.error.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: Theme.of(context).colorScheme.error.withValues(alpha: 0.2)),
+                    border: Border.all(
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.error.withValues(alpha: 0.2),
+                    ),
                   ),
                   child: Row(
                     children: [
@@ -1075,7 +1118,9 @@ class _CartScreenState extends State<CartScreen>
                       Container(
                         padding: EdgeInsets.all(context.getRSize(10)),
                         decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.15),
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.primary.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Icon(
@@ -1201,8 +1246,12 @@ class _CartScreenState extends State<CartScreen>
                                 final Color c = rawColor is Color
                                     ? rawColor
                                     : rawColor is String
-                                        ? Color(int.parse(rawColor.replaceFirst('#', '0xFF')))
-                                        : Colors.blue;
+                                    ? Color(
+                                        int.parse(
+                                          rawColor.replaceFirst('#', '0xFF'),
+                                        ),
+                                      )
+                                    : Colors.blue;
                                 // Build card once, reused in both paths
                                 final card = InkWell(
                                   borderRadius: BorderRadius.circular(14),
@@ -1235,8 +1284,14 @@ class _CartScreenState extends State<CartScreen>
                                             item['icon'] == null
                                                 ? FontAwesomeIcons.box
                                                 : item['icon'] is IconData
-                                                    ? item['icon'] as IconData
-                                                    : IconData(item['icon'] as int, fontFamily: 'FontAwesomeSolid', fontPackage: 'font_awesome_flutter'),
+                                                ? item['icon'] as IconData
+                                                : IconData(
+                                                    item['icon'] as int,
+                                                    fontFamily:
+                                                        'FontAwesomeSolid',
+                                                    fontPackage:
+                                                        'font_awesome_flutter',
+                                                  ),
                                             color: c,
                                             size: context.getRSize(22),
                                           ),
@@ -1264,9 +1319,8 @@ class _CartScreenState extends State<CartScreen>
                                               Text(
                                                 '${((item['qty'] as num?)?.toDouble() ?? 0.0).toStringAsFixed(1)} × ${formatCurrency(((item['price'] as num?)?.toDouble() ?? 0.0))}',
                                                 style: TextStyle(
-                                                  fontSize: context.getRFontSize(
-                                                    13,
-                                                  ),
+                                                  fontSize: context
+                                                      .getRFontSize(13),
                                                   fontWeight: FontWeight.w600,
                                                   color: _subtext,
                                                 ),
@@ -1277,11 +1331,22 @@ class _CartScreenState extends State<CartScreen>
                                         FittedBox(
                                           fit: BoxFit.scaleDown,
                                           child: Text(
-                                            formatCurrency((((item['qty'] as num?)?.toDouble() ?? 0.0) * ((item['price'] as num?)?.toDouble() ?? 0.0))),
+                                            formatCurrency(
+                                              (((item['qty'] as num?)
+                                                          ?.toDouble() ??
+                                                      0.0) *
+                                                  ((item['price'] as num?)
+                                                          ?.toDouble() ??
+                                                      0.0)),
+                                            ),
                                             style: TextStyle(
                                               fontWeight: FontWeight.w900,
-                                              fontSize: context.getRFontSize(16),
-                                              color: Theme.of(context).colorScheme.primary,
+                                              fontSize: context.getRFontSize(
+                                                16,
+                                              ),
+                                              color: Theme.of(
+                                                context,
+                                              ).colorScheme.primary,
                                             ),
                                           ),
                                         ),
@@ -1302,19 +1367,15 @@ class _CartScreenState extends State<CartScreen>
                                         ((_clearCtrl.value - delay) /
                                                 (1.0 - delay))
                                             .clamp(0.0, 1.0);
-                                    final curve =
-                                        Curves.easeIn.transform(t);
+                                    final curve = Curves.easeIn.transform(t);
                                     return Transform.translate(
                                       offset: Offset(
                                         curve *
-                                            MediaQuery.of(context)
-                                                .size
-                                                .width,
+                                            MediaQuery.of(context).size.width,
                                         0,
                                       ),
                                       child: Opacity(
-                                        opacity:
-                                            (1.0 - curve).clamp(0.0, 1.0),
+                                        opacity: (1.0 - curve).clamp(0.0, 1.0),
                                         child: child,
                                       ),
                                     );
@@ -1330,125 +1391,299 @@ class _CartScreenState extends State<CartScreen>
                               mainAxisAlignment: MainAxisAlignment.end,
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
-                            // ── Totals section ──
-                            Container(
-                              padding: EdgeInsets.fromLTRB(
-                                context.getRSize(20),
-                                context.getRSize(20),
-                                context.getRSize(20),
-                                context.getRSize(100),
-                              ),
-                              decoration: BoxDecoration(
-                                color: _surface,
-                                border: Border(top: BorderSide(color: _border)),
-                              ),
-                              child: Column(
-                                children: [
-                                  _totalRow('Subtotal', sub, small: true),
-                                  SizedBox(height: context.getRSize(8)),
-                                  if (hasGlass) ...[
-                                    // ── Empty Crates section ──
-                                    Container(
-                                      width: double.infinity,
-                                      padding: EdgeInsets.all(
-                                        context.getRSize(14),
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: Theme.of(context).cardColor,
-                                        borderRadius: BorderRadius.circular(14),
-                                        border: Border.all(color: _border),
-                                      ),
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Row(
+                                // ── Totals section ──
+                                Container(
+                                  padding: EdgeInsets.fromLTRB(
+                                    context.getRSize(20),
+                                    context.getRSize(20),
+                                    context.getRSize(20),
+                                    context.getRSize(100),
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: _surface,
+                                    border: Border(
+                                      top: BorderSide(color: _border),
+                                    ),
+                                  ),
+                                  child: Column(
+                                    children: [
+                                      _totalRow('Subtotal', sub, small: true),
+                                      SizedBox(height: context.getRSize(8)),
+                                      if (hasCrates) ...[
+                                        // ── Empty Crates section ──
+                                        Container(
+                                          width: double.infinity,
+                                          padding: EdgeInsets.all(
+                                            context.getRSize(14),
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: Theme.of(context).cardColor,
+                                            borderRadius: BorderRadius.circular(
+                                              14,
+                                            ),
+                                            border: Border.all(color: _border),
+                                          ),
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
                                             children: [
-                                              Container(
-                                                padding: EdgeInsets.all(
-                                                  context.getRSize(8),
-                                                ),
-                                                decoration: BoxDecoration(
-                                                  gradient:
-                                                      LinearGradient(
+                                              Row(
+                                                children: [
+                                                  Container(
+                                                    padding: EdgeInsets.all(
+                                                      context.getRSize(8),
+                                                    ),
+                                                    decoration: BoxDecoration(
+                                                      gradient: LinearGradient(
                                                         colors: [
                                                           blueLight,
-                                                          Theme.of(context).colorScheme.primary,
+                                                          Theme.of(
+                                                            context,
+                                                          ).colorScheme.primary,
                                                         ],
                                                       ),
-                                                  borderRadius:
-                                                      BorderRadius.circular(10),
-                                                ),
-                                                child: Icon(
-                                                  FontAwesomeIcons.beerMugEmpty,
-                                                  size: context.getRSize(14),
-                                                  color: Colors.white,
-                                                ),
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            10,
+                                                          ),
+                                                    ),
+                                                    child: Icon(
+                                                      FontAwesomeIcons
+                                                          .beerMugEmpty,
+                                                      size: context.getRSize(
+                                                        14,
+                                                      ),
+                                                      color: Colors.white,
+                                                    ),
+                                                  ),
+                                                  SizedBox(
+                                                    width: context.getRSize(10),
+                                                  ),
+                                                  Text(
+                                                    'Empty Crates',
+                                                    style: TextStyle(
+                                                      fontSize: context
+                                                          .getRFontSize(14),
+                                                      fontWeight:
+                                                          FontWeight.w800,
+                                                      color: _text,
+                                                    ),
+                                                  ),
+                                                ],
                                               ),
                                               SizedBox(
-                                                width: context.getRSize(10),
+                                                height: context.getRSize(12),
                                               ),
-                                              Text(
-                                                'Empty Crates',
-                                                style: TextStyle(
-                                                  fontSize: context
-                                                      .getRFontSize(14),
-                                                  fontWeight: FontWeight.w800,
-                                                  color: _text,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                          SizedBox(
-                                            height: context.getRSize(12),
-                                          ),
-                                          ...depositLines.map(
-                                            (line) => Padding(
-                                              padding: EdgeInsets.only(
-                                                bottom: context.getRSize(8),
-                                              ),
-                                              child: Row(
-                                                mainAxisAlignment:
-                                                    MainAxisAlignment
-                                                        .spaceBetween,
-                                                children: [
-                                                  Row(
+                                              ...depositLines.map(
+                                                (line) => Padding(
+                                                  padding: EdgeInsets.only(
+                                                    bottom: context.getRSize(8),
+                                                  ),
+                                                  child: Row(
+                                                    mainAxisAlignment:
+                                                        MainAxisAlignment
+                                                            .spaceBetween,
                                                     children: [
-                                                      Container(
-                                                        width: context.getRSize(
-                                                          8,
-                                                        ),
-                                                        height: context
-                                                            .getRSize(8),
-                                                        decoration:
-                                                            BoxDecoration(
-                                                              color: line.color,
-                                                              shape: BoxShape
-                                                                  .circle,
+                                                      Row(
+                                                        children: [
+                                                          Container(
+                                                            width: context
+                                                                .getRSize(8),
+                                                            height: context
+                                                                .getRSize(8),
+                                                            decoration:
+                                                                BoxDecoration(
+                                                                  color: line
+                                                                      .color,
+                                                                  shape: BoxShape
+                                                                      .circle,
+                                                                ),
+                                                          ),
+                                                          SizedBox(
+                                                            width: context
+                                                                .getRSize(8),
+                                                          ),
+                                                          Text(
+                                                            '${line.label}  ×${line.qty.toStringAsFixed(1)}',
+                                                            style: TextStyle(
+                                                              fontSize: context
+                                                                  .getRFontSize(
+                                                                    13,
+                                                                  ),
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .w600,
+                                                              color: _subtext,
                                                             ),
-                                                      ),
-                                                      SizedBox(
-                                                        width: context.getRSize(
-                                                          8,
-                                                        ),
+                                                          ),
+                                                        ],
                                                       ),
                                                       Text(
-                                                        '${line.label}  ×${line.qty.toStringAsFixed(1)}',
+                                                        formatCurrency(
+                                                          line.amount,
+                                                        ),
                                                         style: TextStyle(
                                                           fontSize: context
                                                               .getRFontSize(13),
                                                           fontWeight:
-                                                              FontWeight.w600,
-                                                          color: _subtext,
+                                                              FontWeight.w700,
+                                                          color: _text,
                                                         ),
                                                       ),
                                                     ],
                                                   ),
+                                                ),
+                                              ),
+                                              Container(
+                                                height: 1,
+                                                color: _border,
+                                              ),
+                                              SizedBox(
+                                                height: context.getRSize(8),
+                                              ),
+                                              Row(
+                                                mainAxisAlignment:
+                                                    MainAxisAlignment
+                                                        .spaceBetween,
+                                                children: [
                                                   Text(
-                                                    formatCurrency(line.amount),
+                                                    'Required Deposit',
                                                     style: TextStyle(
                                                       fontSize: context
                                                           .getRFontSize(13),
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                      color: _text,
+                                                    ),
+                                                  ),
+                                                  Text(
+                                                    formatCurrency(
+                                                      computedDeposit,
+                                                    ),
+                                                    style: TextStyle(
+                                                      fontSize: context
+                                                          .getRFontSize(14),
+                                                      fontWeight:
+                                                          FontWeight.w800,
+                                                      color: Theme.of(
+                                                        context,
+                                                      ).colorScheme.primary,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                              if (customerCrateCredit > 0) ...[
+                                                SizedBox(
+                                                  height: context.getRSize(6),
+                                                ),
+                                                Row(
+                                                  mainAxisAlignment:
+                                                      MainAxisAlignment
+                                                          .spaceBetween,
+                                                  children: [
+                                                    Text(
+                                                      'Deposit Paid',
+                                                      style: TextStyle(
+                                                        fontSize: context
+                                                            .getRFontSize(12),
+                                                        fontWeight:
+                                                            FontWeight.w600,
+                                                        color: success,
+                                                      ),
+                                                    ),
+                                                    Text(
+                                                      formatCurrency(
+                                                        -customerCrateCredit,
+                                                      ),
+                                                      style: TextStyle(
+                                                        fontSize: context
+                                                            .getRFontSize(12),
+                                                        fontWeight:
+                                                            FontWeight.bold,
+                                                        color: success,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ],
+                                            ],
+                                          ),
+                                        ),
+                                        SizedBox(height: context.getRSize(8)),
+                                      ],
+                                      // Deposit Paid tappable button — always visible
+                                      GestureDetector(
+                                        onTap: () => _showEditCrateDeposit(),
+                                        child: Container(
+                                          width: double.infinity,
+                                          padding: EdgeInsets.symmetric(
+                                            horizontal: context.getRSize(16),
+                                            vertical: context.getRSize(14),
+                                          ),
+                                          decoration: BoxDecoration(
+                                            gradient: LinearGradient(
+                                              colors: [
+                                                Theme.of(context)
+                                                    .colorScheme
+                                                    .primary
+                                                    .withValues(alpha: 0.08),
+                                                Theme.of(context)
+                                                    .colorScheme
+                                                    .primary
+                                                    .withValues(alpha: 0.04),
+                                              ],
+                                            ),
+                                            borderRadius: BorderRadius.circular(
+                                              14,
+                                            ),
+                                            border: Border.all(
+                                              color: Theme.of(context)
+                                                  .colorScheme
+                                                  .primary
+                                                  .withValues(alpha: 0.12),
+                                            ),
+                                          ),
+                                          child: Row(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.spaceBetween,
+                                            children: [
+                                              Row(
+                                                children: [
+                                                  Container(
+                                                    padding: EdgeInsets.all(
+                                                      context.getRSize(8),
+                                                    ),
+                                                    decoration: BoxDecoration(
+                                                      gradient: LinearGradient(
+                                                        colors: [
+                                                          blueLight,
+                                                          Theme.of(
+                                                            context,
+                                                          ).colorScheme.primary,
+                                                        ],
+                                                      ),
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            10,
+                                                          ),
+                                                    ),
+                                                    child: Icon(
+                                                      FontAwesomeIcons
+                                                          .beerMugEmpty,
+                                                      size: context.getRSize(
+                                                        13,
+                                                      ),
+                                                      color: Colors.white,
+                                                    ),
+                                                  ),
+                                                  SizedBox(
+                                                    width: context.getRSize(10),
+                                                  ),
+                                                  Text(
+                                                    'Deposit Paid',
+                                                    style: TextStyle(
+                                                      fontSize: context
+                                                          .getRFontSize(14),
                                                       fontWeight:
                                                           FontWeight.w700,
                                                       color: _text,
@@ -1456,212 +1691,96 @@ class _CartScreenState extends State<CartScreen>
                                                   ),
                                                 ],
                                               ),
-                                            ),
-                                          ),
-                                          Container(height: 1, color: _border),
-                                          SizedBox(height: context.getRSize(8)),
-                                          Row(
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.spaceBetween,
-                                            children: [
-                                              Text(
-                                                'Required Deposit',
-                                                style: TextStyle(
-                                                  fontSize: context
-                                                      .getRFontSize(13),
-                                                  fontWeight: FontWeight.bold,
-                                                  color: _text,
-                                                ),
-                                              ),
-                                              Text(
-                                                formatCurrency(computedDeposit),
-                                                style: TextStyle(
-                                                  fontSize: context
-                                                      .getRFontSize(14),
-                                                  fontWeight: FontWeight.w800,
-                                                  color: Theme.of(context).colorScheme.primary,
-                                                ),
+                                              Row(
+                                                children: [
+                                                  Text(
+                                                    formatCurrency(
+                                                      _crateDeposit,
+                                                    ),
+                                                    style: TextStyle(
+                                                      fontSize: context
+                                                          .getRFontSize(15),
+                                                      fontWeight:
+                                                          FontWeight.w800,
+                                                      color: Theme.of(
+                                                        context,
+                                                      ).colorScheme.primary,
+                                                    ),
+                                                  ),
+                                                  SizedBox(
+                                                    width: context.getRSize(6),
+                                                  ),
+                                                  Icon(
+                                                    FontAwesomeIcons
+                                                        .penToSquare,
+                                                    size: context.getRSize(13),
+                                                    color: Theme.of(
+                                                      context,
+                                                    ).colorScheme.primary,
+                                                  ),
+                                                ],
                                               ),
                                             ],
                                           ),
-                                          if (customerCrateCredit > 0) ...[
-                                            SizedBox(
-                                              height: context.getRSize(6),
-                                            ),
-                                            Row(
-                                              mainAxisAlignment:
-                                                  MainAxisAlignment
-                                                      .spaceBetween,
-                                              children: [
-                                                Text(
-                                                  'Deposit Paid',
-                                                  style: TextStyle(
-                                                    fontSize: context
-                                                        .getRFontSize(12),
-                                                    fontWeight: FontWeight.w600,
-                                                    color: success,
-                                                  ),
-                                                ),
-                                                Text(
-                                                  formatCurrency(-customerCrateCredit),
-                                                  style: TextStyle(
-                                                    fontSize: context
-                                                        .getRFontSize(12),
-                                                    fontWeight: FontWeight.bold,
-                                                    color: success,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ],
-                                        ],
-                                      ),
-                                    ),
-                                    SizedBox(height: context.getRSize(8)),
-                                  ],
-                                  // Deposit Paid tappable button — always visible
-                                  GestureDetector(
-                                    onTap: () => _showEditCrateDeposit(),
-                                    child: Container(
-                                      width: double.infinity,
-                                      padding: EdgeInsets.symmetric(
-                                        horizontal: context.getRSize(16),
-                                        vertical: context.getRSize(14),
-                                      ),
-                                      decoration: BoxDecoration(
-                                        gradient: LinearGradient(
-                                          colors: [
-                                            Theme.of(context).colorScheme.primary.withValues(alpha: 0.08),
-                                            Theme.of(context).colorScheme.primary.withValues(alpha: 0.04),
-                                          ],
-                                        ),
-                                        borderRadius: BorderRadius.circular(14),
-                                        border: Border.all(
-                                          color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.12),
                                         ),
                                       ),
-                                      child: Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.spaceBetween,
+                                      SizedBox(height: context.getRSize(16)),
+                                      Container(height: 1, color: _border),
+                                      SizedBox(height: context.getRSize(16)),
+                                      _totalRow('Total', tot, large: true),
+                                      SizedBox(height: context.getRSize(16)),
+                                      // ── Save/Recall Cart ──
+                                      Row(
                                         children: [
-                                          Row(
-                                            children: [
-                                              Container(
-                                                padding: EdgeInsets.all(
-                                                  context.getRSize(8),
-                                                ),
-                                                decoration: BoxDecoration(
-                                                  gradient:
-                                                      LinearGradient(
-                                                        colors: [
-                                                          blueLight,
-                                                          Theme.of(context).colorScheme.primary,
-                                                        ],
-                                                      ),
-                                                  borderRadius:
-                                                      BorderRadius.circular(10),
-                                                ),
-                                                child: Icon(
-                                                  FontAwesomeIcons.beerMugEmpty,
-                                                  size: context.getRSize(13),
-                                                  color: Colors.white,
-                                                ),
-                                              ),
-                                              SizedBox(
-                                                width: context.getRSize(10),
-                                              ),
-                                              Text(
-                                                'Deposit Paid',
-                                                style: TextStyle(
-                                                  fontSize: context
-                                                      .getRFontSize(14),
-                                                  fontWeight: FontWeight.w700,
-                                                  color: _text,
-                                                ),
-                                              ),
-                                            ],
+                                          Expanded(
+                                            child: AppButton(
+                                              text: 'Save Cart',
+                                              variant: AppButtonVariant.outline,
+                                              icon: FontAwesomeIcons.floppyDisk,
+                                              onPressed: _saveCurrentCart,
+                                            ),
                                           ),
-                                          Row(
-                                            children: [
-                                              Text(
-                                                formatCurrency(_crateDeposit),
-                                                style: TextStyle(
-                                                  fontSize: context
-                                                      .getRFontSize(15),
-                                                  fontWeight: FontWeight.w800,
-                                                  color: Theme.of(context).colorScheme.primary,
-                                                ),
-                                              ),
-                                              SizedBox(
-                                                width: context.getRSize(6),
-                                              ),
-                                              Icon(
-                                                FontAwesomeIcons.penToSquare,
-                                                size: context.getRSize(13),
-                                                color: Theme.of(context).colorScheme.primary,
-                                              ),
-                                            ],
+                                          SizedBox(width: context.getRSize(12)),
+                                          Expanded(
+                                            child: AppButton(
+                                              text: 'Recall',
+                                              variant: AppButtonVariant.outline,
+                                              icon: FontAwesomeIcons
+                                                  .clockRotateLeft,
+                                              onPressed: _viewSavedCarts,
+                                            ),
                                           ),
                                         ],
                                       ),
-                                    ),
-                                  ),
-                                  SizedBox(height: context.getRSize(16)),
-                                  Container(height: 1, color: _border),
-                                  SizedBox(height: context.getRSize(16)),
-                                  _totalRow('Total', tot, large: true),
-                                  SizedBox(height: context.getRSize(16)),
-                                  // ── Save/Recall Cart ──
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: AppButton(
-                                          text: 'Save Cart',
-                                          variant: AppButtonVariant.outline,
-                                          icon: FontAwesomeIcons.floppyDisk,
-                                          onPressed: _saveCurrentCart,
-                                        ),
-                                      ),
-                                      SizedBox(width: context.getRSize(12)),
-                                      Expanded(
-                                        child: AppButton(
-                                          text: 'Recall',
-                                          variant: AppButtonVariant.outline,
-                                          icon: FontAwesomeIcons.clockRotateLeft,
-                                          onPressed: _viewSavedCarts,
-                                        ),
+                                      SizedBox(height: context.getRSize(16)),
+                                      // ── Proceed to Checkout ──
+                                      AppButton(
+                                        text: 'Proceed to Checkout',
+                                        variant: AppButtonVariant.primary,
+                                        icon: FontAwesomeIcons.checkToSlot,
+                                        onPressed: () {
+                                          Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (_) => CheckoutPage(
+                                                cart:
+                                                    List<
+                                                      Map<String, dynamic>
+                                                    >.from(cartItems),
+                                                subtotal: sub,
+                                                crateDeposit: _crateDeposit,
+                                                total: tot,
+                                                customer: _activeCustomer,
+                                                onCheckoutSuccess:
+                                                    widget.onCheckoutSuccess,
+                                              ),
+                                            ),
+                                          );
+                                        },
                                       ),
                                     ],
                                   ),
-                                  SizedBox(height: context.getRSize(16)),
-                                  // ── Proceed to Checkout ──
-                                  AppButton(
-                                    text: 'Proceed to Checkout',
-                                    variant: AppButtonVariant.primary,
-                                    icon: FontAwesomeIcons.checkToSlot,
-                                    onPressed: () {
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (_) => CheckoutPage(
-                                            cart:
-                                                List<Map<String, dynamic>>.from(
-                                                  cartItems,
-                                                ),
-                                            subtotal: sub,
-                                            crateDeposit: _crateDeposit,
-                                            total: tot,
-                                            customer: _activeCustomer,
-                                            onCheckoutSuccess:
-                                                widget.onCheckoutSuccess,
-                                          ),
-                                        ),
-                                      );
-                                    },
-                                  ),
-                                ],
-                              ),
-                            ),
+                                ),
                               ],
                             ),
                           ),
@@ -1689,10 +1808,3 @@ class _CrateDepositLine {
     required this.amount,
   });
 }
-
-
-
-
-
-
-

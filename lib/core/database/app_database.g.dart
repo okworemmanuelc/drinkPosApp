@@ -2791,12 +2791,10 @@ class $ProductsTable extends Products
       'REFERENCES crate_groups (id)',
     ),
   );
-  static const VerificationMeta _crateSizeMeta = const VerificationMeta(
-    'crateSize',
-  );
+  static const VerificationMeta _sizeMeta = const VerificationMeta('size');
   @override
-  late final GeneratedColumn<String> crateSize = GeneratedColumn<String>(
-    'crate_size',
+  late final GeneratedColumn<String> size = GeneratedColumn<String>(
+    'size',
     aliasedName,
     true,
     type: DriftSqlType.string,
@@ -3063,7 +3061,7 @@ class $ProductsTable extends Products
     id,
     categoryId,
     crateGroupId,
-    crateSize,
+    size,
     name,
     subtitle,
     sku,
@@ -3117,10 +3115,10 @@ class $ProductsTable extends Products
         ),
       );
     }
-    if (data.containsKey('crate_size')) {
+    if (data.containsKey('size')) {
       context.handle(
-        _crateSizeMeta,
-        crateSize.isAcceptableOrUnknown(data['crate_size']!, _crateSizeMeta),
+        _sizeMeta,
+        size.isAcceptableOrUnknown(data['size']!, _sizeMeta),
       );
     }
     if (data.containsKey('name')) {
@@ -3323,9 +3321,9 @@ class $ProductsTable extends Products
         DriftSqlType.int,
         data['${effectivePrefix}crate_group_id'],
       ),
-      crateSize: attachedDatabase.typeMapping.read(
+      size: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
-        data['${effectivePrefix}crate_size'],
+        data['${effectivePrefix}size'],
       ),
       name: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
@@ -3428,7 +3426,7 @@ class ProductData extends DataClass implements Insertable<ProductData> {
   final int id;
   final int? categoryId;
   final int? crateGroupId;
-  final String? crateSize;
+  final String? size;
   final String name;
   final String? subtitle;
   final String? sku;
@@ -3455,7 +3453,7 @@ class ProductData extends DataClass implements Insertable<ProductData> {
     required this.id,
     this.categoryId,
     this.crateGroupId,
-    this.crateSize,
+    this.size,
     required this.name,
     this.subtitle,
     this.sku,
@@ -3489,8 +3487,8 @@ class ProductData extends DataClass implements Insertable<ProductData> {
     if (!nullToAbsent || crateGroupId != null) {
       map['crate_group_id'] = Variable<int>(crateGroupId);
     }
-    if (!nullToAbsent || crateSize != null) {
-      map['crate_size'] = Variable<String>(crateSize);
+    if (!nullToAbsent || size != null) {
+      map['size'] = Variable<String>(size);
     }
     map['name'] = Variable<String>(name);
     if (!nullToAbsent || subtitle != null) {
@@ -3544,9 +3542,7 @@ class ProductData extends DataClass implements Insertable<ProductData> {
       crateGroupId: crateGroupId == null && nullToAbsent
           ? const Value.absent()
           : Value(crateGroupId),
-      crateSize: crateSize == null && nullToAbsent
-          ? const Value.absent()
-          : Value(crateSize),
+      size: size == null && nullToAbsent ? const Value.absent() : Value(size),
       name: Value(name),
       subtitle: subtitle == null && nullToAbsent
           ? const Value.absent()
@@ -3597,7 +3593,7 @@ class ProductData extends DataClass implements Insertable<ProductData> {
       id: serializer.fromJson<int>(json['id']),
       categoryId: serializer.fromJson<int?>(json['categoryId']),
       crateGroupId: serializer.fromJson<int?>(json['crateGroupId']),
-      crateSize: serializer.fromJson<String?>(json['crateSize']),
+      size: serializer.fromJson<String?>(json['size']),
       name: serializer.fromJson<String>(json['name']),
       subtitle: serializer.fromJson<String?>(json['subtitle']),
       sku: serializer.fromJson<String?>(json['sku']),
@@ -3635,7 +3631,7 @@ class ProductData extends DataClass implements Insertable<ProductData> {
       'id': serializer.toJson<int>(id),
       'categoryId': serializer.toJson<int?>(categoryId),
       'crateGroupId': serializer.toJson<int?>(crateGroupId),
-      'crateSize': serializer.toJson<String?>(crateSize),
+      'size': serializer.toJson<String?>(size),
       'name': serializer.toJson<String>(name),
       'subtitle': serializer.toJson<String?>(subtitle),
       'sku': serializer.toJson<String?>(sku),
@@ -3665,7 +3661,7 @@ class ProductData extends DataClass implements Insertable<ProductData> {
     int? id,
     Value<int?> categoryId = const Value.absent(),
     Value<int?> crateGroupId = const Value.absent(),
-    Value<String?> crateSize = const Value.absent(),
+    Value<String?> size = const Value.absent(),
     String? name,
     Value<String?> subtitle = const Value.absent(),
     Value<String?> sku = const Value.absent(),
@@ -3692,7 +3688,7 @@ class ProductData extends DataClass implements Insertable<ProductData> {
     id: id ?? this.id,
     categoryId: categoryId.present ? categoryId.value : this.categoryId,
     crateGroupId: crateGroupId.present ? crateGroupId.value : this.crateGroupId,
-    crateSize: crateSize.present ? crateSize.value : this.crateSize,
+    size: size.present ? size.value : this.size,
     name: name ?? this.name,
     subtitle: subtitle.present ? subtitle.value : this.subtitle,
     sku: sku.present ? sku.value : this.sku,
@@ -3733,7 +3729,7 @@ class ProductData extends DataClass implements Insertable<ProductData> {
       crateGroupId: data.crateGroupId.present
           ? data.crateGroupId.value
           : this.crateGroupId,
-      crateSize: data.crateSize.present ? data.crateSize.value : this.crateSize,
+      size: data.size.present ? data.size.value : this.size,
       name: data.name.present ? data.name.value : this.name,
       subtitle: data.subtitle.present ? data.subtitle.value : this.subtitle,
       sku: data.sku.present ? data.sku.value : this.sku,
@@ -3797,7 +3793,7 @@ class ProductData extends DataClass implements Insertable<ProductData> {
           ..write('id: $id, ')
           ..write('categoryId: $categoryId, ')
           ..write('crateGroupId: $crateGroupId, ')
-          ..write('crateSize: $crateSize, ')
+          ..write('size: $size, ')
           ..write('name: $name, ')
           ..write('subtitle: $subtitle, ')
           ..write('sku: $sku, ')
@@ -3829,7 +3825,7 @@ class ProductData extends DataClass implements Insertable<ProductData> {
     id,
     categoryId,
     crateGroupId,
-    crateSize,
+    size,
     name,
     subtitle,
     sku,
@@ -3860,7 +3856,7 @@ class ProductData extends DataClass implements Insertable<ProductData> {
           other.id == this.id &&
           other.categoryId == this.categoryId &&
           other.crateGroupId == this.crateGroupId &&
-          other.crateSize == this.crateSize &&
+          other.size == this.size &&
           other.name == this.name &&
           other.subtitle == this.subtitle &&
           other.sku == this.sku &&
@@ -3889,7 +3885,7 @@ class ProductsCompanion extends UpdateCompanion<ProductData> {
   final Value<int> id;
   final Value<int?> categoryId;
   final Value<int?> crateGroupId;
-  final Value<String?> crateSize;
+  final Value<String?> size;
   final Value<String> name;
   final Value<String?> subtitle;
   final Value<String?> sku;
@@ -3916,7 +3912,7 @@ class ProductsCompanion extends UpdateCompanion<ProductData> {
     this.id = const Value.absent(),
     this.categoryId = const Value.absent(),
     this.crateGroupId = const Value.absent(),
-    this.crateSize = const Value.absent(),
+    this.size = const Value.absent(),
     this.name = const Value.absent(),
     this.subtitle = const Value.absent(),
     this.sku = const Value.absent(),
@@ -3944,7 +3940,7 @@ class ProductsCompanion extends UpdateCompanion<ProductData> {
     this.id = const Value.absent(),
     this.categoryId = const Value.absent(),
     this.crateGroupId = const Value.absent(),
-    this.crateSize = const Value.absent(),
+    this.size = const Value.absent(),
     required String name,
     this.subtitle = const Value.absent(),
     this.sku = const Value.absent(),
@@ -3972,7 +3968,7 @@ class ProductsCompanion extends UpdateCompanion<ProductData> {
     Expression<int>? id,
     Expression<int>? categoryId,
     Expression<int>? crateGroupId,
-    Expression<String>? crateSize,
+    Expression<String>? size,
     Expression<String>? name,
     Expression<String>? subtitle,
     Expression<String>? sku,
@@ -4000,7 +3996,7 @@ class ProductsCompanion extends UpdateCompanion<ProductData> {
       if (id != null) 'id': id,
       if (categoryId != null) 'category_id': categoryId,
       if (crateGroupId != null) 'crate_group_id': crateGroupId,
-      if (crateSize != null) 'crate_size': crateSize,
+      if (size != null) 'size': size,
       if (name != null) 'name': name,
       if (subtitle != null) 'subtitle': subtitle,
       if (sku != null) 'sku': sku,
@@ -4034,7 +4030,7 @@ class ProductsCompanion extends UpdateCompanion<ProductData> {
     Value<int>? id,
     Value<int?>? categoryId,
     Value<int?>? crateGroupId,
-    Value<String?>? crateSize,
+    Value<String?>? size,
     Value<String>? name,
     Value<String?>? subtitle,
     Value<String?>? sku,
@@ -4062,7 +4058,7 @@ class ProductsCompanion extends UpdateCompanion<ProductData> {
       id: id ?? this.id,
       categoryId: categoryId ?? this.categoryId,
       crateGroupId: crateGroupId ?? this.crateGroupId,
-      crateSize: crateSize ?? this.crateSize,
+      size: size ?? this.size,
       name: name ?? this.name,
       subtitle: subtitle ?? this.subtitle,
       sku: sku ?? this.sku,
@@ -4100,8 +4096,8 @@ class ProductsCompanion extends UpdateCompanion<ProductData> {
     if (crateGroupId.present) {
       map['crate_group_id'] = Variable<int>(crateGroupId.value);
     }
-    if (crateSize.present) {
-      map['crate_size'] = Variable<String>(crateSize.value);
+    if (size.present) {
+      map['size'] = Variable<String>(size.value);
     }
     if (name.present) {
       map['name'] = Variable<String>(name.value);
@@ -4180,7 +4176,7 @@ class ProductsCompanion extends UpdateCompanion<ProductData> {
           ..write('id: $id, ')
           ..write('categoryId: $categoryId, ')
           ..write('crateGroupId: $crateGroupId, ')
-          ..write('crateSize: $crateSize, ')
+          ..write('size: $size, ')
           ..write('name: $name, ')
           ..write('subtitle: $subtitle, ')
           ..write('sku: $sku, ')
@@ -21747,7 +21743,7 @@ typedef $$ProductsTableCreateCompanionBuilder =
       Value<int> id,
       Value<int?> categoryId,
       Value<int?> crateGroupId,
-      Value<String?> crateSize,
+      Value<String?> size,
       required String name,
       Value<String?> subtitle,
       Value<String?> sku,
@@ -21776,7 +21772,7 @@ typedef $$ProductsTableUpdateCompanionBuilder =
       Value<int> id,
       Value<int?> categoryId,
       Value<int?> crateGroupId,
-      Value<String?> crateSize,
+      Value<String?> size,
       Value<String> name,
       Value<String?> subtitle,
       Value<String?> sku,
@@ -22058,8 +22054,8 @@ class $$ProductsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnFilters<String> get crateSize => $composableBuilder(
-    column: $table.crateSize,
+  ColumnFilters<String> get size => $composableBuilder(
+    column: $table.size,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -22470,8 +22466,8 @@ class $$ProductsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<String> get crateSize => $composableBuilder(
-    column: $table.crateSize,
+  ColumnOrderings<String> get size => $composableBuilder(
+    column: $table.size,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -22680,8 +22676,8 @@ class $$ProductsTableAnnotationComposer
   GeneratedColumn<int> get id =>
       $composableBuilder(column: $table.id, builder: (column) => column);
 
-  GeneratedColumn<String> get crateSize =>
-      $composableBuilder(column: $table.crateSize, builder: (column) => column);
+  GeneratedColumn<String> get size =>
+      $composableBuilder(column: $table.size, builder: (column) => column);
 
   GeneratedColumn<String> get name =>
       $composableBuilder(column: $table.name, builder: (column) => column);
@@ -23109,7 +23105,7 @@ class $$ProductsTableTableManager
                 Value<int> id = const Value.absent(),
                 Value<int?> categoryId = const Value.absent(),
                 Value<int?> crateGroupId = const Value.absent(),
-                Value<String?> crateSize = const Value.absent(),
+                Value<String?> size = const Value.absent(),
                 Value<String> name = const Value.absent(),
                 Value<String?> subtitle = const Value.absent(),
                 Value<String?> sku = const Value.absent(),
@@ -23136,7 +23132,7 @@ class $$ProductsTableTableManager
                 id: id,
                 categoryId: categoryId,
                 crateGroupId: crateGroupId,
-                crateSize: crateSize,
+                size: size,
                 name: name,
                 subtitle: subtitle,
                 sku: sku,
@@ -23165,7 +23161,7 @@ class $$ProductsTableTableManager
                 Value<int> id = const Value.absent(),
                 Value<int?> categoryId = const Value.absent(),
                 Value<int?> crateGroupId = const Value.absent(),
-                Value<String?> crateSize = const Value.absent(),
+                Value<String?> size = const Value.absent(),
                 required String name,
                 Value<String?> subtitle = const Value.absent(),
                 Value<String?> sku = const Value.absent(),
@@ -23192,7 +23188,7 @@ class $$ProductsTableTableManager
                 id: id,
                 categoryId: categoryId,
                 crateGroupId: crateGroupId,
-                crateSize: crateSize,
+                size: size,
                 name: name,
                 subtitle: subtitle,
                 sku: sku,

@@ -18,19 +18,23 @@ class CrateReturnModal extends StatefulWidget {
   const CrateReturnModal({super.key, required this.orderWithItems});
 
   /// Opens the modal only when appropriate:
-  ///   - There must be glass (crate-group) items in the order.
+  ///   - There must be crate-group items in the order.
   ///   - If the deposit already fully covers the expected crate deposit, skip.
   static Future<void> show(
     BuildContext context,
     OrderWithItems orderWithItems,
   ) async {
-    // Guard 1: skip if no glass items
-    final hasGlass = orderWithItems.items.any((i) => i.product.crateGroupId != null);
-    if (!hasGlass) return;
+    // Guard 1: skip if no crate items
+    final hasCrates = orderWithItems.items.any(
+      (i) => i.product.crateGroupId != null,
+    );
+    if (!hasCrates) return;
 
     // Guard 2: skip if full deposit was already paid
     final allGroups = await database.inventoryDao.getAllCrateGroups();
-    final groupDepositMap = {for (final g in allGroups) g.id: g.depositAmountKobo};
+    final groupDepositMap = {
+      for (final g in allGroups) g.id: g.depositAmountKobo,
+    };
     int expectedDepositKobo = 0;
     for (final ri in orderWithItems.items) {
       final cgId = ri.product.crateGroupId;
@@ -39,7 +43,8 @@ class CrateReturnModal extends StatefulWidget {
       }
     }
     final paidDepositKobo = orderWithItems.order.crateDepositPaidKobo;
-    if (expectedDepositKobo > 0 && paidDepositKobo >= expectedDepositKobo) return;
+    if (expectedDepositKobo > 0 && paidDepositKobo >= expectedDepositKobo)
+      return;
 
     if (!context.mounted) return;
     return showModalBottomSheet(
@@ -82,25 +87,32 @@ class _CrateReturnModalState extends State<CrateReturnModal> {
 
     for (final ri in widget.orderWithItems.items) {
       final product = ri.product;
-      if (product.crateGroupId == null) continue; // skip non-glass items
+      if (product.crateGroupId == null) continue; // skip non-crate items
 
       final mfId = product.manufacturerId ?? 0;
-      final mfName = product.manufacturer ?? (mfId == 0 ? 'Unknown Manufacturer' : 'Manufacturer $mfId');
+      final mfName =
+          product.manufacturer ??
+          (mfId == 0 ? 'Unknown Manufacturer' : 'Manufacturer $mfId');
       final cgId = product.crateGroupId!;
       final qty = ri.item.quantity;
 
       accum.putIfAbsent(mfId, () => _ManufacturerAccum(id: mfId, name: mfName));
       accum[mfId]!.totalQty += qty;
-      accum[mfId]!.cgBreakdown[cgId] = (accum[mfId]!.cgBreakdown[cgId] ?? 0) + qty;
+      accum[mfId]!.cgBreakdown[cgId] =
+          (accum[mfId]!.cgBreakdown[cgId] ?? 0) + qty;
     }
 
-    final rows = accum.values.map((a) => _ManufacturerRow(
-          manufacturerId: a.id,
-          name: a.name,
-          expectedQty: a.totalQty,
-          cgBreakdown: Map.unmodifiable(a.cgBreakdown),
-          controller: TextEditingController(text: a.totalQty.toString()),
-        )).toList();
+    final rows = accum.values
+        .map(
+          (a) => _ManufacturerRow(
+            manufacturerId: a.id,
+            name: a.name,
+            expectedQty: a.totalQty,
+            cgBreakdown: Map.unmodifiable(a.cgBreakdown),
+            controller: TextEditingController(text: a.totalQty.toString()),
+          ),
+        )
+        .toList();
 
     if (mounted) {
       setState(() {
@@ -155,7 +167,10 @@ class _CrateReturnModalState extends State<CrateReturnModal> {
       for (final row in _rows) {
         final returned = int.tryParse(row.controller.text) ?? row.expectedQty;
         if (row.manufacturerId != 0) {
-          await database.inventoryDao.addEmptyCrates(row.manufacturerId, returned);
+          await database.inventoryDao.addEmptyCrates(
+            row.manufacturerId,
+            returned,
+          );
         }
       }
       if (mounted) Navigator.pop(context);
@@ -171,16 +186,19 @@ class _CrateReturnModalState extends State<CrateReturnModal> {
           'manufacturerName': row.name,
           'expectedQty': row.expectedQty,
           'returnedQty': entered,
-          'cgBreakdown': row.cgBreakdown.map((k, v) => MapEntry(k.toString(), v)),
+          'cgBreakdown': row.cgBreakdown.map(
+            (k, v) => MapEntry(k.toString(), v),
+          ),
         };
       }).toList();
 
-      final pendingId = await database.pendingCrateReturnsDao.createPendingReturn(
-        orderId: order.id,
-        customerId: customer.id,
-        staffId: authService.currentUser!.id,
-        returnDataJson: jsonEncode(returnData),
-      );
+      final pendingId = await database.pendingCrateReturnsDao
+          .createPendingReturn(
+            orderId: order.id,
+            customerId: customer.id,
+            staffId: authService.currentUser!.id,
+            returnDataJson: jsonEncode(returnData),
+          );
 
       await database.notificationsDao.create(
         'crate_short_return',
@@ -204,7 +222,10 @@ class _CrateReturnModalState extends State<CrateReturnModal> {
       final returned = int.tryParse(row.controller.text) ?? row.expectedQty;
       // 1. Update physical crate stock on the Manufacturers table
       if (row.manufacturerId != 0) {
-        await database.inventoryDao.addEmptyCrates(row.manufacturerId, returned);
+        await database.inventoryDao.addEmptyCrates(
+          row.manufacturerId,
+          returned,
+        );
       }
       // 2. Record customer crate balance per crate group (proportional distribution)
       _distributeAndRecord(customer.id, row, returned);
@@ -215,7 +236,11 @@ class _CrateReturnModalState extends State<CrateReturnModal> {
 
   /// Distributes [returnedQty] across the crate groups of [row] proportionally
   /// and calls recordCrateReturn for each.
-  void _distributeAndRecord(int customerId, _ManufacturerRow row, int returnedQty) {
+  void _distributeAndRecord(
+    int customerId,
+    _ManufacturerRow row,
+    int returnedQty,
+  ) {
     if (row.cgBreakdown.isEmpty) return;
     final entries = row.cgBreakdown.entries.toList();
     int remaining = returnedQty;
@@ -263,8 +288,11 @@ class _CrateReturnModalState extends State<CrateReturnModal> {
                 padding: EdgeInsets.symmetric(horizontal: context.getRSize(20)),
                 child: Row(
                   children: [
-                    Icon(FontAwesomeIcons.boxOpen,
-                        color: Colors.orange, size: context.getRSize(18)),
+                    Icon(
+                      FontAwesomeIcons.boxOpen,
+                      color: Colors.orange,
+                      size: context.getRSize(18),
+                    ),
                     SizedBox(width: context.getRSize(10)),
                     Text(
                       'Record Crate Returns',
@@ -336,14 +364,18 @@ class _CrateReturnModalState extends State<CrateReturnModal> {
                       flex: 2,
                       child: AppButton(
                         text: _sentToManager
-                                ? 'Sent to Manager'
-                                : (_saving ? 'Saving...' : 'Confirm Returns'),
+                            ? 'Sent to Manager'
+                            : (_saving ? 'Saving...' : 'Confirm Returns'),
                         icon: _sentToManager
-                                ? FontAwesomeIcons.clockRotateLeft
-                                : FontAwesomeIcons.check,
-                        variant: _sentToManager ? AppButtonVariant.secondary : AppButtonVariant.primary,
+                            ? FontAwesomeIcons.clockRotateLeft
+                            : FontAwesomeIcons.check,
+                        variant: _sentToManager
+                            ? AppButtonVariant.secondary
+                            : AppButtonVariant.primary,
                         isLoading: _saving,
-                        onPressed: (_saving || _sentToManager) ? null : _confirm,
+                        onPressed: (_saving || _sentToManager)
+                            ? null
+                            : _confirm,
                       ),
                     ),
                   ],
@@ -415,7 +447,9 @@ class _ManufacturerReturnTile extends StatelessWidget {
                 Text(
                   'Expected: ${row.expectedQty} crate${row.expectedQty == 1 ? '' : 's'}',
                   style: TextStyle(
-                      color: subtext, fontSize: context.getRFontSize(12)),
+                    color: subtext,
+                    fontSize: context.getRFontSize(12),
+                  ),
                 ),
               ],
             ),
