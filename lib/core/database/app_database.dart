@@ -30,6 +30,17 @@ class Manufacturers extends Table {
   IntColumn get depositAmountKobo => integer().withDefault(const Constant(0))();
 }
 
+// 1c. Businesses
+@DataClassName('BusinessData')
+class Businesses extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get name => text()();
+  TextColumn get type => text().nullable()();
+  TextColumn get phone => text().nullable()();
+  TextColumn get email => text().nullable()();
+  TextColumn get logoUrl => text().nullable()();
+}
+
 // 2. Warehouses
 @DataClassName('WarehouseData')
 class Warehouses extends Table {
@@ -54,6 +65,8 @@ class Users extends Table {
       boolean().withDefault(const Constant(false))();
   IntColumn get warehouseId =>
       integer().nullable().references(Warehouses, #id)();
+  IntColumn get businessId =>
+      integer().nullable().references(Businesses, #id)();
   DateTimeColumn get createdAt => dateTime().nullable()();
   DateTimeColumn get lastNotificationSentAt => dateTime().nullable()();
 }
@@ -487,6 +500,25 @@ class PendingCrateReturns extends Table {
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
 }
 
+// 35. Invites
+@DataClassName('InviteData')
+class Invites extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get email => text()();
+  TextColumn get code => text().unique()(); // 8-char, case-insensitive
+  TextColumn get role => text()();
+  IntColumn get warehouseId =>
+      integer().nullable().references(Warehouses, #id)();
+  IntColumn get businessId => integer().references(Businesses, #id)();
+  IntColumn get createdBy => integer().references(Users, #id)();
+  TextColumn get inviteeName => text()();
+  TextColumn get status => text().withDefault(
+    const Constant('pending'),
+  )(); // pending, accepted, expired, revoked
+  DateTimeColumn get expiresAt => dateTime()();
+  DateTimeColumn get usedAt => dateTime().nullable()();
+}
+
 @DriftDatabase(
   tables: [
     CrateGroups,
@@ -524,6 +556,8 @@ class PendingCrateReturns extends Table {
     WalletTransactions,
     SavedCarts,
     PendingCrateReturns,
+    Businesses,
+    Invites,
   ],
   daos: [
     CatalogDao,
@@ -545,7 +579,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 29;
+  int get schemaVersion => 30;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -632,6 +666,15 @@ class AppDatabase extends _$AppDatabase {
           } catch (e) {
             debugPrint('[AppDatabase] v29 PIN migration error: $e');
           }
+        }
+
+        if (from < 30) {
+          // Version 30: Staff Invite Flow
+          await m.createTable(businesses);
+          await m.createTable(invites);
+          try {
+            await m.addColumn(users, users.businessId);
+          } catch (_) {}
         }
 
         // Fallback: Create any other new tables that do not yet exist

@@ -1,24 +1,28 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:drift/drift.dart' as drift;
 
-import 'package:reebaplus_pos/core/utils/notifications.dart';
-import 'package:reebaplus_pos/shared/services/auth_service.dart';
+import 'package:reebaplus_pos/core/database/app_database.dart';
 import 'package:reebaplus_pos/shared/widgets/app_button.dart';
-import 'package:reebaplus_pos/features/auth/screens/business_details_screen.dart';
+import 'package:reebaplus_pos/features/auth/screens/create_pin_screen.dart';
+import 'package:reebaplus_pos/shared/services/auth_service.dart';
+import 'package:reebaplus_pos/core/utils/notifications.dart';
 
-/// Shown after OTP verification for a brand-new owner.
-/// Collects their name, creates a CEO account in the local DB,
-/// then routes to CreatePinScreen.
-class NewOwnerNameScreen extends StatefulWidget {
+class JoinNameEntryScreen extends StatefulWidget {
   final String email;
+  final InviteValidationResult result;
 
-  const NewOwnerNameScreen({super.key, required this.email});
+  const JoinNameEntryScreen({
+    super.key,
+    required this.email,
+    required this.result,
+  });
 
   @override
-  State<NewOwnerNameScreen> createState() => _NewOwnerNameScreenState();
+  State<JoinNameEntryScreen> createState() => _JoinNameEntryScreenState();
 }
 
-class _NewOwnerNameScreenState extends State<NewOwnerNameScreen> {
+class _JoinNameEntryScreenState extends State<JoinNameEntryScreen> {
   final _nameController = TextEditingController();
   bool _loading = false;
 
@@ -31,19 +35,44 @@ class _NewOwnerNameScreenState extends State<NewOwnerNameScreen> {
   Future<void> _submit() async {
     final name = _nameController.text.trim();
     if (name.isEmpty) {
-      AppNotification.showError(context, 'Please enter your name.');
+      AppNotification.showError(context, 'Please enter your full name.');
       return;
     }
 
     setState(() => _loading = true);
 
-    final newUser = await authService.createNewOwner(widget.email, name);
+    // Create staff account logic
+    final invite = widget.result.invite!;
+    final newId = await database
+        .into(database.users)
+        .insert(
+          UsersCompanion.insert(
+            name: name,
+            email: drift.Value(widget.email),
+            pin: 'TEMPPIN', // temporary
+            role: invite.role,
+            roleTier: const drift.Value(1),
+            warehouseId: drift.Value(invite.warehouseId),
+            businessId: drift.Value(invite.businessId),
+            biometricEnabled: const drift.Value(false),
+          ),
+        );
+
+    // Redeem the invite to finalize role & business linkages
+    await authService.redeemInvite(invite.code, newId);
+
+    final newUser = await database.warehousesDao.getUserById(newId);
 
     if (!mounted) return;
     setState(() => _loading = false);
 
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => BusinessDetailsScreen(user: newUser)),
+      MaterialPageRoute(
+        builder: (_) => CreatePinScreen(
+          user: newUser!,
+          isJoinFlow: true, // we will add this parameter to CreatePinScreen
+        ),
+      ),
     );
   }
 
@@ -51,10 +80,8 @@ class _NewOwnerNameScreenState extends State<NewOwnerNameScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-      resizeToAvoidBottomInset: true,
       body: Stack(
         children: [
-          // Background
           Positioned.fill(
             child: Image.asset(
               'assets/images/auth_bg.png',
@@ -62,65 +89,47 @@ class _NewOwnerNameScreenState extends State<NewOwnerNameScreen> {
               errorBuilder: (_, __, ___) => Container(color: Colors.black),
             ),
           ),
-          // Blur overlay
           Positioned.fill(
             child: BackdropFilter(
               filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-              child: Container(color: Colors.black.withValues(alpha: 0.45)),
+              child: Container(color: Colors.black.withValues(alpha: 0.5)),
             ),
           ),
+
           SafeArea(
             child: SingleChildScrollView(
-              padding: EdgeInsets.fromLTRB(
-                28,
-                40,
-                28,
-                MediaQuery.of(context).viewInsets.bottom + 24,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Logo
-                  Center(
-                    child: Image.asset(
-                      'assets/images/reebaplus_logo.png',
-                      height: 90,
-                      errorBuilder: (_, __, ___) => const Icon(
-                        Icons.storefront,
-                        size: 90,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
                   const Center(
                     child: Text(
-                      'Welcome to Reebaplus',
+                      'Welcome to the Team',
                       style: TextStyle(
-                        fontSize: 22,
+                        fontSize: 26,
                         fontWeight: FontWeight.w700,
                         color: Colors.white,
                       ),
                     ),
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 8),
                   Center(
                     child: Text(
-                      "What's your name?",
+                      'What is your full name?',
                       style: TextStyle(
-                        fontSize: 14,
+                        fontSize: 15,
                         color: Colors.white.withValues(alpha: 0.7),
                       ),
                     ),
                   ),
-                  const SizedBox(height: 40),
+                  const SizedBox(height: 48),
 
-                  // Name input card
                   ClipRRect(
                     borderRadius: BorderRadius.circular(16),
                     child: BackdropFilter(
                       filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
                       child: Container(
+                        padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
                           color: Colors.white.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(16),
@@ -128,43 +137,31 @@ class _NewOwnerNameScreenState extends State<NewOwnerNameScreen> {
                             color: Colors.white.withValues(alpha: 0.2),
                           ),
                         ),
-                        padding: const EdgeInsets.all(16),
                         child: TextField(
                           controller: _nameController,
                           keyboardType: TextInputType.name,
                           textCapitalization: TextCapitalization.words,
                           autofocus: true,
-                          textInputAction: TextInputAction.done,
-                          onSubmitted: (_) => _loading ? null : _submit(),
-                          style: const TextStyle(color: Colors.white),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                          ),
                           decoration: InputDecoration(
                             labelText: 'Full Name',
                             labelStyle: TextStyle(
                               color: Colors.white.withValues(alpha: 0.7),
                             ),
                             prefixIcon: Icon(
-                              Icons.person_outline,
+                              Icons.person_outline_rounded,
                               color: Colors.white.withValues(alpha: 0.7),
                             ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              borderSide: BorderSide(
-                                color: Colors.white.withValues(alpha: 0.3),
-                              ),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              borderSide: const BorderSide(
-                                color: Colors.white,
-                                width: 1.5,
-                              ),
-                            ),
+                            border: InputBorder.none,
                           ),
                         ),
                       ),
                     ),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 32),
 
                   AppButton(
                     text: 'Continue',

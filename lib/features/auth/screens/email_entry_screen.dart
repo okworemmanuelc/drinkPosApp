@@ -19,9 +19,25 @@ class EmailEntryScreen extends StatefulWidget {
 class _EmailEntryScreenState extends State<EmailEntryScreen> {
   final _emailController = TextEditingController();
   bool _loading = false;
+  bool _isEmailValid = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _emailController.addListener(_validateEmail);
+  }
+
+  void _validateEmail() {
+    final email = _emailController.text.trim().toLowerCase();
+    final isValid = email.contains('@') && email.contains('.');
+    if (_isEmailValid != isValid) {
+      setState(() => _isEmailValid = isValid);
+    }
+  }
 
   @override
   void dispose() {
+    _emailController.removeListener(_validateEmail);
     _emailController.dispose();
     super.dispose();
   }
@@ -70,9 +86,9 @@ class _EmailEntryScreenState extends State<EmailEntryScreen> {
   }
 
   void _goToPinDirectly() {
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const LoginScreen()),
-    );
+    Navigator.of(
+      context,
+    ).pushReplacement(MaterialPageRoute(builder: (_) => const LoginScreen()));
   }
 
   @override
@@ -191,12 +207,46 @@ class _EmailEntryScreenState extends State<EmailEntryScreen> {
                       ),
                     ),
                   ),
+                  const SizedBox(height: 16),
+
+                  // Terms and Privacy Policy
+                  Center(
+                    child: RichText(
+                      textAlign: TextAlign.center,
+                      text: TextSpan(
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.white.withValues(alpha: 0.6),
+                          height: 1.5,
+                        ),
+                        children: const [
+                          TextSpan(text: 'By continuing, you agree to our\n'),
+                          TextSpan(
+                            text: 'Terms of Service',
+                            style: TextStyle(
+                              decoration: TextDecoration.underline,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          TextSpan(text: ' and '),
+                          TextSpan(
+                            text: 'Privacy Policy',
+                            style: TextStyle(
+                              decoration: TextDecoration.underline,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
                   const SizedBox(height: 24),
 
                   AppButton(
-                    text: 'Send OTP',
+                    text: 'Send Code',
                     isLoading: _loading,
-                    onPressed: _loading ? null : _submit,
+                    onPressed: (_loading || !_isEmailValid) ? null : _submit,
                   ),
                   const SizedBox(height: 20),
 

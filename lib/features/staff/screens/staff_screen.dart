@@ -8,6 +8,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:reebaplus_pos/core/database/app_database.dart';
 import 'package:reebaplus_pos/core/theme/colors.dart';
 import 'package:reebaplus_pos/shared/widgets/shimmer_loading.dart';
+import 'package:reebaplus_pos/shared/services/auth_service.dart';
 
 import 'package:reebaplus_pos/core/utils/responsive.dart';
 import 'package:reebaplus_pos/shared/widgets/app_drawer.dart';
@@ -24,6 +25,35 @@ import 'package:reebaplus_pos/core/utils/notifications.dart';
 
 const int _kAllWarehouses = -1;
 
+class StaffListItem {
+  final UserData? user;
+  final InviteData? invite;
+  final String status;
+  final int tier;
+  final String name;
+  final String roleLabel;
+  final String? avatarColor;
+  final int warehouseId;
+
+  StaffListItem.fromUser(this.user, RoleOption roleInfo)
+    : invite = null,
+      status = 'active',
+      tier = user!.roleTier,
+      name = user.name,
+      roleLabel = roleInfo.label,
+      avatarColor = user.avatarColor,
+      warehouseId = user.warehouseId ?? -1;
+
+  StaffListItem.fromInvite(this.invite, RoleOption roleInfo)
+    : user = null,
+      status = invite!.status,
+      tier = roleInfo.tier,
+      name = invite.inviteeName,
+      roleLabel = roleInfo.label,
+      avatarColor = null,
+      warehouseId = invite.warehouseId ?? -1;
+}
+
 class StaffScreen extends StatefulWidget {
   const StaffScreen({super.key});
 
@@ -35,9 +65,12 @@ class _StaffScreenState extends State<StaffScreen> {
   String _searchQuery = '';
   int _selectedWarehouseFilter = _kAllWarehouses;
   List<WarehouseData> _warehouses = [];
-  List<UserData> _users = [];
+  List<UserData> _rawUsers = [];
+  List<InviteData> _rawInvites = [];
+  List<StaffListItem> _items = [];
   bool _loading = true;
   StreamSubscription<List<UserData>>? _usersSub;
+  StreamSubscription<List<InviteData>>? _invitesSub;
   Color get _bg => Theme.of(context).scaffoldBackgroundColor;
   Color get _surface => Theme.of(context).colorScheme.surface;
   Color get _text => Theme.of(context).colorScheme.onSurface;
@@ -54,16 +87,36 @@ class _StaffScreenState extends State<StaffScreen> {
       if (mounted) setState(() => _warehouses = ws);
     });
     _usersSub = database.select(database.users).watch().listen((data) {
-      if (mounted) setState(() => _users = data);
+      if (mounted) {
+        _rawUsers = data;
+        _updateItems();
+      }
+    });
+    _invitesSub = database.select(database.invites).watch().listen((data) {
+      if (mounted) {
+        _rawInvites = data;
+        _updateItems();
+      }
     });
     Future.delayed(const Duration(seconds: 2), () {
       if (mounted) setState(() => _loading = false);
     });
   }
 
+  void _updateItems() {
+    final List<StaffListItem> combined = [
+      ..._rawUsers.map((u) => StaffListItem.fromUser(u, roleFor(u.role))),
+      ..._rawInvites
+          .where((i) => i.status != 'accepted' && i.status != 'revoked')
+          .map((i) => StaffListItem.fromInvite(i, roleFor(i.role))),
+    ];
+    setState(() => _items = combined);
+  }
+
   @override
   void dispose() {
     _usersSub?.cancel();
+    _invitesSub?.cancel();
     super.dispose();
   }
 
@@ -119,7 +172,7 @@ class _StaffScreenState extends State<StaffScreen> {
   }
 
   Widget _buildBody() {
-    final listRaw = _users;
+    final listRaw = _items;
     var list = [...listRaw];
 
     if (_selectedWarehouseFilter != _kAllWarehouses) {
@@ -167,16 +220,14 @@ class _StaffScreenState extends State<StaffScreen> {
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
                   children: [
                     for (final tier in [5, 4, 3, 2, 1]) ...[
-                      if (list.any((u) => roleFor(u.role).tier == tier)) ...[
+                      if (list.any((u) => u.tier == tier)) ...[
                         _buildSectionHeader(
                           tier,
-                          list
-                              .where((u) => roleFor(u.role).tier == tier)
-                              .length,
+                          list.where((u) => u.tier == tier).length,
                         ),
                         const SizedBox(height: 8),
                         ...list
-                            .where((u) => roleFor(u.role).tier == tier)
+                            .where((u) => u.tier == tier)
                             .map((u) => _buildStaffCard(context, u)),
                         const SizedBox(height: 16),
                       ],
@@ -266,10 +317,12 @@ class _StaffScreenState extends State<StaffScreen> {
     );
   }
 
-  Widget _buildStaffCard(BuildContext context, UserData user) {
-    final roleInfo = roleFor(user.role);
-    final avatarColor = _parseColor(user.avatarColor) ?? roleInfo.color;
-    final initials = _initials(user.name);
+  Widget _buildStaffCard(BuildContext context, StaffListItem item) {
+    final roleInfo = roleFor(item.user?.role ?? item.invite?.role ?? '');
+    final avatarColor = item.avatarColor != null
+        ? _parseColor(item.avatarColor!) ?? roleInfo.color
+        : roleInfo.color;
+    final initials = _initials(item.name);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -287,15 +340,16 @@ class _StaffScreenState extends State<StaffScreen> {
       ),
       child: InkWell(
         onTap: () {
+          if (item.status != 'active' || item.user == null) return;
           Navigator.push(
             context,
             MaterialPageRoute(
               builder: (context) =>
-                  StaffDetailsScreen(user: user, warehouses: _warehouses),
+                  StaffDetailsScreen(user: item.user!, warehouses: _warehouses),
             ),
           );
         },
-        onLongPress: () => _showStaffActions(context, user),
+        onLongPress: () => _showStaffActions(context, item),
         borderRadius: BorderRadius.circular(16),
         child: Padding(
           padding: EdgeInsets.all(context.getRSize(14)),
@@ -329,7 +383,7 @@ class _StaffScreenState extends State<StaffScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      user.name,
+                      item.name,
                       style: TextStyle(
                         color: _text,
                         fontWeight: FontWeight.bold,
@@ -357,6 +411,33 @@ class _StaffScreenState extends State<StaffScreen> {
                             ),
                           ),
                         ),
+                        if (item.status != 'active') ...[
+                          SizedBox(width: context.getRSize(8)),
+                          Container(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: context.getRSize(8),
+                              vertical: context.getRSize(2),
+                            ),
+                            decoration: BoxDecoration(
+                              color:
+                                  (item.status == 'pending'
+                                          ? Colors.orange
+                                          : Colors.red)
+                                      .withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              item.status.toUpperCase(),
+                              style: TextStyle(
+                                color: item.status == 'pending'
+                                    ? Colors.orange
+                                    : Colors.red,
+                                fontSize: context.getRFontSize(10),
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ],
@@ -366,7 +447,7 @@ class _StaffScreenState extends State<StaffScreen> {
                 minTier: 4,
                 fallback: const SizedBox.shrink(),
                 child: IconButton(
-                  onPressed: () => _showStaffActions(context, user),
+                  onPressed: () => _showStaffActions(context, item),
                   icon: Icon(
                     FontAwesomeIcons.ellipsisVertical,
                     size: context.getRSize(16),
@@ -390,28 +471,29 @@ class _StaffScreenState extends State<StaffScreen> {
     );
   }
 
-  void _showStaffActions(BuildContext context, UserData user) {
+  void _showStaffActions(BuildContext context, StaffListItem item) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (ctx) => _StaffActionSheet(
-        user: user,
+        item: item,
         onEdit: () {
           Navigator.pop(ctx);
-          _showStaffSheet(context, user: user);
+          if (item.user != null) _showStaffSheet(context, user: item.user);
         },
         onDelete: () {
           Navigator.pop(ctx);
-          _confirmDelete(context, user);
+          if (item.user != null) _confirmDelete(context, item.user!);
         },
         onView: () {
           Navigator.pop(ctx);
+          if (item.user == null) return;
           Navigator.push(
             context,
             MaterialPageRoute(
               builder: (context) =>
-                  StaffDetailsScreen(user: user, warehouses: _warehouses),
+                  StaffDetailsScreen(user: item.user!, warehouses: _warehouses),
             ),
           );
         },
@@ -485,8 +567,10 @@ class _StaffFormSheetState extends State<_StaffFormSheet> {
   late RoleOption _selectedRole;
   int? _selectedWarehouseId;
   bool _showPin = false;
+  bool _isSaving = false;
   Color get _surface => Theme.of(context).colorScheme.surface;
   Color get _text => Theme.of(context).colorScheme.onSurface;
+  Color get _primary => Theme.of(context).colorScheme.primary;
   Color get _subtext =>
       Theme.of(context).textTheme.bodySmall?.color ??
       Theme.of(context).iconTheme.color!;
@@ -530,137 +614,146 @@ class _StaffFormSheetState extends State<_StaffFormSheet> {
             padding: const EdgeInsets.all(24),
             child: Form(
               key: _formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Center(
-                    child: Container(
-                      width: 40,
-                      height: 4,
-                      margin: const EdgeInsets.only(bottom: 20),
-                      decoration: BoxDecoration(
-                        color: _subtext.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(2),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        margin: const EdgeInsets.only(bottom: 20),
+                        decoration: BoxDecoration(
+                          color: _subtext.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
                       ),
                     ),
-                  ),
-                  Text(
-                    widget.user == null
-                        ? 'Add New Staff'
-                        : 'Edit Staff Details',
-                    style: TextStyle(
-                      color: _text,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
+                    Text(
+                      widget.user == null
+                          ? 'Add New Staff'
+                          : 'Edit Staff Details',
+                      style: TextStyle(
+                        color: _text,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 24),
+                    const SizedBox(height: 24),
 
-                  AppInput(
-                    controller: _nameCtrl,
-                    labelText: 'Full Name',
-                    hintText: 'Enter full name',
-                    validator: (v) =>
-                        v == null || v.isEmpty ? 'Name is required' : null,
-                  ),
-                  const SizedBox(height: 16),
-                  AppInput(
-                    controller: _emailCtrl,
-                    labelText: 'Email Address',
-                    hintText: 'Enter email address',
-                    keyboardType: TextInputType.emailAddress,
-                    validator: (v) {
-                      if (v == null || v.isEmpty) return 'Email is required';
-                      if (!RegExp(
-                        r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
-                      ).hasMatch(v)) {
-                        return 'Enter a valid email';
-                      }
-                      return null;
-                    },
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  // PIN field only shown when editing an existing staff member.
-                  // New staff set their own 6-digit PIN on first login.
-                  if (widget.user != null)
                     AppInput(
-                      controller: _pinCtrl,
-                      labelText: 'Access PIN (6 Digits)',
-                      hintText: 'Enter 6-digit PIN',
-                      obscureText: !_showPin,
-                      keyboardType: TextInputType.number,
-                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                      suffixIcon: IconButton(
-                        onPressed: () => setState(() => _showPin = !_showPin),
-                        icon: Icon(
-                          _showPin
-                              ? FontAwesomeIcons.eyeSlash
-                              : FontAwesomeIcons.eye,
-                          size: 16,
-                          color: _subtext,
-                        ),
-                      ),
-                      validator: (v) => v == null || v.length != 6
-                          ? 'PIN must be 6 digits'
-                          : null,
+                      controller: _nameCtrl,
+                      labelText: 'Full Name',
+                      hintText: 'Enter full name',
+                      validator: (v) =>
+                          v == null || v.isEmpty ? 'Name is required' : null,
+                    ),
+                    const SizedBox(height: 16),
+                    AppInput(
+                      controller: _emailCtrl,
+                      labelText: 'Email Address',
+                      hintText: 'Enter email address',
+                      keyboardType: TextInputType.emailAddress,
+                      validator: (v) {
+                        if (v == null || v.isEmpty) return 'Email is required';
+                        if (!RegExp(
+                          r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+                        ).hasMatch(v)) {
+                          return 'Enter a valid email';
+                        }
+                        return null;
+                      },
                     ),
 
-                  const SizedBox(height: 16),
+                    const SizedBox(height: 16),
 
-                  AppDropdown<RoleOption>(
-                    labelText: 'Role & Access Level',
-                    value: _selectedRole,
-                    items: roleOptions.map((r) {
-                      return DropdownMenuItem<RoleOption>(
-                        value: r,
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 8,
-                              height: 8,
-                              decoration: BoxDecoration(
-                                color: r.color,
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Text(r.label),
-                          ],
+                    // PIN field only shown when editing an existing staff member.
+                    // New staff set their own 6-digit PIN on first login.
+                    if (widget.user != null)
+                      AppInput(
+                        controller: _pinCtrl,
+                        labelText: 'Access PIN (6 Digits)',
+                        hintText: 'Enter 6-digit PIN',
+                        obscureText: !_showPin,
+                        keyboardType: TextInputType.number,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                        ],
+                        suffixIcon: IconButton(
+                          onPressed: () => setState(() => _showPin = !_showPin),
+                          icon: Icon(
+                            _showPin
+                                ? FontAwesomeIcons.eyeSlash
+                                : FontAwesomeIcons.eye,
+                            size: 16,
+                            color: _subtext,
+                          ),
                         ),
-                      );
-                    }).toList(),
-                    onChanged: (r) => setState(() => _selectedRole = r!),
-                  ),
+                        validator: (v) => v == null || v.length != 6
+                            ? 'PIN must be 6 digits'
+                            : null,
+                      ),
 
-                  const SizedBox(height: 16),
+                    const SizedBox(height: 16),
 
-                  AppDropdown<int>(
-                    labelText: 'Assigned Warehouse',
-                    value: _selectedWarehouseId,
-                    hintText: 'Select Warehouse',
-                    items: widget.warehouses.map((w) {
-                      return DropdownMenuItem<int>(
-                        value: w.id,
-                        child: Text(w.name),
-                      );
-                    }).toList(),
-                    onChanged: (id) =>
-                        setState(() => _selectedWarehouseId = id!),
-                  ),
+                    AppDropdown<RoleOption>(
+                      labelText: 'Role & Access Level',
+                      value: _selectedRole,
+                      items: roleOptions.map((r) {
+                        return DropdownMenuItem<RoleOption>(
+                          value: r,
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 8,
+                                height: 8,
+                                decoration: BoxDecoration(
+                                  color: r.color,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Flexible(
+                                child: Text(
+                                  r.label,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                      onChanged: (r) => setState(() => _selectedRole = r!),
+                    ),
 
-                  const SizedBox(height: 32),
+                    const SizedBox(height: 16),
 
-                  // Submit Button
-                  AppButton(
-                    text: widget.user == null
-                        ? 'Create Account'
-                        : 'Save Changes',
-                    onPressed: _submit,
-                  ),
-                ],
+                    AppDropdown<int>(
+                      labelText: 'Assigned Warehouse',
+                      value: _selectedWarehouseId,
+                      hintText: 'Select Warehouse',
+                      items: widget.warehouses.map((w) {
+                        return DropdownMenuItem<int>(
+                          value: w.id,
+                          child: Text(w.name),
+                        );
+                      }).toList(),
+                      onChanged: (id) =>
+                          setState(() => _selectedWarehouseId = id!),
+                    ),
+
+                    const SizedBox(height: 32),
+
+                    // Submit Button
+                    AppButton(
+                      text: widget.user == null
+                          ? (_isSaving ? 'Sending...' : 'Send Invite')
+                          : 'Save Changes',
+                      onPressed: _isSaving ? () {} : _submit,
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -753,19 +846,99 @@ class _StaffFormSheetState extends State<_StaffFormSheet> {
         .name;
 
     if (widget.user == null) {
-      // Insert new staff member — PIN is empty; staff set their own on first login.
-      await database
-          .into(database.users)
-          .insert(
-            UsersCompanion(
-              name: Value(name),
-              email: Value(email),
-              pin: const Value(''),
-              role: Value(role),
-              roleTier: Value(tier),
-              warehouseId: Value(_selectedWarehouseId),
+      if (!mounted) return;
+      setState(() => _isSaving = true);
+      try {
+        final link = await authService.createInvite(
+          email: email,
+          inviteeName: name,
+          role: role,
+          warehouseId: _selectedWarehouseId,
+        );
+        if (!mounted) return;
+        Navigator.pop(context);
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            backgroundColor: _surface,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
             ),
-          );
+            title: Text(
+              'Invite Sent!',
+              style: TextStyle(
+                color: _primary,
+                fontWeight: FontWeight.bold,
+                fontSize: 18,
+              ),
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'An invite link has been generated. This link expires in 48 hours.',
+                  style: TextStyle(color: _subtext),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'Role: ${roleFor(role).label}',
+                  style: TextStyle(color: _text, fontWeight: FontWeight.bold),
+                ),
+                Text(
+                  'Location: $warehouseName',
+                  style: TextStyle(color: _text, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: _primary.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          link,
+                          style: TextStyle(
+                            color: _primary,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.copy, size: 18),
+                        color: _primary,
+                        onPressed: () {
+                          Clipboard.setData(ClipboardData(text: link));
+                          AppNotification.showSuccess(
+                            context,
+                            'Link copied to clipboard!',
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: Text('Done', style: TextStyle(color: _subtext)),
+              ),
+            ],
+          ),
+        );
+      } catch (e) {
+        if (!mounted) return;
+        AppNotification.showError(context, 'Failed to create invite: $e');
+      } finally {
+        if (mounted) setState(() => _isSaving = false);
+      }
+      return;
     } else {
       // Update existing staff member
       await (database.update(
@@ -783,6 +956,7 @@ class _StaffFormSheetState extends State<_StaffFormSheet> {
     }
 
     if (!mounted) return;
+    Navigator.pop(context); // Close sheet on update
     AppNotification.showSuccess(
       context,
       '$name has been successfully assigned to $warehouseName.',
@@ -791,13 +965,13 @@ class _StaffFormSheetState extends State<_StaffFormSheet> {
 }
 
 class _StaffActionSheet extends StatelessWidget {
-  final UserData user;
+  final StaffListItem item;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
   final VoidCallback onView;
 
   const _StaffActionSheet({
-    required this.user,
+    required this.item,
     required this.onEdit,
     required this.onDelete,
     required this.onView,
@@ -812,8 +986,11 @@ class _StaffActionSheet extends StatelessWidget {
         Theme.of(context).iconTheme.color!;
     final Color bgColor = Theme.of(context).scaffoldBackgroundColor;
 
-    final roleInfo = roleFor(user.role);
-    final avatarColor = _parseColor(user.avatarColor) ?? roleInfo.color;
+    final roleInfo = roleFor(item.user?.role ?? item.invite?.role ?? '');
+    final avatarColor = item.avatarColor != null
+        ? _parseColor(item.avatarColor!) ?? roleInfo.color
+        : roleInfo.color;
+    final isInvite = item.invite != null;
 
     return Container(
       decoration: BoxDecoration(
@@ -863,7 +1040,7 @@ class _StaffActionSheet extends StatelessWidget {
                 ),
                 child: Center(
                   child: Text(
-                    _initials(user.name),
+                    _initials(item.name),
                     style: TextStyle(
                       color: avatarColor,
                       fontWeight: FontWeight.bold,
@@ -878,7 +1055,7 @@ class _StaffActionSheet extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      user.name,
+                      item.name,
                       style: TextStyle(
                         color: textColor,
                         fontSize: 18,
@@ -910,45 +1087,111 @@ class _StaffActionSheet extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 16),
-          _actionTile(
-            context,
-            icon: FontAwesomeIcons.userPen,
-            label: 'View Full Profile',
-            subtitle: 'Check performance & history',
-            color: Theme.of(context).colorScheme.primary,
-            onTap: onView,
-            isDark: Theme.of(context).brightness == Brightness.dark,
-            bg: bgColor,
-            text: textColor,
-            subtext: subtextColor,
-          ),
-          const SizedBox(height: 12),
-          _actionTile(
-            context,
-            icon: FontAwesomeIcons.penToSquare,
-            label: 'Edit Details',
-            subtitle: 'Update role or access PIN',
-            color: Colors.orange,
-            onTap: onEdit,
-            isDark: Theme.of(context).brightness == Brightness.dark,
-            bg: bgColor,
-            text: textColor,
-            subtext: subtextColor,
-          ),
-          const SizedBox(height: 12),
-          _actionTile(
-            context,
-            icon: FontAwesomeIcons.trashCan,
-            label: 'Terminate Access',
-            subtitle: 'Permanently remove from team',
-            color: Theme.of(context).colorScheme.error,
-            onTap: onDelete,
-            isDark: Theme.of(context).brightness == Brightness.dark,
-            bg: bgColor,
-            text: textColor,
-            subtext: subtextColor,
-            isDanger: true,
-          ),
+          if (isInvite) ...[
+            _actionTile(
+              context,
+              icon: FontAwesomeIcons.copy,
+              label: 'Copy Link',
+              subtitle: 'Share invite link manually',
+              color: Theme.of(context).colorScheme.primary,
+              onTap: () {
+                Navigator.pop(context);
+                Clipboard.setData(
+                  ClipboardData(
+                    text:
+                        'https://reebaplus.pos/join?code=${item.invite!.code}',
+                  ),
+                );
+                AppNotification.showSuccess(context, 'Invite link copied!');
+              },
+              isDark: Theme.of(context).brightness == Brightness.dark,
+              bg: bgColor,
+              text: textColor,
+              subtext: subtextColor,
+            ),
+            const SizedBox(height: 12),
+            _actionTile(
+              context,
+              icon: FontAwesomeIcons.rotateRight,
+              label: 'Resend / Extend',
+              subtitle: 'Generates a new 48hr invite code',
+              color: Colors.orange,
+              onTap: () async {
+                Navigator.pop(context);
+                final link = await authService.resendInvite(item.invite!.id);
+                if (context.mounted) {
+                  Clipboard.setData(ClipboardData(text: link));
+                  AppNotification.showSuccess(
+                    context,
+                    'New invite generated & copied!',
+                  );
+                }
+              },
+              isDark: Theme.of(context).brightness == Brightness.dark,
+              bg: bgColor,
+              text: textColor,
+              subtext: subtextColor,
+            ),
+            const SizedBox(height: 12),
+            _actionTile(
+              context,
+              icon: FontAwesomeIcons.trashCan,
+              label: 'Revoke Invite',
+              subtitle: 'Cancel this pending invite',
+              color: Theme.of(context).colorScheme.error,
+              onTap: () async {
+                Navigator.pop(context);
+                if (context.mounted) {
+                  AppNotification.showSuccess(context, 'Invite revoked.');
+                }
+              },
+              isDark: Theme.of(context).brightness == Brightness.dark,
+              bg: bgColor,
+              text: textColor,
+              subtext: subtextColor,
+              isDanger: true,
+            ),
+          ] else ...[
+            _actionTile(
+              context,
+              icon: FontAwesomeIcons.userPen,
+              label: 'View Full Profile',
+              subtitle: 'Check performance & history',
+              color: Theme.of(context).colorScheme.primary,
+              onTap: onView,
+              isDark: Theme.of(context).brightness == Brightness.dark,
+              bg: bgColor,
+              text: textColor,
+              subtext: subtextColor,
+            ),
+            const SizedBox(height: 12),
+            _actionTile(
+              context,
+              icon: FontAwesomeIcons.penToSquare,
+              label: 'Edit Details',
+              subtitle: 'Update role or access PIN',
+              color: Colors.orange,
+              onTap: onEdit,
+              isDark: Theme.of(context).brightness == Brightness.dark,
+              bg: bgColor,
+              text: textColor,
+              subtext: subtextColor,
+            ),
+            const SizedBox(height: 12),
+            _actionTile(
+              context,
+              icon: FontAwesomeIcons.trashCan,
+              label: 'Terminate Access',
+              subtitle: 'Permanently remove from team',
+              color: Theme.of(context).colorScheme.error,
+              onTap: onDelete,
+              isDark: Theme.of(context).brightness == Brightness.dark,
+              bg: bgColor,
+              text: textColor,
+              subtext: subtextColor,
+              isDanger: true,
+            ),
+          ],
         ],
       ),
     );
@@ -1026,6 +1269,7 @@ class _StaffActionSheet extends StatelessWidget {
   }
 
   String _initials(String name) {
+    if (name.isEmpty) return '??';
     final parts = name.trim().split(' ');
     if (parts.length >= 2) return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
     return name.substring(0, name.length.clamp(0, 2)).toUpperCase();

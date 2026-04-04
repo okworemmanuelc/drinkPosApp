@@ -10,6 +10,9 @@ import 'package:reebaplus_pos/features/auth/screens/email_entry_screen.dart';
 import 'package:reebaplus_pos/features/auth/screens/warehouse_assignment_screen.dart';
 import 'package:reebaplus_pos/shared/services/auth_service.dart';
 import 'package:reebaplus_pos/shared/widgets/main_layout.dart';
+import 'package:reebaplus_pos/shared/widgets/auto_lock_wrapper.dart';
+import 'package:reebaplus_pos/shared/widgets/force_update_wrapper.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Shared future — completes when Supabase client is ready for OTP calls.
 late final Future<void> supabaseReady;
@@ -33,8 +36,17 @@ void main() async {
   database
       .customSelect('SELECT 1')
       .get()
-      .then((_) => markDbReady())
-      .catchError((_) => markDbReady());
+      .then((_) async {
+        // TEMP CLEANUP SCRIPT: Delete all users except owner to fix user testing stuck state
+        await database.customStatement('DELETE FROM users WHERE id > 1');
+        // Make sure we wipe the device-level login remembering if they got stuck as Cashier.
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.remove('device_user_id');
+        markDbReady();
+      })
+      .catchError((_) async {
+        markDbReady();
+      });
 
   await themeController.init();
 
@@ -74,46 +86,50 @@ class _ReebaplusPosAppState extends State<ReebaplusPosApp> {
     return ListenableBuilder(
       listenable: themeController,
       builder: (_, __) {
-        return MaterialApp(
-          title: 'Reebaplus POS',
-          debugShowCheckedModeBanner: false,
-          builder: (context, child) {
-            return GestureDetector(
-              onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
-              behavior: HitTestBehavior.opaque,
-              child: child,
-            );
-          },
-          themeMode: themeController.themeMode,
-          theme: switch (themeController.designSystem) {
-            DesignSystem.purple => AppTheme.purpleLight(),
-            DesignSystem.amber => AppTheme.amberLight(),
-            DesignSystem.green => AppTheme.greenLight(),
-            DesignSystem.blue => AppTheme.light(),
-          },
-          darkTheme: switch (themeController.designSystem) {
-            DesignSystem.purple => AppTheme.purpleDarkTheme(),
-            DesignSystem.amber => AppTheme.amberDarkTheme(),
-            DesignSystem.green => AppTheme.greenDarkTheme(),
-            DesignSystem.blue => AppTheme.dark(),
-          },
-          home: ValueListenableBuilder<UserData?>(
-            valueListenable: authService,
-            builder: (_, user, __) {
-              if (user == null) {
-                // Still reading SharedPreferences — show branded splash.
-                if (_hasDeviceUser == null) return const _BrandedSplash();
-                // Returning user on this device → skip email, go to PIN screen.
-                // New device / fresh install → go to email entry flow.
-                return _hasDeviceUser!
-                    ? const LoginScreen()
-                    : const EmailEntryScreen();
-              }
-              if (user.roleTier < 5 && user.warehouseId == null) {
-                return WarehouseAssignmentScreen(user: user);
-              }
-              return const MainLayout();
-            },
+        return ForceUpdateWrapper(
+          child: AutoLockWrapper(
+            child: MaterialApp(
+              title: 'Reebaplus POS',
+              debugShowCheckedModeBanner: false,
+              builder: (context, child) {
+                return GestureDetector(
+                  onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+                  behavior: HitTestBehavior.opaque,
+                  child: child,
+                );
+              },
+              themeMode: themeController.themeMode,
+              theme: switch (themeController.designSystem) {
+                DesignSystem.purple => AppTheme.purpleLight(),
+                DesignSystem.amber => AppTheme.amberLight(),
+                DesignSystem.green => AppTheme.greenLight(),
+                DesignSystem.blue => AppTheme.light(),
+              },
+              darkTheme: switch (themeController.designSystem) {
+                DesignSystem.purple => AppTheme.purpleDarkTheme(),
+                DesignSystem.amber => AppTheme.amberDarkTheme(),
+                DesignSystem.green => AppTheme.greenDarkTheme(),
+                DesignSystem.blue => AppTheme.dark(),
+              },
+              home: ValueListenableBuilder<UserData?>(
+                valueListenable: authService,
+                builder: (_, user, __) {
+                  if (user == null) {
+                    // Still reading SharedPreferences — show branded splash.
+                    if (_hasDeviceUser == null) return const _BrandedSplash();
+                    // Returning user on this device → skip email, go to PIN screen.
+                    // New device / fresh install → go to email entry flow.
+                    return _hasDeviceUser!
+                        ? const LoginScreen()
+                        : const EmailEntryScreen();
+                  }
+                  if (user.roleTier < 5 && user.warehouseId == null) {
+                    return WarehouseAssignmentScreen(user: user);
+                  }
+                  return const MainLayout();
+                },
+              ),
+            ),
           ),
         );
       },
@@ -136,11 +152,8 @@ class _BrandedSplash extends StatelessWidget {
             Image.asset(
               'assets/images/reebaplus_logo.png',
               height: 90,
-              errorBuilder: (_, __, ___) => const Icon(
-                Icons.storefront,
-                size: 90,
-                color: Colors.white,
-              ),
+              errorBuilder: (_, __, ___) =>
+                  const Icon(Icons.storefront, size: 90, color: Colors.white),
             ),
             const SizedBox(height: 16),
             const Text(

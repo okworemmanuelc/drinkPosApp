@@ -3,25 +3,42 @@ import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 
 import 'package:reebaplus_pos/core/database/app_database.dart';
-import 'package:reebaplus_pos/shared/services/auth_service.dart';
+import 'package:reebaplus_pos/features/auth/screens/biometric_setup_screen.dart';
 
 /// Shown to new staff (pin == '') after their email OTP is verified.
 /// Two-phase flow: enter PIN → confirm PIN → save to DB → auto-login.
 class CreatePinScreen extends StatefulWidget {
   final UserData user;
+  final bool isNewBusinessSetup;
+  final bool isJoinFlow;
 
-  const CreatePinScreen({super.key, required this.user});
+  const CreatePinScreen({
+    super.key,
+    required this.user,
+    this.isNewBusinessSetup = false,
+    this.isJoinFlow = false,
+  });
 
   @override
   State<CreatePinScreen> createState() => _CreatePinScreenState();
 }
 
 class _CreatePinScreenState extends State<CreatePinScreen> {
+  final GlobalKey<_ShakeWidgetState> _shakeKey = GlobalKey();
   String _pin = '';
   String _firstPin = '';
   String? _errorMessage;
   bool _confirming = false; // false = create phase, true = confirm phase
   bool _saving = false;
+
+  static const _blockedPins = {
+    '000000',
+    '111111',
+    '123456',
+    '654321',
+    '222222',
+    '333333',
+  };
 
   void _onDigit(String digit) {
     if (_pin.length >= 6 || _saving) return;
@@ -42,6 +59,15 @@ class _CreatePinScreenState extends State<CreatePinScreen> {
 
   Future<void> _advance() async {
     if (!_confirming) {
+      if (_blockedPins.contains(_pin)) {
+        setState(() {
+          _errorMessage = "Please choose a stronger PIN.";
+          _pin = '';
+        });
+        _shakeKey.currentState?.shake();
+        return;
+      }
+
       // Move to confirmation phase
       setState(() {
         _firstPin = _pin;
@@ -59,6 +85,7 @@ class _CreatePinScreenState extends State<CreatePinScreen> {
         _confirming = false;
         _errorMessage = "PINs don't match. Try again.";
       });
+      _shakeKey.currentState?.shake();
       return;
     }
 
@@ -87,11 +114,17 @@ class _CreatePinScreenState extends State<CreatePinScreen> {
       // before transitioning to the main dashboard.
       await Future.delayed(const Duration(milliseconds: 1200));
 
-      // setCurrentUser changes home → MainLayout via ValueListenableBuilder.
-      // Pop all pushed routes so that new home becomes visible.
-      authService.setCurrentUser(updatedUser);
+      // Transition to biometric setup screen, passing updatedUser
       if (mounted) {
-        Navigator.of(context).popUntil((route) => route.isFirst);
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (_) => BiometricSetupScreen(
+              user: widget.user,
+              isNewBusinessSetup: widget.isNewBusinessSetup,
+              isJoinFlow: widget.isJoinFlow,
+            ),
+          ),
+        );
       }
     } catch (e) {
       if (mounted) {
@@ -176,32 +209,49 @@ class _CreatePinScreenState extends State<CreatePinScreen> {
                       ),
                       textAlign: TextAlign.center,
                     ),
+                    if (!_confirming) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        'You\'ll use this PIN every time you log in',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: _errorMessage != null
+                              ? Colors.transparent
+                              : Colors.white.withValues(alpha: 0.4),
+                          fontStyle: FontStyle.italic,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
                     const SizedBox(height: 36),
 
                     // Six dots
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: List.generate(6, (i) {
-                        final filled = i < _pin.length;
-                        return AnimatedContainer(
-                          duration: const Duration(milliseconds: 150),
-                          margin: const EdgeInsets.symmetric(horizontal: 8),
-                          width: 18,
-                          height: 18,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: filled
-                                ? primary
-                                : Colors.white.withValues(alpha: 0.1),
-                            border: Border.all(
+                    _ShakeWidget(
+                      key: _shakeKey,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: List.generate(6, (i) {
+                          final filled = i < _pin.length;
+                          return AnimatedContainer(
+                            duration: const Duration(milliseconds: 150),
+                            margin: const EdgeInsets.symmetric(horizontal: 8),
+                            width: 18,
+                            height: 18,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
                               color: filled
                                   ? primary
-                                  : Colors.white.withValues(alpha: 0.4),
-                              width: 2,
+                                  : Colors.white.withValues(alpha: 0.1),
+                              border: Border.all(
+                                color: filled
+                                    ? primary
+                                    : Colors.white.withValues(alpha: 0.4),
+                                width: 2,
+                              ),
                             ),
-                          ),
-                        );
-                      }),
+                          );
+                        }),
+                      ),
                     ),
                     const SizedBox(height: 12),
 
@@ -349,6 +399,60 @@ class _KeyBtn extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+// ── Shake Animation Widget ──────────────────────────────────────────────
+
+class _ShakeWidget extends StatefulWidget {
+  final Widget child;
+  const _ShakeWidget({required Key key, required this.child}) : super(key: key);
+
+  @override
+  _ShakeWidgetState createState() => _ShakeWidgetState();
+}
+
+class _ShakeWidgetState extends State<_ShakeWidget>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 400),
+      vsync: this,
+    );
+    _animation = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 0, end: -10), weight: 1),
+      TweenSequenceItem(tween: Tween(begin: -10, end: 10), weight: 2),
+      TweenSequenceItem(tween: Tween(begin: 10, end: -10), weight: 2),
+      TweenSequenceItem(tween: Tween(begin: -10, end: 10), weight: 2),
+      TweenSequenceItem(tween: Tween(begin: 10, end: 0), weight: 1),
+    ]).animate(_controller);
+  }
+
+  void shake() {
+    _controller.forward(from: 0);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _animation,
+      builder: (context, child) => Transform.translate(
+        offset: Offset(_animation.value, 0),
+        child: child,
+      ),
+      child: widget.child,
     );
   }
 }
