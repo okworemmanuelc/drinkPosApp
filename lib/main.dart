@@ -1,8 +1,5 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:reebaplus_pos/core/theme/app_theme.dart';
@@ -14,9 +11,8 @@ import 'package:reebaplus_pos/features/auth/screens/warehouse_assignment_screen.
 import 'package:reebaplus_pos/shared/services/auth_service.dart';
 import 'package:reebaplus_pos/shared/widgets/main_layout.dart';
 
-/// Shared future that LoginScreen can await instead of issuing its own SELECT 1.
-/// Completes when the database is fully ready (tables created + essential data seeded).
-late final Future<void> dbWarmup;
+/// Shared future — completes when Supabase client is ready for OTP calls.
+late final Future<void> supabaseReady;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -25,47 +21,25 @@ void main() async {
     const SystemUiOverlayStyle(statusBarColor: Colors.transparent),
   );
 
-  // Fire Supabase init in the background — never blocks runApp().
-  // OTP email auth is only needed in the EmailEntryScreen flow, not PIN login.
-  Supabase.initialize(
+  // Start init tasks in parallel — none blocks the UI.
+  supabaseReady = Supabase.initialize(
     url: 'https://ewwyofbvfjyqqirrcaou.supabase.co',
     anonKey:
         'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV3d3lvZmJ2Zmp5cXFpcnJjYW91Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1NzM0MTgsImV4cCI6MjA4OTE0OTQxOH0.McPYfcKMT_h7j9cEE7GiutREcluXo0x2SxdLP0YsP5Q',
-  );
+  ).then((_) {}).catchError((_) {});
 
-  // Run theme init and DB file check in parallel.
-  late final bool dbExists;
-  await Future.wait([
-    themeController.init(),
-    getApplicationDocumentsDirectory().then((dir) {
-      final file = File(p.join(dir.path, 'reebaplus_pos.sqlite'));
-      dbExists = file.existsSync();
-    }),
-  ]);
+  // DB warmup — triggers LazyDatabase open + onCreate. Completer guards
+  // against multiple screens racing to init. markDbReady() is idempotent.
+  database
+      .customSelect('SELECT 1')
+      .get()
+      .then((_) => markDbReady())
+      .catchError((_) => markDbReady());
 
-  if (dbExists) {
-    // Existing install — DB is already set up, no overlay needed.
-    dbReady = true;
-    // Open the connection in the background so the first PIN query is fast.
-    dbWarmup = database
-        .customSelect('SELECT 1')
-        .get()
-        .then((_) {})
-        .catchError((_) {});
-  } else {
-    // Fresh install — onCreate will create tables + seed essential auth data.
-    // LoginScreen can await dbWarmup to dismiss its overlay.
-    dbWarmup = database
-        .customSelect('SELECT 1')
-        .get()
-        .then((_) {
-          dbReady = true;
-        })
-        .catchError((_) {
-          dbReady = true;
-        });
-  }
+  await themeController.init();
 
+  // Don't await DB or Supabase here — they run in background.
+  // Each screen awaits the one it needs right before use.
   runApp(const ReebaplusPosApp());
 }
 
@@ -127,8 +101,8 @@ class _ReebaplusPosAppState extends State<ReebaplusPosApp> {
             valueListenable: authService,
             builder: (_, user, __) {
               if (user == null) {
-                // Still reading SharedPreferences — show a blank screen briefly.
-                if (_hasDeviceUser == null) return const SizedBox.shrink();
+                // Still reading SharedPreferences — show branded splash.
+                if (_hasDeviceUser == null) return const _BrandedSplash();
                 // Returning user on this device → skip email, go to PIN screen.
                 // New device / fresh install → go to email entry flow.
                 return _hasDeviceUser!
@@ -143,6 +117,52 @@ class _ReebaplusPosAppState extends State<ReebaplusPosApp> {
           ),
         );
       },
+    );
+  }
+}
+
+/// Branded loading screen shown while SharedPreferences is being read.
+class _BrandedSplash extends StatelessWidget {
+  const _BrandedSplash();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Image.asset(
+              'assets/images/reebaplus_logo.png',
+              height: 90,
+              errorBuilder: (_, __, ___) => const Icon(
+                Icons.storefront,
+                size: 90,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Reebaplus POS',
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w700,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 24),
+            const SizedBox(
+              width: 24,
+              height: 24,
+              child: CircularProgressIndicator(
+                strokeWidth: 2.5,
+                color: Colors.white,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

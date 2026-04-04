@@ -6,6 +6,8 @@ import 'package:reebaplus_pos/shared/services/auth_service.dart';
 import 'package:reebaplus_pos/shared/widgets/app_button.dart';
 import 'package:reebaplus_pos/features/auth/screens/login_screen.dart';
 import 'package:reebaplus_pos/features/auth/screens/otp_verification_screen.dart';
+import 'package:reebaplus_pos/core/database/app_database.dart' show dbReady;
+import 'package:reebaplus_pos/main.dart' show supabaseReady;
 
 class EmailEntryScreen extends StatefulWidget {
   const EmailEntryScreen({super.key});
@@ -33,6 +35,14 @@ class _EmailEntryScreenState extends State<EmailEntryScreen> {
     }
 
     setState(() => _loading = true);
+
+    // Ensure DB and Supabase are ready before making calls.
+    try {
+      await dbReady;
+      await supabaseReady;
+    } catch (_) {}
+
+    if (!mounted) return;
 
     // Check local DB first — only registered staff can log in.
     final localUser = await authService.getUserByEmail(email);

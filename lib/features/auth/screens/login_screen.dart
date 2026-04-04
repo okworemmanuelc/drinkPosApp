@@ -7,8 +7,6 @@ import 'package:reebaplus_pos/core/utils/responsive.dart';
 import 'package:reebaplus_pos/core/utils/notifications.dart';
 import 'package:reebaplus_pos/features/auth/screens/email_entry_screen.dart';
 
-import 'package:reebaplus_pos/main.dart' show dbWarmup;
-
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -20,11 +18,6 @@ class _LoginScreenState extends State<LoginScreen>
     with SingleTickerProviderStateMixin {
   String _pin = '';
   bool _checking = false;
-
-  // ── DB readiness gate ──────────────────────────────────────────────────────
-  // Start as true if main.dart warmup already confirmed the DB is ready.
-  // This prevents the overlay from ever showing on normal (non-first-run) launches.
-  bool _dbReady = dbReady;
 
   // ── Success animation state ────────────────────────────────────────────────
   bool _loginSuccess = false;
@@ -49,20 +42,6 @@ class _LoginScreenState extends State<LoginScreen>
         curve: const Interval(0.0, 0.5, curve: Curves.easeIn),
       ),
     );
-    _waitForDb();
-  }
-
-  /// Awaits the shared dbWarmup future from main.dart instead of issuing
-  /// a separate SELECT 1 query — this avoids duplicating migration work.
-  void _waitForDb() {
-    if (_dbReady) return;
-    dbWarmup
-        .then((_) {
-          if (mounted) setState(() => _dbReady = true);
-        })
-        .catchError((_) {
-          if (mounted) setState(() => _dbReady = true);
-        });
   }
 
   @override
@@ -91,14 +70,13 @@ class _LoginScreenState extends State<LoginScreen>
   Future<void> _submit() async {
     setState(() => _checking = true);
 
-    // If the DB is still initializing (fresh install), wait for it now.
-    // By the time the user types 6 digits this is almost always already done.
-    if (!_dbReady) {
-      try {
-        await dbWarmup;
-      } catch (_) {}
-      if (mounted) _dbReady = true;
-    }
+    // Await the Completer-guarded DB future — returns instantly if already
+    // complete, blocks safely on fresh install until migrations finish.
+    try {
+      await dbReady;
+    } catch (_) {}
+
+    if (!mounted) return;
 
     List<UserData> matches;
     try {
@@ -215,35 +193,84 @@ class _LoginScreenState extends State<LoginScreen>
           ),
 
           SafeArea(
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 300),
-              child: _loginSuccess
-                  ? _SuccessOverlay(
-                      key: const ValueKey('success'),
-                      user: _loggedInUser!,
-                      checkScale: _checkScale,
-                      checkFade: _checkFade,
-                      bg: bg,
-                      textColor: Colors.white,
-                      subtextColor: Colors.white.withValues(alpha: 0.7),
-                    )
-                  : _PinPad(
-                      key: const ValueKey('pinpad'),
-                      pin: _pin,
-                      checking: _checking,
-                      bg: bg,
-                      surface: Colors.white.withValues(alpha: 0.1),
-                      textColor: Colors.white,
-                      subtextColor: Colors.white.withValues(alpha: 0.6),
-                      onDigit: _onDigit,
-                      onBackspace: _onBackspace,
-                      onSwitchToEmail: _switchToEmail,
+            child: FutureBuilder<void>(
+              future: dbReady,
+              builder: (context, snapshot) {
+                // DB still initializing — show branded loading
+                if (snapshot.connectionState != ConnectionState.done) {
+                  return Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Image.asset(
+                          'assets/images/reebaplus_logo.png',
+                          height: 90,
+                          errorBuilder: (_, __, ___) => const Icon(
+                            Icons.storefront,
+                            size: 90,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        const Text(
+                          'Reebaplus POS',
+                          style: TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Setting up...',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.white.withValues(alpha: 0.7),
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        const SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.5,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
                     ),
+                  );
+                }
+
+                // DB ready — show PIN pad or success overlay
+                return AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 300),
+                  child: _loginSuccess
+                      ? _SuccessOverlay(
+                          key: const ValueKey('success'),
+                          user: _loggedInUser!,
+                          checkScale: _checkScale,
+                          checkFade: _checkFade,
+                          bg: bg,
+                          textColor: Colors.white,
+                          subtextColor: Colors.white.withValues(alpha: 0.7),
+                        )
+                      : _PinPad(
+                          key: const ValueKey('pinpad'),
+                          pin: _pin,
+                          checking: _checking,
+                          bg: bg,
+                          surface: Colors.white.withValues(alpha: 0.1),
+                          textColor: Colors.white,
+                          subtextColor: Colors.white.withValues(alpha: 0.6),
+                          onDigit: _onDigit,
+                          onBackspace: _onBackspace,
+                          onSwitchToEmail: _switchToEmail,
+                        ),
+                );
+              },
             ),
           ),
-
-          // DB overlay removed — PIN entry is always available immediately.
-          // If DB is still initializing on fresh install, _submit() awaits it.
         ],
       ),
     );
