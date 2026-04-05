@@ -2,15 +2,13 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:screenshot/screenshot.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:path_provider/path_provider.dart';
 
-import 'package:reebaplus_pos/core/database/app_database.dart';
-import 'package:reebaplus_pos/shared/services/auth_service.dart';
-import 'package:reebaplus_pos/shared/services/cart_service.dart';
-import 'package:reebaplus_pos/shared/services/order_service.dart';
+import 'package:reebaplus_pos/core/providers/app_providers.dart';
 import 'package:reebaplus_pos/shared/widgets/receipt_widget.dart';
 import 'package:reebaplus_pos/core/utils/responsive.dart';
 import 'package:reebaplus_pos/core/utils/logger.dart';
@@ -21,8 +19,6 @@ import 'package:reebaplus_pos/core/theme/colors.dart';
 import 'package:reebaplus_pos/core/utils/number_format.dart';
 import 'package:reebaplus_pos/core/utils/notifications.dart';
 import 'package:reebaplus_pos/core/utils/currency_input_formatter.dart';
-import 'package:reebaplus_pos/shared/services/navigation_service.dart';
-import 'package:reebaplus_pos/shared/services/printer_service.dart';
 import 'package:reebaplus_pos/shared/widgets/app_input.dart';
 import 'package:reebaplus_pos/shared/widgets/app_button.dart';
 import 'package:reebaplus_pos/shared/widgets/printer_picker.dart';
@@ -31,7 +27,7 @@ import 'package:reebaplus_pos/shared/widgets/printer_picker.dart';
 // CheckoutPage — shown after "Proceed to Checkout" in the cart.
 // ─────────────────────────────────────────────────────────────────────────────
 
-class CheckoutPage extends StatefulWidget {
+class CheckoutPage extends ConsumerStatefulWidget {
   final List<Map<String, dynamic>> cart;
   final double subtotal;
   final double crateDeposit;
@@ -50,7 +46,7 @@ class CheckoutPage extends StatefulWidget {
   });
 
   @override
-  State<CheckoutPage> createState() => _CheckoutPageState();
+  ConsumerState<CheckoutPage> createState() => _CheckoutPageState();
 }
 
 /// 3 payment methods:
@@ -59,7 +55,7 @@ class CheckoutPage extends StatefulWidget {
 /// - credit    → full amount added to customer balance (disabled for walk-in)
 enum PaymentType { fullCash, partialCash, credit }
 
-class _CheckoutPageState extends State<CheckoutPage> {
+class _CheckoutPageState extends ConsumerState<CheckoutPage> {
   PaymentType _paymentType = PaymentType.fullCash;
   bool _isWalletPayment = false;
   final TextEditingController _cashReceivedCtrl = TextEditingController();
@@ -93,7 +89,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
       );
     }
     _loadManufacturers();
-    cartService.activeCustomer.addListener(_onCustomerChanged);
+    ref.read(cartProvider).activeCustomer.addListener(_onCustomerChanged);
   }
 
   void _onCustomerChanged() {
@@ -101,7 +97,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
   }
 
   Future<void> _loadManufacturers() async {
-    final list = await database.inventoryDao.getAllManufacturers();
+    final list = await ref.read(databaseProvider).inventoryDao.getAllManufacturers();
     if (mounted) {
       setState(() {
         _manufacturerNames = {for (final m in list) m.id: m.name};
@@ -111,7 +107,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
   @override
   void dispose() {
-    cartService.activeCustomer.removeListener(_onCustomerChanged);
+    ref.read(cartProvider).activeCustomer.removeListener(_onCustomerChanged);
     _cashReceivedCtrl.dispose();
     super.dispose();
   }
@@ -156,10 +152,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
   // ── build ──────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
-    final themeNotifier = ValueNotifier<ThemeMode>(ThemeMode.system);
-    return ValueListenableBuilder<ThemeMode>(
-      valueListenable: themeNotifier,
-      builder: (_, mode, child) => Scaffold(
+    return Scaffold(
         backgroundColor: _bg,
         appBar: AppBar(
           backgroundColor: _surface,
@@ -186,7 +179,6 @@ class _CheckoutPageState extends State<CheckoutPage> {
           top: false,
           child: _paymentConfirmed ? _buildReceiptView() : _buildCheckoutForm(),
         ),
-      ),
     );
   }
 
@@ -503,14 +495,15 @@ class _CheckoutPageState extends State<CheckoutPage> {
       }
 
       // ── Call atomic transaction ──────────────────────────────────────
-      final orderNo = await orderService.addOrder(
+      final auth = ref.read(authProvider);
+      final orderNo = await ref.read(orderServiceProvider).addOrder(
         customerId: widget.customer?.id,
         cart: widget.cart,
         totalAmountKobo: totalKobo,
         amountPaidKobo: amountPaidKobo,
         paymentType: _paymentLabel,
-        staffId: authService.currentUser?.id ?? 1,
-        warehouseId: authService.currentUser?.warehouseId,
+        staffId: auth.currentUser?.id ?? 1,
+        warehouseId: auth.currentUser?.warehouseId,
         crateDepositPaidKobo: (widget.crateDeposit * 100).round(),
         paymentSubType: _isWalletPayment ? 'wallet' : 'cash',
       );
@@ -524,8 +517,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
         });
 
         // Clear cart for next sale
-        cartService.clear();
-        cartService.setActiveCustomer(null);
+        final cart = ref.read(cartProvider);
+        cart.clear();
+        cart.setActiveCustomer(null);
 
         widget.onCheckoutSuccess?.call();
       }
@@ -624,7 +618,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
             onPressed: () {
               if (!mounted) return;
               Navigator.of(context).pop();
-              navigationService.setIndex(1);
+              ref.read(navigationProvider).setIndex(1);
             },
           ),
         ],
@@ -694,7 +688,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
   Future<void> _printReceipt() async {
     try {
-      final granted = await printerService.requestPermissions();
+      final printer = ref.read(printerServiceProvider);
+      final granted = await printer.requestPermissions();
       if (!granted) {
         if (!mounted) return;
         AppNotification.showError(context, 'Bluetooth permissions denied');
@@ -718,7 +713,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
       if (!mounted) return;
 
-      final success = await printerService.printBytes(receiptBytes);
+      final success = await printer.printBytes(receiptBytes);
       if (success) {
         if (!mounted) return;
         AppNotification.showSuccess(context, 'Print successful');
@@ -745,11 +740,11 @@ class _CheckoutPageState extends State<CheckoutPage> {
               if (!mounted) return;
               AppNotification.showSuccess(context, 'Connecting to ${device.name}...');
               
-              final connected = await printerService.connect(device.macAdress);
+              final connected = await printer.connect(device.macAdress);
               if (!mounted) return;
               
               if (connected) {
-                await printerService.printBytes(receiptBytes);
+                await printer.printBytes(receiptBytes);
                 if (!mounted) return;
                 AppNotification.showSuccess(context, 'Print successful');
               } else {

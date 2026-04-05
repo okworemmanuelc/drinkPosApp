@@ -1,15 +1,16 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:reebaplus_pos/shared/widgets/app_button.dart';
 import 'package:reebaplus_pos/shared/widgets/main_layout.dart';
-import 'package:reebaplus_pos/shared/services/navigation_service.dart';
+import 'package:reebaplus_pos/core/providers/app_providers.dart';
 
-class SuccessDashboardEntryScreen extends StatelessWidget {
+class SuccessDashboardEntryScreen extends ConsumerWidget {
   const SuccessDashboardEntryScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
       backgroundColor: Colors.black,
       body: Stack(
@@ -96,7 +97,7 @@ class SuccessDashboardEntryScreen extends StatelessWidget {
                             Icons.inventory_2_rounded,
                             'Add your first product',
                             onTap: () {
-                              navigationService.setIndex(2); // Inventory
+                              ref.read(navigationProvider).setIndex(2); // Inventory
                               Navigator.of(context).pushAndRemoveUntil(
                                 MaterialPageRoute(
                                   builder: (_) => const MainLayout(),
@@ -111,7 +112,7 @@ class SuccessDashboardEntryScreen extends StatelessWidget {
                             Icons.group_add_rounded,
                             'Invite your team',
                             onTap: () {
-                              navigationService.setIndex(8); // Staff
+                              ref.read(navigationProvider).setIndex(8); // Staff
                               Navigator.of(context).pushAndRemoveUntil(
                                 MaterialPageRoute(
                                   builder: (_) => const MainLayout(),

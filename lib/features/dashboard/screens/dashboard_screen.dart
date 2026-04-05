@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:reebaplus_pos/core/theme/colors.dart';
@@ -11,12 +12,11 @@ import 'package:reebaplus_pos/shared/widgets/menu_button.dart';
 import 'package:reebaplus_pos/shared/widgets/app_bar_header.dart';
 import 'package:reebaplus_pos/shared/widgets/notification_bell.dart';
 import 'package:reebaplus_pos/core/theme/design_tokens.dart';
-import 'package:reebaplus_pos/shared/services/order_service.dart';
 import 'package:reebaplus_pos/core/database/app_database.dart';
+import 'package:reebaplus_pos/core/providers/app_providers.dart';
 import 'package:reebaplus_pos/features/customers/data/models/customer.dart';
 import 'package:reebaplus_pos/shared/widgets/user_tips_modal.dart';
 import 'package:reebaplus_pos/shared/widgets/app_dropdown.dart';
-import 'package:reebaplus_pos/shared/services/auth_service.dart';
 import 'package:reebaplus_pos/features/dashboard/screens/sales_detail_screen.dart';
 import 'package:reebaplus_pos/features/dashboard/screens/reports_hub_screen.dart';
 import 'package:reebaplus_pos/features/customers/screens/customers_screen.dart';
@@ -26,14 +26,14 @@ import 'package:reebaplus_pos/features/orders/screens/orders_screen.dart';
 import 'package:reebaplus_pos/shared/widgets/app_button.dart';
 import 'package:reebaplus_pos/shared/widgets/shimmer_loading.dart';
 
-class DashboardScreen extends StatefulWidget {
+class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
 
   @override
-  State<DashboardScreen> createState() => _DashboardScreenState();
+  ConsumerState<DashboardScreen> createState() => _DashboardScreenState();
 }
 
-class _DashboardScreenState extends State<DashboardScreen> {
+class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   String _selectedPeriod = 'Day';
   final List<String> _periods = ['Day', 'Week', 'Month', 'Year', 'To Date'];
 
@@ -87,7 +87,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     });
 
     // Lock managers (tier 4) and staff (tier < 4) to their own warehouse
-    final currentUser = authService.currentUser;
+    final currentUser = ref.read(authProvider).currentUser;
     final userTier = currentUser?.roleTier ?? 5;
     if (userTier < 5 && currentUser?.warehouseId != null) {
       if (mounted) {
@@ -99,7 +99,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
 
     // Warehouses for the filter dropdown
-    _warehousesSub = database.select(database.warehouses).watch().listen((wh) {
+    final db = ref.read(databaseProvider);
+    _warehousesSub = db.select(db.warehouses).watch().listen((wh) {
       if (mounted) {
         setState(() {
           _warehouses = wh;
@@ -118,7 +119,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     // Minimum delay for shimmers to ensure they are visible
     final minLoading = Future.delayed(const Duration(milliseconds: 500));
 
-    _ordersSub = orderService.watchAllOrdersWithItems().listen((orders) async {
+    _ordersSub = ref.read(orderServiceProvider).watchAllOrdersWithItems().listen((orders) async {
       await minLoading;
       if (mounted) {
         setState(() {
@@ -128,7 +129,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       }
     });
 
-    _expensesSub = database.expensesDao.watchAll().listen((expenses) async {
+    _expensesSub = db.expensesDao.watchAll().listen((expenses) async {
       await minLoading;
       if (mounted) {
         setState(() {
@@ -138,7 +139,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       }
     });
 
-    _customersSub = database.customersDao.watchAllCustomers().listen((
+    _customersSub = db.customersDao.watchAllCustomers().listen((
       customers,
     ) async {
       await minLoading;
@@ -152,8 +153,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     // For managers locked to a warehouse, only count stock in that warehouse
     final stockStream = (_warehouseLocked && _selectedWarehouseId != null)
-        ? database.inventoryDao.watchProductsByWarehouse(_selectedWarehouseId!)
-        : database.inventoryDao.watchAllProductDatasWithStock();
+        ? db.inventoryDao.watchProductsByWarehouse(_selectedWarehouseId!)
+        : db.inventoryDao.watchAllProductDatasWithStock();
 
     _inventorySub = stockStream.listen((items) async {
       await minLoading;
@@ -279,10 +280,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           (c.walletBalanceKobo < 0 ? c.walletBalanceKobo.abs() / 100.0 : 0),
     );
 
-    final themeNotifier = ValueNotifier<ThemeMode>(ThemeMode.system);
-    return ValueListenableBuilder<ThemeMode>(
-      valueListenable: themeNotifier,
-      builder: (_, _, _) => SharedScaffold(
+    return SharedScaffold(
         activeRoute: 'dashboard',
         backgroundColor: _bg,
         appBar: AppBar(
@@ -320,7 +318,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
             SizedBox(height: context.spacingL),
           ],
         ),
-      ),
     );
   }
 
@@ -589,7 +586,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     required double expenses,
     required List<OrderWithItems> filteredOrders,
   }) {
-    final userTier = authService.currentUser?.roleTier ?? 1;
+    final userTier = ref.read(authProvider).currentUser?.roleTier ?? 1;
     final canDrill = userTier >= 4;
 
     return Column(

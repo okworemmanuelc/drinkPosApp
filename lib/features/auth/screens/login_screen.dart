@@ -1,9 +1,10 @@
 import 'dart:ui';
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:reebaplus_pos/core/database/app_database.dart';
+import 'package:reebaplus_pos/core/providers/app_providers.dart';
 
-import 'package:reebaplus_pos/shared/services/auth_service.dart';
 import 'package:reebaplus_pos/core/utils/responsive.dart';
 import 'package:reebaplus_pos/core/utils/notifications.dart';
 import 'package:reebaplus_pos/features/auth/screens/email_entry_screen.dart';
@@ -13,14 +14,14 @@ import 'dart:async';
 import 'package:local_auth/local_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-class LoginScreen extends StatefulWidget {
+class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  ConsumerState<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen>
+class _LoginScreenState extends ConsumerState<LoginScreen>
     with SingleTickerProviderStateMixin {
   String _pin = '';
   bool _checking = false;
@@ -76,9 +77,11 @@ class _LoginScreenState extends State<LoginScreen>
     }
 
     // Identify user
-    final userId = await authService.getDeviceUserId();
+    final auth = ref.read(authProvider);
+    final db = ref.read(databaseProvider);
+    final userId = await auth.getDeviceUserId();
     if (userId != null) {
-      final user = await database.warehousesDao.getUserById(userId);
+      final user = await db.warehousesDao.getUserById(userId);
       if (mounted && user != null) {
         setState(() => _identifiedUser = user);
       }
@@ -145,9 +148,9 @@ class _LoginScreenState extends State<LoginScreen>
       );
       if (!mounted) return;
       if (authenticated) {
-        final userId = await authService.getDeviceUserId();
+        final userId = await ref.read(authProvider).getDeviceUserId();
         if (userId != null) {
-          final user = await database.warehousesDao.getUserById(userId);
+          final user = await ref.read(databaseProvider).warehousesDao.getUserById(userId);
           if (user != null) _enterApp(user);
         }
       } else {
@@ -212,7 +215,7 @@ class _LoginScreenState extends State<LoginScreen>
 
     List<UserData> matches;
     try {
-      matches = await authService.getUsersByPin(_pin);
+      matches = await ref.read(authProvider).getUsersByPin(_pin);
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -283,7 +286,7 @@ class _LoginScreenState extends State<LoginScreen>
     // This allows the user to feel the successful entry before background loading starts.
     await Future.delayed(const Duration(milliseconds: 1200));
 
-    authService.setCurrentUser(user);
+    ref.read(authProvider).setCurrentUser(user);
 
     if (!mounted) return;
 
@@ -308,7 +311,7 @@ class _LoginScreenState extends State<LoginScreen>
   /// Clears device persistence and navigates to email entry so the user can
   /// log in with a different account or on a new device.
   Future<void> _switchToEmail() async {
-    await authService.clearDeviceUserId();
+    await ref.read(authProvider).clearDeviceUserId();
     if (!mounted) return;
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(
@@ -339,7 +342,7 @@ class _LoginScreenState extends State<LoginScreen>
     }
 
     setState(() => _checking = true);
-    final error = await authService.sendOtp(_identifiedUser!.email!);
+    final error = await ref.read(authProvider).sendOtp(_identifiedUser!.email!);
     if (!mounted) return;
     setState(() => _checking = false);
 

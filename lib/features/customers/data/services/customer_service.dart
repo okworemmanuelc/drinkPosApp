@@ -6,12 +6,15 @@ import 'package:reebaplus_pos/features/customers/data/models/customer.dart';
 import 'package:reebaplus_pos/features/customers/data/models/payment.dart';
 
 class CustomerService extends ValueNotifier<List<Customer>> {
-  CustomerService() : super([]) {
+  final AppDatabase _db;
+  final ActivityLogService _log;
+
+  CustomerService(this._db, this._log) : super([]) {
     _init();
   }
 
   void _init() {
-    database.customersDao.watchAllCustomers().listen((dataList) {
+    _db.customersDao.watchAllCustomers().listen((dataList) {
       value = dataList.map((d) => Customer.fromDb(d)).toList();
     });
   }
@@ -27,7 +30,7 @@ class CustomerService extends ValueNotifier<List<Customer>> {
   }
 
   Future<Customer?> addCustomer(Customer customer) async {
-    final newId = await database.customersDao.addCustomer(
+    final newId = await _db.customersDao.addCustomer(
       CustomersCompanion.insert(
         name: customer.name,
         phone: Value(customer.phone),
@@ -38,18 +41,18 @@ class CustomerService extends ValueNotifier<List<Customer>> {
       ),
     );
 
-    await activityLogService.logAction(
+    await _log.logAction(
       'Customer Created',
       'Added new customer: ${customer.name}',
       relatedEntityType: 'customer',
     );
 
-    final data = await database.customersDao.findById(newId);
+    final data = await _db.customersDao.findById(newId);
     return data != null ? Customer.fromDb(data) : null;
   }
 
   Future<void> updateCustomer(Customer updatedCustomer) async {
-    await activityLogService.logAction(
+    await _log.logAction(
       'Customer Updated',
       'Updated details for customer: ${updatedCustomer.name}',
       relatedEntityId: updatedCustomer.id.toString(),
@@ -62,7 +65,7 @@ class CustomerService extends ValueNotifier<List<Customer>> {
     if (customer == null) return;
 
     final amountKobo = (payment.amount * 100).round();
-    await database.customersDao.updateWalletBalance(
+    await _db.customersDao.updateWalletBalance(
       customerId: customerId,
       amountKobo: amountKobo,
       type: 'credit',
@@ -71,7 +74,7 @@ class CustomerService extends ValueNotifier<List<Customer>> {
       staffId: 1, // TODO: Use actual staff ID
     );
 
-    await activityLogService.logAction(
+    await _log.logAction(
       'Payment Added',
       'Added payment of ₦${payment.amount.round()} for ${customer.name}',
       relatedEntityId: customer.id.toString(),
@@ -85,7 +88,7 @@ class CustomerService extends ValueNotifier<List<Customer>> {
   ) async {
     final customer = getById(customerId);
     if (customer != null) {
-      await activityLogService.logAction(
+      await _log.logAction(
         'Crates Dispatched',
         'Added $cratesAdded empty crates to balance for ${customer.name}',
         relatedEntityId: customer.id.toString(),
@@ -100,7 +103,7 @@ class CustomerService extends ValueNotifier<List<Customer>> {
   ) async {
     final customer = getById(customerId);
     if (customer != null) {
-      await activityLogService.logAction(
+      await _log.logAction(
         'Crates Returned',
         'Updated empty crates balance for ${customer.name}',
         relatedEntityId: customer.id.toString(),
@@ -114,9 +117,9 @@ class CustomerService extends ValueNotifier<List<Customer>> {
     if (customer == null) return;
 
     final limitKobo = (newLimit * 100).round();
-    await database.customersDao.updateWalletLimit(customerId, limitKobo);
+    await _db.customersDao.updateWalletLimit(customerId, limitKobo);
 
-    await activityLogService.logAction(
+    await _log.logAction(
       'Limit Updated',
       'Updated wallet limit to ₦${newLimit.abs().toStringAsFixed(0)} for ${customer.name}',
       relatedEntityId: customer.id.toString(),
@@ -133,7 +136,7 @@ class CustomerService extends ValueNotifier<List<Customer>> {
     if (customer == null) return;
 
     final amountKobo = (amount * 100).round();
-    await database.customersDao.updateWalletBalance(
+    await _db.customersDao.updateWalletBalance(
       customerId: customerId,
       amountKobo: amountKobo,
       type: 'credit',
@@ -142,7 +145,7 @@ class CustomerService extends ValueNotifier<List<Customer>> {
       staffId: 1, // TODO: Use actual staff ID
     );
 
-    await activityLogService.logAction(
+    await _log.logAction(
       'Wallet Refunded',
       'Refunded ₦${amount.round()} to ${customer.name}. Note: $note',
       relatedEntityId: customer.id.toString(),
@@ -159,7 +162,7 @@ class CustomerService extends ValueNotifier<List<Customer>> {
     if (customer == null) return;
 
     final amountKobo = (amount * 100).round();
-    await database.customersDao.updateWalletBalance(
+    await _db.customersDao.updateWalletBalance(
       customerId: customerId,
       amountKobo: amountKobo,
       type: 'credit',
@@ -168,7 +171,7 @@ class CustomerService extends ValueNotifier<List<Customer>> {
       staffId: 1, // TODO: Use actual staff ID
     );
 
-    await activityLogService.logAction(
+    await _log.logAction(
       'Wallet Updated',
       'Added ₦${amount.round()} to ${customer.name}\'s wallet. Note: $note',
       relatedEntityId: customer.id.toString(),
@@ -177,5 +180,3 @@ class CustomerService extends ValueNotifier<List<Customer>> {
   }
 }
 
-// Global instance available app-wide
-final CustomerService customerService = CustomerService();

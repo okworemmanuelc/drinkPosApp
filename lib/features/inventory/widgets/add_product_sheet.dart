@@ -1,25 +1,25 @@
 import 'package:drift/drift.dart' as drift;
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:reebaplus_pos/core/providers/app_providers.dart';
 import 'package:reebaplus_pos/core/utils/notifications.dart';
 import 'package:reebaplus_pos/core/database/app_database.dart';
 
 import 'package:reebaplus_pos/shared/widgets/app_dropdown.dart';
 import 'package:reebaplus_pos/core/utils/responsive.dart';
-import 'package:reebaplus_pos/shared/services/auth_service.dart';
-import 'package:reebaplus_pos/shared/services/activity_log_service.dart';
 import 'package:reebaplus_pos/shared/widgets/app_button.dart';
 import 'package:reebaplus_pos/shared/widgets/app_input.dart';
 
-class AddProductSheet extends StatefulWidget {
+class AddProductSheet extends ConsumerStatefulWidget {
   final VoidCallback? onProductAdded;
   const AddProductSheet({super.key, this.onProductAdded});
 
   @override
-  State<AddProductSheet> createState() => _AddProductSheetState();
+  ConsumerState<AddProductSheet> createState() => _AddProductSheetState();
 }
 
-class _AddProductSheetState extends State<AddProductSheet> {
+class _AddProductSheetState extends ConsumerState<AddProductSheet> {
   final _nameCtrl = TextEditingController();
   final _subtitleCtrl = TextEditingController();
   final _retailPriceCtrl = TextEditingController();
@@ -64,7 +64,7 @@ class _AddProductSheetState extends State<AddProductSheet> {
     '#64748B',
   ];
 
-  bool get _isStockKeeper => authService.currentUser?.role == 'stock_keeper';
+  bool get _isStockKeeper => ref.read(authProvider).currentUser?.role == 'stock_keeper';
 
   @override
   void initState() {
@@ -73,12 +73,13 @@ class _AddProductSheetState extends State<AddProductSheet> {
   }
 
   Future<void> _loadData() async {
-    final whs = await database.select(database.warehouses).get();
-    final suppliers = await database.catalogDao.getAllSuppliers();
-    final manufacturers = await database.inventoryDao.getAllManufacturers();
-    var cats = await database.select(database.categories).get();
-    final productsList = await (database.select(
-      database.products,
+    final db = ref.read(databaseProvider);
+    final whs = await db.select(db.warehouses).get();
+    final suppliers = await db.catalogDao.getAllSuppliers();
+    final manufacturers = await db.inventoryDao.getAllManufacturers();
+    var cats = await db.select(db.categories).get();
+    final productsList = await (db.select(
+      db.products,
     )..where((t) => t.isDeleted.not())).get();
 
     if (cats.isEmpty) {
@@ -90,11 +91,11 @@ class _AddProductSheetState extends State<AddProductSheet> {
         'Spirits',
       ];
       for (final name in defaultCats) {
-        await database
-            .into(database.categories)
+        await db
+            .into(db.categories)
             .insert(CategoriesCompanion.insert(name: name));
       }
-      cats = await database.select(database.categories).get();
+      cats = await db.select(db.categories).get();
     }
 
     if (mounted) {
@@ -227,10 +228,11 @@ class _AddProductSheetState extends State<AddProductSheet> {
   }
 
   Future<void> _createNewManufacturer(String name) async {
-    final id = await database.inventoryDao.insertManufacturer(
+    final db = ref.read(databaseProvider);
+    final id = await db.inventoryDao.insertManufacturer(
       ManufacturersCompanion.insert(name: name),
     );
-    final manufacturers = await database.inventoryDao.getAllManufacturers();
+    final manufacturers = await db.inventoryDao.getAllManufacturers();
     final newM = manufacturers.firstWhere((m) => m.id == id);
     setState(() {
       _allManufacturers = manufacturers;
@@ -239,10 +241,11 @@ class _AddProductSheetState extends State<AddProductSheet> {
   }
 
   Future<void> _createNewSupplier(String name) async {
-    final id = await database.catalogDao.insertSupplier(
+    final db = ref.read(databaseProvider);
+    final id = await db.catalogDao.insertSupplier(
       SuppliersCompanion.insert(name: name),
     );
-    final suppliers = await database.catalogDao.getAllSuppliers();
+    final suppliers = await db.catalogDao.getAllSuppliers();
     final newS = suppliers.firstWhere((s) => s.id == id);
     setState(() {
       _allSuppliers = suppliers;
@@ -297,7 +300,9 @@ class _AddProductSheetState extends State<AddProductSheet> {
     }
 
     // Check for duplicate product name
-    final existing = await database.catalogDao.findByName(name);
+    final db = ref.read(databaseProvider);
+    final auth = ref.read(authProvider);
+    final existing = await db.catalogDao.findByName(name);
     if (existing != null) {
       if (mounted) {
         AppNotification.showError(
@@ -315,7 +320,7 @@ class _AddProductSheetState extends State<AddProductSheet> {
 
     setState(() => _isSaving = true);
     try {
-      final productId = await database.catalogDao.insertProduct(
+      final productId = await db.catalogDao.insertProduct(
         ProductsCompanion.insert(
           name: name,
           subtitle: drift.Value(
@@ -339,26 +344,26 @@ class _AddProductSheetState extends State<AddProductSheet> {
       );
 
       if (initialStock > 0 && _selectedWarehouse != null) {
-        await database.inventoryDao.adjustStock(
+        await db.inventoryDao.adjustStock(
           productId,
           _selectedWarehouse!.id,
           initialStock,
-          'Initial stock by ${authService.currentUser?.name ?? 'Unknown'}',
-          authService.currentUser?.id,
+          'Initial stock by ${auth.currentUser?.name ?? 'Unknown'}',
+          auth.currentUser?.id,
         );
 
         // If unit is 'Crate', also add to manufacturer's empty crate pool
         if (_unit == 'Crate' && _selectedManufacturer != null) {
-          await database.inventoryDao.addEmptyCrates(
+          await db.inventoryDao.addEmptyCrates(
             _selectedManufacturer!.id,
             initialStock,
           );
         }
       }
 
-      await activityLogService.logAction(
+      await ref.read(activityLogProvider).logAction(
         'new_product',
-        '${authService.currentUser?.name ?? 'Unknown'} added product: $name'
+        '${auth.currentUser?.name ?? 'Unknown'} added product: $name'
             '${initialStock > 0 ? ' with initial stock $initialStock' : ''}',
         relatedEntityId: productId.toString(),
         relatedEntityType: 'product',

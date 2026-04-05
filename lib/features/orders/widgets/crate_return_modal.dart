@@ -2,17 +2,18 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
+import 'package:reebaplus_pos/core/providers/app_providers.dart';
 import 'package:reebaplus_pos/core/database/app_database.dart';
 import 'package:reebaplus_pos/core/utils/notifications.dart';
 import 'package:reebaplus_pos/core/utils/responsive.dart';
-import 'package:reebaplus_pos/shared/services/auth_service.dart';
 import 'package:reebaplus_pos/shared/widgets/pin_dialog.dart';
 import 'package:reebaplus_pos/shared/widgets/app_button.dart';
 import 'package:reebaplus_pos/shared/widgets/app_input.dart';
 
-class CrateReturnModal extends StatefulWidget {
+class CrateReturnModal extends ConsumerStatefulWidget {
   final OrderWithItems orderWithItems;
 
   const CrateReturnModal({super.key, required this.orderWithItems});
@@ -22,8 +23,9 @@ class CrateReturnModal extends StatefulWidget {
   ///   - If the deposit already fully covers the expected crate deposit, skip.
   static Future<void> show(
     BuildContext context,
-    OrderWithItems orderWithItems,
-  ) async {
+    OrderWithItems orderWithItems, {
+    required WidgetRef ref,
+  }) async {
     // Guard 1: skip if no crate items
     final hasCrates = orderWithItems.items.any(
       (i) => i.product.crateGroupId != null,
@@ -31,7 +33,8 @@ class CrateReturnModal extends StatefulWidget {
     if (!hasCrates) return;
 
     // Guard 2: skip if full deposit was already paid
-    final allGroups = await database.inventoryDao.getAllCrateGroups();
+    final db = ref.read(databaseProvider);
+    final allGroups = await db.inventoryDao.getAllCrateGroups();
     final groupDepositMap = {
       for (final g in allGroups) g.id: g.depositAmountKobo,
     };
@@ -58,10 +61,10 @@ class CrateReturnModal extends StatefulWidget {
   }
 
   @override
-  State<CrateReturnModal> createState() => _CrateReturnModalState();
+  ConsumerState<CrateReturnModal> createState() => _CrateReturnModalState();
 }
 
-class _CrateReturnModalState extends State<CrateReturnModal> {
+class _CrateReturnModalState extends ConsumerState<CrateReturnModal> {
   List<_ManufacturerRow> _rows = [];
   bool _loading = true;
   bool _saving = false;
@@ -136,7 +139,9 @@ class _CrateReturnModalState extends State<CrateReturnModal> {
 
     final customer = widget.orderWithItems.customer;
     final order = widget.orderWithItems.order;
-    final myTier = authService.currentUser?.roleTier ?? 1;
+    final db = ref.read(databaseProvider);
+    final auth = ref.read(authProvider);
+    final myTier = auth.currentUser?.roleTier ?? 1;
     bool hasShortReturn = false;
 
     for (final row in _rows) {
@@ -167,7 +172,7 @@ class _CrateReturnModalState extends State<CrateReturnModal> {
       for (final row in _rows) {
         final returned = int.tryParse(row.controller.text) ?? row.expectedQty;
         if (row.manufacturerId != 0) {
-          await database.inventoryDao.addEmptyCrates(
+          await db.inventoryDao.addEmptyCrates(
             row.manufacturerId,
             returned,
           );
@@ -192,17 +197,17 @@ class _CrateReturnModalState extends State<CrateReturnModal> {
         };
       }).toList();
 
-      final pendingId = await database.pendingCrateReturnsDao
+      final pendingId = await db.pendingCrateReturnsDao
           .createPendingReturn(
             orderId: order.id,
             customerId: customer.id,
-            staffId: authService.currentUser!.id,
+            staffId: auth.currentUser!.id,
             returnDataJson: jsonEncode(returnData),
           );
 
-      await database.notificationsDao.create(
+      await db.notificationsDao.create(
         'crate_short_return',
-        'Short crate return on Order #${order.id} by ${authService.currentUser?.name ?? 'staff'} — awaiting your approval.',
+        'Short crate return on Order #${order.id} by ${auth.currentUser?.name ?? 'staff'} — awaiting your approval.',
         linkedRecordId: pendingId.toString(),
       );
 
@@ -222,7 +227,7 @@ class _CrateReturnModalState extends State<CrateReturnModal> {
       final returned = int.tryParse(row.controller.text) ?? row.expectedQty;
       // 1. Update physical crate stock on the Manufacturers table
       if (row.manufacturerId != 0) {
-        await database.inventoryDao.addEmptyCrates(
+        await db.inventoryDao.addEmptyCrates(
           row.manufacturerId,
           returned,
         );
@@ -251,7 +256,7 @@ class _CrateReturnModalState extends State<CrateReturnModal> {
           ? remaining
           : (returnedQty * cgExpected / row.expectedQty).round();
       remaining -= cgReturned;
-      database.customersDao.recordCrateReturn(customerId, cgId, cgReturned);
+      ref.read(databaseProvider).customersDao.recordCrateReturn(customerId, cgId, cgReturned);
     }
   }
 

@@ -1,22 +1,23 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:reebaplus_pos/shared/services/auth_service.dart';
+import 'package:reebaplus_pos/core/providers/app_providers.dart';
 import 'package:reebaplus_pos/shared/widgets/app_button.dart';
 import 'package:reebaplus_pos/features/auth/screens/role_confirmation_screen.dart';
 import 'package:reebaplus_pos/features/auth/widgets/onboarding_step_indicator.dart';
 
-class InviteCodeScreen extends StatefulWidget {
+class InviteCodeScreen extends ConsumerStatefulWidget {
   final String email;
 
   const InviteCodeScreen({super.key, required this.email});
 
   @override
-  State<InviteCodeScreen> createState() => _InviteCodeScreenState();
+  ConsumerState<InviteCodeScreen> createState() => _InviteCodeScreenState();
 }
 
-class _InviteCodeScreenState extends State<InviteCodeScreen> {
+class _InviteCodeScreenState extends ConsumerState<InviteCodeScreen> {
   final _codeController = TextEditingController();
   bool _loading = false;
   String? _errorMessage;
@@ -55,7 +56,7 @@ class _InviteCodeScreenState extends State<InviteCodeScreen> {
       _errorMessage = null;
     });
 
-    final result = await authService.validateInvite(code);
+    final result = await ref.read(authProvider).validateInvite(code);
 
     if (!mounted) return;
 

@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 import 'package:reebaplus_pos/core/utils/responsive.dart';
-import 'package:reebaplus_pos/shared/services/activity_log_service.dart';
+import 'package:reebaplus_pos/core/providers/app_providers.dart';
 import 'package:reebaplus_pos/features/inventory/data/inventory_data.dart';
 import 'package:reebaplus_pos/features/inventory/data/models/inventory_item.dart';
 import 'package:reebaplus_pos/features/inventory/data/models/inventory_log.dart';
@@ -13,14 +14,14 @@ import 'package:reebaplus_pos/shared/widgets/app_button.dart';
 import 'package:reebaplus_pos/core/utils/notifications.dart';
 import 'package:reebaplus_pos/shared/widgets/app_input.dart';
 
-class StockTransferScreen extends StatefulWidget {
+class StockTransferScreen extends ConsumerStatefulWidget {
   const StockTransferScreen({super.key});
 
   @override
-  State<StockTransferScreen> createState() => _StockTransferScreenState();
+  ConsumerState<StockTransferScreen> createState() => _StockTransferScreenState();
 }
 
-class _StockTransferScreenState extends State<StockTransferScreen> {
+class _StockTransferScreenState extends ConsumerState<StockTransferScreen> {
   Warehouse? _sourceWarehouse;
   Warehouse? _destinationWarehouse;
   InventoryItem? _selectedProduct;
@@ -122,7 +123,7 @@ class _StockTransferScreenState extends State<StockTransferScreen> {
     });
 
     // Log Activity (Source)
-    await activityLogService.logAction(
+    await ref.read(activityLogProvider).logAction(
       "Stock Transfer (Out)",
       "Transferred ${qty.toInt()} ${_selectedProduct!.productName} OUT to ${_destinationWarehouse!.name}",
       relatedEntityId: _selectedProduct!.id,
@@ -131,7 +132,7 @@ class _StockTransferScreenState extends State<StockTransferScreen> {
     );
 
     // Log Activity (Destination)
-    await activityLogService.logAction(
+    await ref.read(activityLogProvider).logAction(
       "Stock Transfer (In)",
       "Transferred ${qty.toInt()} ${_selectedProduct!.productName} IN from ${_sourceWarehouse!.name}",
       relatedEntityId: _selectedProduct!.id,

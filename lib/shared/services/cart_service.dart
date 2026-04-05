@@ -5,6 +5,7 @@ import 'package:reebaplus_pos/core/database/app_database.dart';
 import 'package:reebaplus_pos/shared/services/auth_service.dart';
 
 class CartService extends ValueNotifier<List<Map<String, dynamic>>> {
+  final AuthService _auth;
   final ValueNotifier<Customer?> activeCustomer = ValueNotifier<Customer?>(null);
 
   // Per-user cart storage: userId → cart items
@@ -12,19 +13,31 @@ class CartService extends ValueNotifier<List<Map<String, dynamic>>> {
   // Per-user active customer: userId → customer
   final Map<int, Customer?> _userCustomers = {};
 
-  CartService() : super([]) {
+  CartService(this._auth) : super([]) {
     // Swap to the new user's cart whenever login/logout happens
-    authService.addListener(_onUserChanged);
+    _auth.addListener(_onUserChanged);
   }
 
+  /// Track the previous user so we can clean up their cart on logout.
+  int? _previousUid;
+
   void _onUserChanged() {
-    final uid = _uid;
-    value = List.from(_userCarts[uid] ?? []);
-    activeCustomer.value = _userCustomers[uid];
+    final newUid = _uid;
+
+    // If the previous user logged out (current user is null / anonymous),
+    // clean up their stored cart to prevent unbounded memory growth.
+    if (_previousUid != null && _previousUid != 0 && _auth.currentUser == null) {
+      _userCarts.remove(_previousUid);
+      _userCustomers.remove(_previousUid);
+    }
+    _previousUid = newUid;
+
+    value = List.from(_userCarts[newUid] ?? []);
+    activeCustomer.value = _userCustomers[newUid];
   }
 
   /// The current user's ID. Falls back to 0 (anonymous) when nobody is logged in.
-  int get _uid => authService.currentUser?.id ?? 0;
+  int get _uid => _auth.currentUser?.id ?? 0;
 
   void setActiveCustomer(Customer? customer) {
     _userCustomers[_uid] = customer;
@@ -144,4 +157,3 @@ class CartService extends ValueNotifier<List<Map<String, dynamic>>> {
   );
 }
 
-final cartService = CartService();

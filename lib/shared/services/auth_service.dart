@@ -10,7 +10,10 @@ import 'package:reebaplus_pos/shared/services/navigation_service.dart';
 /// Holds the currently logged-in user.
 /// `value` is null when nobody is logged in.
 class AuthService extends ValueNotifier<UserData?> {
-  AuthService() : super(null); // no user on startup
+  final AppDatabase _db;
+  final NavigationService _nav;
+
+  AuthService(this._db, this._nav) : super(null);
 
   /// Notifies listeners whenever the device-level user ID changes.
   final ValueNotifier<int?> deviceUserIdNotifier = ValueNotifier<int?>(null);
@@ -22,8 +25,8 @@ class AuthService extends ValueNotifier<UserData?> {
   /// There may be more than one match (e.g. two staff share a PIN),
   /// so we return a list and let the UI ask the user to pick one.
   Future<List<UserData>> getUsersByPin(String pin) async {
-    final result = await (database.select(
-      database.users,
+    final result = await (_db.select(
+      _db.users,
     )..where((u) => u.pin.equals(pin))).get();
     return result;
   }
@@ -105,7 +108,7 @@ class AuthService extends ValueNotifier<UserData?> {
   /// Looks up a user in the local database by email.
   Future<UserData?> getUserByEmail(String email) {
     debugPrint('[AuthService] Querying local user for $email...');
-    return database.warehousesDao.getUserByEmail(email).then((u) {
+    return _db.warehousesDao.getUserByEmail(email).then((u) {
       debugPrint('[AuthService] Query done for $email. Found: ${u != null}');
       return u;
     });
@@ -117,11 +120,11 @@ class AuthService extends ValueNotifier<UserData?> {
   void setCurrentUser(UserData user) {
     try {
       // Side-effects first — navigationService fully ready before any rebuild
-      navigationService.applyUserWarehouseLock(user.roleTier, user.warehouseId);
+      _nav.applyUserWarehouseLock(user.roleTier, user.warehouseId);
       if (user.roleTier >= 4) {
-        navigationService.setIndex(0);
+        _nav.setIndex(0);
       } else {
-        navigationService.setIndex(1);
+        _nav.setIndex(1);
       }
       saveDeviceUserId(user.id);
 
@@ -144,12 +147,12 @@ class AuthService extends ValueNotifier<UserData?> {
 
       // 1. Initialize createdAt if null
       if (currentUser.createdAt == null) {
-        await (database.update(database.users)
+        await (_db.update(_db.users)
               ..where((u) => u.id.equals(currentUser.id)))
             .write(UsersCompanion(createdAt: Value(now)));
         // Refresh local state
-        currentUser = await (database.select(
-          database.users,
+        currentUser = await (_db.select(
+          _db.users,
         )..where((u) => u.id.equals(currentUser.id))).getSingle();
         value = currentUser;
       }
@@ -162,13 +165,13 @@ class AuthService extends ValueNotifier<UserData?> {
 
       // 2. Initial notification to CEO
       if (currentUser.lastNotificationSentAt == null) {
-        await database.notificationsDao.create(
+        await _db.notificationsDao.create(
           'warning',
           'Assignment Required: ${currentUser.name} has joined. Please assign a warehouse before the 48h deadline ($deadlineStr).',
           linkedRecordId: currentUser.id.toString(),
         );
 
-        await (database.update(database.users)
+        await (_db.update(_db.users)
               ..where((u) => u.id.equals(currentUser.id)))
             .write(UsersCompanion(lastNotificationSentAt: Value(now)));
       }
@@ -177,21 +180,21 @@ class AuthService extends ValueNotifier<UserData?> {
       if (hoursSinceJoin >= 48) {
         final lastSent = currentUser.lastNotificationSentAt;
         if (lastSent != null && now.difference(lastSent).inHours >= 24) {
-          await database.notificationsDao.create(
+          await _db.notificationsDao.create(
             'danger',
             'URGENT: 48h Countdown expired for ${currentUser.name} (Deadline: $deadlineStr). Warehouse assignment remains pending.',
             linkedRecordId: currentUser.id.toString(),
           );
 
-          await (database.update(database.users)
+          await (_db.update(_db.users)
                 ..where((u) => u.id.equals(currentUser.id)))
               .write(UsersCompanion(lastNotificationSentAt: Value(now)));
         }
       }
 
       // Refresh final state once after all updates (if any)
-      final finalUser = await (database.select(
-        database.users,
+      final finalUser = await (_db.select(
+        _db.users,
       )..where((u) => u.id.equals(currentUser.id))).getSingle();
       if (finalUser != value) {
         value = finalUser;
@@ -210,7 +213,8 @@ class AuthService extends ValueNotifier<UserData?> {
   void logout() {
     value = null;
     bypassNextBiometric = true;
-    navigationService.clearWarehouseLock();
+    _nav.clearWarehouseLock();
+    _nav.resetNavigation();
   }
 
   /// Completely wipes the session, reverting the device to a fresh state.
@@ -231,7 +235,8 @@ class AuthService extends ValueNotifier<UserData?> {
     // 3. Clear local state — triggers the ValueListenableBuilder to rebuild.
     //    At this point _hasDeviceUser is already false → routes to EmailEntryScreen.
     value = null;
-    navigationService.clearWarehouseLock();
+    _nav.clearWarehouseLock();
+    _nav.resetNavigation();
   }
 
   /// Returns true if [pin] belongs to at least one user whose
@@ -250,7 +255,7 @@ class AuthService extends ValueNotifier<UserData?> {
   /// Returns the newly created [UserData] record.
   Future<UserData> createNewOwner(String email, String name) async {
     final id = await database
-        .into(database.users)
+        .into(_db.users)
         .insert(
           UsersCompanion(
             name: Value(name),
@@ -261,8 +266,8 @@ class AuthService extends ValueNotifier<UserData?> {
             avatarColor: const Value('#8B5CF6'),
           ),
         );
-    return (database.select(
-      database.users,
+    return (_db.select(
+      _db.users,
     )..where((u) => u.id.equals(id))).getSingle();
   }
 
@@ -305,18 +310,18 @@ class AuthService extends ValueNotifier<UserData?> {
   }) async {
     // 1. Get current business (assuming single-tenant for now, or get from user)
     // For now, we'll fetch the first business or create a default one if none exists.
-    var biz = await database.select(database.businesses).getSingleOrNull();
+    var biz = await _db.select(_db.businesses).getSingleOrNull();
     if (biz == null) {
       final id = await database
-          .into(database.businesses)
+          .into(_db.businesses)
           .insert(
             const BusinessesCompanion(
               name: Value('Reebaplus POS Business'),
               type: Value('Retail'),
             ),
           );
-      biz = await (database.select(
-        database.businesses,
+      biz = await (_db.select(
+        _db.businesses,
       )..where((t) => t.id.equals(id))).getSingle();
     }
 
@@ -324,7 +329,7 @@ class AuthService extends ValueNotifier<UserData?> {
     final expiresAt = DateTime.now().add(const Duration(hours: 48));
 
     await database
-        .into(database.invites)
+        .into(_db.invites)
         .insert(
           InvitesCompanion.insert(
             email: email,
@@ -344,8 +349,8 @@ class AuthService extends ValueNotifier<UserData?> {
   /// Validates an invite code and returns the details.
   Future<InviteValidationResult> validateInvite(String code) async {
     final normalized = code.trim().toUpperCase();
-    final invite = await (database.select(
-      database.invites,
+    final invite = await (_db.select(
+      _db.invites,
     )..where((t) => t.code.equals(normalized))).getSingleOrNull();
 
     if (invite == null) {
@@ -362,7 +367,7 @@ class AuthService extends ValueNotifier<UserData?> {
 
     final now = DateTime.now();
     if (invite.expiresAt.isBefore(now)) {
-      await (database.update(database.invites)
+      await (_db.update(_db.invites)
             ..where((t) => t.id.equals(invite.id)))
           .write(const InvitesCompanion(status: Value('expired')));
       return InviteValidationResult.error(
@@ -370,12 +375,12 @@ class AuthService extends ValueNotifier<UserData?> {
       );
     }
 
-    final biz = await (database.select(
-      database.businesses,
+    final biz = await (_db.select(
+      _db.businesses,
     )..where((t) => t.id.equals(invite.businessId))).getSingle();
 
-    final inviter = await (database.select(
-      database.users,
+    final inviter = await (_db.select(
+      _db.users,
     )..where((t) => t.id.equals(invite.createdBy))).getSingleOrNull();
 
     return InviteValidationResult.success(
@@ -388,16 +393,16 @@ class AuthService extends ValueNotifier<UserData?> {
   /// Completes the join process for a user.
   Future<void> redeemInvite(String code, int userId) async {
     final normalized = code.trim().toUpperCase();
-    final invite = await (database.select(
-      database.invites,
+    final invite = await (_db.select(
+      _db.invites,
     )..where((t) => t.code.equals(normalized))).getSingleOrNull();
 
     if (invite == null) throw Exception('Invite not found');
 
-    await database.transaction(() async {
+    await _db.transaction(() async {
       // 1. Update invite status
-      await (database.update(
-        database.invites,
+      await (_db.update(
+        _db.invites,
       )..where((t) => t.id.equals(invite.id))).write(
         InvitesCompanion(
           status: const Value('accepted'),
@@ -411,8 +416,8 @@ class AuthService extends ValueNotifier<UserData?> {
       if (invite.role.toLowerCase().contains('manager')) tier = 4;
       if (invite.role.toLowerCase().contains('ceo')) tier = 5;
 
-      await (database.update(
-        database.users,
+      await (_db.update(
+        _db.users,
       )..where((t) => t.id.equals(userId))).write(
         UsersCompanion(
           role: Value(invite.role),
@@ -426,7 +431,7 @@ class AuthService extends ValueNotifier<UserData?> {
 
   /// Cancels an invite.
   Future<void> revokeInvite(int inviteId) async {
-    await (database.update(database.invites)
+    await (_db.update(_db.invites)
           ..where((t) => t.id.equals(inviteId)))
         .write(const InvitesCompanion(status: Value('revoked')));
   }
@@ -436,8 +441,8 @@ class AuthService extends ValueNotifier<UserData?> {
     final code = _generateSecureCode();
     final expiresAt = DateTime.now().add(const Duration(hours: 48));
 
-    await (database.update(
-      database.invites,
+    await (_db.update(
+      _db.invites,
     )..where((t) => t.id.equals(inviteId))).write(
       InvitesCompanion(
         code: Value(code),
@@ -470,4 +475,3 @@ class InviteValidationResult {
   bool get isSuccess => error == null;
 }
 
-final authService = AuthService();

@@ -44,4 +44,3 @@ class PaymentService extends ValueNotifier<List<Payment>> {
   }
 }
 
-final PaymentService paymentService = PaymentService();

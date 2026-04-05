@@ -62,6 +62,7 @@ dependencies:
   flutter_svg: ^2.2.4
   google_fonts: ^8.0.2
   app_links: ^7.0.0
+  flutter_riverpod: ^2.6.1
 dev_dependencies:
   flutter_test:
     sdk: flutter

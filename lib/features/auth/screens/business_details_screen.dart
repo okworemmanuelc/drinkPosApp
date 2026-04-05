@@ -1,21 +1,23 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:reebaplus_pos/shared/widgets/app_button.dart';
 import 'package:reebaplus_pos/features/auth/widgets/onboarding_step_indicator.dart';
 import 'package:reebaplus_pos/core/database/app_database.dart';
+import 'package:reebaplus_pos/core/providers/app_providers.dart';
 import 'package:reebaplus_pos/features/auth/screens/location_details_screen.dart';
 import 'package:drift/drift.dart' hide Column;
 
-class BusinessDetailsScreen extends StatefulWidget {
+class BusinessDetailsScreen extends ConsumerStatefulWidget {
   final UserData user;
   const BusinessDetailsScreen({super.key, required this.user});
 
   @override
-  State<BusinessDetailsScreen> createState() => _BusinessDetailsScreenState();
+  ConsumerState<BusinessDetailsScreen> createState() => _BusinessDetailsScreenState();
 }
 
-class _BusinessDetailsScreenState extends State<BusinessDetailsScreen> {
+class _BusinessDetailsScreenState extends ConsumerState<BusinessDetailsScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _typeController = TextEditingController();
@@ -68,9 +70,10 @@ class _BusinessDetailsScreenState extends State<BusinessDetailsScreen> {
     // Save to AppSettings (simulated wait)
     await Future.delayed(const Duration(milliseconds: 400));
 
-    await database.batch((batch) {
+    final db = ref.read(databaseProvider);
+    await db.batch((batch) {
       batch.insert(
-        database.appSettings,
+        db.appSettings,
         AppSettingsCompanion.insert(
           key: 'business_name',
           value: _nameController.text.trim(),
@@ -78,12 +81,12 @@ class _BusinessDetailsScreenState extends State<BusinessDetailsScreen> {
         mode: InsertMode.insertOrReplace,
       );
       batch.insert(
-        database.appSettings,
+        db.appSettings,
         AppSettingsCompanion.insert(key: 'business_type', value: businessType),
         mode: InsertMode.insertOrReplace,
       );
       batch.insert(
-        database.appSettings,
+        db.appSettings,
         AppSettingsCompanion.insert(
           key: 'business_phone',
           value: _phoneController.text.trim(),
@@ -91,7 +94,7 @@ class _BusinessDetailsScreenState extends State<BusinessDetailsScreen> {
         mode: InsertMode.insertOrReplace,
       );
       batch.insert(
-        database.appSettings,
+        db.appSettings,
         AppSettingsCompanion.insert(
           key: 'business_email',
           value: _emailController.text.trim(),

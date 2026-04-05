@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:reebaplus_pos/core/widgets/app_fab.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:intl/intl.dart';
@@ -7,30 +8,28 @@ import 'package:reebaplus_pos/core/theme/colors.dart';
 
 import 'package:reebaplus_pos/core/utils/number_format.dart';
 import 'package:reebaplus_pos/core/utils/responsive.dart';
-import 'package:reebaplus_pos/shared/services/auth_service.dart';
+import 'package:reebaplus_pos/core/providers/app_providers.dart';
 import 'package:reebaplus_pos/shared/widgets/app_drawer.dart';
 import 'package:reebaplus_pos/features/payments/data/models/payment.dart';
-import 'package:reebaplus_pos/features/payments/data/services/payment_service.dart';
 import 'package:reebaplus_pos/features/payments/widgets/add_payment_sheet.dart';
 import 'package:reebaplus_pos/shared/widgets/notification_bell.dart';
 import 'package:reebaplus_pos/shared/widgets/app_button.dart';
 import 'package:reebaplus_pos/shared/widgets/app_dropdown.dart';
 import 'package:reebaplus_pos/shared/widgets/app_input.dart';
 import 'package:reebaplus_pos/features/inventory/data/models/supplier.dart';
-import 'package:reebaplus_pos/features/inventory/data/services/supplier_service.dart';
 import 'package:reebaplus_pos/features/inventory/screens/supplier_detail_screen.dart';
 import 'package:reebaplus_pos/features/inventory/data/models/inventory_log.dart';
 import 'package:reebaplus_pos/features/inventory/data/inventory_data.dart';
 import 'package:reebaplus_pos/features/inventory/data/models/crate_group.dart';
 
-class PaymentsScreen extends StatefulWidget {
+class PaymentsScreen extends ConsumerStatefulWidget {
   const PaymentsScreen({super.key});
 
   @override
-  State<PaymentsScreen> createState() => _PaymentsScreenState();
+  ConsumerState<PaymentsScreen> createState() => _PaymentsScreenState();
 }
 
-class _PaymentsScreenState extends State<PaymentsScreen>
+class _PaymentsScreenState extends ConsumerState<PaymentsScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   String _periodFilter = 'This Month';
@@ -56,11 +55,7 @@ class _PaymentsScreenState extends State<PaymentsScreen>
 
   @override
   Widget build(BuildContext context) {
-    final themeNotifier = ValueNotifier<ThemeMode>(ThemeMode.system);
-    return ValueListenableBuilder<ThemeMode>(
-      valueListenable: themeNotifier,
-      builder: (context, mode, child) {
-        return Scaffold(
+    return Scaffold(
           backgroundColor: _bg,
           drawer: const AppDrawer(activeRoute: 'supplier_accounts'),
           appBar: _buildAppBar(context),
@@ -84,8 +79,6 @@ class _PaymentsScreenState extends State<PaymentsScreen>
             icon: FontAwesomeIcons.plus,
             label: 'Add Payment',
           ),
-        );
-      },
     );
   }
 
@@ -320,10 +313,10 @@ class _PaymentsScreenState extends State<PaymentsScreen>
   }
 
   Widget _buildPaymentsTab(BuildContext context) {
-    return ValueListenableBuilder<List<Payment>>(
-      valueListenable: paymentService,
-      builder: (context, payments, child) {
-        final periodPayments = paymentService.getByPeriod(_periodFilter);
+    return Builder(
+      builder: (context) {
+        final paymentSvc = ref.watch(paymentServiceProvider);
+        final periodPayments = paymentSvc.getByPeriod(_periodFilter);
 
         // Compute unique suppliers for chips
         final Set<String> supplierNames = {};
@@ -359,6 +352,8 @@ class _PaymentsScreenState extends State<PaymentsScreen>
   }
 
   Widget _buildSuppliersTab(BuildContext context) {
+    final supplierSvc = ref.watch(supplierServiceProvider);
+    final suppliers = supplierSvc.getAll();
     return Column(
       children: [
         Padding(
@@ -371,7 +366,7 @@ class _PaymentsScreenState extends State<PaymentsScreen>
           ),
         ),
         Expanded(
-          child: supplierService.getAll().isEmpty
+          child: suppliers.isEmpty
               ? Center(
                   child: Text(
                     'No suppliers added yet',
@@ -385,9 +380,9 @@ class _PaymentsScreenState extends State<PaymentsScreen>
                     context.getRSize(16),
                     context.getRSize(120),
                   ),
-                  itemCount: supplierService.getAll().length,
+                  itemCount: suppliers.length,
                   itemBuilder: (_, i) {
-                    final s = supplierService.getAll()[i];
+                    final s = suppliers[i];
                     return GestureDetector(
                       onTap: () => Navigator.push(
                         context,
@@ -543,7 +538,7 @@ class _PaymentsScreenState extends State<PaymentsScreen>
                     );
                     final log = InventoryLog(
                       timestamp: DateTime.now(),
-                      user: authService.currentUser?.name ?? 'Unknown',
+                      user: ref.read(authProvider).currentUser?.name ?? 'Unknown',
                       itemId: newSupplier.id,
                       itemName: newSupplier.name,
                       action: 'new_supplier',
@@ -552,7 +547,7 @@ class _PaymentsScreenState extends State<PaymentsScreen>
                       note: 'Supplier added: ${newSupplier.name}',
                     );
                     setState(() {
-                      supplierService.addSupplier(newSupplier);
+                      ref.read(supplierServiceProvider).addSupplier(newSupplier);
                       kInventoryLogs.add(log);
                     });
                     Navigator.pop(ctx);

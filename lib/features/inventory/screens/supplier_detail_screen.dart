@@ -36,10 +36,7 @@ class _SupplierDetailScreenState extends State<SupplierDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final themeNotifier = ValueNotifier<ThemeMode>(ThemeMode.system);
-    return ValueListenableBuilder<ThemeMode>(
-      valueListenable: themeNotifier,
-      builder: (ctx, val, child) => Scaffold(
+    return Scaffold(
         backgroundColor: _bg,
         appBar: AppBar(
           backgroundColor: _surface,
@@ -72,7 +69,6 @@ class _SupplierDetailScreenState extends State<SupplierDetailScreen> {
             SizedBox(height: context.getRSize(40)),
           ],
         ),
-      ),
     );
   }
 

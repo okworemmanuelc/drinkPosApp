@@ -1,18 +1,16 @@
 import 'dart:async';
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:reebaplus_pos/core/widgets/app_fab.dart';
-import 'package:reebaplus_pos/shared/services/navigation_service.dart';
-import 'package:reebaplus_pos/shared/services/auth_service.dart';
-import 'package:reebaplus_pos/shared/services/activity_log_service.dart';
+import 'package:reebaplus_pos/core/providers/app_providers.dart';
 
 import 'package:reebaplus_pos/core/theme/colors.dart';
 
 import 'package:reebaplus_pos/core/utils/responsive.dart'; // RESPONSIVE: utility imported
 import 'package:reebaplus_pos/features/inventory/data/models/crate_group.dart';
 import 'package:reebaplus_pos/features/inventory/data/models/supplier.dart';
-import 'package:reebaplus_pos/features/inventory/data/services/supplier_service.dart';
 import 'package:reebaplus_pos/features/inventory/data/models/inventory_item.dart';
 import 'package:reebaplus_pos/shared/widgets/shared_scaffold.dart';
 import 'package:reebaplus_pos/shared/widgets/app_dropdown.dart';
@@ -30,13 +28,13 @@ import 'package:reebaplus_pos/features/inventory/widgets/add_product_sheet.dart'
 import 'package:reebaplus_pos/features/pos/widgets/category_filter_bar.dart';
 import 'package:reebaplus_pos/shared/widgets/shimmer_loading.dart';
 
-class InventoryScreen extends StatefulWidget {
+class InventoryScreen extends ConsumerStatefulWidget {
   const InventoryScreen({super.key});
   @override
-  State<InventoryScreen> createState() => _InventoryScreenState();
+  ConsumerState<InventoryScreen> createState() => _InventoryScreenState();
 }
 
-class _InventoryScreenState extends State<InventoryScreen>
+class _InventoryScreenState extends ConsumerState<InventoryScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   int _currentTab = 0;
@@ -88,13 +86,16 @@ class _InventoryScreenState extends State<InventoryScreen>
     });
 
     // Load warehouses from DB
-    database.select(database.warehouses).get().then((list) {
+    final db = ref.read(databaseProvider);
+    final nav = ref.read(navigationProvider);
+    final auth = ref.read(authProvider);
+    db.select(db.warehouses).get().then((list) {
       if (mounted) {
         setState(() {
           _warehouses = list;
-          final locked = navigationService.warehouseLocked.value;
-          final lockedId = navigationService.lockedWarehouseId.value;
-          final userTier = authService.currentUser?.roleTier ?? 5;
+          final locked = nav.warehouseLocked.value;
+          final lockedId = nav.lockedWarehouseId.value;
+          final userTier = auth.currentUser?.roleTier ?? 5;
           if (locked && lockedId != null && userTier < 4) {
             _selectedWarehouseId = lockedId.toString();
           } else {
@@ -110,40 +111,40 @@ class _InventoryScreenState extends State<InventoryScreen>
       }
     });
 
-    _manufacturersSub = database.inventoryDao.watchAllManufacturers().listen((
+    _manufacturersSub = db.inventoryDao.watchAllManufacturers().listen((
       data,
     ) {
       if (mounted) setState(() => _dbManufacturers = data);
     }, onError: (e) => debugPrint('Error watching manufacturers: $e'));
 
-    _categoriesSub = database.inventoryDao.watchAllCategories().listen((data) {
+    _categoriesSub = db.inventoryDao.watchAllCategories().listen((data) {
       if (mounted) setState(() => _dbCategories = data);
     }, onError: (e) => debugPrint('Error watching categories: $e'));
 
     _subscribeToProducts();
 
-    _bottlesSub = database.inventoryDao.watchFullCratesByManufacturer().listen((
+    _bottlesSub = db.inventoryDao.watchFullCratesByManufacturer().listen((
       data,
     ) {
       if (mounted) setState(() => _fullCratesByMfr = data);
     });
-    _emptyCratesSub = database.inventoryDao
+    _emptyCratesSub = db.inventoryDao
         .watchEmptyCratesByManufacturer()
         .listen((data) {
           if (mounted) setState(() => _emptyCratesByMfr = data);
         });
 
-    _logsSub = database.activityLogDao.watchRecent().listen((data) {
+    _logsSub = db.activityLogDao.watchRecent().listen((data) {
       if (mounted) setState(() => _dbLogs = data);
     });
 
-    _crateGroupsSub = database.inventoryDao.watchAllCrateGroups().listen((
+    _crateGroupsSub = db.inventoryDao.watchAllCrateGroups().listen((
       data,
     ) {
       if (mounted) setState(() => _dbCrateGroups = data);
     });
 
-    navigationService.selectedWarehouseId.addListener(
+    nav.selectedWarehouseId.addListener(
       _handleWarehouseNavigation,
     );
   }
@@ -159,19 +160,20 @@ class _InventoryScreenState extends State<InventoryScreen>
     _emptyCratesSumSub?.cancel();
     _logsSub?.cancel();
     _tabController.dispose();
-    navigationService.selectedWarehouseId.removeListener(
+    ref.read(navigationProvider).selectedWarehouseId.removeListener(
       _handleWarehouseNavigation,
     );
     super.dispose();
   }
 
   void _handleWarehouseNavigation() {
-    if (navigationService.warehouseLocked.value) return;
-    final id = navigationService.selectedWarehouseId.value;
+    final nav = ref.read(navigationProvider);
+    if (nav.warehouseLocked.value) return;
+    final id = nav.selectedWarehouseId.value;
     if (id != null) {
       setState(() => _selectedWarehouseId = id);
       _subscribeToProducts();
-      navigationService.selectedWarehouseId.value = null;
+      nav.selectedWarehouseId.value = null;
     }
   }
 
@@ -183,11 +185,12 @@ class _InventoryScreenState extends State<InventoryScreen>
         ? null
         : int.tryParse(_selectedWarehouseId);
 
+    final db = ref.read(databaseProvider);
     final productStream = warehouseId != null
-        ? database.inventoryDao.watchProductDatasWithStockByWarehouse(
+        ? db.inventoryDao.watchProductDatasWithStockByWarehouse(
             warehouseId,
           )
-        : database.inventoryDao.watchAllProductDatasWithStock();
+        : db.inventoryDao.watchAllProductDatasWithStock();
 
     _productsSub = productStream.listen((data) async {
       await _minLoading;
@@ -199,7 +202,7 @@ class _InventoryScreenState extends State<InventoryScreen>
       }
     }, onError: (e) => debugPrint('Error watching inventory: $e'));
 
-    _emptyCratesSumSub = database.inventoryDao.watchTotalCrateAssets().listen((
+    _emptyCratesSumSub = db.inventoryDao.watchTotalCrateAssets().listen((
       count,
     ) {
       if (mounted) {
@@ -265,7 +268,7 @@ class _InventoryScreenState extends State<InventoryScreen>
             context,
             MaterialPageRoute(
               builder: (context) => StockCountScreen(
-                warehouseId: navigationService.lockedWarehouseId.value,
+                warehouseId: ref.read(navigationProvider).lockedWarehouseId.value,
               ),
             ),
           ),
@@ -556,7 +559,7 @@ class _InventoryScreenState extends State<InventoryScreen>
           ),
         ),
         Expanded(
-          child: supplierService.getAll().isEmpty
+          child: ref.read(supplierServiceProvider).getAll().isEmpty
               ? Center(
                   child: Text(
                     'No suppliers added yet',
@@ -570,9 +573,9 @@ class _InventoryScreenState extends State<InventoryScreen>
                     context.getRSize(16),
                     context.getRSize(120),
                   ),
-                  itemCount: supplierService.getAll().length,
+                  itemCount: ref.read(supplierServiceProvider).getAll().length,
                   itemBuilder: (_, i) {
-                    final s = supplierService.getAll()[i];
+                    final s = ref.read(supplierServiceProvider).getAll()[i];
                     return GestureDetector(
                       onTap: () => Navigator.push(
                         context,
@@ -673,7 +676,7 @@ class _InventoryScreenState extends State<InventoryScreen>
           Expanded(
             child: _isFirstLoad
                 ? const ShimmerDropdown()
-                : (navigationService.warehouseLocked.value
+                : (ref.read(navigationProvider).warehouseLocked.value
                       ? _buildLockedWarehouseChip()
                       : AppDropdown<String>(
                           value: _selectedWarehouseId,
@@ -733,7 +736,7 @@ class _InventoryScreenState extends State<InventoryScreen>
   }
 
   Widget _buildLockedWarehouseChip() {
-    final lockedId = navigationService.lockedWarehouseId.value;
+    final lockedId = ref.read(navigationProvider).lockedWarehouseId.value;
     final warehouse = _warehouses.where((w) => w.id == lockedId).firstOrNull;
     final label = warehouse?.name ?? 'My Warehouse';
     return Container(
@@ -1369,7 +1372,7 @@ class _InventoryScreenState extends State<InventoryScreen>
                 onPressed: () async {
                   if (nameCtrl.text.trim().isEmpty) return;
                   final mfrName = nameCtrl.text.trim();
-                  await database.inventoryDao.insertManufacturer(
+                  await ref.read(databaseProvider).inventoryDao.insertManufacturer(
                     ManufacturersCompanion.insert(
                       name: mfrName,
                       emptyCrateStock: Value(
@@ -1381,9 +1384,9 @@ class _InventoryScreenState extends State<InventoryScreen>
                       ),
                     ),
                   );
-                  await activityLogService.logAction(
+                  await ref.read(activityLogProvider).logAction(
                     'add_manufacturer',
-                    '${authService.currentUser?.name ?? 'Unknown'} added manufacturer: $mfrName',
+                    '${ref.read(authProvider).currentUser?.name ?? 'Unknown'} added manufacturer: $mfrName',
                     relatedEntityType: 'manufacturer',
                   );
                   if (context.mounted) Navigator.pop(ctx);
@@ -1402,7 +1405,7 @@ class _InventoryScreenState extends State<InventoryScreen>
     );
     final depositCtrl = TextEditingController();
     final crateValueCtrl = TextEditingController();
-    final isCEO = (authService.currentUser?.roleTier ?? 1) >= 5;
+    final isCEO = (ref.read(authProvider).currentUser?.roleTier ?? 1) >= 5;
 
     // Default modes
     String depositMode = 'change'; // 'add' | 'change'
@@ -1605,8 +1608,9 @@ class _InventoryScreenState extends State<InventoryScreen>
                   text: 'Save Changes',
                   variant: AppButtonVariant.primary,
                   onPressed: () async {
+                    final db = ref.read(databaseProvider);
                     // Update Stock
-                    await database.inventoryDao.updateManufacturerStock(
+                    await db.inventoryDao.updateManufacturerStock(
                       mfr.id,
                       int.tryParse(stockCtrl.text.trim()) ??
                           mfr.emptyCrateStock,
@@ -1623,7 +1627,7 @@ class _InventoryScreenState extends State<InventoryScreen>
                       } else {
                         newDepositKobo = inputKobo;
                       }
-                      await database.inventoryDao.updateManufacturerDeposit(
+                      await db.inventoryDao.updateManufacturerDeposit(
                         mfr.id,
                         newDepositKobo,
                       );
@@ -1645,13 +1649,13 @@ class _InventoryScreenState extends State<InventoryScreen>
                         // Wait, I can't easily fetch 'current' for all without a more complex SQL.
                         // I'll stick to replacing for price regardless of mode for now but
                         // with a newVal if 'add' was meant as 'new absolute plus current'.
-                        await database.catalogDao
+                        await db.catalogDao
                             .updateManufacturerEmptyCrateValue(
                               mfr.id,
                               inputKobo,
                             );
                       } else {
-                        await database.catalogDao
+                        await db.catalogDao
                             .updateManufacturerEmptyCrateValue(
                               mfr.id,
                               inputKobo,
@@ -1659,9 +1663,9 @@ class _InventoryScreenState extends State<InventoryScreen>
                       }
                     }
 
-                    await activityLogService.logAction(
+                    await ref.read(activityLogProvider).logAction(
                       'update_manufacturer',
-                      '${authService.currentUser?.name ?? 'Unknown'} updated crate stock/deposit for ${mfr.name}',
+                      '${ref.read(authProvider).currentUser?.name ?? 'Unknown'} updated crate stock/deposit for ${mfr.name}',
                       relatedEntityType: 'manufacturer',
                     );
                     if (context.mounted) Navigator.pop(ctx);
@@ -1875,13 +1879,13 @@ class _InventoryScreenState extends State<InventoryScreen>
                   final newStock =
                       int.tryParse(stockCtrl.text.trim()) ??
                       grp.emptyCrateStock;
-                  await database.inventoryDao.updateCrateGroupStock(
+                  await ref.read(databaseProvider).inventoryDao.updateCrateGroupStock(
                     grp.id,
                     newStock,
                   );
-                  await activityLogService.logAction(
+                  await ref.read(activityLogProvider).logAction(
                     'crate_group_update',
-                    '${authService.currentUser?.name ?? 'Unknown'} set ${grp.name} crate stock to $newStock',
+                    '${ref.read(authProvider).currentUser?.name ?? 'Unknown'} set ${grp.name} crate stock to $newStock',
                     relatedEntityType: 'crate_group',
                   );
                   if (context.mounted) Navigator.pop(ctx);
@@ -2123,8 +2127,8 @@ class _InventoryScreenState extends State<InventoryScreen>
                     amountPaid: 0.0,
                     supplierWallet: 0.0,
                   );
-                  supplierService.addSupplier(newSupplier);
-                  database.activityLogDao.log(
+                  ref.read(supplierServiceProvider).addSupplier(newSupplier);
+                  ref.read(databaseProvider).activityLogDao.log(
                     action: 'New Supplier',
                     description: 'Supplier added: ${newSupplier.name}',
                     entityId: newSupplier.id,

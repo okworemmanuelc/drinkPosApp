@@ -3,9 +3,10 @@ import 'package:reebaplus_pos/shared/models/order.dart' as domain;
 import 'package:reebaplus_pos/core/database/app_database.dart';
 
 class OrderService {
-  final _ordersDao = database.ordersDao;
+  final AppDatabase _db;
+  late final OrdersDao _ordersDao = _db.ordersDao;
 
-  OrderService();
+  OrderService(this._db);
 
   Future<String> addOrder({
     required int? customerId,
@@ -82,7 +83,7 @@ class OrderService {
   }) async {
     if (customerId == null) return; // Walk-in: no customer wallet
 
-    final dao = database.customersDao;
+    final dao = _db.customersDao;
 
     if (paymentType == 'Full Cash / Card' && paymentSubType != 'wallet') {
       // Audit trail only — cash in, sale out, net zero
@@ -185,8 +186,7 @@ class OrderService {
   }
 
   Future<List<UserData>> getRiders() {
-    return database.warehousesDao.getRiders();
+    return _db.warehousesDao.getRiders();
   }
 }
 
-final orderService = OrderService();

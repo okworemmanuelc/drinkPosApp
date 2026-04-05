@@ -1,16 +1,16 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:intl/intl.dart';
-import 'package:reebaplus_pos/shared/services/notification_service.dart';
+import 'package:reebaplus_pos/core/providers/app_providers.dart';
 import 'package:reebaplus_pos/shared/models/notification.dart';
 import 'package:reebaplus_pos/core/utils/responsive.dart';
 import 'package:reebaplus_pos/core/theme/colors.dart';
-import 'package:reebaplus_pos/core/database/app_database.dart';
 import 'package:reebaplus_pos/features/orders/screens/crate_return_approval_screen.dart';
 import 'package:reebaplus_pos/shared/widgets/app_button.dart';
 
-class NotificationsModal extends StatelessWidget {
+class NotificationsModal extends ConsumerWidget {
   const NotificationsModal({super.key});
 
   static void show(BuildContext context) {
@@ -23,7 +23,9 @@ class NotificationsModal extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final db = ref.read(databaseProvider);
+    final notifService = ref.read(notificationProvider);
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () => Navigator.pop(context),
@@ -58,11 +60,11 @@ class NotificationsModal extends StatelessWidget {
                     ),
                   ),
                   // Header
-                  _buildHeader(context),
+                  _buildHeader(context, ref: ref),
 
                   // Sync Status Banner
                   StreamBuilder<int>(
-                    stream: database.syncDao.watchPendingCount(),
+                    stream: db.syncDao.watchPendingCount(),
                     builder: (context, snap) {
                       final count = snap.data ?? 0;
                       if (count == 0) return const SizedBox.shrink();
@@ -129,7 +131,7 @@ class NotificationsModal extends StatelessWidget {
                   // List
                   Expanded(
                     child: ValueListenableBuilder(
-                      valueListenable: notificationService,
+                      valueListenable: notifService,
                       builder: (context, notifications, _) {
                         if (notifications.isEmpty) {
                           return _buildEmptyState(context);
@@ -157,7 +159,7 @@ class NotificationsModal extends StatelessWidget {
     );
   }
 
-  Widget _buildHeader(BuildContext context) {
+  Widget _buildHeader(BuildContext context, {required WidgetRef ref}) {
     return Padding(
       padding: EdgeInsets.all(context.getRSize(20)),
       child: Row(
@@ -188,7 +190,7 @@ class NotificationsModal extends StatelessWidget {
             height: context.getRSize(36),
             padding: EdgeInsets.symmetric(horizontal: context.getRSize(12)),
             onPressed: () {
-              notificationService.clearAll();
+              ref.read(notificationProvider).clearAll();
             },
           ),
         ],
@@ -223,13 +225,13 @@ class NotificationsModal extends StatelessWidget {
   }
 }
 
-class _NotificationCard extends StatelessWidget {
+class _NotificationCard extends ConsumerWidget {
   final NotificationModel notification;
 
   const _NotificationCard({required this.notification});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final Color cardBg = Theme.of(context).cardColor;
     final Color textCol = Theme.of(context).colorScheme.onSurface;
     final Color subtextCol =
@@ -242,9 +244,9 @@ class _NotificationCard extends StatelessWidget {
 
     return GestureDetector(
       onTap: notification.type == 'product_update'
-          ? () => _showProductUpdateSummary(context, notification)
+          ? () => _showProductUpdateSummary(context, notification, ref)
           : notification.type == 'crate_short_return'
-              ? () => _openCrateReturnApproval(context, notification)
+              ? () => _openCrateReturnApproval(context, notification, ref)
               : null,
       child: Container(
         padding: EdgeInsets.all(context.getRSize(16)),
@@ -295,7 +297,7 @@ class _NotificationCard extends StatelessWidget {
                 color: subtextCol,
               ),
               onPressed: () {
-                notificationService.deleteNotification(notification.id);
+                ref.read(notificationProvider).deleteNotification(notification.id);
               },
             ),
           ],
@@ -307,8 +309,9 @@ class _NotificationCard extends StatelessWidget {
   void _showProductUpdateSummary(
     BuildContext context,
     NotificationModel notification,
+    WidgetRef ref,
   ) {
-    notificationService.markAsRead(notification.id);
+    ref.read(notificationProvider).markAsRead(notification.id);
     Map<String, dynamic> data = {};
     try {
       data =
@@ -421,11 +424,11 @@ class _NotificationCard extends StatelessWidget {
   }
 
   void _openCrateReturnApproval(
-      BuildContext context, NotificationModel notification) {
+      BuildContext context, NotificationModel notification, WidgetRef ref) {
     final pendingReturnId = int.tryParse(notification.linkedRecordId ?? '');
     final notifId = int.tryParse(notification.id);
     if (pendingReturnId == null || notifId == null) return;
-    notificationService.markAsRead(notification.id);
+    ref.read(notificationProvider).markAsRead(notification.id);
     Navigator.pop(context);
     Navigator.of(context).push(
       MaterialPageRoute(

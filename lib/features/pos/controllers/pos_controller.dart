@@ -6,6 +6,10 @@ import 'package:reebaplus_pos/features/customers/data/models/customer.dart';
 import 'dart:async';
 
 class PosController extends ChangeNotifier {
+  final AppDatabase _database;
+  final NavigationService _navigationService;
+  final CartService _cartService;
+
   List<ProductDataWithStock> allProducts = [];
   List<CategoryData> categories = [];
   List<ManufacturerData> manufacturers = [];
@@ -20,7 +24,13 @@ class PosController extends ChangeNotifier {
   StreamSubscription? _productsSub;
   Timer? _debounce;
 
-  PosController() {
+  PosController({
+    required AppDatabase database,
+    required NavigationService navigationService,
+    required CartService cartService,
+  })  : _database = database,
+        _navigationService = navigationService,
+        _cartService = cartService {
     _init();
   }
 
@@ -28,44 +38,44 @@ class PosController extends ChangeNotifier {
     _loadCategories();
     _loadManufacturers();
     _subscribeToProducts();
-    cartService.activeCustomer.addListener(_onCustomerSelected);
-    navigationService.lockedWarehouseId.addListener(_subscribeToProducts);
+    _cartService.activeCustomer.addListener(_onCustomerSelected);
+    _navigationService.lockedWarehouseId.addListener(_subscribeToProducts);
   }
 
   @override
   void dispose() {
     _productsSub?.cancel();
     _debounce?.cancel();
-    cartService.activeCustomer.removeListener(_onCustomerSelected);
-    navigationService.lockedWarehouseId.removeListener(_subscribeToProducts);
+    _cartService.activeCustomer.removeListener(_onCustomerSelected);
+    _navigationService.lockedWarehouseId.removeListener(_subscribeToProducts);
     super.dispose();
   }
 
   Future<void> _loadCategories() async {
-    categories = await database.select(database.categories).get();
+    categories = await _database.select(_database.categories).get();
     notifyListeners();
   }
 
   Future<void> _loadManufacturers() async {
-    manufacturers = await database.catalogDao.getAllManufacturers();
+    manufacturers = await _database.catalogDao.getAllManufacturers();
     notifyListeners();
   }
 
   void _subscribeToProducts() {
     _productsSub?.cancel();
 
-    final warehouseId = navigationService.lockedWarehouseId.value;
+    final warehouseId = _navigationService.lockedWarehouseId.value;
 
     final minLoading = Future.delayed(const Duration(seconds: 2));
 
     if (warehouseId != null) {
       // Fetch warehouse name
-      database.warehousesDao.getWarehouse(warehouseId).then((w) {
+      _database.warehousesDao.getWarehouse(warehouseId).then((w) {
         currentWarehouseName = w?.name;
         notifyListeners();
       });
 
-      _productsSub = database.inventoryDao
+      _productsSub = _database.inventoryDao
           .watchProductDatasWithStockByWarehouse(warehouseId)
           .listen((data) async {
             await minLoading;
@@ -75,7 +85,7 @@ class PosController extends ChangeNotifier {
           });
     } else {
       currentWarehouseName = null;
-      _productsSub = database.inventoryDao
+      _productsSub = _database.inventoryDao
           .watchProductsByCategory(selectedCategoryId)
           .listen((data) async {
             await minLoading;
@@ -87,7 +97,7 @@ class PosController extends ChangeNotifier {
   }
 
   void _onCustomerSelected() {
-    final customer = cartService.activeCustomer.value;
+    final customer = _cartService.activeCustomer.value;
     if (customer != null) {
       selectedGroup = customer.customerGroup;
       notifyListeners();

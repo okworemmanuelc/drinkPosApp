@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:reebaplus_pos/core/widgets/app_fab.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
@@ -6,20 +7,20 @@ import 'package:reebaplus_pos/core/theme/colors.dart';
 
 import 'package:reebaplus_pos/core/utils/number_format.dart';
 import 'package:reebaplus_pos/core/utils/responsive.dart';
+import 'package:reebaplus_pos/core/providers/app_providers.dart';
 import 'package:reebaplus_pos/shared/widgets/app_drawer.dart';
 import 'package:reebaplus_pos/features/deliveries/data/models/delivery.dart';
-import 'package:reebaplus_pos/features/deliveries/data/services/delivery_service.dart';
 import 'package:reebaplus_pos/features/deliveries/widgets/receive_delivery_sheet.dart';
 import 'package:reebaplus_pos/shared/widgets/notification_bell.dart';
 
-class DeliveriesScreen extends StatefulWidget {
+class DeliveriesScreen extends ConsumerStatefulWidget {
   const DeliveriesScreen({super.key});
 
   @override
-  State<DeliveriesScreen> createState() => _DeliveriesScreenState();
+  ConsumerState<DeliveriesScreen> createState() => _DeliveriesScreenState();
 }
 
-class _DeliveriesScreenState extends State<DeliveriesScreen> {
+class _DeliveriesScreenState extends ConsumerState<DeliveriesScreen> {
   String _filter = 'All';
   Color get _bg => Theme.of(context).scaffoldBackgroundColor;
   Color get _surface => Theme.of(context).colorScheme.surface;
@@ -29,11 +30,7 @@ class _DeliveriesScreenState extends State<DeliveriesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final themeNotifier = ValueNotifier<ThemeMode>(ThemeMode.system);
-    return ValueListenableBuilder<ThemeMode>(
-      valueListenable: themeNotifier,
-      builder: (context, mode, child) {
-        return Scaffold(
+    return Scaffold(
           backgroundColor: _bg,
           drawer: const AppDrawer(activeRoute: 'deliveries'),
           appBar: _buildAppBar(context),
@@ -41,9 +38,9 @@ class _DeliveriesScreenState extends State<DeliveriesScreen> {
             children: [
               _buildFilterChips(context),
               Expanded(
-                child: ValueListenableBuilder<List<Delivery>>(
-                  valueListenable: deliveryService,
-                  builder: (context, deliveries, child) {
+                child: Builder(
+                  builder: (context) {
+                    final deliveries = ref.watch(deliveryServiceProvider).value;
                     final filtered = _getFilteredDeliveries(deliveries);
 
                     if (filtered.isEmpty) {
@@ -62,8 +59,6 @@ class _DeliveriesScreenState extends State<DeliveriesScreen> {
             icon: FontAwesomeIcons.truckRampBox,
             label: 'Receive Delivery',
           ),
-        );
-      },
     );
   }
 

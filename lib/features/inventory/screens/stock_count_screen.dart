@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 import 'package:reebaplus_pos/core/database/app_database.dart';
 import 'package:reebaplus_pos/core/theme/colors.dart';
+import 'package:reebaplus_pos/core/providers/app_providers.dart';
 
 import 'package:reebaplus_pos/core/utils/responsive.dart';
 import 'package:reebaplus_pos/core/widgets/app_fab.dart';
-import 'package:reebaplus_pos/shared/services/activity_log_service.dart';
 import 'package:reebaplus_pos/shared/widgets/app_input.dart';
 import 'package:reebaplus_pos/core/utils/notifications.dart';
 import 'package:reebaplus_pos/shared/widgets/shimmer_loading.dart';
@@ -23,7 +24,7 @@ class _DisplayItem {
   const _DisplayItem.row(int idx) : warehouseName = null, rowIndex = idx;
 }
 
-class StockCountScreen extends StatefulWidget {
+class StockCountScreen extends ConsumerStatefulWidget {
   /// If provided, only products in this warehouse are loaded and adjustments
   /// are written to this warehouse. Null means all warehouses (grouped view).
   final int? warehouseId;
@@ -31,10 +32,10 @@ class StockCountScreen extends StatefulWidget {
   const StockCountScreen({super.key, this.warehouseId});
 
   @override
-  State<StockCountScreen> createState() => _StockCountScreenState();
+  ConsumerState<StockCountScreen> createState() => _StockCountScreenState();
 }
 
-class _StockCountScreenState extends State<StockCountScreen> {
+class _StockCountScreenState extends ConsumerState<StockCountScreen> {
   List<ProductStockWithWarehouse> _items = [];
   final List<TextEditingController> _controllers = [];
   bool _loading = true;
@@ -63,7 +64,7 @@ class _StockCountScreenState extends State<StockCountScreen> {
   }
 
   Future<void> _loadProducts() async {
-    final items = await database.inventoryDao.getProductsStockPerWarehouse(
+    final items = await ref.read(databaseProvider).inventoryDao.getProductsStockPerWarehouse(
       warehouseId: widget.warehouseId,
     );
     if (!mounted) return;
@@ -90,13 +91,16 @@ class _StockCountScreenState extends State<StockCountScreen> {
   Future<void> _saveCount() async {
     setState(() => _saving = true);
 
+    final db = ref.read(databaseProvider);
+    final logService = ref.read(activityLogProvider);
+
     int adjustedCount = 0;
     for (int i = 0; i < _items.length; i++) {
       final diff = _diff(i);
       if (diff == 0) continue;
 
       final item = _items[i];
-      await database.inventoryDao.adjustStock(
+      await db.inventoryDao.adjustStock(
         item.product.id,
         item.warehouseId,
         diff,
@@ -105,7 +109,7 @@ class _StockCountScreenState extends State<StockCountScreen> {
       );
 
       final sign = diff > 0 ? '+' : '';
-      await activityLogService.logAction(
+      await logService.logAction(
         'stock_count',
         'Stock count: ${item.product.name} adjusted by $sign$diff '
             '(system: ${item.totalStock}, actual: ${item.totalStock + diff})',
@@ -134,7 +138,7 @@ class _StockCountScreenState extends State<StockCountScreen> {
   // ── History ────────────────────────────────────────────────────────────────
 
   Future<void> _viewHistory(BuildContext context) async {
-    final logs = await database.activityLogDao.getStockCountLogs();
+    final logs = await ref.read(databaseProvider).activityLogDao.getStockCountLogs();
 
     // Group by calendar date (YYYY-MM-DD key for easy sorting)
     final Map<String, List<ActivityLogData>> grouped = {};
@@ -491,10 +495,7 @@ class _StockCountScreenState extends State<StockCountScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final themeNotifier = ValueNotifier<ThemeMode>(ThemeMode.system);
-    return ValueListenableBuilder<ThemeMode>(
-      valueListenable: themeNotifier,
-      builder: (_, __, ___) => Scaffold(
+    return Scaffold(
         backgroundColor: _bg,
         appBar: AppBar(
           backgroundColor: _surface,
@@ -593,7 +594,6 @@ class _StockCountScreenState extends State<StockCountScreen> {
                 icon: FontAwesomeIcons.floppyDisk,
                 label: 'Save Count',
               ),
-      ),
     );
   }
 

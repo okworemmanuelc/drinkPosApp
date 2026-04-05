@@ -100,4 +100,3 @@ class DeliveryReceiptService extends ValueNotifier<List<DeliveryReceipt>> {
   }
 }
 
-final deliveryReceiptService = DeliveryReceiptService();

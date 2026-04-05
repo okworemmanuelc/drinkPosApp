@@ -1,13 +1,15 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:reebaplus_pos/shared/widgets/app_button.dart';
 import 'package:reebaplus_pos/features/auth/widgets/onboarding_step_indicator.dart';
 import 'package:reebaplus_pos/core/database/app_database.dart';
+import 'package:reebaplus_pos/core/providers/app_providers.dart';
 import 'package:reebaplus_pos/features/auth/screens/create_pin_screen.dart';
 import 'package:drift/drift.dart' hide Column;
 
-class BusinessSettingsScreen extends StatefulWidget {
+class BusinessSettingsScreen extends ConsumerStatefulWidget {
   final UserData user;
 
   /// Pass true so that the resulting Biometric/PIN screens eventually
@@ -21,10 +23,10 @@ class BusinessSettingsScreen extends StatefulWidget {
   });
 
   @override
-  State<BusinessSettingsScreen> createState() => _BusinessSettingsScreenState();
+  ConsumerState<BusinessSettingsScreen> createState() => _BusinessSettingsScreenState();
 }
 
-class _BusinessSettingsScreenState extends State<BusinessSettingsScreen> {
+class _BusinessSettingsScreenState extends ConsumerState<BusinessSettingsScreen> {
   final _formKey = GlobalKey<FormState>();
   final _taxController = TextEditingController();
 
@@ -62,9 +64,10 @@ class _BusinessSettingsScreenState extends State<BusinessSettingsScreen> {
 
     setState(() => _loading = true);
 
-    await database.batch((batch) {
+    final db = ref.read(databaseProvider);
+    await db.batch((batch) {
       batch.insert(
-        database.appSettings,
+        db.appSettings,
         AppSettingsCompanion.insert(
           key: 'default_currency',
           value: _selectedCurrency,
@@ -72,13 +75,13 @@ class _BusinessSettingsScreenState extends State<BusinessSettingsScreen> {
         mode: InsertMode.insertOrReplace,
       );
       batch.insert(
-        database.appSettings,
+        db.appSettings,
         AppSettingsCompanion.insert(key: 'timezone', value: _selectedTimezone),
         mode: InsertMode.insertOrReplace,
       );
       if (_taxController.text.trim().isNotEmpty) {
         batch.insert(
-          database.appSettings,
+          db.appSettings,
           AppSettingsCompanion.insert(
             key: 'tax_registration_number',
             value: _taxController.text.trim(),

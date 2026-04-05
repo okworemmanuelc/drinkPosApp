@@ -129,7 +129,7 @@ lib/
 
 1.  **UI/UX**: Prioritize premium aesthetics. Use `AppTheme.dark()` and `AppTheme.light()`. Avoid generic colors; use theme-defined palettes.
 2.  **Linting**: Follow `analysis_options.yaml`. Ensure all code passes `flutter analyze`.
-3.  **State Management**: Extensive use of `ValueNotifier` and `StatefulWidget` patterns for local state; `Drift` for persistent state.
+3.  **State Management**: **Riverpod** (`flutter_riverpod: ^2.6.1`). All services accessed via `ref.read(provider)` / `ref.watch(provider)`. No global singletons except `database` and `themeController` (pre-`runApp()` initialization). Providers defined in `lib/core/providers/app_providers.dart` (services) and `lib/core/providers/stream_providers.dart` (shared Drift streams). All screens are `ConsumerWidget` or `ConsumerStatefulWidget`. Services use constructor dependency injection.
 4.  **Database Updates**: When modifying `app_database.dart`, run `dart run build_runner build` to regenerate the G-files.
 5.  **Database Stability**: When watching single entities for profile screens, prefer `watchSingleOrNull()` over `watchSingle()` to prevent app crashes when data is still loading or temporarily unavailable.
 6.  **Schema Migrations**: Every time `schemaVersion` is bumped, add a matching `if (from < newVersion)` block inside `onUpgrade` in `app_database.dart`. Use `m.createTable(table)` for new tables. For new columns on existing tables use `m.addColumn(table, table.column)`. Never drop tables in `onUpgrade` — that wipes user data. The fallback `for (final table in allTables) { await m.createTable(table).catchError((_) => ...); }` loop at the end of `onUpgrade` safely handles any tables not yet explicitly handled — already-existing tables are silently skipped.

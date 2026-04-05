@@ -1,21 +1,22 @@
 import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:reebaplus_pos/core/database/app_database.dart';
-import 'package:reebaplus_pos/shared/services/auth_service.dart';
+import 'package:reebaplus_pos/core/providers/app_providers.dart';
 import 'package:reebaplus_pos/shared/widgets/app_button.dart';
 
-class WarehouseAssignmentScreen extends StatefulWidget {
+class WarehouseAssignmentScreen extends ConsumerStatefulWidget {
   final UserData user;
   const WarehouseAssignmentScreen({super.key, required this.user});
 
   @override
-  State<WarehouseAssignmentScreen> createState() =>
+  ConsumerState<WarehouseAssignmentScreen> createState() =>
       _WarehouseAssignmentScreenState();
 }
 
-class _WarehouseAssignmentScreenState extends State<WarehouseAssignmentScreen> {
+class _WarehouseAssignmentScreenState extends ConsumerState<WarehouseAssignmentScreen> {
   late Timer _timer;
   Duration _timeLeft = Duration.zero;
   late DateTime _expiry;
@@ -41,13 +42,14 @@ class _WarehouseAssignmentScreenState extends State<WarehouseAssignmentScreen> {
   }
 
   Future<void> _checkAssignment() async {
-    final updatedUser = await (database.select(
-      database.users,
+    final db = ref.read(databaseProvider);
+    final updatedUser = await (db.select(
+      db.users,
     )..where((u) => u.id.equals(widget.user.id))).getSingleOrNull();
 
     if (updatedUser != null && updatedUser.warehouseId != null) {
       // Assignment detected!
-      authService.setCurrentUser(updatedUser);
+      ref.read(authProvider).setCurrentUser(updatedUser);
     }
   }
 
@@ -229,7 +231,7 @@ class _WarehouseAssignmentScreenState extends State<WarehouseAssignmentScreen> {
                       icon: FontAwesomeIcons.rightFromBracket,
                       variant: AppButtonVariant.ghost,
                       isFullWidth: false,
-                      onPressed: () => authService.fullLogout(),
+                      onPressed: () => ref.read(authProvider).fullLogout(),
                     ),
                   ],
                 ),

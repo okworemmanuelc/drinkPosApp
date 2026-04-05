@@ -1,17 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:reebaplus_pos/shared/services/auth_service.dart';
+import 'package:reebaplus_pos/core/providers/app_providers.dart';
 
-class AutoLockWrapper extends StatefulWidget {
+class AutoLockWrapper extends ConsumerStatefulWidget {
   final Widget child;
 
   const AutoLockWrapper({super.key, required this.child});
 
   @override
-  State<AutoLockWrapper> createState() => _AutoLockWrapperState();
+  ConsumerState<AutoLockWrapper> createState() => _AutoLockWrapperState();
 }
 
-class _AutoLockWrapperState extends State<AutoLockWrapper>
+class _AutoLockWrapperState extends ConsumerState<AutoLockWrapper>
     with WidgetsBindingObserver {
   static const String _pausedTimeKey = 'app_paused_time';
   static const int _lockMinutes = 5;
@@ -43,16 +44,17 @@ class _AutoLockWrapperState extends State<AutoLockWrapper>
       if (pausedMs != null) {
         final pausedTime = DateTime.fromMillisecondsSinceEpoch(pausedMs);
         final difference = DateTime.now().difference(pausedTime);
+        final auth = ref.read(authProvider);
 
         if (difference.inHours >= _shiftExpirationHours) {
           // Massive idle time, enforce full strict logout
-          if (authService.currentUser != null) {
-            authService.fullLogout();
+          if (auth.currentUser != null) {
+            auth.fullLogout();
           }
         } else if (difference.inMinutes >= _lockMinutes) {
           // Idle timeout reached, force soft lock
-          if (authService.currentUser != null) {
-            authService.logout();
+          if (auth.currentUser != null) {
+            auth.logout();
           }
         }
         await prefs.remove(_pausedTimeKey);

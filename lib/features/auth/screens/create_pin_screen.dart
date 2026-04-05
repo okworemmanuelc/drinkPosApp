@@ -1,14 +1,16 @@
 import 'dart:ui';
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:reebaplus_pos/core/database/app_database.dart';
+import 'package:reebaplus_pos/core/providers/app_providers.dart';
 import 'package:reebaplus_pos/features/auth/screens/biometric_setup_screen.dart';
 import 'package:reebaplus_pos/features/auth/widgets/onboarding_step_indicator.dart';
 
 /// Shown to new staff (pin == '') after their email OTP is verified.
 /// Two-phase flow: enter PIN → confirm PIN → save to DB → auto-login.
-class CreatePinScreen extends StatefulWidget {
+class CreatePinScreen extends ConsumerStatefulWidget {
   final UserData user;
   final bool isNewBusinessSetup;
   final bool isJoinFlow;
@@ -21,10 +23,10 @@ class CreatePinScreen extends StatefulWidget {
   });
 
   @override
-  State<CreatePinScreen> createState() => _CreatePinScreenState();
+  ConsumerState<CreatePinScreen> createState() => _CreatePinScreenState();
 }
 
-class _CreatePinScreenState extends State<CreatePinScreen> {
+class _CreatePinScreenState extends ConsumerState<CreatePinScreen> {
   final GlobalKey<_ShakeWidgetState> _shakeKey = GlobalKey();
   String _pin = '';
   String _firstPin = '';
@@ -93,11 +95,12 @@ class _CreatePinScreenState extends State<CreatePinScreen> {
     // PINs match — save to DB then log in
     setState(() => _saving = true);
     try {
-      await (database.update(database.users)
+      final db = ref.read(databaseProvider);
+      await (db.update(db.users)
             ..where((u) => u.id.equals(widget.user.id)))
           .write(UsersCompanion(pin: Value(_pin)));
 
-      final updatedUser = await database.warehousesDao.getUserById(
+      final updatedUser = await db.warehousesDao.getUserById(
         widget.user.id,
       );
 

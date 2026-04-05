@@ -4,7 +4,9 @@ import 'package:reebaplus_pos/shared/services/notification_service.dart';
 import 'package:reebaplus_pos/core/utils/number_format.dart';
 
 class ExpenseService extends ValueNotifier<List<Expense>> {
-  ExpenseService() : super(_initialExpenses);
+  final NotificationService _notifications;
+
+  ExpenseService(this._notifications) : super(_initialExpenses);
 
   static final List<Expense> _initialExpenses = [];
 
@@ -59,7 +61,7 @@ class ExpenseService extends ValueNotifier<List<Expense>> {
   Future<void> addExpense(Expense expense) async {
     value = [...value, expense];
     if (expense.amount >= 50000) {
-      await notificationService.createNotification(
+      await _notifications.createNotification(
         'large_expense',
         'Large expense recorded: ${formatCurrency(expense.amount)} for ${expense.category}',
         linkedRecordId: expense.id,
@@ -72,4 +74,3 @@ class ExpenseService extends ValueNotifier<List<Expense>> {
   }
 }
 
-final ExpenseService expenseService = ExpenseService();

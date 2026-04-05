@@ -1,11 +1,12 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:reebaplus_pos/core/providers/app_providers.dart';
 import 'package:reebaplus_pos/core/widgets/app_fab.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:reebaplus_pos/core/theme/colors.dart';
 
 import 'package:reebaplus_pos/core/utils/responsive.dart';
-import 'package:reebaplus_pos/shared/services/cart_service.dart';
 import 'package:reebaplus_pos/shared/widgets/shared_scaffold.dart';
 import 'package:reebaplus_pos/shared/widgets/menu_button.dart';
 import 'package:reebaplus_pos/shared/widgets/app_bar_header.dart';
@@ -18,20 +19,17 @@ import 'package:reebaplus_pos/features/pos/widgets/product_grid.dart';
 import 'package:reebaplus_pos/features/pos/widgets/category_filter_bar.dart';
 import 'package:reebaplus_pos/features/pos/widgets/quick_sale_modal.dart';
 import 'package:reebaplus_pos/shared/widgets/pin_dialog.dart';
-import 'package:reebaplus_pos/shared/services/auth_service.dart';
-import 'package:reebaplus_pos/shared/services/navigation_service.dart';
-import 'package:reebaplus_pos/core/database/app_database.dart';
 import 'package:reebaplus_pos/core/utils/notifications.dart';
 import 'package:reebaplus_pos/shared/widgets/shimmer_loading.dart';
 
-class PosHomeScreen extends StatefulWidget {
+class PosHomeScreen extends ConsumerStatefulWidget {
   const PosHomeScreen({super.key});
 
   @override
-  State<PosHomeScreen> createState() => _PosHomeScreenState();
+  ConsumerState<PosHomeScreen> createState() => _PosHomeScreenState();
 }
 
-class _PosHomeScreenState extends State<PosHomeScreen> {
+class _PosHomeScreenState extends ConsumerState<PosHomeScreen> {
   PosController? _controller;
   final TextEditingController _searchController = TextEditingController();
 
@@ -41,19 +39,24 @@ class _PosHomeScreenState extends State<PosHomeScreen> {
     Future.microtask(() {
       if (!mounted) return;
       setState(() {
-        _controller = PosController();
+        _controller = PosController(
+          database: ref.read(databaseProvider),
+          navigationService: ref.read(navigationProvider),
+          cartService: ref.read(cartProvider),
+        );
       });
       _initWarehouse();
     });
   }
 
   Future<void> _initWarehouse() async {
-    final user = authService.currentUser;
+    final user = ref.read(authProvider).currentUser;
     if (user != null && user.roleTier >= 5) {
-      if (navigationService.lockedWarehouseId.value == null) {
-        final houses = await database.select(database.warehouses).get();
+      if (ref.read(navigationProvider).lockedWarehouseId.value == null) {
+        final db = ref.read(databaseProvider);
+        final houses = await db.select(db.warehouses).get();
         if (houses.isNotEmpty && mounted) {
-          navigationService.setLockedWarehouse(houses.first.id);
+          ref.read(navigationProvider).setLockedWarehouse(houses.first.id);
         }
       }
     }
@@ -80,10 +83,6 @@ class _PosHomeScreenState extends State<PosHomeScreen> {
     return ListenableBuilder(
       listenable: _controller!,
       builder: (context, _) {
-        final themeNotifier = ValueNotifier<ThemeMode>(ThemeMode.system);
-        return ValueListenableBuilder<ThemeMode>(
-          valueListenable: themeNotifier,
-          builder: (_, mode, __) {
             final bgCol = Theme.of(context).scaffoldBackgroundColor;
             final surfaceCol = Theme.of(context).colorScheme.surface;
             final cardCol = Theme.of(context).cardColor;
@@ -167,8 +166,6 @@ class _PosHomeScreenState extends State<PosHomeScreen> {
                 ),
               ),
             );
-          },
-        );
       },
     );
   }
@@ -202,12 +199,12 @@ class _PosHomeScreenState extends State<PosHomeScreen> {
             if (!_controller!.isSearching) _searchController.clear();
           },
         ),
-        if (authService.currentUser?.roleTier == 5)
+        if (ref.read(authProvider).currentUser?.roleTier == 5)
           IconButton(
             icon: Icon(
               FontAwesomeIcons.warehouse,
               size: 16,
-              color: navigationService.lockedWarehouseId.value == null
+              color: ref.read(navigationProvider).lockedWarehouseId.value == null
                   ? subtextCol
                   : Theme.of(context).colorScheme.primary,
             ),
@@ -307,7 +304,7 @@ class _PosHomeScreenState extends State<PosHomeScreen> {
 
   Widget _buildCartFab(BuildContext context) {
     return ValueListenableBuilder<List<Map<String, dynamic>>>(
-      valueListenable: cartService,
+      valueListenable: ref.read(cartProvider),
       builder: (context, cartItems, _) {
         if (cartItems.isEmpty) return const SizedBox.shrink();
 
@@ -321,7 +318,7 @@ class _PosHomeScreenState extends State<PosHomeScreen> {
 
         return AppFAB(
           onPressed: () {
-            navigationService.setIndex(9); // 9 corresponds to Cart tab
+            ref.read(navigationProvider).setIndex(9); // 9 corresponds to Cart tab
           },
           icon: FontAwesomeIcons.cartShopping,
           label: 'Go to Cart',
@@ -373,7 +370,7 @@ class _PosHomeScreenState extends State<PosHomeScreen> {
   }
 
   void _addToCart(BuildContext context, dynamic product) {
-    cartService.addItem(product, qty: 1.0);
+    ref.read(cartProvider).addItem(product, qty: 1.0);
     AppNotification.showSuccess(context, '${product.name} added to cart');
   }
 
@@ -401,7 +398,8 @@ class _PosHomeScreenState extends State<PosHomeScreen> {
     BuildContext context,
     Color subtextCol,
   ) async {
-    final warehouses = await database.select(database.warehouses).get();
+    final db = ref.read(databaseProvider);
+    final warehouses = await db.select(db.warehouses).get();
     if (!context.mounted) return;
     final surface = Theme.of(context).colorScheme.surface;
     final text = Theme.of(context).colorScheme.onSurface;
@@ -489,10 +487,10 @@ class _PosHomeScreenState extends State<PosHomeScreen> {
                   itemBuilder: (ctx, i) {
                     final w = warehouses[i];
                     final isSelected =
-                        navigationService.lockedWarehouseId.value == w.id;
+                        ref.read(navigationProvider).lockedWarehouseId.value == w.id;
                     return InkWell(
                       onTap: () {
-                        navigationService.setLockedWarehouse(w.id);
+                        ref.read(navigationProvider).setLockedWarehouse(w.id);
                         Navigator.pop(ctx);
                         setState(() {});
                       },

@@ -61,15 +61,3 @@ class ThemeController extends ChangeNotifier {
 /// Global singleton — initialised in main().
 final themeController = ThemeController();
 
-/// Legacy alias so existing code that uses `themeNotifier.value` still compiles.
-/// Returns a ValueNotifier that shadows the controller's themeMode.
-final ValueNotifier<ThemeMode> themeNotifier = _ThemeModeNotifier();
-
-class _ThemeModeNotifier extends ValueNotifier<ThemeMode> {
-  _ThemeModeNotifier() : super(themeController.themeMode) {
-    themeController.addListener(_sync);
-  }
-  void _sync() => value = themeController.themeMode;
-}
-
-

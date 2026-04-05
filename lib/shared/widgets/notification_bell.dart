@@ -1,19 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:reebaplus_pos/shared/services/notification_service.dart';
+import 'package:reebaplus_pos/core/providers/app_providers.dart';
 import 'package:reebaplus_pos/core/utils/responsive.dart';
 import 'package:reebaplus_pos/shared/widgets/notifications_modal.dart';
 
-class NotificationBell extends StatelessWidget {
+class NotificationBell extends ConsumerWidget {
   const NotificationBell({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final t = Theme.of(context);
+    final notifService = ref.read(notificationProvider);
     return ValueListenableBuilder(
-      valueListenable: notificationService,
+      valueListenable: notifService,
       builder: (context, notifications, _) {
-        final unreadCount = notificationService.unreadCount;
+        final unreadCount = notifService.unreadCount;
 
         return Padding(
           padding: EdgeInsets.only(right: context.getRSize(8)),

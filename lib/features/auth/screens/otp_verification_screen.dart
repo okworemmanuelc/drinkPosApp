@@ -2,17 +2,18 @@ import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:reebaplus_pos/core/database/app_database.dart';
+import 'package:reebaplus_pos/core/providers/app_providers.dart';
 import 'package:reebaplus_pos/core/utils/notifications.dart';
-import 'package:reebaplus_pos/shared/services/auth_service.dart';
 import 'package:reebaplus_pos/shared/widgets/app_button.dart';
 import 'package:reebaplus_pos/features/auth/screens/create_pin_screen.dart';
 import 'package:reebaplus_pos/features/auth/screens/login_screen.dart';
 import 'package:reebaplus_pos/features/auth/screens/business_type_selection_screen.dart';
 
-class OtpVerificationScreen extends StatefulWidget {
+class OtpVerificationScreen extends ConsumerStatefulWidget {
   final UserData? user;
   final String email;
   final bool isPinReset;
@@ -25,10 +26,10 @@ class OtpVerificationScreen extends StatefulWidget {
   });
 
   @override
-  State<OtpVerificationScreen> createState() => _OtpVerificationScreenState();
+  ConsumerState<OtpVerificationScreen> createState() => _OtpVerificationScreenState();
 }
 
-class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
+class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
   final _otpController = TextEditingController();
   final GlobalKey<_ShakeWidgetState> _shakeKey = GlobalKey();
 
@@ -135,7 +136,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
       _errorMessage = null;
     });
 
-    final error = await authService.verifyOtp(widget.email, otp);
+    final error = await ref.read(authProvider).verifyOtp(widget.email, otp);
 
     if (!mounted) return;
 
@@ -261,7 +262,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
     }
 
     setState(() => _loading = true);
-    final error = await authService.sendOtp(widget.email);
+    final error = await ref.read(authProvider).sendOtp(widget.email);
     if (!mounted) return;
     setState(() => _loading = false);
     if (error != null) {

@@ -1,20 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
+import 'package:reebaplus_pos/core/providers/app_providers.dart';
 import 'package:reebaplus_pos/core/utils/number_format.dart';
 import 'package:reebaplus_pos/core/utils/responsive.dart';
-import 'package:reebaplus_pos/shared/services/activity_log_service.dart';
 import 'package:reebaplus_pos/features/inventory/data/models/supplier.dart';
-import 'package:reebaplus_pos/features/inventory/data/services/supplier_service.dart';
 import 'package:reebaplus_pos/shared/widgets/app_dropdown.dart';
 import 'package:reebaplus_pos/features/deliveries/data/models/delivery.dart';
-import 'package:reebaplus_pos/features/deliveries/data/services/delivery_service.dart';
 import 'package:reebaplus_pos/core/database/app_database.dart';
 import 'package:reebaplus_pos/core/utils/notifications.dart';
 import 'package:reebaplus_pos/shared/widgets/app_button.dart';
 import 'package:reebaplus_pos/shared/widgets/app_input.dart';
 
-class ReceiveDeliverySheet extends StatefulWidget {
+class ReceiveDeliverySheet extends ConsumerStatefulWidget {
   const ReceiveDeliverySheet({super.key});
 
   static void show(BuildContext context) {
@@ -27,7 +26,7 @@ class ReceiveDeliverySheet extends StatefulWidget {
   }
 
   @override
-  State<ReceiveDeliverySheet> createState() => _ReceiveDeliverySheetState();
+  ConsumerState<ReceiveDeliverySheet> createState() => _ReceiveDeliverySheetState();
 }
 
 class _DeliveryItemLine {
@@ -52,7 +51,7 @@ class _DeliveryItemLine {
   }
 }
 
-class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
+class _ReceiveDeliverySheetState extends ConsumerState<ReceiveDeliverySheet> {
   final List<_DeliveryItemLine> _lines = [];
   List<CrateGroupData> _crateGroups = [];
   List<ProductData> _allProducts = [];
@@ -76,19 +75,22 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
   }
 
   Future<void> _loadCrateGroups() async {
-    final groups = await database.inventoryDao.getAllCrateGroups();
+    final db = ref.read(databaseProvider);
+    final groups = await db.inventoryDao.getAllCrateGroups();
     if (mounted) setState(() => _crateGroups = groups);
   }
 
   Future<void> _loadProducts() async {
-    final products = await database.catalogDao
+    final db = ref.read(databaseProvider);
+    final products = await db.catalogDao
         .watchAvailableProductDatas()
         .first;
     if (mounted) setState(() => _allProducts = products);
   }
 
   Future<void> _loadWarehouses() async {
-    final whs = await database.select(database.warehouses).get();
+    final db = ref.read(databaseProvider);
+    final whs = await db.select(db.warehouses).get();
     if (mounted) {
       setState(() {
         _warehouses = whs;
@@ -183,12 +185,14 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
 
     String mainSupplierName = _lines.first.selectedSupplier!.name;
 
+    final db = ref.read(databaseProvider);
+
     for (var l in _lines) {
       final qty = (double.tryParse(l.qtyCtrl.text) ?? 0).toInt();
       totalQty += qty;
 
       // Update stock in the database
-      await database.inventoryDao.adjustStock(
+      await db.inventoryDao.adjustStock(
         l.selectedProduct!.id,
         _selectedWarehouse!.id,
         qty,
@@ -198,7 +202,7 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
 
       // Auto-add empty crates for crate products
       if (l.selectedCrateGroup != null) {
-        await database.inventoryDao.addEmptyCrates(
+        await db.inventoryDao.addEmptyCrates(
           l.selectedCrateGroup!.id,
           qty,
         );
@@ -225,9 +229,9 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
       status: 'confirmed',
     );
 
-    deliveryService.addDelivery(delivery);
+    ref.read(deliveryServiceProvider).addDelivery(delivery);
 
-    await activityLogService.logAction(
+    await ref.read(activityLogProvider).logAction(
       "Delivery Received",
       "Delivery from $mainSupplierName to ${_selectedWarehouse!.name} — ${deliveryItems.length} item(s), ${totalQty.toInt()} units added to stock",
       relatedEntityId: delivery.id,
@@ -510,7 +514,7 @@ class _ReceiveDeliverySheetState extends State<ReceiveDeliverySheet> {
             AppDropdown<Supplier>(
               labelText: 'Supplier *',
               value: line.selectedSupplier,
-              items: supplierService.getAll().map((s) {
+              items: ref.read(supplierServiceProvider).getAll().map((s) {
                 return DropdownMenuItem(value: s, child: Text(s.name));
               }).toList(),
               onChanged: (val) => setState(() => line.selectedSupplier = val),

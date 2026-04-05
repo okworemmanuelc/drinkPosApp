@@ -1,25 +1,23 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:intl/intl.dart';
 
+import 'package:reebaplus_pos/core/providers/app_providers.dart';
 import 'package:reebaplus_pos/core/theme/colors.dart';
 
 import 'package:reebaplus_pos/core/utils/number_format.dart';
 import 'package:reebaplus_pos/core/utils/responsive.dart';
-import 'package:reebaplus_pos/shared/services/activity_log_service.dart';
 import 'package:reebaplus_pos/shared/widgets/app_button.dart';
 import 'package:reebaplus_pos/shared/widgets/app_dropdown.dart';
 import 'package:reebaplus_pos/shared/widgets/app_input.dart';
 
-import 'package:reebaplus_pos/features/deliveries/data/services/delivery_service.dart';
 import 'package:reebaplus_pos/features/payments/data/models/payment.dart';
-import 'package:reebaplus_pos/features/payments/data/services/payment_service.dart';
 import 'package:reebaplus_pos/core/utils/currency_input_formatter.dart';
 import 'package:reebaplus_pos/features/inventory/data/models/supplier.dart';
 import 'package:reebaplus_pos/features/inventory/data/models/crate_group.dart';
-import 'package:reebaplus_pos/features/inventory/data/services/supplier_service.dart';
 
-class AddPaymentSheet extends StatefulWidget {
+class AddPaymentSheet extends ConsumerStatefulWidget {
   const AddPaymentSheet({super.key});
 
   static void show(BuildContext context) {
@@ -32,10 +30,10 @@ class AddPaymentSheet extends StatefulWidget {
   }
 
   @override
-  State<AddPaymentSheet> createState() => _AddPaymentSheetState();
+  ConsumerState<AddPaymentSheet> createState() => _AddPaymentSheetState();
 }
 
-class _AddPaymentSheetState extends State<AddPaymentSheet> {
+class _AddPaymentSheetState extends ConsumerState<AddPaymentSheet> {
   final _amountCtrl = TextEditingController();
   final _refCtrl = TextEditingController();
   final _notesCtrl = TextEditingController();
@@ -90,10 +88,11 @@ class _AddPaymentSheetState extends State<AddPaymentSheet> {
     if (typedName.isEmpty) return;
 
     // Check if supplier exists.
+    final suppliers = ref.read(supplierServiceProvider);
     Supplier? finalSupplier = _selectedSupplier;
     if (finalSupplier == null ||
         finalSupplier.name.toLowerCase() != typedName.toLowerCase()) {
-      final existing = supplierService.getAll().where(
+      final existing = suppliers.getAll().where(
         (s) => s.name.toLowerCase() == typedName.toLowerCase(),
       );
       if (existing.isNotEmpty) {
@@ -133,7 +132,7 @@ class _AddPaymentSheetState extends State<AddPaymentSheet> {
           name: typedName,
           crateGroup: CrateGroup.nbPlc, // Default or pick based on name?
         );
-        supplierService.addSupplier(finalSupplier); // Adds to memory
+        suppliers.addSupplier(finalSupplier); // Adds to memory
       }
     }
 
@@ -153,13 +152,13 @@ class _AddPaymentSheetState extends State<AddPaymentSheet> {
     );
 
     // Write to the payments ledger
-    paymentService.addPayment(payment);
+    ref.read(paymentServiceProvider).addPayment(payment);
 
     // Update the specific supplier's balance (no interaction with Customers)
     finalSupplier.amountPaid += amount;
     finalSupplier.supplierWallet -= amount;
 
-    await activityLogService.logAction(
+    await ref.read(activityLogProvider).logAction(
       'Supplier Payment Recorded',
       'Payment of ${formatCurrency(amount)} to ${finalSupplier.name} via $_paymentMethod',
       relatedEntityId: payment.id,
@@ -173,7 +172,7 @@ class _AddPaymentSheetState extends State<AddPaymentSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final recentDeliveries = deliveryService.getAll().take(10).toList();
+    final recentDeliveries = ref.read(deliveryServiceProvider).getAll().take(10).toList();
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -299,7 +298,7 @@ class _AddPaymentSheetState extends State<AddPaymentSheet> {
                               if (textEditingValue.text.isEmpty) {
                                 return const Iterable<Supplier>.empty();
                               }
-                              return supplierService
+                              return ref.read(supplierServiceProvider)
                                   .getAll()
                                   .where((Supplier s) {
                                     return s.name.toLowerCase().contains(

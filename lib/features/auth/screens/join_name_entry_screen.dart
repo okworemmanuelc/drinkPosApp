@@ -1,15 +1,17 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:drift/drift.dart' as drift;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:reebaplus_pos/core/database/app_database.dart';
+import 'package:reebaplus_pos/core/providers/app_providers.dart';
 import 'package:reebaplus_pos/shared/widgets/app_button.dart';
 import 'package:reebaplus_pos/features/auth/screens/create_pin_screen.dart';
 import 'package:reebaplus_pos/shared/services/auth_service.dart';
 import 'package:reebaplus_pos/core/utils/notifications.dart';
 import 'package:reebaplus_pos/features/auth/widgets/onboarding_step_indicator.dart';
 
-class JoinNameEntryScreen extends StatefulWidget {
+class JoinNameEntryScreen extends ConsumerStatefulWidget {
   final String email;
   final InviteValidationResult result;
 
@@ -20,10 +22,10 @@ class JoinNameEntryScreen extends StatefulWidget {
   });
 
   @override
-  State<JoinNameEntryScreen> createState() => _JoinNameEntryScreenState();
+  ConsumerState<JoinNameEntryScreen> createState() => _JoinNameEntryScreenState();
 }
 
-class _JoinNameEntryScreenState extends State<JoinNameEntryScreen> {
+class _JoinNameEntryScreenState extends ConsumerState<JoinNameEntryScreen> {
   final _nameController = TextEditingController();
   bool _loading = false;
 
@@ -43,9 +45,11 @@ class _JoinNameEntryScreenState extends State<JoinNameEntryScreen> {
     setState(() => _loading = true);
 
     // Create staff account logic
+    final db = ref.read(databaseProvider);
+    final auth = ref.read(authProvider);
     final invite = widget.result.invite!;
-    final newId = await database
-        .into(database.users)
+    final newId = await db
+        .into(db.users)
         .insert(
           UsersCompanion.insert(
             name: name,
@@ -60,9 +64,9 @@ class _JoinNameEntryScreenState extends State<JoinNameEntryScreen> {
         );
 
     // Redeem the invite to finalize role & business linkages
-    await authService.redeemInvite(invite.code, newId);
+    await auth.redeemInvite(invite.code, newId);
 
-    final newUser = await database.warehousesDao.getUserById(newId);
+    final newUser = await db.warehousesDao.getUserById(newId);
 
     if (!mounted) return;
     setState(() => _loading = false);

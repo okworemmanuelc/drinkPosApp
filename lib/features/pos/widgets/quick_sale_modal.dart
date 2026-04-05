@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:reebaplus_pos/core/utils/responsive.dart';
-import 'package:reebaplus_pos/shared/services/cart_service.dart';
+import 'package:reebaplus_pos/core/providers/app_providers.dart';
 import 'package:reebaplus_pos/shared/widgets/app_input.dart';
 import 'package:reebaplus_pos/shared/widgets/app_button.dart';
 import 'package:reebaplus_pos/core/utils/notifications.dart';
 
-class QuickSaleModal extends StatefulWidget {
+class QuickSaleModal extends ConsumerStatefulWidget {
   final Color surfaceCol;
   final Color textCol;
   final Color subtextCol;
@@ -23,10 +24,10 @@ class QuickSaleModal extends StatefulWidget {
   });
 
   @override
-  State<QuickSaleModal> createState() => _QuickSaleModalState();
+  ConsumerState<QuickSaleModal> createState() => _QuickSaleModalState();
 }
 
-class _QuickSaleModalState extends State<QuickSaleModal> {
+class _QuickSaleModalState extends ConsumerState<QuickSaleModal> {
   final _nameCtrl = TextEditingController();
   final _qtyCtrl = TextEditingController();
   final _priceCtrl = TextEditingController();
@@ -95,7 +96,7 @@ class _QuickSaleModalState extends State<QuickSaleModal> {
                 'color': Theme.of(context).colorScheme.primary,
                 'category': 'Other',
               };
-              cartService.addItem(
+              ref.read(cartProvider).addItem(
                 product,
                 qty: double.tryParse(_qtyCtrl.text) ?? 1.0,
               );

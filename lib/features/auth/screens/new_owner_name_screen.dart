@@ -1,25 +1,26 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:reebaplus_pos/core/providers/app_providers.dart';
 import 'package:reebaplus_pos/core/utils/notifications.dart';
 import 'package:reebaplus_pos/features/auth/widgets/onboarding_step_indicator.dart';
-import 'package:reebaplus_pos/shared/services/auth_service.dart';
 import 'package:reebaplus_pos/shared/widgets/app_button.dart';
 import 'package:reebaplus_pos/features/auth/screens/business_details_screen.dart';
 
 /// Shown after OTP verification for a brand-new owner.
 /// Collects their name, creates a CEO account in the local DB,
 /// then routes to CreatePinScreen.
-class NewOwnerNameScreen extends StatefulWidget {
+class NewOwnerNameScreen extends ConsumerStatefulWidget {
   final String email;
 
   const NewOwnerNameScreen({super.key, required this.email});
 
   @override
-  State<NewOwnerNameScreen> createState() => _NewOwnerNameScreenState();
+  ConsumerState<NewOwnerNameScreen> createState() => _NewOwnerNameScreenState();
 }
 
-class _NewOwnerNameScreenState extends State<NewOwnerNameScreen> {
+class _NewOwnerNameScreenState extends ConsumerState<NewOwnerNameScreen> {
   final _nameController = TextEditingController();
   bool _loading = false;
 
@@ -38,7 +39,7 @@ class _NewOwnerNameScreenState extends State<NewOwnerNameScreen> {
 
     setState(() => _loading = true);
 
-    final newUser = await authService.createNewOwner(widget.email, name);
+    final newUser = await ref.read(authProvider).createNewOwner(widget.email, name);
 
     if (!mounted) return;
     setState(() => _loading = false);

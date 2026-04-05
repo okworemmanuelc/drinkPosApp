@@ -1,8 +1,8 @@
 import 'dart:io';
-import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:screenshot/screenshot.dart';
 import 'package:share_plus/share_plus.dart';
@@ -13,11 +13,9 @@ import 'package:reebaplus_pos/core/theme/colors.dart';
 import 'package:reebaplus_pos/core/utils/number_format.dart';
 import 'package:reebaplus_pos/core/utils/responsive.dart';
 import 'package:reebaplus_pos/core/database/app_database.dart';
+import 'package:reebaplus_pos/core/providers/app_providers.dart';
+import 'package:reebaplus_pos/core/providers/stream_providers.dart';
 import 'package:reebaplus_pos/shared/widgets/app_button.dart';
-import 'package:reebaplus_pos/shared/services/activity_log_service.dart';
-// staff.dart import removed as it was moved to DB fetch
-import 'package:reebaplus_pos/shared/services/order_service.dart';
-import 'package:reebaplus_pos/shared/services/auth_service.dart';
 import 'package:reebaplus_pos/shared/widgets/receipt_widget.dart';
 import 'package:reebaplus_pos/shared/widgets/shared_scaffold.dart';
 import 'package:reebaplus_pos/features/deliveries/data/models/delivery_receipt.dart'
@@ -26,30 +24,25 @@ import 'package:reebaplus_pos/shared/widgets/menu_button.dart';
 import 'package:reebaplus_pos/shared/widgets/app_bar_header.dart';
 import 'package:reebaplus_pos/shared/widgets/notification_bell.dart';
 
-// customer_service.dart import removed as it was unused
 import 'package:reebaplus_pos/features/pos/services/receipt_builder.dart';
 import 'package:reebaplus_pos/core/utils/notifications.dart';
 import 'package:reebaplus_pos/features/orders/widgets/crate_return_modal.dart';
-import 'package:reebaplus_pos/shared/services/printer_service.dart';
 import 'package:reebaplus_pos/shared/widgets/printer_picker.dart';
 import 'package:reebaplus_pos/shared/widgets/shimmer_loading.dart';
 
-class OrdersScreen extends StatefulWidget {
+class OrdersScreen extends ConsumerStatefulWidget {
   final int initialIndex;
   const OrdersScreen({super.key, this.initialIndex = 0});
 
   @override
-  State<OrdersScreen> createState() => _OrdersScreenState();
+  ConsumerState<OrdersScreen> createState() => _OrdersScreenState();
 }
 
-class _OrdersScreenState extends State<OrdersScreen>
+class _OrdersScreenState extends ConsumerState<OrdersScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final ScreenshotController _screenshotCtrl = ScreenshotController();
   String _completedFilter = 'All Time';
-  bool _isFirstLoad = true;
-  StreamSubscription<List<OrderWithItems>>? _ordersSub;
-  List<OrderWithItems> _allOrdersWithItems = [];
   Color get _bg => Theme.of(context).scaffoldBackgroundColor;
   Color get surfaceCol => Theme.of(context).colorScheme.surface;
   Color get textCol => Theme.of(context).colorScheme.onSurface;
@@ -66,40 +59,30 @@ class _OrdersScreenState extends State<OrdersScreen>
       vsync: this,
       initialIndex: widget.initialIndex,
     );
-    final minLoading = Future.delayed(const Duration(seconds: 2));
-
-    _ordersSub = orderService.watchAllOrdersWithItems().listen((data) async {
-      await minLoading;
-      if (mounted) {
-        setState(() {
-          _allOrdersWithItems = data;
-          _isFirstLoad = false;
-        });
-      }
-    });
   }
 
   @override
   void dispose() {
-    _ordersSub?.cancel();
     _tabController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final themeNotifier = ValueNotifier<ThemeMode>(ThemeMode.system);
-    return ValueListenableBuilder<ThemeMode>(
-      valueListenable: themeNotifier,
-      builder: (context, mode, child) {
-        return SharedScaffold(
+    return SharedScaffold(
           activeRoute: 'orders',
           backgroundColor: _bg,
           appBar: _buildAppBar(context),
           body: Builder(
             builder: (context) {
-              final allOrdersWithItems = _allOrdersWithItems;
+              final ordersAsync = ref.watch(allOrdersProvider);
 
+              return ordersAsync.when(
+                loading: () => const SingleChildScrollView(
+                  child: ShimmerOrderList(count: 7),
+                ),
+                error: (e, _) => Center(child: Text('Error: $e')),
+                data: (allOrdersWithItems) {
               final pending = allOrdersWithItems
                   .where((o) => o.order.status == 'pending')
                   .toList();
@@ -128,12 +111,6 @@ class _OrdersScreenState extends State<OrdersScreen>
                   .where((o) => o.order.status == 'cancelled')
                   .toList();
 
-              if (_isFirstLoad) {
-                return const SingleChildScrollView(
-                  child: ShimmerOrderList(count: 7),
-                );
-              }
-
               return TabBarView(
                 controller: _tabController,
                 children: [
@@ -142,10 +119,10 @@ class _OrdersScreenState extends State<OrdersScreen>
                   _buildOrderList(context, cancelled, status: 'cancelled'),
                 ],
               );
+                },
+              );
             },
           ),
-        );
-      },
     );
   }
 
@@ -347,28 +324,28 @@ class _OrdersScreenState extends State<OrdersScreen>
     // already paid) and returns immediately in those cases. The modal is
     // non-dismissible, so awaiting it guarantees the user has confirmed.
     if (order.customerId != null && mounted) {
-      await CrateReturnModal.show(context, orderWithItems);
+      await CrateReturnModal.show(context, orderWithItems, ref: ref);
     }
 
     if (!mounted) return;
 
     // 2. Only now mark the order as completed
-    await orderService.markAsCompleted(
+    await ref.read(orderServiceProvider).markAsCompleted(
       order.id,
-      authService.currentUser?.id ?? 1,
+      ref.read(authProvider).currentUser?.id ?? 1,
     );
 
     // 3. Generate Delivery Receipt
     final receipt = model.DeliveryReceipt(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       orderId: order.id.toString(),
-      referenceNumber: model.deliveryReceiptService.generateReference(),
+      referenceNumber: ref.read(deliveryReceiptServiceProvider).generateReference(),
       riderName: order.riderName,
       outstandingAmount: (order.netAmountKobo - order.amountPaidKobo) / 100.0,
       paidAmount: order.amountPaidKobo / 100.0,
       createdAt: DateTime.now(),
     );
-    model.deliveryReceiptService.addReceipt(receipt);
+    ref.read(deliveryReceiptServiceProvider).addReceipt(receipt);
 
     // 4. Show success notification only after everything is confirmed
     if (mounted) {
@@ -406,7 +383,7 @@ class _OrdersScreenState extends State<OrdersScreen>
               size: AppButtonSize.small,
               onPressed: () {
                 Navigator.pop(ctx);
-                orderService.markAsCancelled(order.id, 'Cancelled by staff', 1);
+                ref.read(orderServiceProvider).markAsCancelled(order.id, 'Cancelled by staff', 1);
               },
             ),
           ],
@@ -528,7 +505,7 @@ class _OrdersScreenState extends State<OrdersScreen>
   }
 
   void _processRefund(OrderData order, {required bool toWallet}) {
-    // orderService.refundOrder(order.id, toWallet: toWallet); // Not yet implemented in Service
+    // ref.read(orderServiceProvider).refundOrder(order.id, toWallet: toWallet); // Not yet implemented in Service
     AppNotification.showSuccess(
       context,
       'Refund of ${formatCurrency(order.amountPaidKobo / 100.0)} processed to ${toWallet ? 'Wallet' : 'Cash'}.',
@@ -542,7 +519,7 @@ class _OrdersScreenState extends State<OrdersScreen>
       backgroundColor: Colors.transparent,
       builder: (ctx) {
         return FutureBuilder<List<UserData>>(
-          future: orderService.getRiders(),
+          future: ref.read(orderServiceProvider).getRiders(),
           builder: (context, snapshot) {
             final riders = snapshot.data ?? [];
             final isLoading =
@@ -599,7 +576,7 @@ class _OrdersScreenState extends State<OrdersScreen>
                                 style: TextStyle(color: textCol),
                               ),
                               onTap: () {
-                                orderService.assignRider(
+                                ref.read(orderServiceProvider).assignRider(
                                   orderId,
                                   'Pick-up Order',
                                 );
@@ -625,7 +602,7 @@ class _OrdersScreenState extends State<OrdersScreen>
                                   ),
                                 ),
                                 onTap: () {
-                                  orderService.assignRider(orderId, staff.name);
+                                  ref.read(orderServiceProvider).assignRider(orderId, staff.name);
                                   Navigator.pop(ctx);
                                 },
                               ),
@@ -815,12 +792,12 @@ class _OrdersScreenState extends State<OrdersScreen>
         )
         .toList();
 
-    final deliveryReceipt = model.deliveryReceiptService.getByOrderId(
+    final deliveryReceipt = ref.read(deliveryReceiptServiceProvider).getByOrderId(
       order.id.toString(),
     );
 
     try {
-      final granted = await printerService.requestPermissions();
+      final granted = await ref.read(printerServiceProvider).requestPermissions();
       if (!granted) {
         if (!context.mounted) return;
         AppNotification.showError(context, 'Bluetooth permissions denied');
@@ -847,7 +824,7 @@ class _OrdersScreenState extends State<OrdersScreen>
 
       if (!context.mounted) return;
 
-      final success = await printerService.printBytes(bytes);
+      final success = await ref.read(printerServiceProvider).printBytes(bytes);
       if (success) {
         if (!context.mounted) return;
         AppNotification.showSuccess(context, 'Print successful');
@@ -878,11 +855,11 @@ class _OrdersScreenState extends State<OrdersScreen>
                 'Connecting to ${device.name}...',
               );
 
-              final connected = await printerService.connect(device.macAdress);
+              final connected = await ref.read(printerServiceProvider).connect(device.macAdress);
               if (!mounted) return;
 
               if (connected) {
-                await printerService.printBytes(bytes);
+                await ref.read(printerServiceProvider).printBytes(bytes);
                 if (!context.mounted) return;
                 AppNotification.showSuccess(context, 'Print successful');
                 _logReprint(order.id.toString());
@@ -910,7 +887,7 @@ class _OrdersScreenState extends State<OrdersScreen>
     DateTime? reshareDate,
   }) async {
     final order = richOrder.order;
-    // orderService.addReprint(order.id);
+    // ref.read(orderServiceProvider).addReprint(order.id);
 
     // Wait for UI to update with 'REPRINTED' or 'RESHARED' stamp before taking screenshot
     await Future.delayed(const Duration(milliseconds: 100));
@@ -947,7 +924,7 @@ class _OrdersScreenState extends State<OrdersScreen>
   }
 
   Future<void> _logReprint(String orderId) async {
-    await activityLogService.logAction(
+    await ref.read(activityLogProvider).logAction(
       'Receipt Reprinted',
       'Receipt for order #$orderId was reprinted',
       relatedEntityId: orderId,

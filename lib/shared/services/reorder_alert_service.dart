@@ -32,4 +32,3 @@ class ReorderAlertService {
   }
 }
 
-final reorderAlertService = ReorderAlertService(database.stockLedgerDao);

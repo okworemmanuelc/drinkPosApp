@@ -1,35 +1,34 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import 'package:reebaplus_pos/core/theme/theme_settings_screen.dart';
 import 'package:reebaplus_pos/core/utils/responsive.dart';
-import 'package:reebaplus_pos/shared/services/navigation_service.dart';
-import 'package:reebaplus_pos/shared/services/auth_service.dart';
+import 'package:reebaplus_pos/core/providers/app_providers.dart';
 import 'package:reebaplus_pos/shared/widgets/user_tips_modal.dart';
-import 'package:reebaplus_pos/core/database/app_database.dart';
 
-class AppDrawer extends StatelessWidget {
+class AppDrawer extends ConsumerWidget {
   // Pass 'pos' or 'inventory' to highlight the correct nav item
   final String activeRoute;
 
   const AppDrawer({super.key, required this.activeRoute});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final t = Theme.of(context);
     return Drawer(
       backgroundColor: t.colorScheme.surface,
       child: Column(
         children: [
-          _buildHeader(context),
-          Expanded(child: _buildNavList(context)),
+          _buildHeader(context, ref),
+          Expanded(child: _buildNavList(context, ref)),
         ],
       ),
     );
   }
 
-  Widget _buildHeader(BuildContext context) {
+  Widget _buildHeader(BuildContext context, WidgetRef ref) {
     final primary = Theme.of(context).colorScheme.primary;
     return Container(
       width: double.infinity,
@@ -76,7 +75,7 @@ class AppDrawer extends StatelessWidget {
           SizedBox(height: context.getRSize(16)),
           // Sync status indicator
           StreamBuilder<int>(
-            stream: database.syncDao.watchPendingCount(),
+            stream: ref.read(databaseProvider).syncDao.watchPendingCount(),
             builder: (context, snap) {
               final count = snap.data ?? 0;
               if (count == 0) return const SizedBox.shrink();
@@ -120,7 +119,7 @@ class AppDrawer extends StatelessWidget {
             },
           ),
           Text(
-            authService.currentUser?.name ?? '',
+            ref.read(authProvider).currentUser?.name ?? '',
             style: TextStyle(
               color: Theme.of(context).colorScheme.onSurface,
               fontSize: context.getRFontSize(18),
@@ -155,9 +154,9 @@ class AppDrawer extends StatelessWidget {
     );
   }
 
-  Widget _buildNavList(BuildContext context) {
+  Widget _buildNavList(BuildContext context, WidgetRef ref) {
     final t = Theme.of(context);
-    final roleTier = authService.currentUser?.roleTier ?? 1;
+    final roleTier = ref.read(authProvider).currentUser?.roleTier ?? 1;
     final isCashier = roleTier < 4;
 
     return ListView(
@@ -173,35 +172,35 @@ class AppDrawer extends StatelessWidget {
             FontAwesomeIcons.chartLine,
             'Dashboard',
             active: activeRoute == 'dashboard',
-            onTap: () => _navigateTo(context, 'dashboard'),
+            onTap: () => _navigateTo(context, ref, 'dashboard'),
           ),
         _navItem(
           context,
           FontAwesomeIcons.cashRegister,
           'Point of Sale',
           active: activeRoute == 'pos',
-          onTap: () => _navigateTo(context, 'pos'),
+          onTap: () => _navigateTo(context, ref, 'pos'),
         ),
         _navItem(
           context,
           FontAwesomeIcons.boxesStacked,
           'Inventory',
           active: activeRoute == 'inventory',
-          onTap: () => _navigateTo(context, 'inventory'),
+          onTap: () => _navigateTo(context, ref, 'inventory'),
         ),
         _navItem(
           context,
           FontAwesomeIcons.truckFast,
           'Orders',
           active: activeRoute == 'orders',
-          onTap: () => _navigateTo(context, 'orders'),
+          onTap: () => _navigateTo(context, ref, 'orders'),
         ),
         _navItem(
           context,
           FontAwesomeIcons.users,
           'Customers',
           active: activeRoute == 'customers',
-          onTap: () => _navigateTo(context, 'customers'),
+          onTap: () => _navigateTo(context, ref, 'customers'),
         ),
         // Items below are for managers and above only
         if (!isCashier) ...[
@@ -211,28 +210,28 @@ class AppDrawer extends StatelessWidget {
             'Supplier Accounts',
             active:
                 activeRoute == 'supplier_accounts' || activeRoute == 'payments',
-            onTap: () => _navigateTo(context, 'supplier_accounts'),
+            onTap: () => _navigateTo(context, ref, 'supplier_accounts'),
           ),
           _navItem(
             context,
             FontAwesomeIcons.fileInvoiceDollar,
             'Expenses',
             active: activeRoute == 'expenses',
-            onTap: () => _navigateTo(context, 'expenses'),
+            onTap: () => _navigateTo(context, ref, 'expenses'),
           ),
           _navItem(
             context,
             FontAwesomeIcons.warehouse,
             'Warehouse',
             active: activeRoute == 'warehouse',
-            onTap: () => _navigateTo(context, 'warehouse'),
+            onTap: () => _navigateTo(context, ref, 'warehouse'),
           ),
           _navItem(
             context,
             FontAwesomeIcons.userGroup,
             'Staff Management',
             active: activeRoute == 'staff',
-            onTap: () => _navigateTo(context, 'staff'),
+            onTap: () => _navigateTo(context, ref, 'staff'),
           ),
         ],
         SizedBox(height: context.getRSize(12)),
@@ -245,14 +244,14 @@ class AppDrawer extends StatelessWidget {
             FontAwesomeIcons.clockRotateLeft,
             'Activity Logs',
             active: activeRoute == 'activity_logs',
-            onTap: () => _navigateTo(context, 'activity_logs'),
+            onTap: () => _navigateTo(context, ref, 'activity_logs'),
           ),
           _navItem(
             context,
             FontAwesomeIcons.truckArrowRight,
             'Deliveries',
             active: activeRoute == 'deliveries',
-            onTap: () => _navigateTo(context, 'deliveries'),
+            onTap: () => _navigateTo(context, ref, 'deliveries'),
           ),
         ],
         _navItem(
@@ -260,7 +259,7 @@ class AppDrawer extends StatelessWidget {
           FontAwesomeIcons.cartShopping,
           'Cart',
           active: activeRoute == 'cart',
-          onTap: () => _navigateTo(context, 'cart'),
+          onTap: () => _navigateTo(context, ref, 'cart'),
         ),
         _navItem(
           context,
@@ -285,7 +284,7 @@ class AppDrawer extends StatelessWidget {
           labelColor: t.colorScheme.error,
           onTap: () {
             Navigator.pop(context); // close the drawer first
-            authService
+            ref.read(authProvider)
                 .fullLogout(); // terminally logs out → main.dart shows email screen
           },
         ),
@@ -302,33 +301,34 @@ class AppDrawer extends StatelessWidget {
   }
 
   // ── Navigation logic — now uses NavigationService shell ────────────────────
-  void _navigateTo(BuildContext context, String route) {
+  void _navigateTo(BuildContext context, WidgetRef ref, String route) {
     Navigator.pop(context);
+    final nav = ref.read(navigationProvider);
 
     if (route == 'dashboard') {
-      navigationService.setIndex(0);
+      nav.setIndex(0);
     } else if (route == 'pos') {
-      navigationService.setIndex(1);
+      nav.setIndex(1);
     } else if (route == 'inventory') {
-      navigationService.setIndex(2);
+      nav.setIndex(2);
     } else if (route == 'orders') {
-      navigationService.setIndex(3);
+      nav.setIndex(3);
     } else if (route == 'customers') {
-      navigationService.setIndex(4);
+      nav.setIndex(4);
     } else if (route == 'supplier_accounts' || route == 'payments') {
-      navigationService.setIndex(5);
+      nav.setIndex(5);
     } else if (route == 'expenses') {
-      navigationService.setIndex(6);
+      nav.setIndex(6);
     } else if (route == 'warehouse') {
-      navigationService.setIndex(7);
+      nav.setIndex(7);
     } else if (route == 'staff') {
-      navigationService.setIndex(8);
+      nav.setIndex(8);
     } else if (route == 'cart') {
-      navigationService.setIndex(9);
+      nav.setIndex(9);
     } else if (route == 'deliveries') {
-      navigationService.setIndex(10);
+      nav.setIndex(10);
     } else if (route == 'activity_logs') {
-      navigationService.setIndex(11);
+      nav.setIndex(11);
     }
   }
 

@@ -1,8 +1,10 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 import 'package:reebaplus_pos/core/theme/colors.dart';
+import 'package:reebaplus_pos/core/providers/app_providers.dart';
 
 import 'package:reebaplus_pos/core/utils/number_format.dart';
 import 'package:reebaplus_pos/core/utils/responsive.dart';
@@ -10,10 +12,7 @@ import 'package:reebaplus_pos/core/utils/stock_calculator.dart';
 import 'package:reebaplus_pos/features/inventory/data/models/inventory_item.dart';
 import 'package:reebaplus_pos/shared/widgets/app_dropdown.dart';
 import 'package:reebaplus_pos/core/database/app_database.dart';
-import 'package:reebaplus_pos/shared/services/auth_service.dart';
-import 'package:reebaplus_pos/shared/services/activity_log_service.dart';
 import 'package:reebaplus_pos/shared/widgets/app_button.dart';
-import 'package:reebaplus_pos/shared/services/cart_service.dart';
 import 'package:reebaplus_pos/core/utils/notifications.dart';
 import 'package:reebaplus_pos/shared/widgets/app_input.dart';
 
@@ -21,7 +20,7 @@ import 'package:reebaplus_pos/shared/widgets/app_input.dart';
 // ProductDetailScreen — full-screen product information view
 // ─────────────────────────────────────────────────────────────────────────────
 
-class ProductDetailScreen extends StatefulWidget {
+class ProductDetailScreen extends ConsumerStatefulWidget {
   final InventoryItem item;
   final VoidCallback onUpdateStock;
   final int?
@@ -35,10 +34,10 @@ class ProductDetailScreen extends StatefulWidget {
   });
 
   @override
-  State<ProductDetailScreen> createState() => _ProductDetailScreenState();
+  ConsumerState<ProductDetailScreen> createState() => _ProductDetailScreenState();
 }
 
-class _ProductDetailScreenState extends State<ProductDetailScreen> {
+class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
   late TextEditingController _nameController;
   late TextEditingController _subtitleController;
   late TextEditingController _quantityController;
@@ -106,7 +105,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     if (productId == null) return;
 
     // Determine edit permission based on role
-    final user = authService.currentUser;
+    final auth = ref.read(authProvider);
+    final db = ref.read(databaseProvider);
+    final user = auth.currentUser;
     final tier = user?.roleTier ?? 1;
     if (tier >= 5) {
       // CEO: always editable
@@ -117,8 +118,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       if (mgrWarehouseId == null) {
         if (mounted) setState(() => _canEdit = false);
       } else {
-        final rows = await (database.select(
-          database.inventory,
+        final rows = await (db.select(
+          db.inventory,
         )..where((t) => t.productId.equals(productId))).get();
         final hasStock = rows.any((r) => r.warehouseId == mgrWarehouseId);
         if (mounted) setState(() => _canEdit = hasStock);
@@ -129,9 +130,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     }
 
     // Load monthly target, categories, manufacturers from DB
-    final product = await database.catalogDao.findById(productId);
-    final categories = await database.select(database.categories).get();
-    final manufacturers = await database.inventoryDao.getAllManufacturers();
+    final product = await db.catalogDao.findById(productId);
+    final categories = await db.select(db.categories).get();
+    final manufacturers = await db.inventoryDao.getAllManufacturers();
 
     if (mounted) {
       setState(() {
@@ -153,13 +154,13 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     }
 
     // Load sales summary from completed orders
-    final summary = await database.ordersDao.getSalesSummaryForProduct(
+    final summary = await db.ordersDao.getSalesSummaryForProduct(
       productId,
     );
     if (mounted) setState(() => _salesSummary = summary);
 
     // Load last delivery from purchases
-    final delivery = await database.deliveriesDao.getLastDeliveryForProduct(
+    final delivery = await db.deliveriesDao.getLastDeliveryForProduct(
       productId,
     );
     if (mounted) {
@@ -171,7 +172,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   }
 
   Future<void> _loadEmptyCrateStock(int manufacturerId) async {
-    final manufacturers = await database.inventoryDao.getAllManufacturers();
+    final manufacturers = await ref.read(databaseProvider).inventoryDao.getAllManufacturers();
     final mfr = manufacturers.where((m) => m.id == manufacturerId).firstOrNull;
     if (mfr != null && mounted) {
       setState(() {
@@ -1189,11 +1190,16 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     final oldBuying = widget.item.buyingPrice ?? 0.0;
 
     try {
+      final db = ref.read(databaseProvider);
+      final auth = ref.read(authProvider);
+      final logService = ref.read(activityLogProvider);
+      final cart = ref.read(cartProvider);
+
       // 1. Update Products table — name, manufacturer, prices, empty crate value, category
       final mfr = _allManufacturers
           .where((m) => m.id == _selectedManufacturerId)
           .firstOrNull;
-      await database.catalogDao.updateProductDetails(
+      await db.catalogDao.updateProductDetails(
         productId,
         name: name,
         manufacturer: mfr?.name,
@@ -1209,7 +1215,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       );
 
       // 2. Save monthly target
-      await database.catalogDao.updateMonthlyTarget(productId, _monthlyTarget);
+      await db.catalogDao.updateMonthlyTarget(productId, _monthlyTarget);
 
       // 3. Adjust empty crates on the manufacturer if linked
       if (_selectedManufacturerId != null) {
@@ -1217,24 +1223,24 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         final originalCrates = _emptyCrateStock ?? 0;
         final crateDelta = newCrates - originalCrates;
         if (crateDelta > 0) {
-          await database.inventoryDao.addEmptyCrates(
+          await db.inventoryDao.addEmptyCrates(
             _selectedManufacturerId!,
             crateDelta,
           );
-          await activityLogService.logAction(
+          await logService.logAction(
             'crate_stock_update',
-            '${authService.currentUser?.name ?? 'Unknown'} added $crateDelta empty crates for $name',
+            '${auth.currentUser?.name ?? 'Unknown'} added $crateDelta empty crates for $name',
             relatedEntityId: widget.item.id,
             relatedEntityType: 'product',
           );
         } else if (crateDelta < 0) {
-          await database.inventoryDao.deductEmptyCrates(
+          await db.inventoryDao.deductEmptyCrates(
             _selectedManufacturerId!,
             -crateDelta,
           );
-          await activityLogService.logAction(
+          await logService.logAction(
             'crate_stock_update',
-            '${authService.currentUser?.name ?? 'Unknown'} removed ${-crateDelta} empty crates for $name',
+            '${auth.currentUser?.name ?? 'Unknown'} removed ${-crateDelta} empty crates for $name',
             relatedEntityId: widget.item.id,
             relatedEntityType: 'product',
           );
@@ -1251,23 +1257,23 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           : 1;
       final diff = (newQty - widget.item.totalStock).toInt();
       if (diff != 0) {
-        await database.inventoryDao.adjustStock(
+        await db.inventoryDao.adjustStock(
           productId,
           warehouseId,
           diff,
-          'Manual adjustment by ${authService.currentUser?.name ?? 'Unknown'}',
-          authService.currentUser?.id,
+          'Manual adjustment by ${auth.currentUser?.name ?? 'Unknown'}',
+          auth.currentUser?.id,
         );
-        await activityLogService.logAction(
+        await logService.logAction(
           'stock_adjustment',
-          '${authService.currentUser?.name ?? 'Unknown'} ${diff > 0 ? 'added $diff' : 'removed ${diff.abs()}'} units of $name',
+          '${auth.currentUser?.name ?? 'Unknown'} ${diff > 0 ? 'added $diff' : 'removed ${diff.abs()}'} units of $name',
           relatedEntityId: widget.item.id,
           relatedEntityType: 'product',
         );
       }
 
       // 5. Push updated product fields into any active cart
-      cartService.refreshProduct(
+      cart.refreshProduct(
         productId: productId,
         name: name,
         price: retail,
@@ -1275,15 +1281,15 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       );
 
       // 6. Log the edit
-      await activityLogService.logAction(
+      await logService.logAction(
         'update_product',
-        '${authService.currentUser?.name ?? 'Unknown'} updated product details for $name',
+        '${auth.currentUser?.name ?? 'Unknown'} updated product details for $name',
         relatedEntityId: widget.item.id,
         relatedEntityType: 'product',
       );
 
       // 7. Notify CEO if a manager made the update
-      final user = authService.currentUser;
+      final user = auth.currentUser;
       if (user != null && user.roleTier == 4) {
         final changes = <String>[];
         if (retail != oldRetail) {
@@ -1299,7 +1305,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         final summaryText = changes.isEmpty
             ? '${user.name} updated $name'
             : '${user.name} updated $name — ${changes.join(', ')}';
-        await database.notificationsDao.create(
+        await db.notificationsDao.create(
           'product_update',
           summaryText,
           linkedRecordId: jsonEncode({
@@ -1359,14 +1365,14 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             onPressed: () async {
               final productName = widget.item.productName;
               final productId = widget.item.id;
-              await database.catalogDao.softDeleteProduct(int.parse(productId));
-              await activityLogService.logAction(
+              await ref.read(databaseProvider).catalogDao.softDeleteProduct(int.parse(productId));
+              await ref.read(activityLogProvider).logAction(
                 'delete_product',
-                '${authService.currentUser?.name ?? 'Unknown'} deleted product: $productName',
+                '${ref.read(authProvider).currentUser?.name ?? 'Unknown'} deleted product: $productName',
                 relatedEntityId: productId,
                 relatedEntityType: 'product',
               );
-              cartService.removeItem(productName);
+              ref.read(cartProvider).removeItem(productName);
               if (!context.mounted) return;
               Navigator.pop(ctx);
               Navigator.pop(context);

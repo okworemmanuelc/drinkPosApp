@@ -1,21 +1,23 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:reebaplus_pos/shared/widgets/app_button.dart';
 import 'package:reebaplus_pos/features/auth/widgets/onboarding_step_indicator.dart';
 import 'package:reebaplus_pos/core/database/app_database.dart';
+import 'package:reebaplus_pos/core/providers/app_providers.dart';
 import 'package:reebaplus_pos/features/auth/screens/business_settings_screen.dart';
 import 'package:drift/drift.dart' as drift;
 
-class LocationDetailsScreen extends StatefulWidget {
+class LocationDetailsScreen extends ConsumerStatefulWidget {
   final UserData user;
   const LocationDetailsScreen({super.key, required this.user});
 
   @override
-  State<LocationDetailsScreen> createState() => _LocationDetailsScreenState();
+  ConsumerState<LocationDetailsScreen> createState() => _LocationDetailsScreenState();
 }
 
-class _LocationDetailsScreenState extends State<LocationDetailsScreen> {
+class _LocationDetailsScreenState extends ConsumerState<LocationDetailsScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _addressController = TextEditingController();
@@ -42,8 +44,9 @@ class _LocationDetailsScreenState extends State<LocationDetailsScreen> {
         '${_addressController.text.trim()}, ${_cityStateController.text.trim()}, ${_countryController.text.trim()}';
 
     // Save as very first Warehouse / branch
-    final warehouseId = await database
-        .into(database.warehouses)
+    final db = ref.read(databaseProvider);
+    final warehouseId = await db
+        .into(db.warehouses)
         .insert(
           WarehousesCompanion.insert(
             name: _nameController.text.trim(),
@@ -52,11 +55,11 @@ class _LocationDetailsScreenState extends State<LocationDetailsScreen> {
         );
 
     // Also update current user to belong to this warehouse
-    await (database.update(database.users)
+    await (db.update(db.users)
           ..where((u) => u.id.equals(widget.user.id)))
         .write(UsersCompanion(warehouseId: drift.Value(warehouseId)));
 
-    final updatedUser = await database.warehousesDao.getUserById(
+    final updatedUser = await db.warehousesDao.getUserById(
       widget.user.id,
     );
 

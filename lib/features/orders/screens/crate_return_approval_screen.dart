@@ -1,15 +1,17 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:intl/intl.dart';
 
 import 'package:reebaplus_pos/core/database/app_database.dart';
+import 'package:reebaplus_pos/core/providers/app_providers.dart';
 import 'package:reebaplus_pos/core/utils/responsive.dart';
 import 'package:reebaplus_pos/core/utils/notifications.dart';
 import 'package:reebaplus_pos/shared/widgets/app_button.dart';
 
-class CrateReturnApprovalScreen extends StatefulWidget {
+class CrateReturnApprovalScreen extends ConsumerStatefulWidget {
   final int pendingReturnId;
   final int notificationId;
 
@@ -20,12 +22,12 @@ class CrateReturnApprovalScreen extends StatefulWidget {
   });
 
   @override
-  State<CrateReturnApprovalScreen> createState() =>
+  ConsumerState<CrateReturnApprovalScreen> createState() =>
       _CrateReturnApprovalScreenState();
 }
 
 class _CrateReturnApprovalScreenState
-    extends State<CrateReturnApprovalScreen> {
+    extends ConsumerState<CrateReturnApprovalScreen> {
   PendingCrateReturnData? _record;
   CustomerData? _customer;
   UserData? _staff;
@@ -41,18 +43,19 @@ class _CrateReturnApprovalScreenState
   }
 
   Future<void> _load() async {
+    final db = ref.read(databaseProvider);
     final record =
-        await database.pendingCrateReturnsDao.getById(widget.pendingReturnId);
+        await db.pendingCrateReturnsDao.getById(widget.pendingReturnId);
     if (record == null) {
       if (mounted) Navigator.pop(context);
       return;
     }
 
     final customer =
-        await database.customersDao.findById(record.customerId);
+        await db.customersDao.findById(record.customerId);
     final staff =
-        await database.warehousesDao.getUserById(record.staffId);
-    final order = await database.ordersDao.findById(record.orderId);
+        await db.warehousesDao.getUserById(record.staffId);
+    final order = await db.ordersDao.findById(record.orderId);
 
     final List<dynamic> raw = jsonDecode(record.returnDataJson);
     final returnData = raw.cast<Map<String, dynamic>>();
@@ -73,6 +76,8 @@ class _CrateReturnApprovalScreenState
     if (_saving || _record == null) return;
     setState(() => _saving = true);
 
+    final db = ref.read(databaseProvider);
+
     for (final row in _returnData) {
       final manufacturerId = row['manufacturerId'] as int? ?? 0;
       final returnedQty = row['returnedQty'] as int;
@@ -80,7 +85,7 @@ class _CrateReturnApprovalScreenState
 
       // 1. Add to physical crate stock on the Manufacturers table
       if (manufacturerId != 0) {
-        await database.inventoryDao.addEmptyCrates(manufacturerId, returnedQty);
+        await db.inventoryDao.addEmptyCrates(manufacturerId, returnedQty);
       }
 
       // 2. Distribute returned qty across crate groups proportionally for customer balance
@@ -96,16 +101,16 @@ class _CrateReturnApprovalScreenState
               : (returnedQty * cgExpected / expectedQty).round();
           remaining -= cgReturned;
           if (cgId != 0) {
-            await database.customersDao.recordCrateReturn(
+            await db.customersDao.recordCrateReturn(
                 _record!.customerId, cgId, cgReturned);
           }
         }
       }
     }
 
-    await database.pendingCrateReturnsDao.updateStatus(_record!.id, 'approved');
-    await database.notificationsDao.markRead(widget.notificationId);
-    await database.notificationsDao.create(
+    await db.pendingCrateReturnsDao.updateStatus(_record!.id, 'approved');
+    await db.notificationsDao.markRead(widget.notificationId);
+    await db.notificationsDao.create(
       'crate_return_approved',
       'Your crate return for Order #${_record!.orderId} has been approved.',
       linkedRecordId: _record!.id.toString(),
@@ -121,9 +126,10 @@ class _CrateReturnApprovalScreenState
     if (_saving || _record == null) return;
     setState(() => _saving = true);
 
-    await database.pendingCrateReturnsDao.updateStatus(_record!.id, 'rejected');
-    await database.notificationsDao.markRead(widget.notificationId);
-    await database.notificationsDao.create(
+    final db = ref.read(databaseProvider);
+    await db.pendingCrateReturnsDao.updateStatus(_record!.id, 'rejected');
+    await db.notificationsDao.markRead(widget.notificationId);
+    await db.notificationsDao.create(
       'crate_return_rejected',
       'Your crate return for Order #${_record!.orderId} was rejected by manager.',
       linkedRecordId: _record!.id.toString(),

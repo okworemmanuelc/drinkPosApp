@@ -1,28 +1,27 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:reebaplus_pos/core/theme/colors.dart';
 
 import 'package:reebaplus_pos/core/utils/responsive.dart';
 import 'package:reebaplus_pos/shared/models/activity_log.dart';
-import 'package:reebaplus_pos/shared/services/activity_log_service.dart';
-import 'package:reebaplus_pos/core/database/app_database.dart';
+import 'package:reebaplus_pos/core/providers/app_providers.dart';
 import 'package:reebaplus_pos/features/inventory/data/inventory_data.dart';
 import 'package:reebaplus_pos/features/warehouse/data/models/warehouse.dart';
-import 'package:reebaplus_pos/shared/services/auth_service.dart';
 import 'package:reebaplus_pos/shared/widgets/app_drawer.dart';
 import 'package:reebaplus_pos/shared/widgets/notification_bell.dart';
 import 'package:reebaplus_pos/shared/widgets/app_dropdown.dart';
 import 'package:reebaplus_pos/shared/widgets/shimmer_loading.dart';
 
-class ActivityLogScreen extends StatefulWidget {
+class ActivityLogScreen extends ConsumerStatefulWidget {
   const ActivityLogScreen({super.key});
 
   @override
-  State<ActivityLogScreen> createState() => _ActivityLogScreenState();
+  ConsumerState<ActivityLogScreen> createState() => _ActivityLogScreenState();
 }
 
-class _ActivityLogScreenState extends State<ActivityLogScreen> {
+class _ActivityLogScreenState extends ConsumerState<ActivityLogScreen> {
   String? _selectedWarehouseId;
   // userId → roleTier map, loaded once on init
   Map<int, int> _userTiers = {};
@@ -38,7 +37,8 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
   }
 
   Future<void> _loadUserTiers() async {
-    final users = await (database.select(database.users)).get();
+    final db = ref.read(databaseProvider);
+    final users = await (db.select(db.users)).get();
     if (mounted) {
       setState(() {
         _userTiers = {for (final u in users) u.id: u.roleTier};
@@ -48,11 +48,7 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final themeNotifier = ValueNotifier<ThemeMode>(ThemeMode.system);
-    return ValueListenableBuilder<ThemeMode>(
-      valueListenable: themeNotifier,
-      builder: (_, mode, _) {
-        final bgCol = Theme.of(context).scaffoldBackgroundColor;
+    final bgCol = Theme.of(context).scaffoldBackgroundColor;
         final surfaceCol = Theme.of(context).colorScheme.surface;
         final textCol = Theme.of(context).colorScheme.onSurface;
         final subtextCol =
@@ -176,9 +172,9 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
                 borderCol,
               ),
               Expanded(
-                child: ValueListenableBuilder<List<ActivityLog>>(
-                  valueListenable: activityLogService,
-                  builder: (context, logs, child) {
+                child: Builder(
+                  builder: (context) {
+                    final logs = ref.watch(activityLogProvider).value;
                     final filteredLogs = _filterLogs(logs);
 
                     if (_loading) {
@@ -217,8 +213,6 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
               ),
             ],
           ),
-        );
-      },
     );
   }
 
@@ -259,7 +253,7 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
   }
 
   List<ActivityLog> _filterLogs(List<ActivityLog> logs) {
-    final currentUser = authService.currentUser;
+    final currentUser = ref.read(authProvider).currentUser;
     final currentTier = currentUser?.roleTier ?? 5;
 
     // Role-based visibility:

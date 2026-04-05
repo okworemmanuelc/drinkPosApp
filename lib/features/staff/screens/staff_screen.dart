@@ -5,10 +5,11 @@ import 'package:reebaplus_pos/core/widgets/app_fab.dart';
 import 'package:flutter/services.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:reebaplus_pos/core/database/app_database.dart';
+import 'package:reebaplus_pos/core/providers/app_providers.dart';
 import 'package:reebaplus_pos/core/theme/colors.dart';
 import 'package:reebaplus_pos/shared/widgets/shimmer_loading.dart';
-import 'package:reebaplus_pos/shared/services/auth_service.dart';
 
 import 'package:reebaplus_pos/core/utils/responsive.dart';
 import 'package:reebaplus_pos/shared/widgets/app_drawer.dart';
@@ -54,14 +55,14 @@ class StaffListItem {
       warehouseId = invite.warehouseId ?? -1;
 }
 
-class StaffScreen extends StatefulWidget {
+class StaffScreen extends ConsumerStatefulWidget {
   const StaffScreen({super.key});
 
   @override
-  State<StaffScreen> createState() => _StaffScreenState();
+  ConsumerState<StaffScreen> createState() => _StaffScreenState();
 }
 
-class _StaffScreenState extends State<StaffScreen> {
+class _StaffScreenState extends ConsumerState<StaffScreen> {
   String _searchQuery = '';
   int _selectedWarehouseFilter = _kAllWarehouses;
   List<WarehouseData> _warehouses = [];
@@ -83,16 +84,17 @@ class _StaffScreenState extends State<StaffScreen> {
   @override
   void initState() {
     super.initState();
-    database.select(database.warehouses).get().then((ws) {
+    final db = ref.read(databaseProvider);
+    db.select(db.warehouses).get().then((ws) {
       if (mounted) setState(() => _warehouses = ws);
     });
-    _usersSub = database.select(database.users).watch().listen((data) {
+    _usersSub = db.select(db.users).watch().listen((data) {
       if (mounted) {
         _rawUsers = data;
         _updateItems();
       }
     });
-    _invitesSub = database.select(database.invites).watch().listen((data) {
+    _invitesSub = db.select(db.invites).watch().listen((data) {
       if (mounted) {
         _rawInvites = data;
         _updateItems();
@@ -122,10 +124,6 @@ class _StaffScreenState extends State<StaffScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final themeNotifier = ValueNotifier<ThemeMode>(ThemeMode.system);
-    return ValueListenableBuilder<ThemeMode>(
-      valueListenable: themeNotifier,
-      builder: (context, mode, child) {
         return Scaffold(
           backgroundColor: _bg,
           appBar: AppBar(
@@ -167,8 +165,6 @@ class _StaffScreenState extends State<StaffScreen> {
             ),
           ),
         );
-      },
-    );
   }
 
   Widget _buildBody() {
@@ -550,16 +546,16 @@ class _StaffScreenState extends State<StaffScreen> {
   }
 }
 
-class _StaffFormSheet extends StatefulWidget {
+class _StaffFormSheet extends ConsumerStatefulWidget {
   final UserData? user;
   final List<WarehouseData> warehouses;
   const _StaffFormSheet({this.user, required this.warehouses});
 
   @override
-  State<_StaffFormSheet> createState() => _StaffFormSheetState();
+  ConsumerState<_StaffFormSheet> createState() => _StaffFormSheetState();
 }
 
-class _StaffFormSheetState extends State<_StaffFormSheet> {
+class _StaffFormSheetState extends ConsumerState<_StaffFormSheet> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _nameCtrl;
   late TextEditingController _emailCtrl;
@@ -598,10 +594,6 @@ class _StaffFormSheetState extends State<_StaffFormSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final themeNotifier = ValueNotifier<ThemeMode>(ThemeMode.system);
-    return ValueListenableBuilder<ThemeMode>(
-      valueListenable: themeNotifier,
-      builder: (context, mode, child) {
         return Padding(
           padding: EdgeInsets.only(bottom: context.bottomInset),
           child: Container(
@@ -758,8 +750,6 @@ class _StaffFormSheetState extends State<_StaffFormSheet> {
             ),
           ),
         );
-      },
-    );
   }
 
   void _submit() async {
@@ -774,8 +764,9 @@ class _StaffFormSheetState extends State<_StaffFormSheet> {
 
     // Non-managers cannot be added to a warehouse that has no manager yet.
     if (tier < 4) {
-      final staffInWarehouse = await (database.select(
-        database.users,
+      final db = ref.read(databaseProvider);
+      final staffInWarehouse = await (db.select(
+        db.users,
       )..where((u) => u.warehouseId.equals(_selectedWarehouseId!))).get();
 
       // Exclude the user being edited, then count managers.
@@ -849,7 +840,7 @@ class _StaffFormSheetState extends State<_StaffFormSheet> {
       if (!mounted) return;
       setState(() => _isSaving = true);
       try {
-        final link = await authService.createInvite(
+        final link = await ref.read(authProvider).createInvite(
           email: email,
           inviteeName: name,
           role: role,
@@ -941,8 +932,9 @@ class _StaffFormSheetState extends State<_StaffFormSheet> {
       return;
     } else {
       // Update existing staff member
-      await (database.update(
-        database.users,
+      final db = ref.read(databaseProvider);
+      await (db.update(
+        db.users,
       )..where((u) => u.id.equals(widget.user!.id))).write(
         UsersCompanion(
           name: Value(name),
@@ -964,7 +956,7 @@ class _StaffFormSheetState extends State<_StaffFormSheet> {
   }
 }
 
-class _StaffActionSheet extends StatelessWidget {
+class _StaffActionSheet extends ConsumerWidget {
   final StaffListItem item;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
@@ -978,7 +970,7 @@ class _StaffActionSheet extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final Color surfaceColor = Theme.of(context).colorScheme.surface;
     final Color textColor = Theme.of(context).colorScheme.onSurface;
     final Color subtextColor =
@@ -1118,7 +1110,7 @@ class _StaffActionSheet extends StatelessWidget {
               color: Colors.orange,
               onTap: () async {
                 Navigator.pop(context);
-                final link = await authService.resendInvite(item.invite!.id);
+                final link = await ref.read(authProvider).resendInvite(item.invite!.id);
                 if (context.mounted) {
                   Clipboard.setData(ClipboardData(text: link));
                   AppNotification.showSuccess(

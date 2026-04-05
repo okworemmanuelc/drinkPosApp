@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:drift/drift.dart' as drift;
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 import 'package:reebaplus_pos/core/theme/colors.dart';
@@ -11,11 +12,8 @@ import 'package:reebaplus_pos/features/customers/data/models/customer.dart';
 import 'package:reebaplus_pos/features/customers/widgets/add_customer_sheet.dart';
 import 'package:reebaplus_pos/core/utils/stock_calculator.dart';
 import 'package:reebaplus_pos/core/utils/currency_input_formatter.dart';
-import 'package:reebaplus_pos/features/customers/data/services/customer_service.dart';
 import 'package:reebaplus_pos/core/database/app_database.dart';
-import 'package:reebaplus_pos/shared/services/auth_service.dart';
-import 'package:reebaplus_pos/shared/services/cart_service.dart';
-import 'package:reebaplus_pos/shared/services/navigation_service.dart';
+import 'package:reebaplus_pos/core/providers/app_providers.dart';
 import 'package:reebaplus_pos/shared/widgets/shared_scaffold.dart';
 import 'package:reebaplus_pos/shared/widgets/menu_button.dart';
 import 'package:reebaplus_pos/shared/widgets/app_bar_header.dart';
@@ -26,7 +24,7 @@ import 'package:reebaplus_pos/shared/widgets/app_dropdown.dart';
 import 'package:reebaplus_pos/shared/widgets/app_button.dart';
 import 'package:reebaplus_pos/core/utils/notifications.dart';
 
-class CartScreen extends StatefulWidget {
+class CartScreen extends ConsumerStatefulWidget {
   final List<Map<String, dynamic>> cart;
   final double crateDeposit;
   final Customer? activeCustomer;
@@ -43,10 +41,10 @@ class CartScreen extends StatefulWidget {
   });
 
   @override
-  State<CartScreen> createState() => _CartScreenState();
+  ConsumerState<CartScreen> createState() => _CartScreenState();
 }
 
-class _CartScreenState extends State<CartScreen>
+class _CartScreenState extends ConsumerState<CartScreen>
     with SingleTickerProviderStateMixin {
   late double _crateDeposit;
   Customer? _activeCustomer;
@@ -79,23 +77,25 @@ class _CartScreenState extends State<CartScreen>
       vsync: this,
       duration: const Duration(milliseconds: 480),
     );
-    cartService.addListener(_onCartChanged);
-    cartService.activeCustomer.addListener(_onActiveCustomerChanged);
-    database.select(database.warehouses).get().then((ws) {
+    final cart = ref.read(cartProvider);
+    final db = ref.read(databaseProvider);
+    cart.addListener(_onCartChanged);
+    cart.activeCustomer.addListener(_onActiveCustomerChanged);
+    db.select(db.warehouses).get().then((ws) {
       if (mounted) setState(() => _warehouses = ws);
     });
-    database.select(database.crateGroups).watch().listen((data) {
+    db.select(db.crateGroups).watch().listen((data) {
       if (mounted) setState(() => _crateGroups = data);
     });
-    database.select(database.manufacturers).watch().listen((data) {
+    db.select(db.manufacturers).watch().listen((data) {
       if (mounted) setState(() => _manufacturers = data);
     });
   }
 
   @override
   void dispose() {
-    cartService.removeListener(_onCartChanged);
-    cartService.activeCustomer.removeListener(_onActiveCustomerChanged);
+    ref.read(cartProvider).removeListener(_onCartChanged);
+    ref.read(cartProvider).activeCustomer.removeListener(_onActiveCustomerChanged);
     _clearCtrl.dispose();
     super.dispose();
   }
@@ -106,24 +106,26 @@ class _CartScreenState extends State<CartScreen>
 
   void _onActiveCustomerChanged() {
     if (mounted) {
-      setState(() => _activeCustomer = cartService.activeCustomer.value);
+      setState(() => _activeCustomer = ref.read(cartProvider).activeCustomer.value);
     }
   }
 
   Future<void> _clearWithAnimation() async {
-    if (cartService.value.isEmpty) return;
+    final cart = ref.read(cartProvider);
+    if (cart.value.isEmpty) return;
     setState(() {
       _isClearing = true;
-      _animatingItems = List<Map<String, dynamic>>.from(cartService.value);
+      _animatingItems = List<Map<String, dynamic>>.from(cart.value);
     });
     _clearCtrl.reset();
     await _clearCtrl.forward();
-    cartService.clear();
+    cart.clear();
     if (mounted) setState(() => _isClearing = false);
   }
 
   Future<void> _saveCurrentCart() async {
-    if (cartService.value.isEmpty) {
+    final cart = ref.read(cartProvider);
+    if (cart.value.isEmpty) {
       AppNotification.showError(context, 'Cannot save an empty cart');
       return;
     }
@@ -157,8 +159,8 @@ class _CartScreenState extends State<CartScreen>
     );
 
     if (name != null && name.isNotEmpty) {
-      final cartJson = jsonEncode(cartService.value);
-      await database.ordersDao.saveCart(
+      final cartJson = jsonEncode(cart.value);
+      await ref.read(databaseProvider).ordersDao.saveCart(
         SavedCartsCompanion.insert(
           name: name,
           customerId: drift.Value(_activeCustomer?.id),
@@ -176,6 +178,9 @@ class _CartScreenState extends State<CartScreen>
   }
 
   void _viewSavedCarts() {
+    final db = ref.read(databaseProvider);
+    final custSvc = ref.read(customerServiceProvider);
+    final cartSvc = ref.read(cartProvider);
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -211,7 +216,7 @@ class _CartScreenState extends State<CartScreen>
               ),
               Expanded(
                 child: StreamBuilder<List<SavedCartData>>(
-                  stream: database.ordersDao.watchSavedCarts(),
+                  stream: db.ordersDao.watchSavedCarts(),
                   builder: (context, snapshot) {
                     if (!snapshot.hasData) {
                       return const Center(child: CircularProgressIndicator());
@@ -244,7 +249,7 @@ class _CartScreenState extends State<CartScreen>
                               color: Colors.red,
                             ),
                             onPressed: () async {
-                              await database.ordersDao.deleteSavedCart(cart.id);
+                              await db.ordersDao.deleteSavedCart(cart.id);
                             },
                           ),
                           onTap: () async {
@@ -252,11 +257,11 @@ class _CartScreenState extends State<CartScreen>
                                 .cast<Map<String, dynamic>>();
                             Customer? customer;
                             if (cart.customerId != null) {
-                              customer = customerService.getById(
+                              customer = custSvc.getById(
                                 cart.customerId!,
                               );
                             }
-                            cartService.loadCart(items, customer);
+                            cartSvc.loadCart(items, customer);
                             Navigator.pop(modalCtx);
                             AppNotification.showSuccess(context, 'Cart loaded');
                           },
@@ -283,14 +288,14 @@ class _CartScreenState extends State<CartScreen>
   Color get _border => Theme.of(context).dividerColor;
 
   void _showChangeCustomerModal() {
-    final user = authService.currentUser;
+    final user = ref.read(authProvider).currentUser;
     final roleTier = user?.roleTier ?? 0;
     final isManagerOrAbove = roleTier >= 4;
 
     // Default picker warehouse based on role
     int? defaultPickerWarehouseId;
     if (roleTier >= 5) {
-      defaultPickerWarehouseId = navigationService.lockedWarehouseId.value;
+      defaultPickerWarehouseId = ref.read(navigationProvider).lockedWarehouseId.value;
     } else {
       // Manager or staff: default to their own warehouse
       defaultPickerWarehouseId = user?.warehouseId;
@@ -382,7 +387,7 @@ class _CartScreenState extends State<CartScreen>
                                             widget.onCustomerChanged(
                                               newCustomer,
                                             );
-                                            cartService.setActiveCustomer(
+                                            ref.read(cartProvider).setActiveCustomer(
                                               newCustomer,
                                             );
                                           },
@@ -484,7 +489,7 @@ class _CartScreenState extends State<CartScreen>
                           ),
                           Expanded(
                             child: ValueListenableBuilder<List<Customer>>(
-                              valueListenable: customerService,
+                              valueListenable: ref.read(customerServiceProvider),
                               builder: (_, allCustomers, __) {
                                 final customers = allCustomers.where((c) {
                                   // Warehouse filter
@@ -542,7 +547,7 @@ class _CartScreenState extends State<CartScreen>
           _activeCustomer = customer;
         });
         widget.onCustomerChanged(customer);
-        cartService.setActiveCustomer(customer);
+        ref.read(cartProvider).setActiveCustomer(customer);
 
         Navigator.pop(modalCtx);
       },
@@ -696,7 +701,7 @@ class _CartScreenState extends State<CartScreen>
               isFullWidth: false,
               icon: FontAwesomeIcons.trash,
               onPressed: () {
-                cartService.removeItem(item['name']);
+                ref.read(cartProvider).removeItem(item['name']);
                 Navigator.pop(dCtx);
               },
             ),
@@ -705,7 +710,7 @@ class _CartScreenState extends State<CartScreen>
               variant: AppButtonVariant.primary,
               isFullWidth: false,
               onPressed: () {
-                cartService.updateQty(
+                ref.read(cartProvider).updateQty(
                   item['name'],
                   double.tryParse(qtyCtrl.text) ?? 1.0,
                 );
@@ -912,7 +917,7 @@ class _CartScreenState extends State<CartScreen>
 
   @override
   Widget build(BuildContext context) {
-    final cartItems = List<Map<String, dynamic>>.from(cartService.value);
+    final cartItems = List<Map<String, dynamic>>.from(ref.read(cartProvider).value);
     cartItems.sort((a, b) => b['qty'].compareTo(a['qty']));
     final sub = cartItems.fold<double>(
       0.0,
@@ -1028,10 +1033,7 @@ class _CartScreenState extends State<CartScreen>
     final customerWallet = _activeCustomer?.customerWallet ?? 0.0;
     final isOwe = customerWallet < 0;
 
-    final themeNotifier = ValueNotifier<ThemeMode>(ThemeMode.system);
-    return ValueListenableBuilder<ThemeMode>(
-      valueListenable: themeNotifier,
-      builder: (_, mode, child) => SharedScaffold(
+    return SharedScaffold(
         activeRoute: 'cart',
         backgroundColor: _bg,
         appBar: AppBar(
@@ -1790,8 +1792,7 @@ class _CartScreenState extends State<CartScreen>
             ],
           ),
         ),
-      ),
-    );
+      );
   }
 }
 

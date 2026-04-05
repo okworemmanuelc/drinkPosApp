@@ -1,9 +1,11 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:reebaplus_pos/core/theme/design_tokens.dart';
 import 'package:reebaplus_pos/core/utils/responsive.dart';
 import 'package:reebaplus_pos/core/database/app_database.dart';
+import 'package:reebaplus_pos/core/providers/app_providers.dart';
 import 'package:reebaplus_pos/core/utils/number_format.dart';
 import 'package:reebaplus_pos/shared/widgets/shared_scaffold.dart';
 import 'package:reebaplus_pos/shared/widgets/app_bar_header.dart';
@@ -12,7 +14,7 @@ import 'package:reebaplus_pos/core/utils/notifications.dart';
 import 'package:reebaplus_pos/shared/widgets/app_button.dart';
 import 'package:reebaplus_pos/features/staff/screens/staff_constants.dart';
 
-class StaffDetailsScreen extends StatefulWidget {
+class StaffDetailsScreen extends ConsumerStatefulWidget {
   final UserData user;
   final List<WarehouseData> warehouses;
 
@@ -23,10 +25,10 @@ class StaffDetailsScreen extends StatefulWidget {
   });
 
   @override
-  State<StaffDetailsScreen> createState() => _StaffDetailsScreenState();
+  ConsumerState<StaffDetailsScreen> createState() => _StaffDetailsScreenState();
 }
 
-class _StaffDetailsScreenState extends State<StaffDetailsScreen> {
+class _StaffDetailsScreenState extends ConsumerState<StaffDetailsScreen> {
   Color get _bg => Theme.of(context).scaffoldBackgroundColor;
   Color get _surface => Theme.of(context).colorScheme.surface;
   Color get _text => Theme.of(context).colorScheme.onSurface;
@@ -44,8 +46,9 @@ class _StaffDetailsScreenState extends State<StaffDetailsScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         setState(() => _contentReady = true);
+        final db = ref.read(databaseProvider);
         _ordersSub =
-            (database.select(database.orders)
+            (db.select(db.orders)
                   ..where((t) => t.staffId.equals(widget.user.id)))
                 .watch()
                 .listen((data) {

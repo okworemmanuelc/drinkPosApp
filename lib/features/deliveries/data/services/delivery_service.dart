@@ -3,13 +3,15 @@ import 'package:reebaplus_pos/features/deliveries/data/models/delivery.dart';
 import 'package:reebaplus_pos/shared/services/notification_service.dart';
 
 class DeliveryService extends ValueNotifier<List<Delivery>> {
-  DeliveryService() : super(_initialDeliveries);
+  final NotificationService _notifications;
+
+  DeliveryService(this._notifications) : super(_initialDeliveries);
 
   static final List<Delivery> _initialDeliveries = [];
 
   Future<void> addDelivery(Delivery delivery) async {
     value = [...value, delivery];
-    await notificationService.createNotification(
+    await _notifications.createNotification(
       'new_delivery',
       'New delivery received from ${delivery.supplierName}',
       linkedRecordId: delivery.id,
@@ -23,4 +25,3 @@ class DeliveryService extends ValueNotifier<List<Delivery>> {
   }
 }
 
-final deliveryService = DeliveryService();

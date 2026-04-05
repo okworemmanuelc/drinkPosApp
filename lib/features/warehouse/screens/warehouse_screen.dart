@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:reebaplus_pos/core/providers/app_providers.dart';
 import 'package:reebaplus_pos/core/widgets/app_fab.dart';
 import 'package:reebaplus_pos/shared/widgets/shared_scaffold.dart';
 import 'package:reebaplus_pos/shared/widgets/menu_button.dart';
@@ -14,18 +16,17 @@ import 'package:reebaplus_pos/shared/widgets/app_input.dart';
 import 'package:reebaplus_pos/core/theme/design_tokens.dart';
 import 'package:reebaplus_pos/core/utils/responsive.dart';
 import 'package:reebaplus_pos/core/database/app_database.dart';
-import 'package:reebaplus_pos/shared/services/navigation_service.dart';
 import 'package:reebaplus_pos/core/utils/notifications.dart';
 import 'package:reebaplus_pos/features/warehouse/screens/warehouse_details_screen.dart';
 
-class WarehouseScreen extends StatefulWidget {
+class WarehouseScreen extends ConsumerStatefulWidget {
   const WarehouseScreen({super.key});
 
   @override
-  State<WarehouseScreen> createState() => _WarehouseScreenState();
+  ConsumerState<WarehouseScreen> createState() => _WarehouseScreenState();
 }
 
-class _WarehouseScreenState extends State<WarehouseScreen> {
+class _WarehouseScreenState extends ConsumerState<WarehouseScreen> {
   Color get _bg => Theme.of(context).scaffoldBackgroundColor;
   Color get _surface => Theme.of(context).colorScheme.surface;
   Color get _text => Theme.of(context).colorScheme.onSurface;
@@ -37,7 +38,8 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
   @override
   void initState() {
     super.initState();
-    _warehousesSub = database.select(database.warehouses).watch().listen((data) {
+    final db = ref.read(databaseProvider);
+    _warehousesSub = db.select(db.warehouses).watch().listen((data) {
       if (mounted) setState(() => _warehouses = data);
     });
   }
@@ -152,7 +154,8 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
                             if (!formKey.currentState!.validate()) return;
                             setSheet(() => saving = true);
                             try {
-                              await database.into(database.warehouses).insert(
+                              final db = ref.read(databaseProvider);
+                              await db.into(db.warehouses).insert(
                                     WarehousesCompanion.insert(
                                       name: nameCtrl.text.trim(),
                                       location: locationCtrl.text.trim().isEmpty
@@ -274,7 +277,8 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
                         : () async {
                             if (!formKey.currentState!.validate()) return;
                             setSheet(() => saving = true);
-                            await (database.update(database.warehouses)
+                            final db = ref.read(databaseProvider);
+                            await (db.update(db.warehouses)
                                   ..where((t) => t.id.equals(warehouse.id)))
                                 .write(
                                   WarehousesCompanion(
@@ -301,7 +305,8 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
     BuildContext context,
     WarehouseData warehouse,
   ) async {
-    final rows = await (database.select(database.inventory)
+    final db = ref.read(databaseProvider);
+    final rows = await (db.select(db.inventory)
           ..where((t) => t.warehouseId.equals(warehouse.id)))
         .get();
     final stock = rows.fold<int>(0, (sum, r) => sum + r.quantity);
@@ -380,11 +385,12 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
             onPressed: () async {
               Navigator.pop(ctx);
               // Delete inventory first (FK), then warehouse
-              await (database.delete(
-                database.inventory,
+              final db = ref.read(databaseProvider);
+              await (db.delete(
+                db.inventory,
               )..where((t) => t.warehouseId.equals(warehouse.id))).go();
-              await (database.delete(
-                database.warehouses,
+              await (db.delete(
+                db.warehouses,
               )..where((t) => t.id.equals(warehouse.id))).go();
             },
           ),
@@ -396,10 +402,7 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
   // ── Build ──────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
-    final themeNotifier = ValueNotifier<ThemeMode>(ThemeMode.system);
-    return ValueListenableBuilder<ThemeMode>(
-      valueListenable: themeNotifier,
-      builder: (_, _, _) => SharedScaffold(
+    return SharedScaffold(
         activeRoute: 'warehouse',
         backgroundColor: _bg,
         appBar: AppBar(
@@ -442,7 +445,6 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
             );
           },
         ),
-      ),
     );
   }
 
@@ -494,14 +496,14 @@ class _WarehouseScreenState extends State<WarehouseScreen> {
       warehouse: warehouse,
       onEdit: () => _showEditSheet(context, warehouse),
       onDelete: () => _confirmDelete(context, warehouse),
-      onStaff: () => navigationService.setIndex(8),
+      onStaff: () => ref.read(navigationProvider).setIndex(8),
     );
   }
 
 }
 
 // ── Reactive warehouse card ────────────────────────────────────────────────────
-class _WarehouseCard extends StatefulWidget {
+class _WarehouseCard extends ConsumerStatefulWidget {
   final WarehouseData warehouse;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
@@ -515,10 +517,10 @@ class _WarehouseCard extends StatefulWidget {
   });
 
   @override
-  State<_WarehouseCard> createState() => _WarehouseCardState();
+  ConsumerState<_WarehouseCard> createState() => _WarehouseCardState();
 }
 
-class _WarehouseCardState extends State<_WarehouseCard> {
+class _WarehouseCardState extends ConsumerState<_WarehouseCard> {
   List<ProductDataWithStock> _inventory = [];
   List<UserData> _staff = [];
 
@@ -535,13 +537,14 @@ class _WarehouseCardState extends State<_WarehouseCard> {
   @override
   void initState() {
     super.initState();
+    final db = ref.read(databaseProvider);
     final id = widget.warehouse.id;
-    _invSub = database.inventoryDao
+    _invSub = db.inventoryDao
         .watchProductDatasWithStockByWarehouse(id)
         .listen((list) {
       if (mounted) setState(() => _inventory = list);
     });
-    _staffSub = database.warehousesDao
+    _staffSub = db.warehousesDao
         .watchStaffByWarehouse(id)
         .listen((list) {
       if (mounted) setState(() => _staff = list);

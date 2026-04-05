@@ -1,18 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:print_bluetooth_thermal/print_bluetooth_thermal.dart';
-import 'package:reebaplus_pos/shared/services/printer_service.dart';
+import 'package:reebaplus_pos/core/providers/app_providers.dart';
 import 'package:reebaplus_pos/core/utils/responsive.dart';
 
-class PrinterPicker extends StatefulWidget {
+class PrinterPicker extends ConsumerStatefulWidget {
   final Function(BluetoothInfo) onSelected;
 
   const PrinterPicker({super.key, required this.onSelected});
 
   @override
-  State<PrinterPicker> createState() => _PrinterPickerState();
+  ConsumerState<PrinterPicker> createState() => _PrinterPickerState();
 }
 
-class _PrinterPickerState extends State<PrinterPicker> {
+class _PrinterPickerState extends ConsumerState<PrinterPicker> {
   bool _isLoading = true;
   List<BluetoothInfo> _devices = [];
 
@@ -24,7 +25,7 @@ class _PrinterPickerState extends State<PrinterPicker> {
 
   Future<void> _loadDevices() async {
     setState(() => _isLoading = true);
-    final devices = await printerService.getPairedDevices();
+    final devices = await ref.read(printerServiceProvider).getPairedDevices();
     if (mounted) {
       setState(() {
         _devices = devices;

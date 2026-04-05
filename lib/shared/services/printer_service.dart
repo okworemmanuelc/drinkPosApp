@@ -73,4 +73,3 @@ class PrinterService {
   }
 }
 
-final printerService = PrinterService();

@@ -1,30 +1,29 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:reebaplus_pos/core/widgets/app_fab.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 import 'package:reebaplus_pos/core/database/app_database.dart';
+import 'package:reebaplus_pos/core/providers/app_providers.dart';
 import 'package:reebaplus_pos/core/theme/colors.dart';
 import 'package:reebaplus_pos/core/utils/number_format.dart';
 import 'package:reebaplus_pos/core/utils/responsive.dart';
-import 'package:reebaplus_pos/shared/services/auth_service.dart';
-import 'package:reebaplus_pos/shared/services/navigation_service.dart';
 import 'package:reebaplus_pos/shared/widgets/app_drawer.dart';
 import 'package:reebaplus_pos/shared/widgets/notification_bell.dart';
 import 'package:reebaplus_pos/features/customers/data/models/customer.dart';
-import 'package:reebaplus_pos/features/customers/data/services/customer_service.dart';
 import 'package:reebaplus_pos/features/customers/widgets/add_customer_sheet.dart';
 import 'package:reebaplus_pos/features/customers/screens/customer_detail_screen.dart';
 import 'package:reebaplus_pos/shared/widgets/app_dropdown.dart';
 import 'package:reebaplus_pos/shared/widgets/shimmer_loading.dart';
 
-class CustomersScreen extends StatefulWidget {
+class CustomersScreen extends ConsumerStatefulWidget {
   const CustomersScreen({super.key});
 
   @override
-  State<CustomersScreen> createState() => _CustomersScreenState();
+  ConsumerState<CustomersScreen> createState() => _CustomersScreenState();
 }
 
-class _CustomersScreenState extends State<CustomersScreen> {
+class _CustomersScreenState extends ConsumerState<CustomersScreen> {
   bool _isFirstLoad = true;
   List<WarehouseData> _warehouses = [];
   // null = "All Warehouses"
@@ -37,14 +36,15 @@ class _CustomersScreenState extends State<CustomersScreen> {
   }
 
   Future<void> _loadWarehouses() async {
-    final ws = await database.select(database.warehouses).get();
-    final user = authService.currentUser;
+    final db = ref.read(databaseProvider);
+    final ws = await db.select(db.warehouses).get();
+    final user = ref.read(authProvider).currentUser;
     final roleTier = user?.roleTier ?? 0;
 
     int? defaultId;
     if (roleTier >= 5) {
       // CEO: default to the warehouse currently selected on the POS screen
-      defaultId = navigationService.lockedWarehouseId.value;
+      defaultId = ref.read(navigationProvider).lockedWarehouseId.value;
     } else if (roleTier >= 4) {
       // Manager: default to their own warehouse
       defaultId = user?.warehouseId;
@@ -65,10 +65,6 @@ class _CustomersScreenState extends State<CustomersScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final themeNotifier = ValueNotifier<ThemeMode>(ThemeMode.system);
-    return ValueListenableBuilder<ThemeMode>(
-      valueListenable: themeNotifier,
-      builder: (_, mode, _) {
         final bgCol = Theme.of(context).scaffoldBackgroundColor;
         final surfaceCol = Theme.of(context).colorScheme.surface;
         final textCol = Theme.of(context).colorScheme.onSurface;
@@ -78,7 +74,7 @@ class _CustomersScreenState extends State<CustomersScreen> {
         final borderCol = Theme.of(context).dividerColor;
         final cardCol = Theme.of(context).cardColor;
 
-        final user = authService.currentUser;
+        final user = ref.read(authProvider).currentUser;
         final roleTier = user?.roleTier ?? 0;
         final isManagerOrAbove = roleTier >= 4;
 
@@ -99,9 +95,9 @@ class _CustomersScreenState extends State<CustomersScreen> {
                 ),
 
               Expanded(
-                child: ValueListenableBuilder<List<Customer>>(
-                  valueListenable: customerService,
-                  builder: (context, customers, child) {
+                child: Builder(
+                  builder: (context) {
+                    final customers = ref.watch(customerServiceProvider).value;
                     if (_isFirstLoad) {
                       return const ShimmerList(count: 8);
                     }
@@ -157,8 +153,6 @@ class _CustomersScreenState extends State<CustomersScreen> {
             label: 'Add Customer',
           ),
         );
-      },
-    );
   }
 
   Widget _buildWarehouseFilter(

@@ -4,12 +4,15 @@ import 'package:reebaplus_pos/shared/models/activity_log.dart';
 import 'package:reebaplus_pos/shared/services/auth_service.dart';
 
 class ActivityLogService extends ValueNotifier<List<ActivityLog>> {
-  ActivityLogService() : super([]) {
+  final AppDatabase _db;
+  final AuthService _auth;
+
+  ActivityLogService(this._db, this._auth) : super([]) {
     _init();
   }
 
   void _init() {
-    database.activityLogDao.watchRecent().listen((logsData) {
+    _db.activityLogDao.watchRecent().listen((logsData) {
       value = logsData.map((data) => ActivityLog.fromDb(data)).toList();
     });
   }
@@ -21,8 +24,8 @@ class ActivityLogService extends ValueNotifier<List<ActivityLog>> {
     String? relatedEntityType,
     String? warehouseId,
   }) async {
-    await database.activityLogDao.log(
-      staffId: authService.currentUser?.id,
+    await _db.activityLogDao.log(
+      staffId: _auth.currentUser?.id,
       action: action,
       description: description,
       entityId: relatedEntityId,
@@ -32,10 +35,8 @@ class ActivityLogService extends ValueNotifier<List<ActivityLog>> {
   }
 
   Future<List<ActivityLog>> getForEntity(String entityId) async {
-    final data = await database.activityLogDao.getForEntity(entityId);
+    final data = await _db.activityLogDao.getForEntity(entityId);
     return data.map((d) => ActivityLog.fromDb(d)).toList();
   }
 }
 
-// Global instance available app-wide
-final ActivityLogService activityLogService = ActivityLogService();

@@ -1,24 +1,25 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:reebaplus_pos/core/theme/design_tokens.dart';
 import 'package:reebaplus_pos/core/utils/responsive.dart';
 import 'package:reebaplus_pos/core/database/app_database.dart';
-import 'package:reebaplus_pos/shared/services/navigation_service.dart';
+import 'package:reebaplus_pos/core/providers/app_providers.dart';
 import 'package:reebaplus_pos/shared/widgets/shared_scaffold.dart';
 import 'package:reebaplus_pos/shared/widgets/app_bar_header.dart';
 import 'package:reebaplus_pos/core/utils/number_format.dart';
 
-class WarehouseDetailsScreen extends StatefulWidget {
+class WarehouseDetailsScreen extends ConsumerStatefulWidget {
   final WarehouseData warehouse;
 
   const WarehouseDetailsScreen({super.key, required this.warehouse});
 
   @override
-  State<WarehouseDetailsScreen> createState() => _WarehouseDetailsScreenState();
+  ConsumerState<WarehouseDetailsScreen> createState() => _WarehouseDetailsScreenState();
 }
 
-class _WarehouseDetailsScreenState extends State<WarehouseDetailsScreen> {
+class _WarehouseDetailsScreenState extends ConsumerState<WarehouseDetailsScreen> {
   WarehouseData? _liveWarehouse;
   List<ProductDataWithStock> _inventory = [];
   List<UserData> _staff = [];
@@ -41,16 +42,17 @@ class _WarehouseDetailsScreenState extends State<WarehouseDetailsScreen> {
   void initState() {
     super.initState();
     final id = widget.warehouse.id;
+    final db = ref.read(databaseProvider);
 
-    _warehouseSub = database.warehousesDao.watchWarehouse(id).listen((w) {
+    _warehouseSub = db.warehousesDao.watchWarehouse(id).listen((w) {
       if (mounted && w != null) setState(() => _liveWarehouse = w);
     });
-    _inventorySub = database.inventoryDao
+    _inventorySub = db.inventoryDao
         .watchProductDatasWithStockByWarehouse(id)
         .listen((list) {
           if (mounted) setState(() => _inventory = list);
         });
-    _staffSub = database.warehousesDao.watchStaffByWarehouse(id).listen((list) {
+    _staffSub = db.warehousesDao.watchStaffByWarehouse(id).listen((list) {
       if (mounted) setState(() => _staff = list);
     });
   }
@@ -604,11 +606,12 @@ class _WarehouseDetailsScreenState extends State<WarehouseDetailsScreen> {
                 FontAwesomeIcons.boxesStacked,
                 Theme.of(context).colorScheme.primary,
                 () {
-                  navigationService.selectedWarehouseId.value = widget
+                  final nav = ref.read(navigationProvider);
+                  nav.selectedWarehouseId.value = widget
                       .warehouse
                       .id
                       .toString();
-                  navigationService.setIndex(2);
+                  nav.setIndex(2);
                 },
               ),
             ),
@@ -621,7 +624,7 @@ class _WarehouseDetailsScreenState extends State<WarehouseDetailsScreen> {
                 const Color(0xFFA855F7),
                 () {
                   Navigator.of(context).pop();
-                  navigationService.setIndex(8);
+                  ref.read(navigationProvider).setIndex(8);
                 },
               ),
             ),

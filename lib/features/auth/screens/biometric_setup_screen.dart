@@ -1,17 +1,18 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:reebaplus_pos/shared/widgets/app_button.dart';
 import 'package:reebaplus_pos/core/database/app_database.dart';
+import 'package:reebaplus_pos/core/providers/app_providers.dart';
 import 'package:reebaplus_pos/features/auth/widgets/onboarding_step_indicator.dart';
 import 'package:reebaplus_pos/shared/widgets/main_layout.dart';
 import 'package:reebaplus_pos/features/auth/screens/success_dashboard_entry_screen.dart';
 import 'package:reebaplus_pos/features/auth/screens/access_granted_screen.dart';
-import 'package:reebaplus_pos/shared/services/auth_service.dart';
 
-class BiometricSetupScreen extends StatefulWidget {
+class BiometricSetupScreen extends ConsumerStatefulWidget {
   final UserData user;
   final bool isNewBusinessSetup;
   final bool isJoinFlow;
@@ -24,10 +25,10 @@ class BiometricSetupScreen extends StatefulWidget {
   });
 
   @override
-  State<BiometricSetupScreen> createState() => _BiometricSetupScreenState();
+  ConsumerState<BiometricSetupScreen> createState() => _BiometricSetupScreenState();
 }
 
-class _BiometricSetupScreenState extends State<BiometricSetupScreen> {
+class _BiometricSetupScreenState extends ConsumerState<BiometricSetupScreen> {
   final LocalAuthentication auth = LocalAuthentication();
   bool _loading = false;
   String? _errorMessage;
@@ -85,7 +86,7 @@ class _BiometricSetupScreenState extends State<BiometricSetupScreen> {
   }
 
   void _done() {
-    authService.setCurrentUser(widget.user);
+    ref.read(authProvider).setCurrentUser(widget.user);
     if (!mounted) return;
     if (widget.isNewBusinessSetup) {
       Navigator.of(context).pushReplacement(

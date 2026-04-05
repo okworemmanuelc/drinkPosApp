@@ -1,22 +1,24 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:reebaplus_pos/shared/widgets/app_button.dart';
 import 'package:reebaplus_pos/core/database/app_database.dart';
+import 'package:reebaplus_pos/core/providers/app_providers.dart';
 import 'package:reebaplus_pos/shared/widgets/main_layout.dart';
 
 import 'package:drift/drift.dart' as drift;
 
-class AccessGrantedScreen extends StatefulWidget {
+class AccessGrantedScreen extends ConsumerStatefulWidget {
   final UserData user;
 
   const AccessGrantedScreen({super.key, required this.user});
 
   @override
-  State<AccessGrantedScreen> createState() => _AccessGrantedScreenState();
+  ConsumerState<AccessGrantedScreen> createState() => _AccessGrantedScreenState();
 }
 
-class _AccessGrantedScreenState extends State<AccessGrantedScreen> {
+class _AccessGrantedScreenState extends ConsumerState<AccessGrantedScreen> {
   late Future<Map<String, String>> _futureDetails;
 
   @override
@@ -26,6 +28,7 @@ class _AccessGrantedScreenState extends State<AccessGrantedScreen> {
   }
 
   Future<Map<String, String>> _fetchDetails() async {
+    final db = ref.read(databaseProvider);
     final res = {
       'businessName': '...',
       'locationName': '...',
@@ -33,22 +36,22 @@ class _AccessGrantedScreenState extends State<AccessGrantedScreen> {
     };
 
     if (widget.user.businessId != null) {
-      final biz = await (database.select(
-        database.businesses,
+      final biz = await (db.select(
+        db.businesses,
       )..where((t) => t.id.equals(widget.user.businessId!))).getSingleOrNull();
       if (biz != null) res['businessName'] = biz.name;
     }
 
     if (widget.user.warehouseId != null) {
-      final wh = await (database.select(
-        database.warehouses,
+      final wh = await (db.select(
+        db.warehouses,
       )..where((t) => t.id.equals(widget.user.warehouseId!))).getSingleOrNull();
       if (wh != null) res['locationName'] = wh.name;
     }
 
     if (widget.user.email != null) {
       final invite =
-          await (database.select(database.invites)
+          await (db.select(db.invites)
                 ..where((t) => t.email.equals(widget.user.email!))
                 ..orderBy([
                   (t) => drift.OrderingTerm(
@@ -59,8 +62,8 @@ class _AccessGrantedScreenState extends State<AccessGrantedScreen> {
               .getSingleOrNull();
 
       if (invite != null) {
-        final inviter = await (database.select(
-          database.users,
+        final inviter = await (db.select(
+          db.users,
         )..where((t) => t.id.equals(invite.createdBy))).getSingleOrNull();
         if (inviter != null) res['inviterName'] = inviter.name;
       }

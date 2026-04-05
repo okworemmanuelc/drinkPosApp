@@ -2,14 +2,15 @@ import 'dart:math';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:reebaplus_pos/core/database/app_database.dart';
 import 'package:reebaplus_pos/core/theme/colors.dart';
 import 'package:reebaplus_pos/core/utils/responsive.dart';
 import 'package:reebaplus_pos/core/utils/number_format.dart';
+import 'package:reebaplus_pos/core/providers/app_providers.dart';
 import 'package:reebaplus_pos/features/customers/data/models/customer.dart';
 import 'package:reebaplus_pos/features/pos/controllers/pos_controller.dart';
-import 'package:reebaplus_pos/shared/services/cart_service.dart';
 import 'package:reebaplus_pos/features/pos/widgets/product_preview_modal.dart';
 
 class ProductGrid extends StatelessWidget {
@@ -87,7 +88,7 @@ class ProductGrid extends StatelessWidget {
   }
 }
 
-class _ProductCard extends StatefulWidget {
+class _ProductCard extends ConsumerStatefulWidget {
   final ProductDataWithStock item;
   final VoidCallback onTap;
   final Color cardCol;
@@ -107,10 +108,10 @@ class _ProductCard extends StatefulWidget {
   });
 
   @override
-  State<_ProductCard> createState() => _ProductCardState();
+  ConsumerState<_ProductCard> createState() => _ProductCardState();
 }
 
-class _ProductCardState extends State<_ProductCard>
+class _ProductCardState extends ConsumerState<_ProductCard>
     with TickerProviderStateMixin {
   AnimationController? _flingCtrl;
   OverlayEntry? _overlayEntry;
@@ -238,7 +239,7 @@ class _ProductCardState extends State<_ProductCard>
   @override
   Widget build(BuildContext context) {
     final product = widget.item.product;
-    final int priceKobo = database.catalogDao.getPriceForCustomerGroup(
+    final int priceKobo = ref.read(databaseProvider).catalogDao.getPriceForCustomerGroup(
       product,
       widget.controller.selectedGroup == CustomerGroup.retailer
           ? 'retail'
@@ -248,7 +249,7 @@ class _ProductCardState extends State<_ProductCard>
     final bool isLowStock = widget.item.totalStock <= 5;
 
     return ValueListenableBuilder<List<Map<String, dynamic>>>(
-      valueListenable: cartService,
+      valueListenable: ref.watch(cartProvider),
       builder: (context, cartItems, _) {
         final double cartQty = cartItems
             .where((i) => i['id'] == product.id)

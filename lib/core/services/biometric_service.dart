@@ -41,4 +41,3 @@ class BiometricService {
   }
 }
 
-final biometricService = BiometricService();

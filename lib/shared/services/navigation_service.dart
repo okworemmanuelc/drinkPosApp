@@ -52,10 +52,16 @@ class NavigationService {
     lockedWarehouseId.value = null;
   }
 
+  /// Resets navigation state to defaults. Call on logout so the next session
+  /// starts clean (tab 0, empty history).
+  void resetNavigation() {
+    _history.clear();
+    currentIndex.value = 0;
+  }
+
   /// Manually update the warehouse lock (e.g. for CEO switching locations in POS)
   void setLockedWarehouse(int? id) {
     lockedWarehouseId.value = id;
   }
 }
 
-final navigationService = NavigationService();

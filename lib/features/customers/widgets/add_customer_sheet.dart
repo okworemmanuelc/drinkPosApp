@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
+import 'package:reebaplus_pos/core/providers/app_providers.dart';
 import 'package:reebaplus_pos/core/utils/responsive.dart';
 import 'package:reebaplus_pos/core/database/app_database.dart';
-import 'package:reebaplus_pos/shared/services/auth_service.dart';
 import 'package:reebaplus_pos/features/customers/data/models/customer.dart';
-import 'package:reebaplus_pos/features/customers/data/services/customer_service.dart';
 import 'package:reebaplus_pos/shared/widgets/app_button.dart';
 import 'package:reebaplus_pos/shared/widgets/app_input.dart';
 import 'package:reebaplus_pos/shared/widgets/app_dropdown.dart';
 
-class AddCustomerSheet extends StatefulWidget {
+class AddCustomerSheet extends ConsumerStatefulWidget {
   final void Function(Customer)? onCustomerAdded;
 
   const AddCustomerSheet({super.key, this.onCustomerAdded});
@@ -25,10 +25,10 @@ class AddCustomerSheet extends StatefulWidget {
   }
 
   @override
-  State<AddCustomerSheet> createState() => _AddCustomerSheetState();
+  ConsumerState<AddCustomerSheet> createState() => _AddCustomerSheetState();
 }
 
-class _AddCustomerSheetState extends State<AddCustomerSheet> {
+class _AddCustomerSheetState extends ConsumerState<AddCustomerSheet> {
   final _nameCtrl = TextEditingController();
   final _addressCtrl = TextEditingController();
   final _locationCtrl = TextEditingController();
@@ -39,13 +39,14 @@ class _AddCustomerSheetState extends State<AddCustomerSheet> {
   // Warehouse selection (CEO only)
   List<WarehouseData> _warehouses = [];
   int? _selectedWarehouseId;
-  bool get _isCeo => (authService.currentUser?.roleTier ?? 0) >= 5;
+  bool get _isCeo => (ref.read(authProvider).currentUser?.roleTier ?? 0) >= 5;
 
   @override
   void initState() {
     super.initState();
     if (_isCeo) {
-      database.select(database.warehouses).get().then((wh) {
+      final db = ref.read(databaseProvider);
+      db.select(db.warehouses).get().then((wh) {
         if (mounted) setState(() => _warehouses = wh);
       });
     }
@@ -257,7 +258,7 @@ class _AddCustomerSheetState extends State<AddCustomerSheet> {
                             // CEO picks warehouse manually; others use their own warehouseId
                             final warehouseId = _isCeo
                                 ? _selectedWarehouseId
-                                : authService.currentUser?.warehouseId;
+                                : ref.read(authProvider).currentUser?.warehouseId;
 
                             final newCustomer = Customer(
                               id: 0, // Database will generate this
@@ -271,7 +272,7 @@ class _AddCustomerSheetState extends State<AddCustomerSheet> {
                               isWalkIn: false,
                               warehouseId: warehouseId,
                             );
-                            final saved = await customerService.addCustomer(newCustomer);
+                            final saved = await ref.read(customerServiceProvider).addCustomer(newCustomer);
                             if (!context.mounted) return;
                             Navigator.pop(context);
                             if (saved != null) {

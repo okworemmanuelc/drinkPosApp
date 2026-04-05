@@ -4,12 +4,14 @@ import 'package:reebaplus_pos/features/inventory/data/models/crate_group.dart';
 import 'package:reebaplus_pos/core/database/app_database.dart';
 
 class SupplierService extends ValueNotifier<List<Supplier>> {
-  SupplierService() : super([]) {
+  final AppDatabase _db;
+
+  SupplierService(this._db) : super([]) {
     _init();
   }
 
   void _init() {
-    database.catalogDao.watchAllSupplierDatas().listen((dataList) {
+    _db.catalogDao.watchAllSupplierDatas().listen((dataList) {
       value = dataList.map(_fromDb).toList();
     });
   }
@@ -53,4 +55,3 @@ class SupplierService extends ValueNotifier<List<Supplier>> {
   }
 }
 
-final SupplierService supplierService = SupplierService();

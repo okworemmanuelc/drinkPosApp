@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:reebaplus_pos/core/theme/app_theme.dart';
 import 'package:reebaplus_pos/core/theme/theme_notifier.dart';
 import 'package:reebaplus_pos/core/database/app_database.dart';
+import 'package:reebaplus_pos/core/providers/app_providers.dart';
 import 'package:reebaplus_pos/features/auth/screens/login_screen.dart';
 import 'package:reebaplus_pos/features/auth/screens/email_entry_screen.dart';
 import 'package:reebaplus_pos/features/auth/screens/warehouse_assignment_screen.dart';
-import 'package:reebaplus_pos/shared/services/auth_service.dart';
 import 'package:reebaplus_pos/shared/widgets/main_layout.dart';
 import 'package:reebaplus_pos/shared/widgets/auto_lock_wrapper.dart';
 import 'package:reebaplus_pos/shared/widgets/force_update_wrapper.dart';
@@ -40,103 +41,118 @@ void main() async {
 
   await themeController.init();
 
-  runApp(const ReebaplusPosApp());
+  runApp(const ProviderScope(child: ReebaplusPosApp()));
 }
 
-class ReebaplusPosApp extends StatefulWidget {
+class ReebaplusPosApp extends ConsumerStatefulWidget {
   const ReebaplusPosApp({super.key});
 
   @override
-  State<ReebaplusPosApp> createState() => _ReebaplusPosAppState();
+  ConsumerState<ReebaplusPosApp> createState() => _ReebaplusPosAppState();
 }
 
-class _ReebaplusPosAppState extends State<ReebaplusPosApp> {
+class _ReebaplusPosAppState extends ConsumerState<ReebaplusPosApp> {
   /// null = still checking SharedPreferences
   /// true  = a user has logged in on this device before → show PIN screen
   /// false = fresh device / first login → show email screen
   bool? _hasDeviceUser;
 
+  /// Regenerated on auth-state changes to force MaterialApp's internal
+  /// Navigator to rebuild its route stack (clears stale MainLayout).
+  GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
+
   @override
   void initState() {
     super.initState();
     _checkDeviceUser();
-    authService.deviceUserIdNotifier.addListener(_onDeviceUserChanged);
+    ref.read(authProvider).deviceUserIdNotifier.addListener(_onDeviceUserChanged);
+    ref.read(authProvider).addListener(_onAuthChanged);
+  }
+
+  /// When the logged-in user changes (login or logout), regenerate the
+  /// navigator key so the route stack resets to the correct auth screen.
+  void _onAuthChanged() {
+    if (mounted) {
+      setState(() => _navigatorKey = GlobalKey<NavigatorState>());
+    }
   }
 
   void _onDeviceUserChanged() {
     if (mounted) {
-      setState(
-        () => _hasDeviceUser = authService.deviceUserIdNotifier.value != null,
-      );
+      setState(() {
+        _hasDeviceUser = ref.read(authProvider).deviceUserIdNotifier.value != null;
+        // Force MaterialApp's Navigator to rebuild its route stack so stale
+        // screens (MainLayout) are replaced by the correct auth screen.
+        _navigatorKey = GlobalKey<NavigatorState>();
+      });
     }
   }
 
   Future<void> _checkDeviceUser() async {
-    final userId = await authService.getDeviceUserId();
+    final auth = ref.read(authProvider);
+    final userId = await auth.getDeviceUserId();
     if (mounted) {
-      authService.deviceUserIdNotifier.value = userId;
+      auth.deviceUserIdNotifier.value = userId;
       setState(() => _hasDeviceUser = userId != null);
     }
   }
 
   @override
   void dispose() {
-    authService.deviceUserIdNotifier.removeListener(_onDeviceUserChanged);
+    ref.read(authProvider).deviceUserIdNotifier.removeListener(_onDeviceUserChanged);
+    ref.read(authProvider).removeListener(_onAuthChanged);
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return ListenableBuilder(
-      listenable: themeController,
-      builder: (_, __) {
-        return ForceUpdateWrapper(
-          child: AutoLockWrapper(
-            child: MaterialApp(
-              title: 'Reebaplus POS',
-              debugShowCheckedModeBanner: false,
-              builder: (context, child) {
-                return GestureDetector(
-                  onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
-                  behavior: HitTestBehavior.opaque,
-                  child: child,
-                );
-              },
-              themeMode: themeController.themeMode,
-              theme: switch (themeController.designSystem) {
-                DesignSystem.purple => AppTheme.purpleLight(),
-                DesignSystem.amber => AppTheme.amberLight(),
-                DesignSystem.green => AppTheme.greenLight(),
-                DesignSystem.blue => AppTheme.light(),
-              },
-              darkTheme: switch (themeController.designSystem) {
-                DesignSystem.purple => AppTheme.purpleDarkTheme(),
-                DesignSystem.amber => AppTheme.amberDarkTheme(),
-                DesignSystem.green => AppTheme.greenDarkTheme(),
-                DesignSystem.blue => AppTheme.dark(),
-              },
-              home: ValueListenableBuilder<UserData?>(
-                valueListenable: authService,
-                builder: (_, user, __) {
-                  if (user == null) {
-                    // Still reading SharedPreferences — show branded splash.
-                    if (_hasDeviceUser == null) return const _BrandedSplash();
-                    // Returning user on this device → skip email, go to PIN screen.
-                    // New device / fresh install → go to email entry flow.
-                    return _hasDeviceUser!
-                        ? const LoginScreen()
-                        : const EmailEntryScreen();
-                  }
-                  if (user.roleTier < 5 && user.warehouseId == null) {
-                    return WarehouseAssignmentScreen(user: user);
-                  }
-                  return const MainLayout();
-                },
-              ),
-            ),
-          ),
-        );
-      },
+    final theme = ref.watch(themeProvider);
+    final auth = ref.watch(authProvider);
+    final user = auth.value;
+
+    return ForceUpdateWrapper(
+      child: AutoLockWrapper(
+        child: MaterialApp(
+          title: 'Reebaplus POS',
+          debugShowCheckedModeBanner: false,
+          builder: (context, child) {
+            return GestureDetector(
+              onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+              behavior: HitTestBehavior.opaque,
+              child: child,
+            );
+          },
+          themeMode: theme.themeMode,
+          theme: switch (theme.designSystem) {
+            DesignSystem.purple => AppTheme.purpleLight(),
+            DesignSystem.amber => AppTheme.amberLight(),
+            DesignSystem.green => AppTheme.greenLight(),
+            DesignSystem.blue => AppTheme.light(),
+          },
+          darkTheme: switch (theme.designSystem) {
+            DesignSystem.purple => AppTheme.purpleDarkTheme(),
+            DesignSystem.amber => AppTheme.amberDarkTheme(),
+            DesignSystem.green => AppTheme.greenDarkTheme(),
+            DesignSystem.blue => AppTheme.dark(),
+          },
+          navigatorKey: _navigatorKey,
+          home: () {
+            if (user == null) {
+              // Still reading SharedPreferences — show branded splash.
+              if (_hasDeviceUser == null) return const _BrandedSplash();
+              // Returning user on this device → skip email, go to PIN screen.
+              // New device / fresh install → go to email entry flow.
+              return _hasDeviceUser!
+                  ? const LoginScreen()
+                  : const EmailEntryScreen();
+            }
+            if (user.roleTier < 5 && user.warehouseId == null) {
+              return WarehouseAssignmentScreen(user: user);
+            }
+            return const MainLayout();
+          }(),
+        ),
+      ),
     );
   }
 }

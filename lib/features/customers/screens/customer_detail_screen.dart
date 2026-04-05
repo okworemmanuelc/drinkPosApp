@@ -1,9 +1,11 @@
 import 'dart:async';
 import 'package:drift/drift.dart' show innerJoin;
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:reebaplus_pos/core/database/app_database.dart';
+import 'package:reebaplus_pos/core/providers/app_providers.dart';
 import 'package:reebaplus_pos/core/theme/app_decorations.dart';
 import 'package:reebaplus_pos/core/theme/colors.dart';
 import 'package:reebaplus_pos/core/utils/number_format.dart';
@@ -11,20 +13,19 @@ import 'package:reebaplus_pos/core/utils/responsive.dart';
 import 'package:reebaplus_pos/core/widgets/amber_button.dart';
 import 'package:reebaplus_pos/core/widgets/status_badge.dart';
 import 'package:reebaplus_pos/features/customers/data/models/customer.dart';
-import 'package:reebaplus_pos/features/customers/data/services/customer_service.dart';
 import 'package:reebaplus_pos/shared/widgets/receipt_widget.dart';
 import 'package:reebaplus_pos/shared/widgets/shimmer_loading.dart';
 
-class CustomerDetailScreen extends StatefulWidget {
+class CustomerDetailScreen extends ConsumerStatefulWidget {
   final Customer? customer;
 
   const CustomerDetailScreen({super.key, this.customer});
 
   @override
-  State<CustomerDetailScreen> createState() => _CustomerDetailScreenState();
+  ConsumerState<CustomerDetailScreen> createState() => _CustomerDetailScreenState();
 }
 
-class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
+class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
   bool _contentReady = false;
 
   CustomerData? _customerData;
@@ -56,23 +57,25 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
       return;
     }
 
-    _customerSub = database.customersDao.watchCustomerById(id).listen((data) {
+    final db = ref.read(databaseProvider);
+
+    _customerSub = db.customersDao.watchCustomerById(id).listen((data) {
       if (mounted) setState(() => _customerData = data);
     });
 
-    _balanceSub = database.customersDao.watchWalletBalance(id).listen((bal) {
+    _balanceSub = db.customersDao.watchWalletBalance(id).listen((bal) {
       if (mounted) setState(() => _walletBalance = bal);
     });
 
-    _historySub = database.customersDao.watchWalletHistory(id).listen((hist) {
+    _historySub = db.customersDao.watchWalletHistory(id).listen((hist) {
       if (mounted) setState(() => _walletHistory = hist);
     });
 
-    _ordersSub = database.ordersDao.watchOrdersByCustomer(id).listen((orders) {
+    _ordersSub = db.ordersDao.watchOrdersByCustomer(id).listen((orders) {
       if (mounted) setState(() => _orders = orders);
     });
 
-    _cratesSub = database.customersDao.watchCrateBalancesWithGroups(id).listen((
+    _cratesSub = db.customersDao.watchCrateBalancesWithGroups(id).listen((
       crates,
     ) {
       if (mounted) setState(() => _crateBalances = crates);
@@ -216,7 +219,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                   final messenger = ScaffoldMessenger.of(context);
                   Navigator.pop(ctx);
 
-                  await customerService.updateWalletBalance(id, amount, note);
+                  await ref.read(customerServiceProvider).updateWalletBalance(id, amount, note);
                   messenger.showSnackBar(
                     SnackBar(
                       content: Text(
@@ -296,7 +299,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                   if (id == null) return;
                   final messenger = ScaffoldMessenger.of(context);
                   Navigator.pop(ctx);
-                  await customerService.updateWalletLimit(id, amount);
+                  await ref.read(customerServiceProvider).updateWalletLimit(id, amount);
                   messenger.showSnackBar(
                     SnackBar(
                       content: Text(
@@ -318,16 +321,17 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
   }
 
   void _showReceipt(OrderData order) async {
-    final itemRows = await (database.select(database.orderItems).join([
+    final db = ref.read(databaseProvider);
+    final itemRows = await (db.select(db.orderItems).join([
       innerJoin(
-        database.products,
-        database.products.id.equalsExp(database.orderItems.productId),
+        db.products,
+        db.products.id.equalsExp(db.orderItems.productId),
       ),
-    ])..where(database.orderItems.orderId.equals(order.id))).get();
+    ])..where(db.orderItems.orderId.equals(order.id))).get();
 
     final items = itemRows.map((row) {
-      final p = row.readTable(database.products);
-      final i = row.readTable(database.orderItems);
+      final p = row.readTable(db.products);
+      final i = row.readTable(db.orderItems);
       return {
         'name': p.name,
         'qty': i.quantity.toDouble(),

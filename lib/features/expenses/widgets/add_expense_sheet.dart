@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:drift/drift.dart' hide Column;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:intl/intl.dart';
 
+import 'package:reebaplus_pos/core/providers/app_providers.dart';
 import 'package:reebaplus_pos/core/theme/colors.dart';
 
 import 'package:reebaplus_pos/core/utils/number_format.dart';
 import 'package:reebaplus_pos/core/utils/responsive.dart';
-import 'package:reebaplus_pos/shared/services/activity_log_service.dart';
 import 'package:reebaplus_pos/core/utils/currency_input_formatter.dart';
 import 'package:reebaplus_pos/core/database/app_database.dart';
-import 'package:reebaplus_pos/shared/services/auth_service.dart';
 import 'package:reebaplus_pos/core/utils/constants.dart';
 import 'package:reebaplus_pos/core/utils/notifications.dart';
 import 'package:file_picker/file_picker.dart';
@@ -18,7 +18,7 @@ import 'package:reebaplus_pos/shared/widgets/app_button.dart';
 import 'package:reebaplus_pos/shared/widgets/app_dropdown.dart';
 import 'package:reebaplus_pos/shared/widgets/app_input.dart';
 
-class AddExpenseSheet extends StatefulWidget {
+class AddExpenseSheet extends ConsumerStatefulWidget {
   const AddExpenseSheet({super.key});
 
   static void show(BuildContext context) {
@@ -31,10 +31,10 @@ class AddExpenseSheet extends StatefulWidget {
   }
 
   @override
-  State<AddExpenseSheet> createState() => _AddExpenseSheetState();
+  ConsumerState<AddExpenseSheet> createState() => _AddExpenseSheetState();
 }
 
-class _AddExpenseSheetState extends State<AddExpenseSheet> {
+class _AddExpenseSheetState extends ConsumerState<AddExpenseSheet> {
   @override
   void initState() {
     super.initState();
@@ -62,8 +62,8 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
   final _amountCtrl = TextEditingController();
   final _descCtrl = TextEditingController();
   final _refCtrl = TextEditingController();
-  final _recordedByCtrl = TextEditingController(
-    text: authService.currentUser?.name ?? 'Admin',
+  late final _recordedByCtrl = TextEditingController(
+    text: ref.read(authProvider).currentUser?.name ?? 'Admin',
   );
   final _formKey = GlobalKey<FormState>();
 
@@ -146,7 +146,10 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
 
     final amtKobo = (amount * 100).toInt();
 
-    await database.expensesDao.addExpense(
+    final db = ref.read(databaseProvider);
+    final auth = ref.read(authProvider);
+
+    await db.expensesDao.addExpense(
       ExpensesCompanion.insert(
         category: Value(_selectedCategory),
         amountKobo: amtKobo,
@@ -155,11 +158,11 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
         recordedBy: Value(_recordedByCtrl.text),
         reference: Value(_refCtrl.text),
         timestamp: Value(_selectedDate),
-        warehouseId: Value(authService.currentUser?.warehouseId),
+        warehouseId: Value(auth.currentUser?.warehouseId),
       ),
     );
 
-    await activityLogService.logAction(
+    await ref.read(activityLogProvider).logAction(
       'Expense Recorded',
       'Logged $_selectedCategory expense of ${formatCurrency(amount)} via $_paymentMethod',
       relatedEntityType: 'expense',

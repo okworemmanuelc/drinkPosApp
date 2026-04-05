@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:reebaplus_pos/core/database/app_database.dart';
+import 'package:reebaplus_pos/core/providers/app_providers.dart';
 import 'package:reebaplus_pos/shared/widgets/app_button.dart';
-
-import 'package:reebaplus_pos/shared/services/auth_service.dart';
 
 /// Shows a PIN-entry dialog that requires a user with [minimumTier] or above.
 ///
@@ -15,7 +15,7 @@ import 'package:reebaplus_pos/shared/services/auth_service.dart';
 /// if (approver == null) return; // cancelled or wrong PIN
 /// // ... proceed with the protected action
 /// ```
-class PinDialog extends StatefulWidget {
+class PinDialog extends ConsumerStatefulWidget {
   /// Minimum role tier needed to pass.
   /// 1 = Staff, 4 = Manager (default), 5 = CEO.
   final int minimumTier;
@@ -43,10 +43,10 @@ class PinDialog extends StatefulWidget {
   }
 
   @override
-  State<PinDialog> createState() => _PinDialogState();
+  ConsumerState<PinDialog> createState() => _PinDialogState();
 }
 
-class _PinDialogState extends State<PinDialog> {
+class _PinDialogState extends ConsumerState<PinDialog> {
   String _pin = '';
   String? _errorMessage;
   bool _checking = false;
@@ -71,7 +71,8 @@ class _PinDialogState extends State<PinDialog> {
   Future<void> _submit() async {
     setState(() => _checking = true);
 
-    final authorised = await authService.verifyPinForTier(_pin, widget.minimumTier);
+    final auth = ref.read(authProvider);
+    final authorised = await auth.verifyPinForTier(_pin, widget.minimumTier);
 
     if (!mounted) return;
 
@@ -85,7 +86,7 @@ class _PinDialogState extends State<PinDialog> {
     }
 
     // PIN matched — find the specific user to return to the caller
-    final matches = await authService.getUsersByPin(_pin);
+    final matches = await auth.getUsersByPin(_pin);
     if (!mounted) return;
 
     final approved = matches.firstWhere(

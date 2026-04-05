@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/services.dart';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:reebaplus_pos/features/dashboard/screens/dashboard_screen.dart';
 import 'package:reebaplus_pos/features/pos/screens/pos_home_screen.dart';
 import 'package:reebaplus_pos/features/inventory/screens/inventory_screen.dart';
@@ -14,10 +15,7 @@ import 'package:reebaplus_pos/features/staff/screens/staff_screen.dart';
 import 'package:reebaplus_pos/features/pos/screens/cart_screen.dart';
 import 'package:reebaplus_pos/features/deliveries/screens/deliveries_screen.dart';
 import 'package:reebaplus_pos/shared/widgets/activity_log_screen.dart';
-import 'package:reebaplus_pos/shared/services/auth_service.dart';
-import 'package:reebaplus_pos/shared/services/cart_service.dart';
-import 'package:reebaplus_pos/shared/services/navigation_service.dart';
-import 'package:reebaplus_pos/shared/services/order_service.dart';
+import 'package:reebaplus_pos/core/providers/app_providers.dart';
 import 'package:reebaplus_pos/shared/models/order.dart';
 import 'package:reebaplus_pos/core/utils/notifications.dart';
 import 'package:reebaplus_pos/shared/widgets/tab_navigator.dart';
@@ -25,14 +23,14 @@ import 'package:reebaplus_pos/shared/widgets/tab_navigator.dart';
 // The LazyIndexedStack has been replaced with the direct Offstage + Set approach
 // requested for eliminating mount jank on cold start.
 
-class MainLayout extends StatefulWidget {
+class MainLayout extends ConsumerStatefulWidget {
   const MainLayout({super.key});
 
   @override
-  State<MainLayout> createState() => _MainLayoutState();
+  ConsumerState<MainLayout> createState() => _MainLayoutState();
 }
 
-class _MainLayoutState extends State<MainLayout> {
+class _MainLayoutState extends ConsumerState<MainLayout> {
   static void _voidOnCustomerChanged(dynamic _) {}
 
   // 12 tabs = 12 Navigators
@@ -77,9 +75,9 @@ class _MainLayoutState extends State<MainLayout> {
     ];
 
     // Only pre-load the landing tab
-    _initializedTabs.add(navigationService.currentIndex.value);
+    _initializedTabs.add(ref.read(navigationProvider).currentIndex.value);
 
-    _pendingOrdersSub = orderService.watchPendingOrders().listen((orders) {
+    _pendingOrdersSub = ref.read(orderServiceProvider).watchPendingOrders().listen((orders) {
       if (mounted) setState(() => _pendingOrderCount = orders.length);
     });
   }
@@ -93,8 +91,9 @@ class _MainLayoutState extends State<MainLayout> {
   @override
   Widget build(BuildContext context) {
     final t = Theme.of(context);
+    final nav = ref.read(navigationProvider);
     return ValueListenableBuilder<int>(
-      valueListenable: navigationService.currentIndex,
+      valueListenable: nav.currentIndex,
       builder: (context, currentIndex, _) {
         _initializedTabs.add(currentIndex); // mark as visited
 
@@ -114,10 +113,10 @@ class _MainLayoutState extends State<MainLayout> {
 
             // 2. If not on POS screen (index 1), try to go back in main layout history.
             if (currentIndex != 1) {
-              final popped = navigationService.popIndex();
+              final popped = nav.popIndex();
               if (!popped) {
                 // If no history, jump to POS
-                navigationService.setIndex(1);
+                nav.setIndex(1);
               }
             } else {
               // 3. We are on POS screen (index 1) - handle double-back-to-exit
@@ -158,7 +157,7 @@ class _MainLayoutState extends State<MainLayout> {
               }),
             ),
             bottomNavigationBar: ValueListenableBuilder(
-              valueListenable: authService,
+              valueListenable: ref.read(authProvider),
               builder: (context, user, _) {
                 final isCashier = (user?.roleTier ?? 1) < 4;
                 final iconColor =
@@ -204,7 +203,7 @@ class _MainLayoutState extends State<MainLayout> {
                           (r) => r.isFirst,
                         );
                       } else {
-                        navigationService.setIndex(indexToSet);
+                        nav.setIndex(indexToSet);
                       }
                     },
                     type: BottomNavigationBarType.fixed,
@@ -249,7 +248,7 @@ class _MainLayoutState extends State<MainLayout> {
                       BottomNavigationBarItem(
                         icon:
                             ValueListenableBuilder<List<Map<String, dynamic>>>(
-                              valueListenable: cartService,
+                              valueListenable: ref.read(cartProvider),
                               builder: (_, cart, __) => Badge(
                                 label: Text(cart.length.toString()),
                                 isLabelVisible: cart.isNotEmpty,
@@ -259,7 +258,7 @@ class _MainLayoutState extends State<MainLayout> {
                             ),
                         activeIcon:
                             ValueListenableBuilder<List<Map<String, dynamic>>>(
-                              valueListenable: cartService,
+                              valueListenable: ref.read(cartProvider),
                               builder: (_, cart, __) => Badge(
                                 label: Text(cart.length.toString()),
                                 isLabelVisible: cart.isNotEmpty,
@@ -321,7 +320,7 @@ class _MainLayoutState extends State<MainLayout> {
                         (r) => r.isFirst,
                       );
                     } else {
-                      navigationService.setIndex(indexToSet);
+                      nav.setIndex(indexToSet);
                     }
                   },
                   type: BottomNavigationBarType.fixed,
@@ -372,7 +371,7 @@ class _MainLayoutState extends State<MainLayout> {
                     ),
                     BottomNavigationBarItem(
                       icon: ValueListenableBuilder<List<Map<String, dynamic>>>(
-                        valueListenable: cartService,
+                        valueListenable: ref.read(cartProvider),
                         builder: (_, cart, __) => Badge(
                           label: Text(cart.length.toString()),
                           isLabelVisible: cart.isNotEmpty,
@@ -382,7 +381,7 @@ class _MainLayoutState extends State<MainLayout> {
                       ),
                       activeIcon:
                           ValueListenableBuilder<List<Map<String, dynamic>>>(
-                            valueListenable: cartService,
+                            valueListenable: ref.read(cartProvider),
                             builder: (_, cart, __) => Badge(
                               label: Text(cart.length.toString()),
                               isLabelVisible: cart.isNotEmpty,

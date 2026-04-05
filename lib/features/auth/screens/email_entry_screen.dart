@@ -1,23 +1,24 @@
 import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:reebaplus_pos/core/providers/app_providers.dart';
 import 'package:reebaplus_pos/core/utils/notifications.dart';
-import 'package:reebaplus_pos/shared/services/auth_service.dart';
 import 'package:reebaplus_pos/shared/widgets/app_button.dart';
 import 'package:reebaplus_pos/features/auth/screens/login_screen.dart';
 import 'package:reebaplus_pos/features/auth/screens/otp_verification_screen.dart';
 import 'package:reebaplus_pos/core/database/app_database.dart' show UserData;
 import 'package:reebaplus_pos/main.dart' show supabaseReady;
 
-class EmailEntryScreen extends StatefulWidget {
+class EmailEntryScreen extends ConsumerStatefulWidget {
   const EmailEntryScreen({super.key});
 
   @override
-  State<EmailEntryScreen> createState() => _EmailEntryScreenState();
+  ConsumerState<EmailEntryScreen> createState() => _EmailEntryScreenState();
 }
 
-class _EmailEntryScreenState extends State<EmailEntryScreen> {
+class _EmailEntryScreenState extends ConsumerState<EmailEntryScreen> {
   final _emailController = TextEditingController();
   bool _loading = false;
   bool _isEmailValid = false;
@@ -58,6 +59,7 @@ class _EmailEntryScreenState extends State<EmailEntryScreen> {
     // Run DB lookup and OTP send in parallel.
     // supabaseReady is chained inside sendOtp only — getUserByEmail starts
     // immediately so we don't block the DB query on Supabase init.
+    final auth = ref.read(authProvider);
     UserData? localUser;
     String? otpError;
     bool dbCheckDone = false;
@@ -65,7 +67,7 @@ class _EmailEntryScreenState extends State<EmailEntryScreen> {
     try {
       debugPrint('[EmailEntry] Starting DB + Supabase parallel tasks...');
       await Future.wait([
-        authService
+        auth
             .getUserByEmail(email)
             .then((u) {
               debugPrint('[EmailEntry] Local user check done: ${u != null}');
@@ -78,7 +80,7 @@ class _EmailEntryScreenState extends State<EmailEntryScreen> {
         supabaseReady
             .then((_) {
               debugPrint('[EmailEntry] Supabase ready. Sending OTP...');
-              return authService.sendOtp(email);
+              return auth.sendOtp(email);
             })
             .then((e) {
               debugPrint('[EmailEntry] Send OTP result: ${e ?? "Success"}');

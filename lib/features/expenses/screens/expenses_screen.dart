@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:reebaplus_pos/core/widgets/app_fab.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:intl/intl.dart';
@@ -8,29 +9,26 @@ import 'package:reebaplus_pos/core/theme/colors.dart';
 import 'package:reebaplus_pos/core/utils/number_format.dart';
 import 'package:reebaplus_pos/core/utils/responsive.dart';
 import 'package:reebaplus_pos/shared/widgets/app_drawer.dart';
-import 'dart:async';
 import 'package:reebaplus_pos/features/expenses/data/models/expense.dart';
 import 'package:reebaplus_pos/features/expenses/widgets/add_expense_sheet.dart';
 import 'package:reebaplus_pos/core/utils/constants.dart';
 import 'package:reebaplus_pos/shared/widgets/notification_bell.dart';
 import 'package:reebaplus_pos/shared/widgets/app_dropdown.dart';
 import 'package:reebaplus_pos/core/database/app_database.dart';
+import 'package:reebaplus_pos/core/providers/stream_providers.dart';
 
-class ExpensesScreen extends StatefulWidget {
+class ExpensesScreen extends ConsumerStatefulWidget {
   final String? initialPeriod;
   const ExpensesScreen({super.key, this.initialPeriod});
 
   @override
-  State<ExpensesScreen> createState() => _ExpensesScreenState();
+  ConsumerState<ExpensesScreen> createState() => _ExpensesScreenState();
 }
 
-class _ExpensesScreenState extends State<ExpensesScreen>
+class _ExpensesScreenState extends ConsumerState<ExpensesScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   String _periodFilter = 'This Month';
-
-  List<ExpenseData> _allExpenses = [];
-  StreamSubscription? _expensesSub;
   Color get _bg => Theme.of(context).scaffoldBackgroundColor;
   Color get _surface => Theme.of(context).colorScheme.surface;
   Color get _text => Theme.of(context).colorScheme.onSurface;
@@ -44,15 +42,11 @@ class _ExpensesScreenState extends State<ExpensesScreen>
       _periodFilter = widget.initialPeriod!;
     }
     _tabController = TabController(length: 2, vsync: this);
-    _expensesSub = database.expensesDao.watchAll().listen((list) {
-      if (mounted) setState(() => _allExpenses = list);
-    });
   }
 
   @override
   void dispose() {
     _tabController.dispose();
-    _expensesSub?.cancel();
     super.dispose();
   }
 
@@ -87,17 +81,15 @@ class _ExpensesScreenState extends State<ExpensesScreen>
 
   @override
   Widget build(BuildContext context) {
-    final themeNotifier = ValueNotifier<ThemeMode>(ThemeMode.system);
-    return ValueListenableBuilder<ThemeMode>(
-      valueListenable: themeNotifier,
-      builder: (context, mode, child) {
-        return Scaffold(
+    return Scaffold(
           backgroundColor: _bg,
           drawer: const AppDrawer(activeRoute: 'expenses'),
           appBar: _buildAppBar(context),
           body: Builder(
             builder: (context) {
-              final periodExpenses = _allExpenses
+              final expensesAsync = ref.watch(allExpensesProvider);
+              final allExpenses = expensesAsync.valueOrNull ?? [];
+              final periodExpenses = allExpenses
                   .where((e) => _isInPeriod(e.timestamp, _periodFilter))
                   .map(_toExpense)
                   .toList();
@@ -128,8 +120,6 @@ class _ExpensesScreenState extends State<ExpensesScreen>
             icon: FontAwesomeIcons.plus,
             label: 'Add Expense',
           ),
-        );
-      },
     );
   }
 
@@ -537,7 +527,8 @@ class _ExpensesScreenState extends State<ExpensesScreen>
 
   Widget _buildAnnualProjectionCard(BuildContext context) {
     final now = DateTime.now();
-    final currentYearExpenses = _allExpenses.where((e) => e.timestamp.year == now.year);
+    final allExpenses = ref.watch(allExpensesProvider).valueOrNull ?? [];
+    final currentYearExpenses = allExpenses.where((e) => e.timestamp.year == now.year);
     final totalThisYear = currentYearExpenses.fold<double>(0, (s, e) => s + e.amountKobo / 100.0);
     final projection = currentYearExpenses.isEmpty ? 0.0 : (totalThisYear / now.month) * 12;
     return Container(
