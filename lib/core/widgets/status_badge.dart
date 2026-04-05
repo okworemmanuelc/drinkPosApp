@@ -18,10 +18,14 @@ class StatusBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final primary = Theme.of(context).colorScheme.primary;
     final (bg, fg) = switch (variant) {
-      BadgeVariant.amber => (amberPrimary.withValues(alpha: 0.15), amberPrimary),
-      BadgeVariant.red   => (dangerRed.withValues(alpha: 0.15), dangerRed),
-      BadgeVariant.green => (successGreen.withValues(alpha: 0.15), successGreen),
+      BadgeVariant.amber => (primary.withValues(alpha: 0.15), primary),
+      BadgeVariant.red => (dangerRed.withValues(alpha: 0.15), dangerRed),
+      BadgeVariant.green => (
+        successGreen.withValues(alpha: 0.15),
+        successGreen,
+      ),
     };
 
     return Container(

@@ -13,6 +13,8 @@ import 'package:reebaplus_pos/shared/widgets/main_layout.dart';
 import 'dart:async';
 import 'package:local_auth/local_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:reebaplus_pos/features/auth/widgets/auth_background.dart';
+import 'package:reebaplus_pos/core/theme/app_decorations.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -150,7 +152,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
       if (authenticated) {
         final userId = await ref.read(authProvider).getDeviceUserId();
         if (userId != null) {
-          final user = await ref.read(databaseProvider).warehousesDao.getUserById(userId);
+          final user = await ref
+              .read(databaseProvider)
+              .warehousesDao
+              .getUserById(userId);
           if (user != null) _enterApp(user);
         }
       } else {
@@ -163,9 +168,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     } on PlatformException catch (e) {
       if (!mounted) return;
       final message = switch (e.code) {
-        'NotEnrolled' => 'No biometrics enrolled. Set up fingerprint or Face ID in device settings.',
-        'NotAvailable' || 'HardwareUnavailable' => 'Biometric hardware is not available on this device.',
-        'LockedOut' || 'PermanentlyLockedOut' => 'Biometrics locked out due to too many attempts. Use your PIN.',
+        'NotEnrolled' =>
+          'No biometrics enrolled. Set up fingerprint or Face ID in device settings.',
+        'NotAvailable' || 'HardwareUnavailable' =>
+          'Biometric hardware is not available on this device.',
+        'LockedOut' || 'PermanentlyLockedOut' =>
+          'Biometrics locked out due to too many attempts. Use your PIN.',
         _ => 'Biometric authentication failed. Please use your PIN instead.',
       };
       AppNotification.showError(context, message);
@@ -195,6 +203,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
         _lockoutUntil != null) {
       return;
     }
+    HapticFeedback.lightImpact();
     setState(() {
       _pin += digit;
     });
@@ -203,6 +212,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
 
   void _onBackspace() {
     if (_pin.isEmpty || _checking || _loginSuccess) return;
+    HapticFeedback.selectionClick();
     setState(() {
       _pin = _pin.substring(0, _pin.length - 1);
     });
@@ -381,63 +391,50 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
 
   @override
   Widget build(BuildContext context) {
-    const bg = Colors.transparent;
-    return Scaffold(
-      backgroundColor: Colors.black, // fallback
-      body: Stack(
-        children: [
-          // ── Background Image ──────────────────────────────────────────
-          Positioned.fill(
-            child: Image.asset(
-              'assets/images/auth_bg.png',
-              fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) =>
-                  Container(color: Colors.black),
-            ),
-          ),
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final textColor = isDark ? Colors.white : Colors.black;
+    final subtextColor = textColor.withValues(alpha: 0.7);
+    final surface = isDark
+        ? Colors.white.withValues(alpha: 0.1)
+        : Colors.black.withValues(alpha: 0.05);
 
-          // ── Glass Blur Layer ──────────────────────────────────────────
-          Positioned.fill(
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-              child: Container(color: Colors.black.withValues(alpha: 0.45)),
-            ),
-          ),
-
-          SafeArea(
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 300),
-              child: _loginSuccess
-                  ? _SuccessOverlay(
-                      key: const ValueKey('success'),
-                      user: _loggedInUser!,
-                      checkScale: _checkScale,
-                      checkFade: _checkFade,
-                      bg: bg,
-                      textColor: Colors.white,
-                      subtextColor: Colors.white.withValues(alpha: 0.7),
-                    )
-                  : _PinPad(
-                      key: const ValueKey('pinpad'),
-                      pin: _pin,
-                      checking: _checking,
-                      identifiedUser: _identifiedUser,
-                      lockoutUntil: _lockoutUntil,
-                      warningText: _pinWarning,
-                      bg: bg,
-                      surface: Colors.white.withValues(alpha: 0.1),
-                      textColor: Colors.white,
-                      subtextColor: Colors.white.withValues(alpha: 0.6),
-                      onDigit: _onDigit,
-                      onBackspace: _onBackspace,
-                      onSwitchToEmail: _switchToEmail,
-                      onForgotPin: _forgotPin,
-                      biometricsAvailable: _biometricsAvailable,
-                      onBiometrics: _biometricsAvailable ? _triggerBiometrics : null,
-                    ),
-            ),
-          ),
-        ],
+    return AuthBackground(
+      resizeToAvoidBottomInset: false,
+      child: SafeArea(
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 300),
+          child: _loginSuccess
+              ? _SuccessOverlay(
+                  key: const ValueKey('success'),
+                  user: _loggedInUser!,
+                  checkScale: _checkScale,
+                  checkFade: _checkFade,
+                  bg: Colors.transparent,
+                  textColor: textColor,
+                  subtextColor: subtextColor,
+                )
+              : _PinPad(
+                  key: const ValueKey('pinpad'),
+                  pin: _pin,
+                  checking: _checking,
+                  identifiedUser: _identifiedUser,
+                  lockoutUntil: _lockoutUntil,
+                  warningText: _pinWarning,
+                  bg: Colors.transparent,
+                  surface: surface,
+                  textColor: textColor,
+                  subtextColor: subtextColor,
+                  onDigit: _onDigit,
+                  onBackspace: _onBackspace,
+                  onSwitchToEmail: _switchToEmail,
+                  onForgotPin: _forgotPin,
+                  biometricsAvailable: _biometricsAvailable,
+                  onBiometrics: _biometricsAvailable
+                      ? _triggerBiometrics
+                      : null,
+                ),
+        ),
       ),
     );
   }
@@ -749,7 +746,7 @@ class _PinPad extends StatelessWidget {
                 onPressed: onSwitchToEmail,
                 icon: const Icon(Icons.email_rounded, size: 18),
                 label: const Text('Reset PIN with Email'),
-                style: TextButton.styleFrom(foregroundColor: Colors.white),
+                style: TextButton.styleFrom(foregroundColor: textColor),
               ),
             ] else ...[
               // ── Six dots ────────────────────────────────────────────────
@@ -766,11 +763,11 @@ class _PinPad extends StatelessWidget {
                       shape: BoxShape.circle,
                       color: filled
                           ? Theme.of(context).colorScheme.primary
-                          : Colors.white.withValues(alpha: 0.1),
+                          : textColor.withValues(alpha: 0.1),
                       border: Border.all(
                         color: filled
                             ? Theme.of(context).colorScheme.primary
-                            : Colors.white.withValues(alpha: 0.4),
+                            : textColor.withValues(alpha: 0.3),
                         width: 2,
                       ),
                     ),
@@ -838,7 +835,7 @@ class _PinPad extends StatelessWidget {
                   icon: const Icon(Icons.fingerprint_rounded, size: 22),
                   label: const Text('Sign in with Biometrics'),
                   style: TextButton.styleFrom(
-                    foregroundColor: Colors.white.withValues(alpha: 0.8),
+                    foregroundColor: textColor.withValues(alpha: 0.8),
                     textStyle: const TextStyle(fontSize: 14),
                   ),
                 ),
@@ -855,7 +852,7 @@ class _PinPad extends StatelessWidget {
                         ? 'Not ${identifiedUser!.name.split(' ').first}? Switch account'
                         : 'Login with a different account',
                     style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.65),
+                      color: textColor.withValues(alpha: 0.65),
                       fontSize: 14,
                       decoration: TextDecoration.underline,
                     ),
@@ -869,7 +866,7 @@ class _PinPad extends StatelessWidget {
                   child: Text(
                     'Forgot PIN?',
                     style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.5),
+                      color: textColor.withValues(alpha: 0.5),
                       fontSize: 13,
                     ),
                   ),
@@ -918,40 +915,27 @@ class _KeyButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(20),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-        child: Container(
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: 0.2),
-              width: 1,
-            ),
-          ),
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: onTap,
-              borderRadius: BorderRadius.circular(20),
-              child: SizedBox(
-                width: 76,
-                height: 76,
-                child: Center(
-                  child: icon != null
-                      ? Icon(icon, color: textColor, size: 26)
-                      : Text(
-                          label!,
-                          style: TextStyle(
-                            fontSize: 28,
-                            fontWeight: FontWeight.w600,
-                            color: textColor,
-                          ),
-                        ),
-                ),
-              ),
+    return Container(
+      decoration: AppDecorations.glassCard(context, radius: 20),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(20),
+          child: SizedBox(
+            width: 76,
+            height: 76,
+            child: Center(
+              child: icon != null
+                  ? Icon(icon, color: textColor, size: 26)
+                  : Text(
+                      label!,
+                      style: TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.w600,
+                        color: textColor,
+                      ),
+                    ),
             ),
           ),
         ),
@@ -1016,8 +1000,13 @@ class _UserPickerSheet extends StatelessWidget {
                 backgroundColor: _hexColor(context, u.avatarColor),
                 child: Text(
                   u.name.isNotEmpty ? u.name[0].toUpperCase() : '?',
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color:
+                        u.avatarColor.toLowerCase().contains('ff') &&
+                            u.avatarColor.length >= 8
+                        ? Colors.white
+                        : Colors
+                              .white, // Simplification, usually avatar text is white
                     fontWeight: FontWeight.w700,
                   ),
                 ),

@@ -6,7 +6,11 @@ import 'package:shimmer/shimmer.dart';
 
 class _ShimmerWrap extends StatelessWidget {
   final Widget child;
-  const _ShimmerWrap({required this.child});
+  final Duration period;
+  const _ShimmerWrap({
+    required this.child,
+    this.period = const Duration(milliseconds: 1500),
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -17,7 +21,7 @@ class _ShimmerWrap extends StatelessWidget {
       highlightColor: isDark
           ? const Color(0xFF1F2937)
           : const Color(0xFFF7F9FC),
-      period: const Duration(milliseconds: 1500),
+      period: period,
       child: child,
     );
   }
@@ -898,6 +902,307 @@ class ShimmerStockCountRow extends StatelessWidget {
             width: 56,
             child: Center(child: ShimmerBox(width: 24, height: 14, radius: 4)),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Product Detail shimmer skeleton ──────────────────────────────────────────
+
+/// Full-page skeleton for ProductDetailScreen.
+/// Mirrors every section from "Stock & Info" down to the Update Product button.
+/// Uses a 2-second shimmer period for a slower, premium feel.
+class ShimmerProductDetail extends StatelessWidget {
+  const ShimmerProductDetail({super.key});
+
+  static const _kPeriod = Duration(milliseconds: 2000);
+
+  // A single info-row placeholder: icon square + label bar + trailing bar.
+  Widget _shimmerRow(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      child: Row(
+        children: [
+          _ShimmerWrap(
+            period: _kPeriod,
+            child: Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: _ShimmerWrap(
+              period: _kPeriod,
+              child: Container(
+                height: 13,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          _ShimmerWrap(
+            period: _kPeriod,
+            child: Container(
+              width: 100,
+              height: 28,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // A stat row for Sales Summary: 3 text bars side by side.
+  Widget _shimmerStatRow(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      child: Row(
+        children: [
+          Expanded(
+            flex: 2,
+            child: _ShimmerWrap(
+              period: _kPeriod,
+              child: Container(
+                height: 13,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            flex: 2,
+            child: _ShimmerWrap(
+              period: _kPeriod,
+              child: Container(
+                height: 13,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            flex: 3,
+            child: _ShimmerWrap(
+              period: _kPeriod,
+              child: Container(
+                height: 13,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // A target row for Sales Target: label + text + progress bar placeholder.
+  Widget _shimmerTargetRow(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _ShimmerWrap(
+                period: _kPeriod,
+                child: Container(
+                  width: 60,
+                  height: 13,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                ),
+              ),
+              _ShimmerWrap(
+                period: _kPeriod,
+                child: Container(
+                  width: 120,
+                  height: 13,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          _ShimmerWrap(
+            period: _kPeriod,
+            child: Container(
+              height: 6,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(6),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _divider(BuildContext context) {
+    return Divider(
+      height: 1,
+      color: Theme.of(context).dividerColor,
+      indent: 16,
+      endIndent: 16,
+    );
+  }
+
+  Widget _infoCard(BuildContext context, List<Widget> children) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E293B) : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark ? Colors.white10 : Colors.grey[200]!,
+        ),
+      ),
+      child: Column(children: children),
+    );
+  }
+
+  Widget _sectionTitle(BuildContext context) {
+    return _ShimmerWrap(
+      period: _kPeriod,
+      child: Container(
+        width: 120,
+        height: 16,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(6),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── Stock & Info (6 rows) ─────────────────────────────────
+          _sectionTitle(context),
+          const SizedBox(height: 12),
+          _infoCard(context, [
+            _shimmerRow(context),
+            _divider(context),
+            _shimmerRow(context),
+            _divider(context),
+            _shimmerRow(context),
+            _divider(context),
+            _shimmerRow(context),
+            _divider(context),
+            _shimmerRow(context),
+            _divider(context),
+            _shimmerRow(context),
+          ]),
+
+          const SizedBox(height: 24),
+
+          // ── Pricing (5 rows) ──────────────────────────────────────
+          _sectionTitle(context),
+          const SizedBox(height: 12),
+          _infoCard(context, [
+            _shimmerRow(context),
+            _divider(context),
+            _shimmerRow(context),
+            _divider(context),
+            _shimmerRow(context),
+            _divider(context),
+            _shimmerRow(context),
+            _divider(context),
+            _shimmerRow(context),
+          ]),
+
+          const SizedBox(height: 24),
+
+          // ── Sales Summary (3 stat rows) ───────────────────────────
+          _sectionTitle(context),
+          const SizedBox(height: 12),
+          _infoCard(context, [
+            _shimmerStatRow(context),
+            _divider(context),
+            _shimmerStatRow(context),
+            _divider(context),
+            _shimmerStatRow(context),
+          ]),
+
+          const SizedBox(height: 24),
+
+          // ── Sales Target (3 rows with progress bars) ──────────────
+          _sectionTitle(context),
+          const SizedBox(height: 12),
+          _infoCard(context, [
+            _shimmerTargetRow(context),
+            _divider(context),
+            _shimmerTargetRow(context),
+            _divider(context),
+            _shimmerTargetRow(context),
+          ]),
+
+          const SizedBox(height: 24),
+
+          // ── Last Delivery (4 rows) ────────────────────────────────
+          _sectionTitle(context),
+          const SizedBox(height: 12),
+          _infoCard(context, [
+            _shimmerRow(context),
+            _divider(context),
+            _shimmerRow(context),
+            _divider(context),
+            _shimmerRow(context),
+            _divider(context),
+            _shimmerRow(context),
+          ]),
+
+          const SizedBox(height: 32),
+
+          // ── Update Product button placeholder ─────────────────────
+          _ShimmerWrap(
+            period: _kPeriod,
+            child: Container(
+              width: double.infinity,
+              height: 52,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 24),
         ],
       ),
     );

@@ -7,6 +7,8 @@ import 'package:reebaplus_pos/core/database/app_database.dart';
 import 'package:reebaplus_pos/core/providers/app_providers.dart';
 import 'package:reebaplus_pos/features/auth/screens/biometric_setup_screen.dart';
 import 'package:reebaplus_pos/features/auth/widgets/onboarding_step_indicator.dart';
+import 'package:reebaplus_pos/features/auth/widgets/auth_background.dart';
+import 'package:reebaplus_pos/core/theme/app_decorations.dart';
 
 /// Shown to new staff (pin == '') after their email OTP is verified.
 /// Two-phase flow: enter PIN → confirm PIN → save to DB → auto-login.
@@ -96,13 +98,10 @@ class _CreatePinScreenState extends ConsumerState<CreatePinScreen> {
     setState(() => _saving = true);
     try {
       final db = ref.read(databaseProvider);
-      await (db.update(db.users)
-            ..where((u) => u.id.equals(widget.user.id)))
+      await (db.update(db.users)..where((u) => u.id.equals(widget.user.id)))
           .write(UsersCompanion(pin: Value(_pin)));
 
-      final updatedUser = await db.warehousesDao.getUserById(
-        widget.user.id,
-      );
+      final updatedUser = await db.warehousesDao.getUserById(widget.user.id);
 
       if (!mounted) return;
 
@@ -142,49 +141,30 @@ class _CreatePinScreenState extends ConsumerState<CreatePinScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final primary = Theme.of(context).colorScheme.primary;
+    final theme = Theme.of(context);
+    final primary = theme.colorScheme.primary;
 
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: Stack(
-        children: [
-          // Background
-          Positioned.fill(
-            child: Image.asset(
-              'assets/images/auth_bg.png',
-              fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => Container(color: Colors.black),
+    return AuthBackground(
+      child: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 500),
+              child: _saving
+                  ? _buildSavingState(primary)
+                  : _buildInputState(primary),
             ),
           ),
-          // Blur overlay
-          Positioned.fill(
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-              child: Container(color: Colors.black.withValues(alpha: 0.45)),
-            ),
-          ),
-          SafeArea(
-            child: Center(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 32,
-                  vertical: 24,
-                ),
-                child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 500),
-                  child: _saving
-                      ? _buildSavingState(primary)
-                      : _buildInputState(primary),
-                ),
-              ),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
 
   Widget _buildSavingState(Color primary) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? Colors.white : Colors.black;
+
     return Column(
       key: const ValueKey('saving'),
       mainAxisAlignment: MainAxisAlignment.center,
@@ -192,15 +172,15 @@ class _CreatePinScreenState extends ConsumerState<CreatePinScreen> {
         CircleAvatar(
           radius: 44,
           backgroundColor: primary.withValues(alpha: 0.1),
-          child: const Icon(Icons.check_rounded, size: 48, color: Colors.white),
+          child: Icon(Icons.check_rounded, size: 48, color: primary),
         ),
         const SizedBox(height: 24),
-        const Text(
+        Text(
           'PIN Setup Complete',
           style: TextStyle(
             fontSize: 22,
             fontWeight: FontWeight.w700,
-            color: Colors.white,
+            color: textColor,
           ),
         ),
         const SizedBox(height: 8),
@@ -208,7 +188,7 @@ class _CreatePinScreenState extends ConsumerState<CreatePinScreen> {
           'Securing your account...',
           style: TextStyle(
             fontSize: 14,
-            color: Colors.white.withValues(alpha: 0.6),
+            color: textColor.withValues(alpha: 0.6),
           ),
         ),
       ],
@@ -218,6 +198,10 @@ class _CreatePinScreenState extends ConsumerState<CreatePinScreen> {
   bool get _isOnboarding => widget.isNewBusinessSetup || widget.isJoinFlow;
 
   Widget _buildInputState(Color primary) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final textColor = isDark ? Colors.white : Colors.black;
+
     return Column(
       key: ValueKey(_confirming ? 'confirm' : 'create'),
       mainAxisAlignment: MainAxisAlignment.center,
@@ -235,17 +219,18 @@ class _CreatePinScreenState extends ConsumerState<CreatePinScreen> {
         Image.asset(
           'assets/images/reebaplus_logo.png',
           height: 80,
+          color: isDark ? null : primary,
           errorBuilder: (_, __, ___) =>
-              const Icon(Icons.storefront, size: 80, color: Colors.white),
+              Icon(Icons.storefront, size: 80, color: textColor),
         ),
         const SizedBox(height: 12),
 
         Text(
           _confirming ? 'Confirm your PIN' : 'Create a PIN',
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 22,
             fontWeight: FontWeight.w700,
-            color: Colors.white,
+            color: textColor,
           ),
         ),
         const SizedBox(height: 6),
@@ -253,7 +238,7 @@ class _CreatePinScreenState extends ConsumerState<CreatePinScreen> {
           'Welcome, ${widget.user.name}!',
           style: TextStyle(
             fontSize: 15,
-            color: Colors.white.withValues(alpha: 0.8),
+            color: textColor.withValues(alpha: 0.8),
             fontWeight: FontWeight.w500,
           ),
         ),
@@ -264,7 +249,7 @@ class _CreatePinScreenState extends ConsumerState<CreatePinScreen> {
               : 'Choose a 6-digit PIN for quick login',
           style: TextStyle(
             fontSize: 13,
-            color: Colors.white.withValues(alpha: 0.6),
+            color: textColor.withValues(alpha: 0.6),
           ),
           textAlign: TextAlign.center,
         ),
@@ -276,7 +261,7 @@ class _CreatePinScreenState extends ConsumerState<CreatePinScreen> {
               fontSize: 12,
               color: _errorMessage != null
                   ? Colors.transparent
-                  : Colors.white.withValues(alpha: 0.4),
+                  : textColor.withValues(alpha: 0.4),
               fontStyle: FontStyle.italic,
             ),
             textAlign: TextAlign.center,
@@ -298,11 +283,9 @@ class _CreatePinScreenState extends ConsumerState<CreatePinScreen> {
                 height: 18,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: filled ? primary : Colors.white.withValues(alpha: 0.1),
+                  color: filled ? primary : textColor.withValues(alpha: 0.05),
                   border: Border.all(
-                    color: filled
-                        ? primary
-                        : Colors.white.withValues(alpha: 0.4),
+                    color: filled ? primary : textColor.withValues(alpha: 0.2),
                     width: 2,
                   ),
                 ),
@@ -366,7 +349,7 @@ class _CreatePinScreenState extends ConsumerState<CreatePinScreen> {
             child: Text(
               '← Back to create PIN',
               style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.55),
+                color: textColor.withValues(alpha: 0.55),
                 fontSize: 13,
               ),
             ),
@@ -399,37 +382,33 @@ class _KeyBtn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(20),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-        child: Container(
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
-          ),
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: onTap,
-              borderRadius: BorderRadius.circular(20),
-              child: SizedBox(
-                width: 80,
-                height: 80,
-                child: Center(
-                  child: icon != null
-                      ? Icon(icon, color: Colors.white, size: 26)
-                      : Text(
-                          label!,
-                          style: const TextStyle(
-                            fontSize: 28,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.white,
-                          ),
-                        ),
-                ),
-              ),
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final textColor = isDark ? Colors.white : Colors.black;
+
+    return Container(
+      decoration: AppDecorations.glassCard(context, radius: 20),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(20),
+          highlightColor: textColor.withValues(alpha: 0.1),
+          splashColor: textColor.withValues(alpha: 0.2),
+          child: SizedBox(
+            width: 80,
+            height: 80,
+            child: Center(
+              child: icon != null
+                  ? Icon(icon, color: textColor, size: 26)
+                  : Text(
+                      label!,
+                      style: TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.w600,
+                        color: textColor,
+                      ),
+                    ),
             ),
           ),
         ),

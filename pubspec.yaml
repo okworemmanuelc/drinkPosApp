@@ -88,6 +88,7 @@ flutter:
 
   assets:
     - assets/images/auth_bg.png
+    - assets/images/auth_bg_light.png
     - assets/images/calculator_bg.png
     - assets/images/auth_gradient_bg.png
     - assets/images/reebaplus_logo.png

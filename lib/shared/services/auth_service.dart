@@ -252,8 +252,16 @@ class AuthService extends ValueNotifier<UserData?> {
   }
 
   /// Creates a new owner (CEO) account in the local database after OTP verification.
-  /// Returns the newly created [UserData] record.
+  /// If an account with this email already exists (e.g. user went back and
+  /// re-submitted the name screen), updates the name and returns the existing record.
   Future<UserData> createNewOwner(String email, String name) async {
+    final existing = await getUserByEmail(email);
+    if (existing != null) {
+      await (_db.update(_db.users)..where((u) => u.id.equals(existing.id)))
+          .write(UsersCompanion(name: Value(name)));
+      return (_db.select(_db.users)..where((u) => u.id.equals(existing.id)))
+          .getSingle();
+    }
     final id = await database
         .into(_db.users)
         .insert(

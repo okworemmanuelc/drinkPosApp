@@ -11,6 +11,7 @@ import 'package:reebaplus_pos/features/auth/widgets/onboarding_step_indicator.da
 import 'package:reebaplus_pos/shared/widgets/main_layout.dart';
 import 'package:reebaplus_pos/features/auth/screens/success_dashboard_entry_screen.dart';
 import 'package:reebaplus_pos/features/auth/screens/access_granted_screen.dart';
+import 'package:reebaplus_pos/features/auth/widgets/auth_background.dart';
 
 class BiometricSetupScreen extends ConsumerStatefulWidget {
   final UserData user;
@@ -25,7 +26,8 @@ class BiometricSetupScreen extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<BiometricSetupScreen> createState() => _BiometricSetupScreenState();
+  ConsumerState<BiometricSetupScreen> createState() =>
+      _BiometricSetupScreenState();
 }
 
 class _BiometricSetupScreenState extends ConsumerState<BiometricSetupScreen> {
@@ -107,93 +109,80 @@ class _BiometricSetupScreenState extends ConsumerState<BiometricSetupScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: Stack(
-        children: [
-          Positioned.fill(
-            child: Image.asset(
-              'assets/images/auth_bg.png',
-              fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => Container(color: Colors.black),
-            ),
-          ),
-          Positioned.fill(
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-              child: Container(color: Colors.black.withValues(alpha: 0.45)),
-            ),
-          ),
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 40),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  if (widget.isNewBusinessSetup || widget.isJoinFlow)
-                    OnboardingStepIndicator(
-                      currentStep: widget.isNewBusinessSetup ? 7 : 6,
-                      totalSteps: widget.isNewBusinessSetup ? 7 : 6,
-                      stepLabels: widget.isNewBusinessSetup
-                          ? OnboardingStepIndicator.pathALabels
-                          : OnboardingStepIndicator.pathBLabels,
-                    ),
-                  if (widget.isNewBusinessSetup || widget.isJoinFlow)
-                    const SizedBox(height: 16),
-                  const Icon(Icons.fingerprint, size: 80, color: Colors.white),
-                  const SizedBox(height: 24),
-                  const Text(
-                    'Speed up your login',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'Use Face ID or Fingerprint to log into Reebaplus POS instantly and securely instead of typing your PIN every time.',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.white.withValues(alpha: 0.7),
-                      height: 1.5,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 48),
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final textColor = isDark ? Colors.white : Colors.black;
+    final primary = theme.colorScheme.primary;
 
-                  if (_errorMessage != null)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 24),
-                      child: Text(
-                        _errorMessage!,
-                        style: const TextStyle(
-                          color: Color(0xFFFF6B6B),
-                          fontSize: 13,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-
-                  AppButton(
-                    text: 'Enable Biometrics',
-                    isLoading: _loading,
-                    onPressed: _enableBiometrics,
-                  ),
-                  const SizedBox(height: 16),
-
-                  AppButton(
-                    text: 'Skip for now',
-                    variant: AppButtonVariant.ghost,
-                    onPressed: _loading ? null : _skip,
-                  ),
-                ],
+    return AuthBackground(
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 40),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (widget.isNewBusinessSetup || widget.isJoinFlow)
+                OnboardingStepIndicator(
+                  currentStep: widget.isNewBusinessSetup ? 7 : 6,
+                  totalSteps: widget.isNewBusinessSetup ? 7 : 6,
+                  stepLabels: widget.isNewBusinessSetup
+                      ? OnboardingStepIndicator.pathALabels
+                      : OnboardingStepIndicator.pathBLabels,
+                ),
+              if (widget.isNewBusinessSetup || widget.isJoinFlow)
+                const SizedBox(height: 16),
+              Icon(Icons.fingerprint, size: 80, color: primary),
+              const SizedBox(height: 24),
+              Text(
+                'Speed up your login',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w700,
+                  color: textColor,
+                ),
+                textAlign: TextAlign.center,
               ),
-            ),
+              const SizedBox(height: 12),
+              Text(
+                'Use Face ID or Fingerprint to log into Reebaplus POS instantly and securely instead of typing your PIN every time.',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: textColor.withValues(alpha: 0.7),
+                  height: 1.5,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 48),
+
+              if (_errorMessage != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 24),
+                  child: Text(
+                    _errorMessage!,
+                    style: const TextStyle(
+                      color: Color(0xFFFF6B6B),
+                      fontSize: 13,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+
+              AppButton(
+                text: 'Enable Biometrics',
+                isLoading: _loading,
+                onPressed: _enableBiometrics,
+              ),
+              const SizedBox(height: 16),
+
+              AppButton(
+                text: 'Skip for now',
+                variant: AppButtonVariant.ghost,
+                onPressed: _loading ? null : _skip,
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

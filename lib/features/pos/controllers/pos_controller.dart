@@ -21,6 +21,7 @@ class PosController extends ChangeNotifier {
   String? currentWarehouseName;
 
   bool isLoading = true;
+  bool _disposed = false;
   StreamSubscription? _productsSub;
   Timer? _debounce;
 
@@ -44,6 +45,7 @@ class PosController extends ChangeNotifier {
 
   @override
   void dispose() {
+    _disposed = true;
     _productsSub?.cancel();
     _debounce?.cancel();
     _cartService.activeCustomer.removeListener(_onCustomerSelected);
@@ -53,11 +55,13 @@ class PosController extends ChangeNotifier {
 
   Future<void> _loadCategories() async {
     categories = await _database.select(_database.categories).get();
+    if (_disposed) return;
     notifyListeners();
   }
 
   Future<void> _loadManufacturers() async {
     manufacturers = await _database.catalogDao.getAllManufacturers();
+    if (_disposed) return;
     notifyListeners();
   }
 
@@ -71,6 +75,7 @@ class PosController extends ChangeNotifier {
     if (warehouseId != null) {
       // Fetch warehouse name
       _database.warehousesDao.getWarehouse(warehouseId).then((w) {
+        if (_disposed) return;
         currentWarehouseName = w?.name;
         notifyListeners();
       });
@@ -79,6 +84,7 @@ class PosController extends ChangeNotifier {
           .watchProductDatasWithStockByWarehouse(warehouseId)
           .listen((data) async {
             await minLoading;
+            if (_disposed) return;
             allProducts = data;
             isLoading = false;
             notifyListeners();
@@ -89,6 +95,7 @@ class PosController extends ChangeNotifier {
           .watchProductsByCategory(selectedCategoryId)
           .listen((data) async {
             await minLoading;
+            if (_disposed) return;
             allProducts = data;
             isLoading = false;
             notifyListeners();

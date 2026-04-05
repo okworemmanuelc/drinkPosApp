@@ -1,18 +1,28 @@
 import 'dart:async';
+import 'dart:io';
+import 'dart:typed_data';
 import 'package:drift/drift.dart' show innerJoin;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:intl/intl.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:screenshot/screenshot.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:reebaplus_pos/core/database/app_database.dart';
 import 'package:reebaplus_pos/core/providers/app_providers.dart';
 import 'package:reebaplus_pos/core/theme/app_decorations.dart';
 import 'package:reebaplus_pos/core/theme/colors.dart';
+import 'package:reebaplus_pos/core/utils/notifications.dart';
 import 'package:reebaplus_pos/core/utils/number_format.dart';
 import 'package:reebaplus_pos/core/utils/responsive.dart';
 import 'package:reebaplus_pos/core/widgets/amber_button.dart';
 import 'package:reebaplus_pos/core/widgets/status_badge.dart';
 import 'package:reebaplus_pos/features/customers/data/models/customer.dart';
+import 'package:reebaplus_pos/features/pos/services/receipt_builder.dart';
+import 'package:reebaplus_pos/shared/widgets/app_button.dart';
+import 'package:reebaplus_pos/shared/widgets/notification_bell.dart';
+import 'package:reebaplus_pos/shared/widgets/printer_picker.dart';
 import 'package:reebaplus_pos/shared/widgets/receipt_widget.dart';
 import 'package:reebaplus_pos/shared/widgets/shimmer_loading.dart';
 
@@ -22,11 +32,13 @@ class CustomerDetailScreen extends ConsumerStatefulWidget {
   const CustomerDetailScreen({super.key, this.customer});
 
   @override
-  ConsumerState<CustomerDetailScreen> createState() => _CustomerDetailScreenState();
+  ConsumerState<CustomerDetailScreen> createState() =>
+      _CustomerDetailScreenState();
 }
 
 class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
   bool _contentReady = false;
+  final ScreenshotController _screenshotCtrl = ScreenshotController();
 
   CustomerData? _customerData;
   int _walletBalance = 0;
@@ -219,13 +231,15 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
                   final messenger = ScaffoldMessenger.of(context);
                   Navigator.pop(ctx);
 
-                  await ref.read(customerServiceProvider).updateWalletBalance(id, amount, note);
+                  await ref
+                      .read(customerServiceProvider)
+                      .updateWalletBalance(id, amount, note);
                   messenger.showSnackBar(
                     SnackBar(
                       content: Text(
                         '₦${amount.toStringAsFixed(0)} added to wallet',
                       ),
-                      backgroundColor: successGreen,
+                      backgroundColor: success,
                     ),
                   );
                 },
@@ -299,13 +313,15 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
                   if (id == null) return;
                   final messenger = ScaffoldMessenger.of(context);
                   Navigator.pop(ctx);
-                  await ref.read(customerServiceProvider).updateWalletLimit(id, amount);
+                  await ref
+                      .read(customerServiceProvider)
+                      .updateWalletLimit(id, amount);
                   messenger.showSnackBar(
                     SnackBar(
                       content: Text(
                         'Debt limit set to ${formatCurrency(amount)}',
                       ),
-                      backgroundColor: successGreen,
+                      backgroundColor: success,
                     ),
                   );
                 },
@@ -323,10 +339,7 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
   void _showReceipt(OrderData order) async {
     final db = ref.read(databaseProvider);
     final itemRows = await (db.select(db.orderItems).join([
-      innerJoin(
-        db.products,
-        db.products.id.equalsExp(db.orderItems.productId),
-      ),
+      innerJoin(db.products, db.products.id.equalsExp(db.orderItems.productId)),
     ])..where(db.orderItems.orderId.equals(order.id))).get();
 
     final items = itemRows.map((row) {
@@ -334,21 +347,151 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
       final i = row.readTable(db.orderItems);
       return {
         'name': p.name,
-        'qty': i.quantity.toDouble(),
+        'qty': i.quantity,
         'price': i.unitPriceKobo / 100.0,
-        'manufacturerId': p.manufacturerId,
-        'crateGroupId': p.crateGroupId,
-        'emptyCrateValueKobo': p.emptyCrateValueKobo,
       };
     }).toList();
 
     if (!mounted) return;
 
+    DateTime? reprintDate;
+    DateTime? reshareDate;
+    final surfaceCol = Theme.of(context).colorScheme.surface;
+    final borderCol = Theme.of(context).dividerColor;
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => ReceiptWidget(
+      builder: (modalCtx) {
+        return StatefulBuilder(
+          builder: (ctx, setModalState) {
+            return Container(
+              height: MediaQuery.of(ctx).size.height * 0.85,
+              decoration: BoxDecoration(
+                color: surfaceCol,
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(20),
+                ),
+              ),
+              child: Column(
+                children: [
+                  Container(
+                    margin: EdgeInsets.symmetric(vertical: ctx.getRSize(12)),
+                    width: ctx.getRSize(40),
+                    height: ctx.getRSize(5),
+                    decoration: BoxDecoration(
+                      color: borderCol,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      padding: EdgeInsets.fromLTRB(
+                        ctx.getRSize(20),
+                        ctx.getRSize(10),
+                        ctx.getRSize(20),
+                        ctx.getRSize(30),
+                      ),
+                      child: Screenshot(
+                        controller: _screenshotCtrl,
+                        child: ReceiptWidget(
+                          orderId: order.orderNumber,
+                          cart: items,
+                          subtotal:
+                              (order.totalAmountKobo -
+                                  order.crateDepositPaidKobo) /
+                              100.0,
+                          crateDeposit: order.crateDepositPaidKobo / 100.0,
+                          total: order.totalAmountKobo / 100.0,
+                          paymentMethod: order.paymentType,
+                          customerName: _name,
+                          customerPhone: _phone,
+                          customerAddress: _address,
+                          cashReceived: order.amountPaidKobo / 100.0,
+                          orderStatus:
+                              order.status[0].toUpperCase() +
+                              order.status.substring(1),
+                          riderName: order.riderName,
+                          reprintDate: reprintDate,
+                          reshareDate: reshareDate,
+                        ),
+                      ),
+                    ),
+                  ),
+                  SafeArea(
+                    top: false,
+                    child: Padding(
+                      padding: EdgeInsets.all(ctx.getRSize(16)),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: AppButton(
+                              text: 'Print',
+                              icon: FontAwesomeIcons.print,
+                              onPressed: () {
+                                setModalState(
+                                  () => reprintDate = DateTime.now(),
+                                );
+                                _printReceiptFromDetail(ctx, order, items);
+                              },
+                            ),
+                          ),
+                          SizedBox(width: ctx.getRSize(12)),
+                          Expanded(
+                            child: AppButton(
+                              text: 'Share',
+                              icon: FontAwesomeIcons.shareNodes,
+                              variant: AppButtonVariant.secondary,
+                              onPressed: () async {
+                                setModalState(
+                                  () => reshareDate = DateTime.now(),
+                                );
+                                await Future.delayed(
+                                  const Duration(milliseconds: 100),
+                                );
+                                if (ctx.mounted) {
+                                  _shareReceiptFromDetail(
+                                    ctx,
+                                    order.orderNumber,
+                                  );
+                                }
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    ).then((_) {
+      reprintDate = null;
+      reshareDate = null;
+    });
+  }
+
+  Future<void> _printReceiptFromDetail(
+    BuildContext ctx,
+    OrderData order,
+    List<Map<String, dynamic>> items,
+  ) async {
+    try {
+      final granted = await ref
+          .read(printerServiceProvider)
+          .requestPermissions();
+      if (!granted) {
+        if (!ctx.mounted) return;
+        AppNotification.showError(ctx, 'Bluetooth permissions denied');
+        return;
+      }
+
+      final bytes = await ThermalReceiptService.buildReceipt(
         orderId: order.orderNumber,
         cart: items,
         subtotal: (order.totalAmountKobo - order.crateDepositPaidKobo) / 100.0,
@@ -356,12 +499,89 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
         total: order.totalAmountKobo / 100.0,
         paymentMethod: order.paymentType,
         customerName: _name,
-        customerPhone: _phone,
         customerAddress: _address,
-        orderStatus: order.status[0].toUpperCase() + order.status.substring(1),
+        cashReceived: order.amountPaidKobo / 100.0,
+        reprintDate: DateTime.now(),
         riderName: order.riderName,
-      ),
-    );
+        orderStatus: order.status,
+        refundAmount: order.amountPaidKobo / 100.0,
+      );
+
+      if (!ctx.mounted) return;
+
+      final success = await ref.read(printerServiceProvider).printBytes(bytes);
+      if (success) {
+        if (!ctx.mounted) return;
+        AppNotification.showSuccess(ctx, 'Print successful');
+        return;
+      }
+
+      if (ctx.mounted) {
+        showModalBottomSheet(
+          context: ctx,
+          isScrollControlled: true,
+          backgroundColor: Theme.of(ctx).colorScheme.surface,
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(ctx).size.height * 0.5,
+          ),
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+          ),
+          builder: (_) => PrinterPicker(
+            onSelected: (device) async {
+              if (!ctx.mounted) return;
+              Navigator.pop(ctx);
+              if (!ctx.mounted) return;
+              AppNotification.showSuccess(
+                ctx,
+                'Connecting to ${device.name}...',
+              );
+              final connected = await ref
+                  .read(printerServiceProvider)
+                  .connect(device.macAdress);
+              if (!mounted) return;
+              if (connected) {
+                await ref.read(printerServiceProvider).printBytes(bytes);
+                if (!ctx.mounted) return;
+                AppNotification.showSuccess(ctx, 'Print successful');
+              } else {
+                if (!ctx.mounted) return;
+                AppNotification.showError(
+                  ctx,
+                  'Failed to connect to ${device.name}',
+                );
+              }
+            },
+          ),
+        );
+      }
+    } catch (e) {
+      if (ctx.mounted) AppNotification.showError(ctx, 'Error printing: $e');
+    }
+  }
+
+  Future<void> _shareReceiptFromDetail(
+    BuildContext ctx,
+    String orderNumber,
+  ) async {
+    try {
+      final Uint8List? imageBytes = await _screenshotCtrl.capture(
+        delay: const Duration(milliseconds: 50),
+        pixelRatio: 3.0,
+      );
+      if (imageBytes == null) return;
+
+      final tempDir = await getTemporaryDirectory();
+      final file = File('${tempDir.path}/receipt_$orderNumber.png');
+      await file.writeAsBytes(imageBytes);
+
+      if (!ctx.mounted) return;
+      await Share.shareXFiles([
+        XFile(file.path),
+      ], subject: 'Receipt #$orderNumber');
+    } catch (e) {
+      if (ctx.mounted) AppNotification.showError(ctx, 'Error sharing: $e');
+    }
   }
 
   // ── Build ──────────────────────────────────────────────────────────────────
@@ -375,7 +595,7 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
       child: Scaffold(
         backgroundColor: theme.scaffoldBackgroundColor,
         appBar: AppBar(
-          backgroundColor: Colors.transparent,
+          backgroundColor: theme.colorScheme.surface,
           elevation: 0,
           leading: IconButton(
             icon: Icon(
@@ -385,22 +605,61 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
             ),
             onPressed: () => Navigator.pop(context),
           ),
-          title: Text(
-            'Customer Profile',
-            style: TextStyle(
-              fontSize: context.getRFontSize(18),
-              fontWeight: FontWeight.w800,
-              color: theme.colorScheme.onSurface,
-            ),
+          title: Row(
+            children: [
+              Container(
+                padding: EdgeInsets.all(context.getRSize(8)),
+                decoration: AppDecorations.primaryGradient(context, radius: 12),
+                child: Icon(
+                  FontAwesomeIcons.user,
+                  color: Colors.white,
+                  size: context.getRSize(16),
+                ),
+              ),
+              SizedBox(width: context.getRSize(12)),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        'Customer Profile',
+                        style: TextStyle(
+                          fontSize: context.getRFontSize(18),
+                          fontWeight: FontWeight.w800,
+                          color: theme.colorScheme.onSurface,
+                          letterSpacing: -0.5,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      'Account Details',
+                      style: TextStyle(
+                        fontSize: context.getRFontSize(11),
+                        color: theme.colorScheme.primary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-          centerTitle: true,
+          centerTitle: false,
+          actions: [
+            const NotificationBell(),
+            SizedBox(width: context.getRSize(8)),
+          ],
         ),
         body: RefreshIndicator(
           onRefresh: () async {
             _loadData();
             await Future.delayed(const Duration(milliseconds: 500));
           },
-          color: amberPrimary,
+          color: theme.colorScheme.primary,
           child: _contentReady ? _buildContent(theme) : _buildShimmer(theme),
         ),
       ),
@@ -452,14 +711,14 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
           Container(
             width: context.getRSize(60),
             height: context.getRSize(60),
-            decoration: AppDecorations.amberGradient(radius: 30),
+            decoration: AppDecorations.primaryGradient(context, radius: 30),
             child: Center(
               child: Text(
                 _initials(_name),
                 style: TextStyle(
                   fontSize: context.getRFontSize(22),
                   fontWeight: FontWeight.w900,
-                  color: Colors.black,
+                  color: theme.colorScheme.onPrimary,
                 ),
               ),
             ),
@@ -539,7 +798,7 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
                 Icon(
                   FontAwesomeIcons.wallet,
                   size: context.getRSize(14),
-                  color: amberPrimary,
+                  color: theme.colorScheme.primary,
                 ),
                 SizedBox(width: context.getRSize(8)),
                 Text(
@@ -558,7 +817,7 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
               style: TextStyle(
                 fontSize: context.getRFontSize(28),
                 fontWeight: FontWeight.w900,
-                color: balance >= 0 ? theme.colorScheme.onSurface : dangerRed,
+                color: balance >= 0 ? theme.colorScheme.onSurface : danger,
                 letterSpacing: -1,
               ),
             ),
@@ -631,9 +890,9 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
 
   Widget _buildTabBar(ThemeData theme) {
     return TabBar(
-      labelColor: amberPrimary,
+      labelColor: theme.colorScheme.primary,
       unselectedLabelColor: theme.colorScheme.onSurface.withAlpha(115),
-      indicatorColor: amberPrimary,
+      indicatorColor: theme.colorScheme.primary,
       indicatorSize: TabBarIndicatorSize.tab,
       labelStyle: TextStyle(
         fontSize: context.getRFontSize(13),
@@ -672,7 +931,7 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
         final txn = _walletHistory[i];
         final isCredit = txn.type == 'credit';
         final amount = txn.amountKobo / 100.0;
-        final color = isCredit ? successGreen : dangerRed;
+        final color = isCredit ? success : danger;
         return Padding(
           padding: EdgeInsets.only(bottom: ctx.getRSize(10)),
           child: Container(
@@ -769,12 +1028,12 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
                     width: ctx.getRSize(38),
                     height: ctx.getRSize(38),
                     decoration: BoxDecoration(
-                      color: amberPrimary.withAlpha(25),
+                      color: theme.colorScheme.primary.withAlpha(25),
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
                       FontAwesomeIcons.receipt,
-                      color: amberPrimary,
+                      color: theme.colorScheme.primary,
                       size: ctx.getRSize(16),
                     ),
                   ),
@@ -857,8 +1116,8 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
         final color = isClear
             ? theme.colorScheme.onSurface.withAlpha(102)
             : isOwe
-            ? amberPrimary
-            : successGreen;
+            ? theme.colorScheme.primary
+            : success;
         final label = isClear
             ? 'Clear'
             : isOwe
@@ -951,7 +1210,7 @@ class _InfoRow extends StatelessWidget {
         Icon(
           icon,
           size: context.getRSize(12),
-          color: theme.colorScheme.onSurface.withAlpha(102),
+          color: theme.colorScheme.primary.withValues(alpha: 0.7),
         ),
         SizedBox(width: context.getRSize(6)),
         Expanded(
@@ -961,7 +1220,7 @@ class _InfoRow extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
               fontSize: context.getRFontSize(12),
-              color: theme.colorScheme.onSurface.withAlpha(153),
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
             ),
           ),
         ),

@@ -86,16 +86,18 @@ class OrderService {
     final dao = _db.customersDao;
 
     if (paymentType == 'Full Cash / Card' && paymentSubType != 'wallet') {
-      // Audit trail only — cash in, sale out, net zero
-      await dao.recordWalletTransaction(
-        customerId: customerId, amountKobo: totalAmountKobo,
-        type: 'credit', referenceId: orderNo, staffId: staffId,
-        note: 'cash_received',
-      );
+      // Audit trail only — cash in, sale out, net zero.
+      // Insert sale_charged first so cash_received (newer timestamp) appears
+      // on top in the DESC wallet history list.
       await dao.recordWalletTransaction(
         customerId: customerId, amountKobo: totalAmountKobo,
         type: 'debit', referenceId: orderNo, staffId: staffId,
         note: 'sale_charged',
+      );
+      await dao.recordWalletTransaction(
+        customerId: customerId, amountKobo: totalAmountKobo,
+        type: 'credit', referenceId: orderNo, staffId: staffId,
+        note: 'cash_received',
       );
 
     } else if (paymentType == 'Wallet Payment') {
@@ -107,16 +109,17 @@ class OrderService {
       );
 
     } else if (paymentType == 'Partial Cash / Card') {
-      // Credit what was paid; debit the full amount
-      await dao.recordWalletTransaction(
-        customerId: customerId, amountKobo: amountPaidKobo,
-        type: 'credit', referenceId: orderNo, staffId: staffId,
-        note: 'partial_cash',
-      );
+      // Insert sale_charged first so partial_cash (newer timestamp) appears
+      // on top in the DESC wallet history list — money received before charge.
       await dao.recordWalletTransaction(
         customerId: customerId, amountKobo: totalAmountKobo,
         type: 'debit', referenceId: orderNo, staffId: staffId,
         note: 'sale_charged',
+      );
+      await dao.recordWalletTransaction(
+        customerId: customerId, amountKobo: amountPaidKobo,
+        type: 'credit', referenceId: orderNo, staffId: staffId,
+        note: 'partial_cash',
       );
 
     } else if (paymentType == 'Credit Sale') {

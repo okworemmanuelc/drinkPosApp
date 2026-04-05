@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:reebaplus_pos/core/theme/design_tokens.dart';
 
 /// Animated step-progress indicator for the onboarding flow.
 ///
@@ -111,6 +110,11 @@ class _OnboardingStepIndicatorState extends State<OnboardingStepIndicator>
   }
 
   Widget _buildDot(int step) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final activeColor = theme.colorScheme.primary;
+    final textColor = isDark ? Colors.white : Colors.black;
+
     final isCompleted = step < widget.currentStep;
     final isCurrent = step == widget.currentStep;
 
@@ -123,11 +127,11 @@ class _OnboardingStepIndicatorState extends State<OnboardingStepIndicator>
             height: 18,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: Colors.white.withValues(alpha: 0.9),
-              border: Border.all(color: Colors.white, width: 2),
+              color: activeColor,
+              border: Border.all(color: activeColor, width: 2),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.white.withValues(alpha: _pulseAnimation.value),
+                  color: activeColor.withValues(alpha: _pulseAnimation.value),
                   blurRadius: 8,
                   spreadRadius: 2,
                 ),
@@ -139,33 +143,33 @@ class _OnboardingStepIndicatorState extends State<OnboardingStepIndicator>
     }
 
     return AnimatedContainer(
-      duration: AppAnimations.normal,
-      curve: AppAnimations.curve,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
       width: 16,
       height: 16,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: isCompleted
-            ? Colors.white
-            : Colors.transparent,
+        color: isCompleted ? activeColor : Colors.transparent,
         border: Border.all(
-          color: isCompleted
-              ? Colors.white
-              : Colors.white.withValues(alpha: 0.3),
+          color: isCompleted ? activeColor : textColor.withValues(alpha: 0.3),
           width: 1.5,
         ),
       ),
       child: isCompleted
           ? const Center(
-              child: Icon(Icons.check_rounded, size: 10, color: Colors.black),
+              child: Icon(Icons.check_rounded, size: 10, color: Colors.white),
             )
           : null,
     );
   }
 
   Widget _buildLine(int leftStep) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final activeColor = theme.colorScheme.primary;
+    final textColor = isDark ? Colors.white : Colors.black;
+
     final isCompleted = leftStep < widget.currentStep;
-    final isActive = leftStep == widget.currentStep;
 
     return Expanded(
       child: Padding(
@@ -177,19 +181,19 @@ class _OnboardingStepIndicatorState extends State<OnboardingStepIndicator>
               // Background line (always visible)
               Container(
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.15),
+                  color: textColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(1),
                 ),
               ),
               // Foreground fill (animated)
               AnimatedFractionallySizedBox(
-                duration: AppAnimations.slow,
-                curve: AppAnimations.curve,
+                duration: const Duration(milliseconds: 500),
+                curve: Curves.easeInOut,
                 alignment: Alignment.centerLeft,
-                widthFactor: isCompleted ? 1.0 : (isActive ? 0.0 : 0.0),
+                widthFactor: isCompleted ? 1.0 : 0.0,
                 child: Container(
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.8),
+                    color: activeColor.withValues(alpha: 0.8),
                     borderRadius: BorderRadius.circular(1),
                   ),
                 ),
@@ -202,19 +206,24 @@ class _OnboardingStepIndicatorState extends State<OnboardingStepIndicator>
   }
 
   Widget _buildLabel(int step) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final textColor = isDark ? Colors.white : Colors.black;
+    final activeColor = theme.colorScheme.primary;
+
     final isActiveOrDone = step <= widget.currentStep;
 
     return SizedBox(
       width: 40,
       child: AnimatedDefaultTextStyle(
-        duration: AppAnimations.normal,
-        curve: AppAnimations.curve,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
         style: TextStyle(
           fontSize: 9,
           fontWeight: FontWeight.w500,
           color: isActiveOrDone
-              ? Colors.white.withValues(alpha: 0.9)
-              : Colors.white.withValues(alpha: 0.3),
+              ? (step == widget.currentStep ? activeColor : textColor)
+              : textColor.withValues(alpha: 0.3),
         ),
         child: Text(
           widget.stepLabels[step - 1],
@@ -256,17 +265,21 @@ class _AnimatedFractionallySizedBoxState
 
   @override
   void forEachTween(TweenVisitor<dynamic> visitor) {
-    _widthFactor = visitor(
-      _widthFactor,
-      widget.widthFactor ?? 1.0,
-      (value) => Tween<double>(begin: value as double),
-    ) as Tween<double>?;
+    _widthFactor =
+        visitor(
+              _widthFactor,
+              widget.widthFactor ?? 1.0,
+              (value) => Tween<double>(begin: value as double),
+            )
+            as Tween<double>?;
 
-    _heightFactor = visitor(
-      _heightFactor,
-      widget.heightFactor ?? 1.0,
-      (value) => Tween<double>(begin: value as double),
-    ) as Tween<double>?;
+    _heightFactor =
+        visitor(
+              _heightFactor,
+              widget.heightFactor ?? 1.0,
+              (value) => Tween<double>(begin: value as double),
+            )
+            as Tween<double>?;
   }
 
   @override

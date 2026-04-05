@@ -12,6 +12,7 @@ import 'package:reebaplus_pos/shared/widgets/app_button.dart';
 import 'package:reebaplus_pos/features/auth/screens/create_pin_screen.dart';
 import 'package:reebaplus_pos/features/auth/screens/login_screen.dart';
 import 'package:reebaplus_pos/features/auth/screens/business_type_selection_screen.dart';
+import 'package:reebaplus_pos/features/auth/widgets/auth_background.dart';
 
 class OtpVerificationScreen extends ConsumerStatefulWidget {
   final UserData? user;
@@ -26,7 +27,8 @@ class OtpVerificationScreen extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<OtpVerificationScreen> createState() => _OtpVerificationScreenState();
+  ConsumerState<OtpVerificationScreen> createState() =>
+      _OtpVerificationScreenState();
 }
 
 class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
@@ -288,163 +290,138 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: Stack(
-        children: [
-          // Background
-          Positioned.fill(
-            child: Image.asset(
-              'assets/images/auth_bg.png',
-              fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => Container(color: Colors.black),
-            ),
-          ),
-          // Blur overlay
-          Positioned.fill(
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-              child: Container(color: Colors.black.withValues(alpha: 0.45)),
-            ),
-          ),
-          SafeArea(
-            child: SingleChildScrollView(
-              padding: EdgeInsets.fromLTRB(
-                28,
-                40,
-                28,
-                MediaQuery.of(context).viewInsets.bottom + 24,
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final textColor = isDark ? Colors.white : Colors.black;
+
+    return AuthBackground(
+      child: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(28, 40, 28, 40),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Back button
+              Align(
+                alignment: Alignment.centerLeft,
+                child: IconButton(
+                  icon: Icon(Icons.arrow_back_ios, color: textColor, size: 20),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // Back button
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: IconButton(
-                      icon: const Icon(
-                        Icons.arrow_back_ios,
-                        color: Colors.white,
-                        size: 20,
-                      ),
-                      onPressed: () => Navigator.of(context).pop(),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
+              const SizedBox(height: 16),
 
-                  // Logo
-                  Center(
-                    child: Image.asset(
-                      'assets/images/reebaplus_logo.png',
-                      height: 72,
-                      errorBuilder: (_, __, ___) => const Icon(
-                        Icons.storefront,
-                        size: 72,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
+              // Logo
+              Center(
+                child: Image.asset(
+                  'assets/images/reebaplus_logo.png',
+                  height: 72,
+                  color: isDark ? null : theme.colorScheme.primary,
+                  errorBuilder: (_, __, ___) =>
+                      Icon(Icons.storefront, size: 72, color: textColor),
+                ),
+              ),
+              const SizedBox(height: 20),
 
-                  const Center(
-                    child: Text(
-                      'Check your email',
-                      style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
-                      ),
-                    ),
+              Center(
+                child: Text(
+                  'Check your email',
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
+                    color: textColor,
                   ),
-                  const SizedBox(height: 8),
-                  Center(
-                    child: Text(
-                      'Enter the 6-digit code sent to\n${_maskEmail(widget.email)}',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: Colors.white.withValues(alpha: 0.7),
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Center(
+                child: Text(
+                  'Enter the 6-digit code sent to\n${_maskEmail(widget.email)}',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: textColor.withValues(alpha: 0.7),
                   ),
-                  const SizedBox(height: 36),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+              const SizedBox(height: 36),
 
-                  // OTP input — single invisible field driving 6 styled boxes
-                  _ShakeWidget(
-                    key: _shakeKey,
-                    child: _OtpBoxRow(
-                      controller: _otpController,
-                      hasError: _errorMessage != null,
-                      onSubmit: _canSubmit ? _submit : null,
-                      ignorePointers: _isLockedOut,
-                      readOnly: _loading,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
+              // OTP input — single invisible field driving 6 styled boxes
+              _ShakeWidget(
+                key: _shakeKey,
+                child: _OtpBoxRow(
+                  controller: _otpController,
+                  hasError: _errorMessage != null,
+                  onSubmit: _canSubmit ? _submit : null,
+                  ignorePointers: _isLockedOut,
+                  readOnly: _loading,
+                  textColor: textColor,
+                ),
+              ),
+              const SizedBox(height: 12),
 
-                  const Center(
-                    child: Text(
-                      'Code expires in 10 minutes',
-                      style: TextStyle(color: Colors.white54, fontSize: 13),
-                    ),
+              Center(
+                child: Text(
+                  'Code expires in 10 minutes',
+                  style: TextStyle(
+                    color: textColor.withValues(alpha: 0.5),
+                    fontSize: 13,
                   ),
-                  const SizedBox(height: 12),
+                ),
+              ),
+              const SizedBox(height: 12),
 
-                  // Error message
-                  AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 200),
-                    child: _errorMessage != null
-                        ? Padding(
-                            key: const ValueKey('err'),
-                            padding: const EdgeInsets.only(bottom: 4),
-                            child: Text(
-                              _errorMessage!,
-                              style: const TextStyle(
-                                color: Color(0xFFFF6B6B),
-                                fontSize: 13,
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                          )
-                        : const SizedBox(key: ValueKey('no-err'), height: 18),
-                  ),
-                  const SizedBox(height: 16),
-
-                  AppButton(
-                    text: 'Verify',
-                    isLoading: _loading,
-                    onPressed: _canSubmit ? _submit : null,
-                  ),
-                  const SizedBox(height: 20),
-
-                  // Resend button with countdown
-                  Center(
-                    child: _resendCountdown > 0
-                        ? Text(
-                            'Resend code in 0:${_resendCountdown.toString().padLeft(2, '0')}',
-                            style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.5),
-                              fontSize: 13,
-                            ),
-                          )
-                        : TextButton(
-                            onPressed: (_loading || _isLockedOut)
-                                ? null
-                                : _resend,
-                            child: Text(
-                              'Resend code',
-                              style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.75),
-                                fontSize: 13,
-                              ),
-                            ),
+              // Error message
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 200),
+                child: _errorMessage != null
+                    ? Padding(
+                        key: const ValueKey('err'),
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: Text(
+                          _errorMessage!,
+                          style: const TextStyle(
+                            color: Color(0xFFFF6B6B),
+                            fontSize: 13,
                           ),
-                  ),
-                ],
+                          textAlign: TextAlign.center,
+                        ),
+                      )
+                    : const SizedBox(key: ValueKey('no-err'), height: 18),
               ),
-            ),
+              const SizedBox(height: 16),
+
+              AppButton(
+                text: 'Verify',
+                isLoading: _loading,
+                onPressed: _canSubmit ? _submit : null,
+              ),
+              const SizedBox(height: 20),
+
+              // Resend button with countdown
+              Center(
+                child: _resendCountdown > 0
+                    ? Text(
+                        'Resend code in 0:${_resendCountdown.toString().padLeft(2, '0')}',
+                        style: TextStyle(
+                          color: textColor.withValues(alpha: 0.5),
+                          fontSize: 13,
+                        ),
+                      )
+                    : TextButton(
+                        onPressed: (_loading || _isLockedOut) ? null : _resend,
+                        child: Text(
+                          'Resend code',
+                          style: TextStyle(
+                            color: textColor.withValues(alpha: 0.75),
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -512,6 +489,7 @@ class _OtpBoxRow extends StatefulWidget {
   final VoidCallback? onSubmit;
   final bool ignorePointers;
   final bool readOnly;
+  final Color textColor;
 
   const _OtpBoxRow({
     required this.controller,
@@ -519,45 +497,69 @@ class _OtpBoxRow extends StatefulWidget {
     this.onSubmit,
     this.ignorePointers = false,
     this.readOnly = false,
+    required this.textColor,
   });
 
   @override
   State<_OtpBoxRow> createState() => _OtpBoxRowState();
 }
 
-class _OtpBoxRowState extends State<_OtpBoxRow> {
+class _OtpBoxRowState extends State<_OtpBoxRow> with WidgetsBindingObserver {
   final _focusNode = FocusNode();
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _focusNode.addListener(_handleFocusChange);
+
+    // Smooth initial keyboard appearance — wait for screen transition
+    Future.delayed(const Duration(milliseconds: 350), () {
+      if (mounted && !widget.ignorePointers && !_focusNode.hasFocus) {
+        _focusNode.requestFocus();
+        SystemChannels.textInput.invokeMethod('TextInput.show');
+      }
+    });
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _focusNode.removeListener(_handleFocusChange);
     _focusNode.dispose();
     super.dispose();
   }
 
-  void _handleFocusChange() {
-    // If focus is lost and we aren't in a locked-out state, re-request it.
-    if (!_focusNode.hasFocus && mounted && !widget.ignorePointers) {
-      // Small delay to allow the framework to settle
-      Future.microtask(() {
-        if (mounted && !_focusNode.hasFocus) {
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      // Re-request focus when app returns from background
+      Future.delayed(const Duration(milliseconds: 250), () {
+        if (mounted && !widget.ignorePointers) {
           _focusNode.requestFocus();
+          SystemChannels.textInput.invokeMethod('TextInput.show');
         }
       });
+    }
+  }
+
+  void _handleFocusChange() {
+    // We rely more on didChangeAppLifecycleState and explicit tapping now.
+    // Only re-request if we are resumed and somehow lost focus unexpectedly.
+    if (!_focusNode.hasFocus && mounted && !widget.ignorePointers) {
+      // Optional: keep it for internal focus losses but avoid fighting OS
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
+      behavior: HitTestBehavior.opaque,
       onTap: () {
-        if (!widget.ignorePointers) _focusNode.requestFocus();
+        if (!widget.ignorePointers) {
+          _focusNode.requestFocus();
+          SystemChannels.textInput.invokeMethod('TextInput.show');
+        }
       },
       child: Stack(
         children: [
@@ -573,7 +575,7 @@ class _OtpBoxRowState extends State<_OtpBoxRow> {
                 textInputAction: TextInputAction.none,
                 onSubmitted: (_) => widget.onSubmit?.call(),
                 inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                autofocus: true,
+                autofocus: false, // Handled with delay for smoothness
                 readOnly: widget.readOnly,
                 decoration: const InputDecoration(counterText: ''),
               ),
@@ -606,25 +608,25 @@ class _OtpBoxRowState extends State<_OtpBoxRow> {
                         height: boxHeight,
                         decoration: BoxDecoration(
                           color: filled
-                              ? Colors.white.withValues(alpha: 0.18)
-                              : Colors.white.withValues(alpha: 0.08),
+                              ? widget.textColor.withValues(alpha: 0.18)
+                              : widget.textColor.withValues(alpha: 0.08),
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
                             color: widget.hasError
                                 ? const Color(0xFFFF6B6B)
                                 : isActive
-                                ? Colors.white
-                                : Colors.white.withValues(alpha: 0.3),
+                                ? widget.textColor
+                                : widget.textColor.withValues(alpha: 0.3),
                             width: isActive ? 2 : 1,
                           ),
                         ),
                         child: Center(
                           child: Text(
                             digit,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 22,
                               fontWeight: FontWeight.w700,
-                              color: Colors.white,
+                              color: widget.textColor,
                             ),
                           ),
                         ),

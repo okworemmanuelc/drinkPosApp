@@ -27,6 +27,7 @@ import 'package:reebaplus_pos/core/database/app_database.dart';
 import 'package:reebaplus_pos/features/inventory/widgets/add_product_sheet.dart';
 import 'package:reebaplus_pos/features/pos/widgets/category_filter_bar.dart';
 import 'package:reebaplus_pos/shared/widgets/shimmer_loading.dart';
+import 'package:reebaplus_pos/shared/services/navigation_service.dart';
 
 class InventoryScreen extends ConsumerStatefulWidget {
   const InventoryScreen({super.key});
@@ -37,6 +38,7 @@ class InventoryScreen extends ConsumerStatefulWidget {
 class _InventoryScreenState extends ConsumerState<InventoryScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  late NavigationService _nav;
   int _currentTab = 0;
   String _selectedManufacturer = 'all';
   String _selectedWarehouseId = 'all';
@@ -85,16 +87,24 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen>
       }
     });
 
-    // Load warehouses from DB
-    final db = ref.read(databaseProvider);
-    final nav = ref.read(navigationProvider);
-    final auth = ref.read(authProvider);
-    db.select(db.warehouses).get().then((list) {
-      if (mounted) {
+    _nav = ref.read(navigationProvider);
+    _nav.selectedWarehouseId.addListener(_handleWarehouseNavigation);
+
+    // Defer all DB stream subscriptions until after the first frame so the
+    // shimmer skeleton renders immediately without competing with 8+ SQL
+    // queries on the Drift background isolate.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final db = ref.read(databaseProvider);
+      final auth = ref.read(authProvider);
+
+      // Determine initial warehouse selection, then start product stream.
+      db.select(db.warehouses).get().then((list) {
+        if (!mounted) return;
         setState(() {
           _warehouses = list;
-          final locked = nav.warehouseLocked.value;
-          final lockedId = nav.lockedWarehouseId.value;
+          final locked = _nav.warehouseLocked.value;
+          final lockedId = _nav.lockedWarehouseId.value;
           final userTier = auth.currentUser?.roleTier ?? 5;
           if (locked && lockedId != null && userTier < 4) {
             _selectedWarehouseId = lockedId.toString();
@@ -108,45 +118,39 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen>
           }
         });
         _subscribeToProducts();
-      }
+      });
+
+      _manufacturersSub = db.inventoryDao.watchAllManufacturers().listen((
+        data,
+      ) {
+        if (mounted) setState(() => _dbManufacturers = data);
+      }, onError: (e) => debugPrint('Error watching manufacturers: $e'));
+
+      _categoriesSub = db.inventoryDao.watchAllCategories().listen((data) {
+        if (mounted) setState(() => _dbCategories = data);
+      }, onError: (e) => debugPrint('Error watching categories: $e'));
+
+      _bottlesSub = db.inventoryDao.watchFullCratesByManufacturer().listen((
+        data,
+      ) {
+        if (mounted) setState(() => _fullCratesByMfr = data);
+      });
+      _emptyCratesSub = db.inventoryDao
+          .watchEmptyCratesByManufacturer()
+          .listen((data) {
+            if (mounted) setState(() => _emptyCratesByMfr = data);
+          });
+
+      _logsSub = db.activityLogDao.watchRecent().listen((data) {
+        if (mounted) setState(() => _dbLogs = data);
+      });
+
+      _crateGroupsSub = db.inventoryDao.watchAllCrateGroups().listen((
+        data,
+      ) {
+        if (mounted) setState(() => _dbCrateGroups = data);
+      });
     });
-
-    _manufacturersSub = db.inventoryDao.watchAllManufacturers().listen((
-      data,
-    ) {
-      if (mounted) setState(() => _dbManufacturers = data);
-    }, onError: (e) => debugPrint('Error watching manufacturers: $e'));
-
-    _categoriesSub = db.inventoryDao.watchAllCategories().listen((data) {
-      if (mounted) setState(() => _dbCategories = data);
-    }, onError: (e) => debugPrint('Error watching categories: $e'));
-
-    _subscribeToProducts();
-
-    _bottlesSub = db.inventoryDao.watchFullCratesByManufacturer().listen((
-      data,
-    ) {
-      if (mounted) setState(() => _fullCratesByMfr = data);
-    });
-    _emptyCratesSub = db.inventoryDao
-        .watchEmptyCratesByManufacturer()
-        .listen((data) {
-          if (mounted) setState(() => _emptyCratesByMfr = data);
-        });
-
-    _logsSub = db.activityLogDao.watchRecent().listen((data) {
-      if (mounted) setState(() => _dbLogs = data);
-    });
-
-    _crateGroupsSub = db.inventoryDao.watchAllCrateGroups().listen((
-      data,
-    ) {
-      if (mounted) setState(() => _dbCrateGroups = data);
-    });
-
-    nav.selectedWarehouseId.addListener(
-      _handleWarehouseNavigation,
-    );
   }
 
   @override
@@ -160,14 +164,12 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen>
     _emptyCratesSumSub?.cancel();
     _logsSub?.cancel();
     _tabController.dispose();
-    ref.read(navigationProvider).selectedWarehouseId.removeListener(
-      _handleWarehouseNavigation,
-    );
+    _nav.selectedWarehouseId.removeListener(_handleWarehouseNavigation);
     super.dispose();
   }
 
   void _handleWarehouseNavigation() {
-    final nav = ref.read(navigationProvider);
+    final nav = _nav;
     if (nav.warehouseLocked.value) return;
     final id = nav.selectedWarehouseId.value;
     if (id != null) {
@@ -828,14 +830,34 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen>
         );
         Navigator.push(
           context,
-          MaterialPageRoute(
-            builder: (context) => ProductDetailScreen(
-              item: inventoryItem,
-              onUpdateStock: () => setState(() {}),
-              selectedWarehouseId: _selectedWarehouseId == 'all'
-                  ? null
-                  : int.tryParse(_selectedWarehouseId),
-            ),
+          PageRouteBuilder<void>(
+            transitionDuration: const Duration(milliseconds: 350),
+            reverseTransitionDuration: const Duration(milliseconds: 280),
+            pageBuilder: (context, animation, secondaryAnimation) =>
+                ProductDetailScreen(
+                  item: inventoryItem,
+                  onUpdateStock: () => setState(() {}),
+                  selectedWarehouseId: _selectedWarehouseId == 'all'
+                      ? null
+                      : int.tryParse(_selectedWarehouseId),
+                ),
+            transitionsBuilder:
+                (context, animation, secondaryAnimation, child) {
+                  final curved = CurvedAnimation(
+                    parent: animation,
+                    curve: Curves.easeInOut,
+                  );
+                  return FadeTransition(
+                    opacity: curved,
+                    child: SlideTransition(
+                      position: Tween<Offset>(
+                        begin: const Offset(0.05, 0),
+                        end: Offset.zero,
+                      ).animate(curved),
+                      child: child,
+                    ),
+                  );
+                },
           ),
         );
       },

@@ -8,6 +8,8 @@ import 'package:reebaplus_pos/core/database/app_database.dart';
 import 'package:reebaplus_pos/core/providers/app_providers.dart';
 import 'package:reebaplus_pos/features/auth/screens/create_pin_screen.dart';
 import 'package:drift/drift.dart' hide Column;
+import 'package:reebaplus_pos/features/auth/widgets/auth_background.dart';
+import 'package:reebaplus_pos/core/theme/app_decorations.dart';
 
 class BusinessSettingsScreen extends ConsumerStatefulWidget {
   final UserData user;
@@ -23,10 +25,12 @@ class BusinessSettingsScreen extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<BusinessSettingsScreen> createState() => _BusinessSettingsScreenState();
+  ConsumerState<BusinessSettingsScreen> createState() =>
+      _BusinessSettingsScreenState();
 }
 
-class _BusinessSettingsScreenState extends ConsumerState<BusinessSettingsScreen> {
+class _BusinessSettingsScreenState
+    extends ConsumerState<BusinessSettingsScreen> {
   final _formKey = GlobalKey<FormState>();
   final _taxController = TextEditingController();
 
@@ -94,7 +98,7 @@ class _BusinessSettingsScreenState extends ConsumerState<BusinessSettingsScreen>
     if (!mounted) return;
     setState(() => _loading = false);
 
-    Navigator.of(context).pushReplacement(
+    Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => CreatePinScreen(
           user: widget.user,
@@ -106,111 +110,104 @@ class _BusinessSettingsScreenState extends ConsumerState<BusinessSettingsScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: Stack(
-        children: [
-          // Background Image
-          Positioned.fill(
-            child: Image.asset(
-              'assets/images/auth_bg.png',
-              fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => Container(color: Colors.black),
-            ),
-          ),
-          Positioned.fill(
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-              child: Container(color: Colors.black.withValues(alpha: 0.5)),
-            ),
-          ),
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final textColor = isDark ? Colors.white : Colors.black;
 
-          SafeArea(
-            child: Center(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 24,
-                ),
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      const OnboardingStepIndicator(
-                        currentStep: 5,
-                        totalSteps: 7,
-                        stepLabels: OnboardingStepIndicator.pathALabels,
+    return AuthBackground(
+      child: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: IconButton(
+                      icon: Icon(
+                        Icons.arrow_back_ios,
+                        color: textColor,
+                        size: 20,
                       ),
-                      const SizedBox(height: 16),
-                      const Center(
-                        child: Text(
-                          'Business Settings',
-                          style: TextStyle(
-                            fontSize: 26,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Center(
-                        child: Text(
-                          'Configure your core operating settings.',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 15,
-                            color: Colors.white.withValues(alpha: 0.7),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 48),
-
-                      _buildDropdownField(
-                        label: 'Default Currency',
-                        icon: Icons.payments_rounded,
-                        value: _selectedCurrency,
-                        items: _currencies,
-                        onChanged: (val) {
-                          if (val != null) {
-                            setState(() => _selectedCurrency = val);
-                          }
-                        },
-                      ),
-                      const SizedBox(height: 16),
-
-                      _buildDropdownField(
-                        label: 'Timezone',
-                        icon: Icons.access_time_filled_rounded,
-                        value: _selectedTimezone,
-                        items: _timezones,
-                        onChanged: (val) {
-                          if (val != null) {
-                            setState(() => _selectedTimezone = val);
-                          }
-                        },
-                      ),
-                      const SizedBox(height: 16),
-
-                      _buildTextField(
-                        label: 'Tax Registration Number (Optional)',
-                        controller: _taxController,
-                        icon: Icons.receipt_long_rounded,
-                      ),
-                      const SizedBox(height: 48),
-
-                      AppButton(
-                        text: 'Continue',
-                        isLoading: _loading,
-                        onPressed: _loading ? null : _submit,
-                      ),
-                    ],
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
                   ),
-                ),
+                  const SizedBox(height: 8),
+                  const OnboardingStepIndicator(
+                    currentStep: 5,
+                    totalSteps: 7,
+                    stepLabels: OnboardingStepIndicator.pathALabels,
+                  ),
+                  const SizedBox(height: 16),
+                  Center(
+                    child: Text(
+                      'Business Settings',
+                      style: TextStyle(
+                        fontSize: 26,
+                        fontWeight: FontWeight.w700,
+                        color: textColor,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Center(
+                    child: Text(
+                      'Configure your core operating settings.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 15,
+                        color: textColor.withValues(alpha: 0.7),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 48),
+
+                  _buildDropdownField(
+                    label: 'Default Currency',
+                    icon: Icons.payments_rounded,
+                    value: _selectedCurrency,
+                    items: _currencies,
+                    onChanged: (val) {
+                      if (val != null) {
+                        setState(() => _selectedCurrency = val);
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 16),
+
+                  _buildDropdownField(
+                    label: 'Timezone',
+                    icon: Icons.access_time_filled_rounded,
+                    value: _selectedTimezone,
+                    items: _timezones,
+                    onChanged: (val) {
+                      if (val != null) {
+                        setState(() => _selectedTimezone = val);
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 16),
+
+                  _buildTextField(
+                    label: 'Tax Registration Number (Optional)',
+                    controller: _taxController,
+                    icon: Icons.receipt_long_rounded,
+                  ),
+                  const SizedBox(height: 48),
+
+                  AppButton(
+                    text: 'Continue',
+                    isLoading: _loading,
+                    onPressed: _loading ? null : _submit,
+                  ),
+                ],
               ),
             ),
           ),
-        ],
+        ),
       ),
     );
   }
@@ -222,6 +219,9 @@ class _BusinessSettingsScreenState extends ConsumerState<BusinessSettingsScreen>
     required List<String> items,
     required ValueChanged<String?> onChanged,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? Colors.white : Colors.black;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -231,37 +231,32 @@ class _BusinessSettingsScreenState extends ConsumerState<BusinessSettingsScreen>
             label,
             style: TextStyle(
               fontSize: 13,
-              color: Colors.white.withValues(alpha: 0.7),
+              color: textColor.withValues(alpha: 0.7),
             ),
           ),
         ),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(16),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+        Container(
+          decoration: AppDecorations.glassCard(context),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<String>(
+              value: value,
+              isExpanded: true,
+              icon: Icon(
+                Icons.arrow_drop_down_rounded,
+                color: textColor.withValues(alpha: 0.7),
               ),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-              child: DropdownButtonHideUnderline(
-                child: DropdownButton<String>(
-                  value: value,
-                  isExpanded: true,
-                  icon: Icon(
-                    Icons.arrow_drop_down_rounded,
-                    color: Colors.white.withValues(alpha: 0.7),
-                  ),
-                  dropdownColor: Colors.grey[900],
-                  style: const TextStyle(color: Colors.white, fontSize: 16),
-                  items: items
-                      .map((i) => DropdownMenuItem(value: i, child: Text(i)))
-                      .toList(),
-                  onChanged: onChanged,
-                ),
-              ),
+              dropdownColor: isDark ? Colors.grey[900] : Colors.white,
+              style: TextStyle(color: textColor, fontSize: 16),
+              items: items
+                  .map(
+                    (i) => DropdownMenuItem(
+                      value: i,
+                      child: Text(i, style: TextStyle(color: textColor)),
+                    ),
+                  )
+                  .toList(),
+              onChanged: onChanged,
             ),
           ),
         ),
@@ -274,6 +269,9 @@ class _BusinessSettingsScreenState extends ConsumerState<BusinessSettingsScreen>
     required TextEditingController controller,
     required IconData icon,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? Colors.white : Colors.black;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -283,37 +281,18 @@ class _BusinessSettingsScreenState extends ConsumerState<BusinessSettingsScreen>
             label,
             style: TextStyle(
               fontSize: 13,
-              color: Colors.white.withValues(alpha: 0.7),
+              color: textColor.withValues(alpha: 0.7),
             ),
           ),
         ),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(16),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
-              ),
-              child: TextFormField(
-                controller: controller,
-                style: const TextStyle(color: Colors.white),
-                decoration: InputDecoration(
-                  prefixIcon: Icon(
-                    icon,
-                    color: Colors.white.withValues(alpha: 0.7),
-                  ),
-                  border: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 16,
-                  ),
-                ),
-              ),
-            ),
-          ),
+        TextFormField(
+          controller: controller,
+          style: TextStyle(color: textColor),
+          decoration: AppDecorations.authInputDecoration(
+            context,
+            label: '',
+            prefixIcon: icon,
+          ).copyWith(labelText: null, hintText: 'Enter registration number'),
         ),
       ],
     );

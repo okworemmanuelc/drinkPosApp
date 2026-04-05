@@ -10,6 +10,8 @@ import 'package:reebaplus_pos/features/auth/screens/create_pin_screen.dart';
 import 'package:reebaplus_pos/shared/services/auth_service.dart';
 import 'package:reebaplus_pos/core/utils/notifications.dart';
 import 'package:reebaplus_pos/features/auth/widgets/onboarding_step_indicator.dart';
+import 'package:reebaplus_pos/features/auth/widgets/auth_background.dart';
+import 'package:reebaplus_pos/core/theme/app_decorations.dart';
 
 class JoinNameEntryScreen extends ConsumerStatefulWidget {
   final String email;
@@ -22,12 +24,14 @@ class JoinNameEntryScreen extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<JoinNameEntryScreen> createState() => _JoinNameEntryScreenState();
+  ConsumerState<JoinNameEntryScreen> createState() =>
+      _JoinNameEntryScreenState();
 }
 
 class _JoinNameEntryScreenState extends ConsumerState<JoinNameEntryScreen> {
   final _nameController = TextEditingController();
   bool _loading = false;
+  bool _submitted = false; // prevents re-inserting the user on back+re-submit
 
   @override
   void dispose() {
@@ -36,6 +40,8 @@ class _JoinNameEntryScreenState extends ConsumerState<JoinNameEntryScreen> {
   }
 
   Future<void> _submit() async {
+    if (_submitted) return; // guard against back+re-submit creating a duplicate
+
     final name = _nameController.text.trim();
     if (name.isEmpty) {
       AppNotification.showError(context, 'Please enter your full name.');
@@ -69,121 +75,91 @@ class _JoinNameEntryScreenState extends ConsumerState<JoinNameEntryScreen> {
     final newUser = await db.warehousesDao.getUserById(newId);
 
     if (!mounted) return;
+    _submitted = true;
     setState(() => _loading = false);
 
-    Navigator.of(context).pushReplacement(
+    Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => CreatePinScreen(
-          user: newUser!,
-          isJoinFlow: true, // we will add this parameter to CreatePinScreen
-        ),
+        builder: (_) => CreatePinScreen(user: newUser!, isJoinFlow: true),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: Stack(
-        children: [
-          Positioned.fill(
-            child: Image.asset(
-              'assets/images/auth_bg.png',
-              fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => Container(color: Colors.black),
-            ),
-          ),
-          Positioned.fill(
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-              child: Container(color: Colors.black.withValues(alpha: 0.5)),
-            ),
-          ),
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final textColor = isDark ? Colors.white : Colors.black;
 
-          SafeArea(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const OnboardingStepIndicator(
-                    currentStep: 4,
-                    totalSteps: 6,
-                    stepLabels: OnboardingStepIndicator.pathBLabels,
-                  ),
-                  const SizedBox(height: 16),
-                  const Center(
-                    child: Text(
-                      'Welcome to the Team',
-                      style: TextStyle(
-                        fontSize: 26,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Center(
-                    child: Text(
-                      'What is your full name?',
-                      style: TextStyle(
-                        fontSize: 15,
-                        color: Colors.white.withValues(alpha: 0.7),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 48),
-
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(16),
-                    child: BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                      child: Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.2),
-                          ),
-                        ),
-                        child: TextField(
-                          controller: _nameController,
-                          keyboardType: TextInputType.name,
-                          textCapitalization: TextCapitalization.words,
-                          autofocus: true,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 18,
-                          ),
-                          decoration: InputDecoration(
-                            labelText: 'Full Name',
-                            labelStyle: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.7),
-                            ),
-                            prefixIcon: Icon(
-                              Icons.person_outline_rounded,
-                              color: Colors.white.withValues(alpha: 0.7),
-                            ),
-                            border: InputBorder.none,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 32),
-
-                  AppButton(
-                    text: 'Continue',
-                    isLoading: _loading,
-                    onPressed: _loading ? null : _submit,
-                  ),
-                ],
+    return AuthBackground(
+      child: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Align(
+                alignment: Alignment.centerLeft,
+                child: IconButton(
+                  icon: Icon(Icons.arrow_back_ios, color: textColor, size: 20),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
               ),
-            ),
+              const SizedBox(height: 8),
+              const OnboardingStepIndicator(
+                currentStep: 4,
+                totalSteps: 6,
+                stepLabels: OnboardingStepIndicator.pathBLabels,
+              ),
+              const SizedBox(height: 16),
+              Center(
+                child: Text(
+                  'Welcome to the Team',
+                  style: TextStyle(
+                    fontSize: 26,
+                    fontWeight: FontWeight.w700,
+                    color: textColor,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Center(
+                child: Text(
+                  'What is your full name?',
+                  style: TextStyle(
+                    fontSize: 15,
+                    color: textColor.withValues(alpha: 0.7),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 48),
+
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: AppDecorations.glassCard(context),
+                child: TextField(
+                  controller: _nameController,
+                  keyboardType: TextInputType.name,
+                  textCapitalization: TextCapitalization.words,
+                  autofocus: true,
+                  style: TextStyle(color: textColor, fontSize: 18),
+                  decoration: AppDecorations.authInputDecoration(
+                    context,
+                    label: 'Full Name',
+                    prefixIcon: Icons.person_outline_rounded,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 32),
+
+              AppButton(
+                text: 'Continue',
+                isLoading: _loading,
+                onPressed: _loading ? null : _submit,
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

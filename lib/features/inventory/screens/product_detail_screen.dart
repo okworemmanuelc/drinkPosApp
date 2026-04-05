@@ -15,6 +15,7 @@ import 'package:reebaplus_pos/core/database/app_database.dart';
 import 'package:reebaplus_pos/shared/widgets/app_button.dart';
 import 'package:reebaplus_pos/core/utils/notifications.dart';
 import 'package:reebaplus_pos/shared/widgets/app_input.dart';
+import 'package:reebaplus_pos/shared/widgets/shimmer_loading.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ProductDetailScreen — full-screen product information view
@@ -91,18 +92,25 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
 
     _retailPriceController.addListener(_onRetailPriceChanged);
 
-    // Defer heavy DB calls + full widget tree until after the first frame
+    // Defer heavy DB calls until after first frame.
+    // _contentReady stays false until _loadProductData() finishes so the
+    // shimmer skeleton is visible while SQLite queries run.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        setState(() => _contentReady = true);
-        _loadProductData();
-      }
+      if (mounted) _loadProductData();
     });
   }
 
   Future<void> _loadProductData() async {
+    // Keep shimmer visible for at least 700 ms so users actually see it,
+    // even when local SQLite queries finish near-instantly.
+    final minDisplay = Future<void>.delayed(const Duration(milliseconds: 700));
+
     final productId = int.tryParse(widget.item.id);
-    if (productId == null) return;
+    if (productId == null) {
+      await minDisplay;
+      if (mounted) setState(() => _contentReady = true);
+      return;
+    }
 
     // Determine edit permission based on role
     final auth = ref.read(authProvider);
@@ -163,10 +171,12 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     final delivery = await db.deliveriesDao.getLastDeliveryForProduct(
       productId,
     );
+    await minDisplay; // ensure shimmer stays visible for the minimum duration
     if (mounted) {
       setState(() {
         _lastDelivery = delivery;
         _deliveryLoaded = true;
+        _contentReady = true;
       });
     }
   }
@@ -214,16 +224,12 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // First frame: show a bare scaffold with a spinner so the screen opens
-    // instantly without trying to build the full heavy widget tree.
+    // Show shimmer skeleton while DB data loads (_contentReady becomes true
+    // at the end of _loadProductData once all queries complete).
     if (!_contentReady) {
       return Scaffold(
         backgroundColor: _bg,
-        body: Center(
-          child: CircularProgressIndicator(
-            color: Theme.of(context).colorScheme.primary,
-          ),
-        ),
+        body: const SafeArea(child: ShimmerProductDetail()),
       );
     }
 

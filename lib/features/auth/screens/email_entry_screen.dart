@@ -5,9 +5,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:reebaplus_pos/core/providers/app_providers.dart';
 import 'package:reebaplus_pos/core/utils/notifications.dart';
+import 'package:reebaplus_pos/core/theme/app_decorations.dart';
 import 'package:reebaplus_pos/shared/widgets/app_button.dart';
 import 'package:reebaplus_pos/features/auth/screens/login_screen.dart';
 import 'package:reebaplus_pos/features/auth/screens/otp_verification_screen.dart';
+import 'package:reebaplus_pos/features/auth/widgets/auth_background.dart';
 import 'package:reebaplus_pos/core/database/app_database.dart' show UserData;
 import 'package:reebaplus_pos/main.dart' show supabaseReady;
 
@@ -149,183 +151,135 @@ class _EmailEntryScreenState extends ConsumerState<EmailEntryScreen> {
     );
   }
 
-  @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      resizeToAvoidBottomInset: true,
-      body: Stack(
-        children: [
-          // Background
-          Positioned.fill(
-            child: Image.asset(
-              'assets/images/auth_bg.png',
-              fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => Container(color: Colors.black),
-            ),
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final textColor = isDark ? Colors.white : Colors.black;
+
+    return AuthBackground(
+      child: SafeArea(
+        child: SingleChildScrollView(
+          padding: EdgeInsets.fromLTRB(
+            28,
+            40,
+            28,
+            MediaQuery.of(context).viewInsets.bottom + 24,
           ),
-          // Blur overlay
-          Positioned.fill(
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-              child: Container(color: Colors.black.withValues(alpha: 0.45)),
-            ),
-          ),
-          SafeArea(
-            child: SingleChildScrollView(
-              padding: EdgeInsets.fromLTRB(
-                28,
-                40,
-                28,
-                MediaQuery.of(context).viewInsets.bottom + 24,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Logo
+              Center(
+                child: Image.asset(
+                  'assets/images/reebaplus_logo.png',
+                  height: 90,
+                  // In light mode, the logo might be white-on-white if not careful.
+                  // We can apply a slight color filter or use an icon if needed.
+                  color: isDark ? null : theme.colorScheme.primary,
+                  errorBuilder: (_, __, ___) =>
+                      Icon(Icons.storefront, size: 90, color: textColor),
+                ),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // Logo
-                  Center(
-                    child: Image.asset(
-                      'assets/images/reebaplus_logo.png',
-                      height: 90,
-                      errorBuilder: (_, __, ___) => const Icon(
-                        Icons.storefront,
-                        size: 90,
-                        color: Colors.white,
-                      ),
-                    ),
+              const SizedBox(height: 12),
+              Center(
+                child: Text(
+                  'Reebaplus POS',
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
+                    color: textColor,
                   ),
-                  const SizedBox(height: 12),
-                  const Center(
-                    child: Text(
-                      'Reebaplus POS',
-                      style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Center(
-                    child: Text(
-                      'Enter your email to continue',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.white.withValues(alpha: 0.7),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 40),
-
-                  // Email card
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(16),
-                    child: BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.2),
-                          ),
-                        ),
-                        padding: const EdgeInsets.all(16),
-                        child: TextField(
-                          controller: _emailController,
-                          keyboardType: TextInputType.emailAddress,
-                          autofocus: false,
-                          textInputAction: TextInputAction.done,
-                          onSubmitted: (_) => _loading ? null : _submit(),
-                          style: const TextStyle(color: Colors.white),
-                          decoration: InputDecoration(
-                            labelText: 'Email Address',
-                            labelStyle: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.7),
-                            ),
-                            prefixIcon: Icon(
-                              Icons.email_outlined,
-                              color: Colors.white.withValues(alpha: 0.7),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              borderSide: BorderSide(
-                                color: Colors.white.withValues(alpha: 0.3),
-                              ),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              borderSide: const BorderSide(
-                                color: Colors.white,
-                                width: 1.5,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Terms and Privacy Policy
-                  Center(
-                    child: RichText(
-                      textAlign: TextAlign.center,
-                      text: TextSpan(
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.white.withValues(alpha: 0.6),
-                          height: 1.5,
-                        ),
-                        children: const [
-                          TextSpan(text: 'By continuing, you agree to our\n'),
-                          TextSpan(
-                            text: 'Terms of Service',
-                            style: TextStyle(
-                              decoration: TextDecoration.underline,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          TextSpan(text: ' and '),
-                          TextSpan(
-                            text: 'Privacy Policy',
-                            style: TextStyle(
-                              decoration: TextDecoration.underline,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 24),
-
-                  AppButton(
-                    text: 'Send Code',
-                    isLoading: _loading,
-                    onPressed: (_loading || !_isEmailValid) ? null : _submit,
-                  ),
-                  const SizedBox(height: 20),
-
-                  Center(
-                    child: TextButton(
-                      onPressed: _goToPinDirectly,
-                      child: Text(
-                        'Already set up on this device? Login with PIN',
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.65),
-                          fontSize: 13,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                  ),
-                ],
+                ),
               ),
-            ),
+              const SizedBox(height: 6),
+              Center(
+                child: Text(
+                  'Enter your email to continue',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: textColor.withValues(alpha: 0.7),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 40),
+
+              // Email card
+              Container(
+                decoration: AppDecorations.glassCard(context),
+                padding: const EdgeInsets.all(16),
+                child: TextField(
+                  controller: _emailController,
+                  keyboardType: TextInputType.emailAddress,
+                  autofocus: false,
+                  textInputAction: TextInputAction.done,
+                  onSubmitted: (_) => _loading ? null : _submit(),
+                  style: TextStyle(color: textColor),
+                  decoration: AppDecorations.authInputDecoration(
+                    context,
+                    label: 'Email Address',
+                    prefixIcon: Icons.email_outlined,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Terms and Privacy Policy
+              Center(
+                child: RichText(
+                  textAlign: TextAlign.center,
+                  text: TextSpan(
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: textColor.withValues(alpha: 0.6),
+                      height: 1.5,
+                    ),
+                    children: const [
+                      TextSpan(text: 'By continuing, you agree to our\n'),
+                      TextSpan(
+                        text: 'Terms of Service',
+                        style: TextStyle(
+                          decoration: TextDecoration.underline,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      TextSpan(text: ' and '),
+                      TextSpan(
+                        text: 'Privacy Policy',
+                        style: TextStyle(
+                          decoration: TextDecoration.underline,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 24),
+
+              AppButton(
+                text: 'Send Code',
+                isLoading: _loading,
+                onPressed: (_loading || !_isEmailValid) ? null : _submit,
+              ),
+              const SizedBox(height: 20),
+
+              Center(
+                child: TextButton(
+                  onPressed: _goToPinDirectly,
+                  child: Text(
+                    'Already set up on this device? Login with PIN',
+                    style: TextStyle(
+                      color: textColor.withValues(alpha: 0.65),
+                      fontSize: 13,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
