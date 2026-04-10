@@ -1,23 +1,53 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:reebaplus_pos/core/providers/app_providers.dart';
+import 'package:reebaplus_pos/core/providers/stream_providers.dart';
 import 'package:reebaplus_pos/core/theme/design_tokens.dart';
 import 'package:reebaplus_pos/shared/widgets/shared_scaffold.dart';
 import 'package:reebaplus_pos/shared/widgets/app_dropdown.dart';
+import 'package:reebaplus_pos/core/utils/notifications.dart';
 import 'package:reebaplus_pos/features/dashboard/screens/approvals_screen.dart';
+import 'package:reebaplus_pos/features/dashboard/screens/stock_audit_screen.dart';
+import 'package:reebaplus_pos/features/dashboard/screens/sales_detail_screen.dart';
+import 'package:reebaplus_pos/features/expenses/screens/expenses_screen.dart';
+import 'package:reebaplus_pos/features/customers/screens/customers_screen.dart';
 
-class ReportsHubScreen extends StatefulWidget {
+class ReportsHubScreen extends ConsumerStatefulWidget {
   const ReportsHubScreen({super.key});
 
   @override
-  State<ReportsHubScreen> createState() => _ReportsHubScreenState();
+  ConsumerState<ReportsHubScreen> createState() => _ReportsHubScreenState();
 }
 
-class _ReportsHubScreenState extends State<ReportsHubScreen> {
+class _ReportsHubScreenState extends ConsumerState<ReportsHubScreen> {
   String _selectedPeriod = 'Day';
   final List<String> _periods = ['Day', 'Week', 'Month', 'Year', 'To Date'];
 
+  bool _isDateInPeriod(DateTime date, String period) {
+    final now = DateTime.now();
+    final diff = now.difference(date);
+    switch (period) {
+      case 'Day':
+        return diff.inDays == 0 && now.day == date.day;
+      case 'Week':
+        return diff.inDays <= 7;
+      case 'Month':
+        return diff.inDays <= 30;
+      case 'Year':
+        return diff.inDays <= 365;
+      case 'To Date':
+        return true;
+      default:
+        return true;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final user = ref.watch(authProvider).currentUser;
+    final isCeo = (user?.roleTier ?? 0) >= 5;
+
     return SharedScaffold(
       activeRoute: 'dashboard',
       appBar: AppBar(
@@ -53,22 +83,13 @@ class _ReportsHubScreenState extends State<ReportsHubScreen> {
             _buildReportCard(
               context,
               title: 'Pending Approvals',
-              subtitle: '3 Requests Waiting',
+              subtitle: 'Requests Waiting',
               icon: FontAwesomeIcons.clockRotateLeft,
               color: Colors.orange,
               onTap: () => Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const ApprovalsScreen()),
               ),
-              badge: '3',
-            ),
-            _buildReportCard(
-              context,
-              title: 'Success History',
-              subtitle: 'Approved Requests',
-              icon: FontAwesomeIcons.circleCheck,
-              color: Colors.green,
-              onTap: () {},
             ),
             _buildReportCard(
               context,
@@ -76,7 +97,31 @@ class _ReportsHubScreenState extends State<ReportsHubScreen> {
               subtitle: 'Revenue & Volume',
               icon: FontAwesomeIcons.chartLine,
               color: context.primaryColor,
-              onTap: () {},
+              locked: !isCeo,
+              onTap: () {
+                if (!isCeo) {
+                  AppNotification.showInfo(context, 'CEO access required');
+                  return;
+                }
+                final ordersAsync = ref.read(allOrdersProvider);
+                ordersAsync.whenData((allOrders) {
+                  final filtered = allOrders
+                      .where((o) =>
+                          o.order.status == 'completed' &&
+                          _isDateInPeriod(o.order.createdAt, _selectedPeriod))
+                      .toList();
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => SalesDetailScreen(
+                        orders: filtered,
+                        mode: 'sales',
+                        period: _selectedPeriod,
+                      ),
+                    ),
+                  );
+                });
+              },
             ),
             _buildReportCard(
               context,
@@ -84,7 +129,17 @@ class _ReportsHubScreenState extends State<ReportsHubScreen> {
               subtitle: 'Outflow Analysis',
               icon: FontAwesomeIcons.fileInvoiceDollar,
               color: Colors.redAccent,
-              onTap: () {},
+              locked: !isCeo,
+              onTap: () {
+                if (!isCeo) {
+                  AppNotification.showInfo(context, 'CEO access required');
+                  return;
+                }
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const ExpensesScreen()),
+                );
+              },
             ),
             _buildReportCard(
               context,
@@ -92,7 +147,18 @@ class _ReportsHubScreenState extends State<ReportsHubScreen> {
               subtitle: 'Inventory Health',
               icon: FontAwesomeIcons.boxesStacked,
               color: Colors.blueAccent,
-              onTap: () {},
+              locked: !isCeo,
+              onTap: () {
+                if (!isCeo) {
+                  AppNotification.showInfo(context, 'CEO access required');
+                  return;
+                }
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => const StockAuditScreen()),
+                );
+              },
             ),
             _buildReportCard(
               context,
@@ -100,7 +166,18 @@ class _ReportsHubScreenState extends State<ReportsHubScreen> {
               subtitle: 'Wallet & Credit',
               icon: FontAwesomeIcons.wallet,
               color: Colors.purpleAccent,
-              onTap: () {},
+              locked: !isCeo,
+              onTap: () {
+                if (!isCeo) {
+                  AppNotification.showInfo(context, 'CEO access required');
+                  return;
+                }
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => const CustomersScreen()),
+                );
+              },
             ),
           ],
         ),
@@ -114,7 +191,11 @@ class _ReportsHubScreenState extends State<ReportsHubScreen> {
       margin: const EdgeInsets.symmetric(vertical: 8),
       child: AppDropdown<String>(
         value: _selectedPeriod,
-        items: _periods.map((p) => DropdownMenuItem(value: p, child: Text(p, style: const TextStyle(fontSize: 12)))).toList(),
+        items: _periods
+            .map((p) => DropdownMenuItem(
+                value: p,
+                child: Text(p, style: const TextStyle(fontSize: 12))))
+            .toList(),
         onChanged: (v) => setState(() => _selectedPeriod = v ?? 'Day'),
       ),
     );
@@ -127,7 +208,7 @@ class _ReportsHubScreenState extends State<ReportsHubScreen> {
     required IconData icon,
     required Color color,
     required VoidCallback onTap,
-    String? badge,
+    bool locked = false,
   }) {
     return Material(
       color: Colors.transparent,
@@ -179,23 +260,26 @@ class _ReportsHubScreenState extends State<ReportsHubScreen> {
                   ),
                 ],
               ),
-              if (badge != null)
+              if (locked)
                 Positioned(
                   top: 0,
                   right: 0,
                   child: Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: const BoxDecoration(
-                      color: Colors.red,
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .onSurface
+                          .withValues(alpha: 0.08),
                       shape: BoxShape.circle,
                     ),
-                    child: Text(
-                      badge,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                      ),
+                    child: Icon(
+                      Icons.lock_outline_rounded,
+                      size: 14,
+                      color: Theme.of(context)
+                          .colorScheme
+                          .onSurface
+                          .withValues(alpha: 0.3),
                     ),
                   ),
                 ),

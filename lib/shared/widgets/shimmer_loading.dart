@@ -919,7 +919,11 @@ class ShimmerProductDetail extends StatelessWidget {
   static const _kPeriod = Duration(milliseconds: 2000);
 
   // A single info-row placeholder: icon square + label bar + trailing bar.
-  Widget _shimmerRow(BuildContext context) {
+  Widget _shimmerRow(
+    BuildContext context, {
+    double trailingWidth = 100,
+    double trailingHeight = 28,
+  }) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       child: Row(
@@ -952,8 +956,8 @@ class ShimmerProductDetail extends StatelessWidget {
           _ShimmerWrap(
             period: _kPeriod,
             child: Container(
-              width: 100,
-              height: 28,
+              width: trailingWidth,
+              height: trailingHeight,
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(8),
@@ -1083,9 +1087,7 @@ class ShimmerProductDetail extends StatelessWidget {
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF1E293B) : Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: isDark ? Colors.white10 : Colors.grey[200]!,
-        ),
+        border: Border.all(color: isDark ? Colors.white10 : Colors.grey[200]!),
       ),
       child: Column(children: children),
     );
@@ -1108,101 +1110,159 @@ class ShimmerProductDetail extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      physics: const NeverScrollableScrollPhysics(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── Stock & Info (6 rows) ─────────────────────────────────
-          _sectionTitle(context),
-          const SizedBox(height: 12),
-          _infoCard(context, [
-            _shimmerRow(context),
-            _divider(context),
-            _shimmerRow(context),
-            _divider(context),
-            _shimmerRow(context),
-            _divider(context),
-            _shimmerRow(context),
-            _divider(context),
-            _shimmerRow(context),
-            _divider(context),
-            _shimmerRow(context),
-          ]),
-
-          const SizedBox(height: 24),
-
-          // ── Pricing (5 rows) ──────────────────────────────────────
-          _sectionTitle(context),
-          const SizedBox(height: 12),
-          _infoCard(context, [
-            _shimmerRow(context),
-            _divider(context),
-            _shimmerRow(context),
-            _divider(context),
-            _shimmerRow(context),
-            _divider(context),
-            _shimmerRow(context),
-            _divider(context),
-            _shimmerRow(context),
-          ]),
-
-          const SizedBox(height: 24),
-
-          // ── Sales Summary (3 stat rows) ───────────────────────────
-          _sectionTitle(context),
-          const SizedBox(height: 12),
-          _infoCard(context, [
-            _shimmerStatRow(context),
-            _divider(context),
-            _shimmerStatRow(context),
-            _divider(context),
-            _shimmerStatRow(context),
-          ]),
-
-          const SizedBox(height: 24),
-
-          // ── Sales Target (3 rows with progress bars) ──────────────
-          _sectionTitle(context),
-          const SizedBox(height: 12),
-          _infoCard(context, [
-            _shimmerTargetRow(context),
-            _divider(context),
-            _shimmerTargetRow(context),
-            _divider(context),
-            _shimmerTargetRow(context),
-          ]),
-
-          const SizedBox(height: 24),
-
-          // ── Last Delivery (4 rows) ────────────────────────────────
-          _sectionTitle(context),
-          const SizedBox(height: 12),
-          _infoCard(context, [
-            _shimmerRow(context),
-            _divider(context),
-            _shimmerRow(context),
-            _divider(context),
-            _shimmerRow(context),
-            _divider(context),
-            _shimmerRow(context),
-          ]),
-
-          const SizedBox(height: 32),
-
-          // ── Update Product button placeholder ─────────────────────
-          _ShimmerWrap(
-            period: _kPeriod,
-            child: Container(
-              width: double.infinity,
-              height: 52,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(14),
-              ),
+          // ── Hero Image Shimmer ──────────────────────────────────────
+          Container(
+            width: double.infinity,
+            height: 220,
+            padding: const EdgeInsets.only(top: 40),
+            color: Theme.of(context).brightness == Brightness.dark
+                ? const Color(0xFF1E293B).withValues(alpha: 0.5)
+                : Colors.grey.withValues(alpha: 0.1),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                _ShimmerWrap(
+                  period: _kPeriod,
+                  child: Container(
+                    width: 80,
+                    height: 80,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(24),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                _ShimmerWrap(
+                  period: _kPeriod,
+                  child: Container(
+                    width: 160,
+                    height: 24,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                _ShimmerWrap(
+                  period: _kPeriod,
+                  child: Container(
+                    width: 80,
+                    height: 20,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
 
-          const SizedBox(height: 24),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // ── Stock & Info (6 rows) ─────────────────────────────────
+                _sectionTitle(context),
+                const SizedBox(height: 12),
+                _infoCard(context, [
+                  _shimmerRow(context, trailingWidth: 100, trailingHeight: 36),
+                  _divider(context),
+                  _shimmerRow(context, trailingWidth: 160, trailingHeight: 48),
+                  _divider(context),
+                  _shimmerRow(context, trailingWidth: 150, trailingHeight: 48),
+                  _divider(context),
+                  _shimmerRow(context, trailingWidth: 90, trailingHeight: 36),
+                  _divider(context),
+                  _shimmerRow(context, trailingWidth: 40, trailingHeight: 32),
+                  _divider(context),
+                  _shimmerRow(context, trailingWidth: 50, trailingHeight: 16),
+                ]),
+
+                const SizedBox(height: 24),
+
+                // ── Pricing (5 rows) ──────────────────────────────────────
+                _sectionTitle(context),
+                const SizedBox(height: 12),
+                _infoCard(context, [
+                  _shimmerRow(context, trailingWidth: 110, trailingHeight: 36),
+                  _divider(context),
+                  _shimmerRow(context, trailingWidth: 110, trailingHeight: 36),
+                  _divider(context),
+                  _shimmerRow(context, trailingWidth: 110, trailingHeight: 36),
+                  _divider(context),
+                  _shimmerRow(context, trailingWidth: 110, trailingHeight: 36),
+                  _divider(context),
+                  _shimmerRow(context, trailingWidth: 80, trailingHeight: 16),
+                ]),
+
+                const SizedBox(height: 24),
+
+                // ── Sales Summary (3 stat rows) ───────────────────────────
+                _sectionTitle(context),
+                const SizedBox(height: 12),
+                _infoCard(context, [
+                  _shimmerStatRow(context),
+                  _divider(context),
+                  _shimmerStatRow(context),
+                  _divider(context),
+                  _shimmerStatRow(context),
+                ]),
+
+                const SizedBox(height: 24),
+
+                // ── Sales Target (3 rows with progress bars) ──────────────
+                _sectionTitle(context),
+                const SizedBox(height: 12),
+                _infoCard(context, [
+                  _shimmerTargetRow(context),
+                  _divider(context),
+                  _shimmerTargetRow(context),
+                  _divider(context),
+                  _shimmerTargetRow(context),
+                ]),
+
+                const SizedBox(height: 24),
+
+                // ── Last Delivery (4 rows) ────────────────────────────────
+                _sectionTitle(context),
+                const SizedBox(height: 12),
+                _infoCard(context, [
+                  _shimmerRow(context),
+                  _divider(context),
+                  _shimmerRow(context),
+                  _divider(context),
+                  _shimmerRow(context),
+                  _divider(context),
+                  _shimmerRow(context),
+                ]),
+
+                const SizedBox(height: 32),
+
+                // ── Update Product button placeholder ─────────────────────
+                _ShimmerWrap(
+                  period: _kPeriod,
+                  child: Container(
+                    width: double.infinity,
+                    height: 52,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 24),
+              ],
+            ),
+          ),
         ],
       ),
     );

@@ -20,6 +20,7 @@ import 'package:reebaplus_pos/features/inventory/data/services/supplier_service.
 import 'package:reebaplus_pos/features/payments/data/services/payment_service.dart';
 import 'package:reebaplus_pos/shared/services/activity_log_service.dart';
 import 'package:reebaplus_pos/shared/services/auth_service.dart';
+import 'package:reebaplus_pos/shared/services/secure_storage_service.dart';
 import 'package:reebaplus_pos/shared/services/cart_service.dart';
 import 'package:reebaplus_pos/shared/services/navigation_service.dart';
 import 'package:reebaplus_pos/shared/services/notification_service.dart';
@@ -42,9 +43,18 @@ final lockedWarehouseProvider =
   return ref.watch(navigationProvider).lockedWarehouseId;
 });
 
+// ── Secure Storage ─────────────────────────────────────────────────────────
+final secureStorageProvider = Provider<SecureStorageService>(
+  (_) => SecureStorageService(),
+);
+
 // ── Auth ────────────────────────────────────────────────────────────────────
 final authProvider = ChangeNotifierProvider<AuthService>((ref) {
-  return AuthService(ref.read(databaseProvider), ref.read(navigationProvider));
+  return AuthService(
+    ref.read(databaseProvider),
+    ref.read(navigationProvider),
+    ref.read(secureStorageProvider),
+  );
 });
 final deviceUserIdProvider =
     ChangeNotifierProvider<ValueNotifier<int?>>((ref) {

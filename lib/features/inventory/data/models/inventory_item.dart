@@ -26,6 +26,7 @@ class InventoryItem {
   String? imagePath;
   String? manufacturer;
   String? size; // 'big' | 'medium' | 'small'
+  String? unit;
 
   InventoryItem({
     required this.id,
@@ -48,6 +49,7 @@ class InventoryItem {
     this.imagePath,
     this.manufacturer,
     this.size,
+    this.unit,
   });
 
   double get totalStock =>
@@ -78,6 +80,7 @@ class InventoryItem {
     String? imagePath,
     String? manufacturer,
     String? size,
+    String? unit,
   }) {
     return InventoryItem(
       id: id ?? this.id,
@@ -100,6 +103,7 @@ class InventoryItem {
       imagePath: imagePath ?? this.imagePath,
       manufacturer: manufacturer ?? this.manufacturer,
       size: size ?? this.size,
+      unit: unit ?? this.unit,
     );
   }
 }

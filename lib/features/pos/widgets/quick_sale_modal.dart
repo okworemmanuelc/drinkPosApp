@@ -6,6 +6,7 @@ import 'package:reebaplus_pos/core/providers/app_providers.dart';
 import 'package:reebaplus_pos/shared/widgets/app_input.dart';
 import 'package:reebaplus_pos/shared/widgets/app_button.dart';
 import 'package:reebaplus_pos/core/utils/notifications.dart';
+import 'package:reebaplus_pos/core/utils/currency_input_formatter.dart';
 
 class QuickSaleModal extends ConsumerStatefulWidget {
   final Color surfaceCol;
@@ -61,15 +62,23 @@ class _QuickSaleModalState extends ConsumerState<QuickSaleModal> {
           AppInput(
             controller: _qtyCtrl,
             labelText: 'Quantity',
-            prefixIcon: Icon(FontAwesomeIcons.cubes, size: context.getRSize(16)),
+            prefixIcon: Icon(
+              FontAwesomeIcons.cubes,
+              size: context.getRSize(16),
+            ),
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
           ),
           SizedBox(height: context.getRSize(12)),
           AppInput(
             controller: _priceCtrl,
-            labelText: 'Price Per Unit',
-            prefixIcon: Icon(FontAwesomeIcons.nairaSign, size: context.getRSize(16)),
+            labelText: 'Price Per Unit (₦)',
+            hintText: 'e.g. 500',
+            prefixIcon: Icon(
+              FontAwesomeIcons.nairaSign,
+              size: context.getRSize(16),
+            ),
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            inputFormatters: [CurrencyInputFormatter()],
           ),
         ],
       ),
@@ -88,26 +97,28 @@ class _QuickSaleModalState extends ConsumerState<QuickSaleModal> {
             if (_nameCtrl.text.isNotEmpty &&
                 _qtyCtrl.text.isNotEmpty &&
                 _priceCtrl.text.isNotEmpty) {
+              final price = parseCurrency(_priceCtrl.text);
               final product = {
                 'name': _nameCtrl.text,
                 'subtitle': 'Quick Sale',
-                'price': double.tryParse(_priceCtrl.text) ?? 0.0,
+                'price': price,
                 'icon': FontAwesomeIcons.bolt,
                 'color': Theme.of(context).colorScheme.primary,
                 'category': 'Other',
               };
-              ref.read(cartProvider).addItem(
-                product,
-                qty: double.tryParse(_qtyCtrl.text) ?? 1.0,
-              );
+              ref
+                  .read(cartProvider)
+                  .addItem(product, qty: double.tryParse(_qtyCtrl.text) ?? 1.0);
               Navigator.pop(context);
             } else {
-              AppNotification.showError(context, 'Item Name, Quantity, and Price are required.');
+              AppNotification.showError(
+                context,
+                'Item Name, Quantity, and Price are required.',
+              );
             }
           },
         ),
       ],
     );
   }
-
 }

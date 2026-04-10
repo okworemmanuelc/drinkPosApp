@@ -3,12 +3,15 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:reebaplus_pos/core/providers/app_providers.dart';
 import 'package:reebaplus_pos/core/utils/notifications.dart';
 import 'package:reebaplus_pos/core/theme/app_decorations.dart';
 import 'package:reebaplus_pos/shared/widgets/app_button.dart';
 import 'package:reebaplus_pos/features/auth/screens/login_screen.dart';
 import 'package:reebaplus_pos/features/auth/screens/otp_verification_screen.dart';
+import 'package:reebaplus_pos/features/auth/screens/create_pin_screen.dart';
+import 'package:reebaplus_pos/features/auth/screens/business_type_selection_screen.dart';
 import 'package:reebaplus_pos/features/auth/widgets/auth_background.dart';
 import 'package:reebaplus_pos/core/database/app_database.dart' show UserData;
 import 'package:reebaplus_pos/main.dart' show supabaseReady;
@@ -44,6 +47,96 @@ class _EmailEntryScreenState extends ConsumerState<EmailEntryScreen> {
     _emailController.removeListener(_validateEmail);
     _emailController.dispose();
     super.dispose();
+  }
+
+  Future<void> _signInWithGoogle() async {
+    setState(() => _loading = true);
+    final auth = ref.read(authProvider);
+
+    // Ensure Supabase is ready before Google sign-in (it verifies via Supabase).
+    try {
+      await supabaseReady.timeout(const Duration(seconds: 10));
+    } catch (_) {
+      if (mounted) {
+        setState(() => _loading = false);
+        AppNotification.showError(
+          context,
+          'Network timeout. Please check your internet connection.',
+        );
+      }
+      return;
+    }
+
+    final email = await auth.signInWithGoogle();
+    if (!mounted) return;
+
+    if (email == null) {
+      setState(() => _loading = false);
+      AppNotification.showError(context, 'Google sign-in cancelled or failed.');
+      return;
+    }
+
+    // Save auth method as google
+    await auth.saveAuthMethod('google');
+
+    // Look up local user by email
+    final localUser = await auth.getUserByEmail(email);
+    if (!mounted) return;
+    setState(() => _loading = false);
+
+    if (localUser == null) {
+      // New user — start business setup flow
+      Navigator.of(context).pushReplacement(
+        PageRouteBuilder(
+          pageBuilder: (_, __, ___) =>
+              BusinessTypeSelectionScreen(email: email),
+          transitionsBuilder: (_, animation, __, child) {
+            final curve = CurvedAnimation(
+              parent: animation,
+              curve: Curves.easeInOutCubic,
+            );
+            return FadeTransition(opacity: curve, child: child);
+          },
+          transitionDuration: const Duration(milliseconds: 500),
+        ),
+      );
+    } else if (localUser.pin.isNotEmpty) {
+      // Existing user with PIN — save device session, go to PIN screen
+      await auth.saveDeviceUserId(localUser.id);
+      await auth.saveLastLoggedInEmail(email);
+      if (!mounted) return;
+      Navigator.of(context).pushReplacement(
+        PageRouteBuilder(
+          pageBuilder: (_, __, ___) => const LoginScreen(),
+          transitionsBuilder: (_, animation, __, child) {
+            final curve = CurvedAnimation(
+              parent: animation,
+              curve: Curves.easeInOutCubic,
+            );
+            return FadeTransition(opacity: curve, child: child);
+          },
+          transitionDuration: const Duration(milliseconds: 500),
+        ),
+      );
+    } else {
+      // Existing user without PIN — create PIN
+      await auth.saveDeviceUserId(localUser.id);
+      await auth.saveLastLoggedInEmail(email);
+      if (!mounted) return;
+      Navigator.of(context).pushReplacement(
+        PageRouteBuilder(
+          pageBuilder: (_, __, ___) => CreatePinScreen(user: localUser),
+          transitionsBuilder: (_, animation, __, child) {
+            final curve = CurvedAnimation(
+              parent: animation,
+              curve: Curves.easeInOutCubic,
+            );
+            return FadeTransition(opacity: curve, child: child);
+          },
+          transitionDuration: const Duration(milliseconds: 500),
+        ),
+      );
+    }
   }
 
   Future<void> _submit() async {
@@ -261,6 +354,69 @@ class _EmailEntryScreenState extends ConsumerState<EmailEntryScreen> {
                 text: 'Send Code',
                 isLoading: _loading,
                 onPressed: (_loading || !_isEmailValid) ? null : _submit,
+              ),
+              const SizedBox(height: 16),
+
+              // OR divider
+              Row(
+                children: [
+                  Expanded(
+                    child: Divider(
+                      color: textColor.withValues(alpha: 0.2),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: Text(
+                      'OR',
+                      style: TextStyle(
+                        color: textColor.withValues(alpha: 0.5),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: Divider(
+                      color: textColor.withValues(alpha: 0.2),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              // Google Sign-In button
+              Container(
+                decoration: AppDecorations.glassCard(context),
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: _loading ? null : _signInWithGoogle,
+                    borderRadius: BorderRadius.circular(12),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          FaIcon(
+                            FontAwesomeIcons.google,
+                            size: 20,
+                            color: textColor.withValues(alpha: 0.8),
+                          ),
+                          const SizedBox(width: 12),
+                          Text(
+                            'Sign in with Google',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              color: textColor.withValues(alpha: 0.8),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
               ),
               const SizedBox(height: 20),
 

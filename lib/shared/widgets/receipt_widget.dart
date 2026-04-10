@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:barcode_widget/barcode_widget.dart';
 import 'package:reebaplus_pos/core/utils/responsive.dart';
 import 'package:reebaplus_pos/core/utils/number_format.dart';
-import 'package:reebaplus_pos/core/theme/colors.dart';
+import 'package:reebaplus_pos/core/utils/product_name.dart';
 import 'package:reebaplus_pos/core/utils/stock_calculator.dart';
 
 class ReceiptWidget extends StatelessWidget {
@@ -27,6 +27,9 @@ class ReceiptWidget extends StatelessWidget {
   /// manufacturerId → name — used to label crate deposit rows by manufacturer.
   final Map<int, String>? manufacturerNames;
 
+  /// Name of the warehouse / branch that processed this sale.
+  final String? branchName;
+
   const ReceiptWidget({
     super.key,
     required this.orderId,
@@ -47,17 +50,17 @@ class ReceiptWidget extends StatelessWidget {
     this.orderStatus,
     this.refundAmount,
     this.manufacturerNames,
+    this.branchName,
   });
 
   @override
   Widget build(BuildContext context) {
-    final bg = Theme.of(context).cardColor;
-    final textCol = Theme.of(context).colorScheme.onSurface;
-    final sub =
-        Theme.of(context).textTheme.bodySmall?.color ??
-        Theme.of(context).iconTheme.color!;
-    final divCol = Theme.of(context).dividerColor;
-    final primary = Theme.of(context).colorScheme.primary;
+    // Receipts always use black-on-white regardless of app theme.
+    const bg = Colors.white;
+    const textCol = Color(0xFF111111);
+    const sub = Color(0xFF555555);
+    const divCol = Color(0xFFDDDDDD);
+    const primary = Color(0xFFF5A623); // amberPrimary brand colour
 
     return Container(
       width: double.infinity,
@@ -154,6 +157,12 @@ class ReceiptWidget extends StatelessWidget {
               color: textCol,
             ),
           ),
+          if (branchName != null && branchName!.isNotEmpty) ...[
+            Text(
+              'Branch: $branchName',
+              style: TextStyle(fontSize: context.getRFontSize(12), color: sub),
+            ),
+          ],
           Text(
             deliveryRef != null ? 'Delivery Receipt' : 'Sales Receipt',
             style: TextStyle(fontSize: context.getRFontSize(12), color: sub),
@@ -248,7 +257,7 @@ class ReceiptWidget extends StatelessWidget {
                 children: [
                   Expanded(
                     child: Text(
-                      '${item['name']}  ×${qty.toStringAsFixed(1)}',
+                      '${productDisplayName(item['name'] as String, item['size'] as String?, unit: item['unit'] as String?)}  ×${qty.toStringAsFixed(1)}',
                       style: TextStyle(
                         fontSize: context.getRFontSize(13),
                         color: textCol,
@@ -390,41 +399,14 @@ class ReceiptWidget extends StatelessWidget {
               ),
             ),
           ),
-          if (walletBalance != null) ...[
-            SizedBox(height: context.getRSize(4)),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                'Amount Paid: ${formatCurrency(cashReceived ?? total)}',
-                style: TextStyle(
-                  fontSize: context.getRFontSize(13),
-                  color: sub,
-                ),
-              ),
+          SizedBox(height: context.getRSize(4)),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              'Amount Paid: ${formatCurrency(cashReceived ?? total)}',
+              style: TextStyle(fontSize: context.getRFontSize(13), color: sub),
             ),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                'Wallet Balance: ${formatCurrency(walletBalance!)}',
-                style: TextStyle(
-                  fontSize: context.getRFontSize(13),
-                  color: walletBalance! < 0 ? danger : success,
-                ),
-              ),
-            ),
-          ] else ...[
-            SizedBox(height: context.getRSize(4)),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                'Amount Paid: ${formatCurrency(cashReceived ?? total)}',
-                style: TextStyle(
-                  fontSize: context.getRFontSize(13),
-                  color: sub,
-                ),
-              ),
-            ),
-          ],
+          ),
 
           SizedBox(height: context.getRSize(24)),
           Text(

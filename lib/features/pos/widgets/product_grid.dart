@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:math';
 import 'dart:ui';
 
@@ -8,14 +9,16 @@ import 'package:reebaplus_pos/core/database/app_database.dart';
 import 'package:reebaplus_pos/core/theme/colors.dart';
 import 'package:reebaplus_pos/core/utils/responsive.dart';
 import 'package:reebaplus_pos/core/utils/number_format.dart';
+import 'package:reebaplus_pos/core/utils/product_name.dart';
 import 'package:reebaplus_pos/core/providers/app_providers.dart';
 import 'package:reebaplus_pos/features/customers/data/models/customer.dart';
 import 'package:reebaplus_pos/features/pos/controllers/pos_controller.dart';
 import 'package:reebaplus_pos/features/pos/widgets/product_preview_modal.dart';
+import 'package:reebaplus_pos/core/utils/notifications.dart';
 
 class ProductGrid extends StatelessWidget {
   final List<ProductDataWithStock> products;
-  final Function(ProductData) onProductTap;
+  final Function(ProductDataWithStock) onProductTap;
   final Color cardCol;
   final Color textCol;
   final Color subtextCol;
@@ -61,7 +64,7 @@ class ProductGrid extends StatelessWidget {
 
     final screenWidth = MediaQuery.of(context).size.width;
     final crossAxisCount = screenWidth < 360 ? 2 : (screenWidth > 500 ? 4 : 3);
-    final aspect = screenWidth < 360 ? 0.75 : (screenWidth > 500 ? 0.68 : 0.68);
+    final aspect = screenWidth < 360 ? 0.65 : (screenWidth > 500 ? 0.58 : 0.58);
 
     return GridView.builder(
       padding: EdgeInsets.all(context.getRSize(16)),
@@ -76,7 +79,7 @@ class ProductGrid extends StatelessWidget {
         final item = products[index];
         return _ProductCard(
           item: item,
-          onTap: () => onProductTap(item.product),
+          onTap: () => onProductTap(item),
           cardCol: cardCol,
           textCol: textCol,
           subtextCol: subtextCol,
@@ -189,7 +192,9 @@ class _ProductCardState extends ConsumerState<_ProductCard>
           final y = yBase + arc;
 
           final scale = lerpDouble(1.0, 0.35, t)!;
-          final opacity = raw > 0.82 ? ((1.0 - raw) / 0.18).clamp(0.0, 1.0) : 1.0;
+          final opacity = raw > 0.82
+              ? ((1.0 - raw) / 0.18).clamp(0.0, 1.0)
+              : 1.0;
 
           return Positioned(
             left: x - 15,
@@ -207,7 +212,9 @@ class _ProductCardState extends ConsumerState<_ProductCard>
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.55),
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.primary.withValues(alpha: 0.55),
                           blurRadius: 10,
                           spreadRadius: 1,
                         ),
@@ -239,14 +246,18 @@ class _ProductCardState extends ConsumerState<_ProductCard>
   @override
   Widget build(BuildContext context) {
     final product = widget.item.product;
-    final int priceKobo = ref.read(databaseProvider).catalogDao.getPriceForCustomerGroup(
-      product,
-      widget.controller.selectedGroup == CustomerGroup.retailer
-          ? 'retail'
-          : 'wholesaler',
-    );
+    final bool isOutOfStock = widget.item.totalStock <= 0;
+    final int priceKobo = ref
+        .read(databaseProvider)
+        .catalogDao
+        .getPriceForCustomerGroup(
+          product,
+          widget.controller.selectedGroup == CustomerGroup.retailer
+              ? 'retail'
+              : 'wholesaler',
+        );
     final price = priceKobo / 100.0;
-    final bool isLowStock = widget.item.totalStock <= 5;
+    final bool isLowStock = !isOutOfStock && widget.item.totalStock <= 5;
 
     return ValueListenableBuilder<List<Map<String, dynamic>>>(
       valueListenable: ref.watch(cartProvider),
@@ -255,6 +266,8 @@ class _ProductCardState extends ConsumerState<_ProductCard>
             .where((i) => i['id'] == product.id)
             .fold(0.0, (s, i) => s + (i['qty'] as num).toDouble());
         final bool inCart = cartQty > 0;
+        final bool atStockLimit =
+            !isOutOfStock && cartQty >= widget.item.totalStock;
         final String badgeText = cartQty == cartQty.roundToDouble()
             ? cartQty.toInt().toString()
             : cartQty.toStringAsFixed(1);
@@ -262,103 +275,179 @@ class _ProductCardState extends ConsumerState<_ProductCard>
         return Stack(
           clipBehavior: Clip.none,
           children: [
-            GestureDetector(
-              onLongPressStart: (_) => _showPreview(),
-              onLongPressEnd: (_) => _hidePreview(),
-              onLongPressCancel: () => _hidePreview(),
-              child: InkWell(
-                onTap: _handleTap,
-                borderRadius: BorderRadius.circular(16),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  curve: Curves.easeOut,
-                  decoration: BoxDecoration(
-                    color: widget.cardCol,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: inCart ? blueMain : widget.borderCol,
-                      width: inCart ? 2.0 : 1.0,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: inCart
-                            ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.15)
-                            : Colors.black.withValues(alpha: 0.02),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
+            Opacity(
+              opacity: isOutOfStock ? 0.45 : 1.0,
+              child: GestureDetector(
+                onLongPressStart: isOutOfStock ? null : (_) => _showPreview(),
+                onLongPressEnd: isOutOfStock ? null : (_) => _hidePreview(),
+                onLongPressCancel: isOutOfStock ? null : () => _hidePreview(),
+                child: InkWell(
+                  onTap: isOutOfStock
+                      ? null
+                      : (atStockLimit
+                            ? () => AppNotification.showError(
+                                context,
+                                'Stock limit reached for ${product.name}',
+                              )
+                            : _handleTap),
+                  borderRadius: BorderRadius.circular(16),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    curve: Curves.easeOut,
+                    decoration: BoxDecoration(
+                      color: widget.cardCol,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: isOutOfStock
+                            ? widget.borderCol
+                            : (inCart ? blueMain : widget.borderCol),
+                        width: inCart && !isOutOfStock ? 2.0 : 1.0,
                       ),
-                    ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: Container(
-                          width: double.infinity,
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.05),
-                            borderRadius: const BorderRadius.vertical(
-                                top: Radius.circular(16)),
-                          ),
-                          child: Center(
-                            child: Icon(
-                              FontAwesomeIcons.beerMugEmpty,
-                              size: context.getRSize(32),
-                              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.4),
-                            ),
-                          ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: inCart && !isOutOfStock
+                              ? Theme.of(
+                                  context,
+                                ).colorScheme.primary.withValues(alpha: 0.15)
+                              : Colors.black.withValues(alpha: 0.02),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
                         ),
-                      ),
-                      Padding(
-                        padding: EdgeInsets.all(context.getRSize(12)),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              product.name,
-                              style: TextStyle(
-                                fontSize: context.getRFontSize(12),
-                                fontWeight: FontWeight.w700,
-                                color: widget.textCol,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            SizedBox(height: context.getRSize(4)),
-                            Text(
-                              formatCurrency(price),
-                              style: TextStyle(
-                                fontSize: context.getRFontSize(13),
-                                fontWeight: FontWeight.w800,
-                                color: Theme.of(context).colorScheme.primary,
-                              ),
-                            ),
-                            SizedBox(height: context.getRSize(8)),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  'Stock: ${widget.item.totalStock}',
-                                  style: TextStyle(
-                                    fontSize: context.getRFontSize(10),
-                                    color: isLowStock ? danger : widget.subtextCol,
-                                    fontWeight: isLowStock
-                                        ? FontWeight.bold
-                                        : FontWeight.w500,
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Stack(
+                            children: [
+                              Container(
+                                width: double.infinity,
+                                decoration: BoxDecoration(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.primary.withValues(alpha: 0.05),
+                                  borderRadius: const BorderRadius.vertical(
+                                    top: Radius.circular(16),
                                   ),
                                 ),
-                                if (isLowStock)
-                                  Icon(
-                                    FontAwesomeIcons.triangleExclamation,
-                                    size: context.getRSize(10),
-                                    color: Theme.of(context).colorScheme.error,
+                                child: Center(
+                                  child: product.imagePath != null
+                                      ? Image.file(
+                                          File(product.imagePath!),
+                                          width: double.infinity,
+                                          height: double.infinity,
+                                          fit: BoxFit.cover,
+                                          errorBuilder: (ctx, _, __) => Icon(
+                                            FontAwesomeIcons.beerMugEmpty,
+                                            size: context.getRSize(32),
+                                            color: Theme.of(context)
+                                                .colorScheme
+                                                .primary
+                                                .withValues(alpha: 0.4),
+                                          ),
+                                        )
+                                      : Icon(
+                                          FontAwesomeIcons.beerMugEmpty,
+                                          size: context.getRSize(32),
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .primary
+                                              .withValues(alpha: 0.4),
+                                        ),
+                                ),
+                              ),
+                              if (isOutOfStock)
+                                Positioned.fill(
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      color: Colors.black.withValues(
+                                        alpha: 0.35,
+                                      ),
+                                      borderRadius: const BorderRadius.vertical(
+                                        top: Radius.circular(16),
+                                      ),
+                                    ),
+                                    child: Center(
+                                      child: Text(
+                                        'Out of\nStock',
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: context.getRFontSize(10),
+                                          fontWeight: FontWeight.w800,
+                                        ),
+                                      ),
+                                    ),
                                   ),
-                              ],
-                            ),
-                          ],
+                                ),
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
+                        Padding(
+                          padding: EdgeInsets.all(context.getRSize(12)),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                productDisplayName(
+                                  product.name,
+                                  product.size,
+                                  unit: product.unit,
+                                ),
+                                style: TextStyle(
+                                  fontSize: context.getRFontSize(12),
+                                  fontWeight: FontWeight.w700,
+                                  color: widget.textCol,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              SizedBox(height: context.getRSize(4)),
+                              Text(
+                                formatCurrency(price),
+                                style: TextStyle(
+                                  fontSize: context.getRFontSize(13),
+                                  fontWeight: FontWeight.w800,
+                                  color: Theme.of(context).colorScheme.primary,
+                                ),
+                              ),
+                              SizedBox(height: context.getRSize(8)),
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    isOutOfStock
+                                        ? 'No stock'
+                                        : 'Stock: ${widget.item.totalStock}',
+                                    style: TextStyle(
+                                      fontSize: context.getRFontSize(10),
+                                      color: isOutOfStock
+                                          ? danger
+                                          : (isLowStock
+                                                ? danger
+                                                : widget.subtextCol),
+                                      fontWeight: (isOutOfStock || isLowStock)
+                                          ? FontWeight.bold
+                                          : FontWeight.w500,
+                                    ),
+                                  ),
+                                  if (isLowStock)
+                                    Icon(
+                                      FontAwesomeIcons.triangleExclamation,
+                                      size: context.getRSize(10),
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.error,
+                                    ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -379,7 +468,9 @@ class _ProductCardState extends ConsumerState<_ProductCard>
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
-                        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.45),
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.primary.withValues(alpha: 0.45),
                         blurRadius: 8,
                         offset: const Offset(0, 2),
                       ),

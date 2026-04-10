@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:reebaplus_pos/core/database/app_database.dart';
 import 'package:reebaplus_pos/core/providers/app_providers.dart';
 import 'package:reebaplus_pos/core/widgets/app_fab.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -153,8 +154,8 @@ class _PosHomeScreenState extends ConsumerState<PosHomeScreen> {
                           ? const ShimmerGrid(count: 6)
                           : ProductGrid(
                               products: _controller!.filteredProducts,
-                              onProductTap: (product) =>
-                                  _addToCart(context, product),
+                              onProductTap: (item) =>
+                                  _addToCart(context, item),
                               cardCol: cardCol,
                               textCol: textCol,
                               subtextCol: subtextCol,
@@ -369,9 +370,23 @@ class _PosHomeScreenState extends ConsumerState<PosHomeScreen> {
     );
   }
 
-  void _addToCart(BuildContext context, dynamic product) {
-    ref.read(cartProvider).addItem(product, qty: 1.0);
-    AppNotification.showSuccess(context, '${product.name} added to cart');
+  void _addToCart(BuildContext context, ProductDataWithStock item) {
+    final accepted = ref.read(cartProvider).addItem(
+          item.product,
+          qty: 1.0,
+          maxStock: item.totalStock,
+        );
+    if (accepted) {
+      AppNotification.showSuccess(
+        context,
+        '${item.product.name} added to cart',
+      );
+    } else {
+      AppNotification.showError(
+        context,
+        'Stock limit reached for ${item.product.name}',
+      );
+    }
   }
 
   Future<void> _showQuickSaleModal(BuildContext context) async {

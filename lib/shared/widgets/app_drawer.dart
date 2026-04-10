@@ -4,6 +4,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import 'package:reebaplus_pos/core/theme/theme_settings_screen.dart';
+import 'package:reebaplus_pos/core/settings/settings_screen.dart';
 import 'package:reebaplus_pos/core/utils/responsive.dart';
 import 'package:reebaplus_pos/core/providers/app_providers.dart';
 import 'package:reebaplus_pos/shared/widgets/user_tips_modal.dart';
@@ -263,6 +264,18 @@ class AppDrawer extends ConsumerWidget {
         ),
         _navItem(
           context,
+          FontAwesomeIcons.gear,
+          'Settings',
+          active: false,
+          onTap: () {
+            Navigator.pop(context);
+            Navigator.of(
+              context,
+            ).push(MaterialPageRoute(builder: (_) => const SettingsScreen()));
+          },
+        ),
+        _navItem(
+          context,
           FontAwesomeIcons.lightbulb,
           'Pro Tips',
           active: false,
@@ -284,7 +297,8 @@ class AppDrawer extends ConsumerWidget {
           labelColor: t.colorScheme.error,
           onTap: () {
             Navigator.pop(context); // close the drawer first
-            ref.read(authProvider)
+            ref
+                .read(authProvider)
                 .fullLogout(); // terminally logs out → main.dart shows email screen
           },
         ),

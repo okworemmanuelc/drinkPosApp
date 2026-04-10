@@ -1,7 +1,5 @@
 import 'dart:async';
-import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -9,42 +7,33 @@ import 'package:reebaplus_pos/core/database/app_database.dart';
 import 'package:reebaplus_pos/core/providers/app_providers.dart';
 import 'package:reebaplus_pos/core/utils/notifications.dart';
 import 'package:reebaplus_pos/shared/widgets/app_button.dart';
-import 'package:reebaplus_pos/features/auth/screens/create_pin_screen.dart';
-import 'package:reebaplus_pos/features/auth/screens/login_screen.dart';
-import 'package:reebaplus_pos/features/auth/screens/business_type_selection_screen.dart';
 import 'package:reebaplus_pos/features/auth/widgets/auth_background.dart';
 import 'package:reebaplus_pos/features/auth/widgets/shake_widget.dart';
 import 'package:reebaplus_pos/features/auth/widgets/otp_input.dart';
 
-class OtpVerificationScreen extends ConsumerStatefulWidget {
-  final UserData? user;
-  final String email;
-  final bool isPinReset;
+/// Second OTP verification screen shown after PIN entry for email-only users.
+///
+/// Google-authenticated users skip this screen entirely.
+class PostPinOtpScreen extends ConsumerStatefulWidget {
+  final UserData user;
 
-  const OtpVerificationScreen({
-    super.key,
-    required this.user,
-    required this.email,
-    this.isPinReset = false,
-  });
+  const PostPinOtpScreen({super.key, required this.user});
 
   @override
-  ConsumerState<OtpVerificationScreen> createState() =>
-      _OtpVerificationScreenState();
+  ConsumerState<PostPinOtpScreen> createState() => _PostPinOtpScreenState();
 }
 
-class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
+class _PostPinOtpScreenState extends ConsumerState<PostPinOtpScreen> {
   final _otpController = TextEditingController();
   final GlobalKey<ShakeWidgetState> _shakeKey = GlobalKey();
 
   bool _loading = false;
   String? _errorMessage;
 
-  // Resend cooldown: 60 seconds after each send
   int _resendCountdown = 60;
   Timer? _resendTimer;
-
   int _resendAttempts = 0;
+
   int _failedAttempts = 0;
   DateTime? _lockoutEndTime;
   bool _isLockedOut = false;
@@ -62,7 +51,19 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
         _submit();
       }
     });
+    _sendInitialOtp();
     _startResendTimer();
+  }
+
+  Future<void> _sendInitialOtp() async {
+    final email = widget.user.email;
+    if (email == null || email.isEmpty) return;
+
+    final error = await ref.read(authProvider).sendOtp(email);
+    if (!mounted) return;
+    if (error != null) {
+      AppNotification.showError(context, error);
+    }
   }
 
   void _startResendTimer() {
@@ -85,7 +86,7 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
 
   Future<void> _checkLockoutStatus() async {
     final prefs = await SharedPreferences.getInstance();
-    final lockoutTimeString = prefs.getString('otp_lockout_until');
+    final lockoutTimeString = prefs.getString('post_pin_otp_lockout_until');
 
     if (lockoutTimeString != null) {
       final lockoutTime = DateTime.parse(lockoutTimeString);
@@ -97,7 +98,7 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
         });
         _startLockoutTimer();
       } else {
-        prefs.remove('otp_lockout_until');
+        prefs.remove('post_pin_otp_lockout_until');
       }
     }
   }
@@ -135,13 +136,15 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
 
   Future<void> _submit() async {
     final otp = _otpController.text.trim();
+    final email = widget.user.email;
+    if (email == null || email.isEmpty) return;
+
     setState(() {
       _loading = true;
       _errorMessage = null;
     });
 
-    final error = await ref.read(authProvider).verifyOtp(widget.email, otp);
-
+    final error = await ref.read(authProvider).verifyOtp(email, otp);
     if (!mounted) return;
 
     if (error != null) {
@@ -150,10 +153,9 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
         final prefs = await SharedPreferences.getInstance();
         final lockoutTime = DateTime.now().add(const Duration(minutes: 30));
         await prefs.setString(
-          'otp_lockout_until',
+          'post_pin_otp_lockout_until',
           lockoutTime.toIso8601String(),
         );
-
         setState(() {
           _loading = false;
           _isLockedOut = true;
@@ -173,110 +175,36 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
       return;
     }
 
+    // OTP verified — complete login
     setState(() => _loading = false);
-
-    // Mark this session as email-authenticated (triggers second OTP after PIN).
-    await ref.read(authProvider).saveAuthMethod('email');
-
-    // OTP verified — route based on whether the user exists locally.
-    if (widget.user == null) {
-      Navigator.of(context).pushReplacement(
-        PageRouteBuilder(
-          pageBuilder: (context, animation, secondaryAnimation) =>
-              BusinessTypeSelectionScreen(email: widget.email),
-          transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            final curve = CurvedAnimation(
-              parent: animation,
-              curve: Curves.easeInOutCubic,
-            );
-            return FadeTransition(
-              opacity: curve,
-              child: ScaleTransition(
-                scale: Tween<double>(begin: 0.96, end: 1.0).animate(curve),
-                child: child,
-              ),
-            );
-          },
-          transitionDuration: const Duration(milliseconds: 500),
-        ),
-      );
-    } else {
-      final hasPin = widget.user!.pin.isNotEmpty;
-      if (hasPin && !widget.isPinReset) {
-        // Existing user on a new device → enter their existing PIN.
-        Navigator.of(context).pushReplacement(
-          PageRouteBuilder(
-            pageBuilder: (context, animation, secondaryAnimation) =>
-                const LoginScreen(),
-            transitionsBuilder:
-                (context, animation, secondaryAnimation, child) {
-                  final curve = CurvedAnimation(
-                    parent: animation,
-                    curve: Curves.easeInOutCubic,
-                  );
-                  return FadeTransition(
-                    opacity: curve,
-                    child: ScaleTransition(
-                      scale: Tween<double>(
-                        begin: 0.96,
-                        end: 1.0,
-                      ).animate(curve),
-                      child: child,
-                    ),
-                  );
-                },
-            transitionDuration: const Duration(milliseconds: 500),
-          ),
-        );
-      } else {
-        // New staff OR resetting PIN — create their PIN for the first time.
-        Navigator.of(context).pushReplacement(
-          PageRouteBuilder(
-            pageBuilder: (context, animation, secondaryAnimation) =>
-                CreatePinScreen(user: widget.user!),
-            transitionsBuilder:
-                (context, animation, secondaryAnimation, child) {
-                  final curve = CurvedAnimation(
-                    parent: animation,
-                    curve: Curves.easeInOutCubic,
-                  );
-                  return FadeTransition(
-                    opacity: curve,
-                    child: ScaleTransition(
-                      scale: Tween<double>(
-                        begin: 0.96,
-                        end: 1.0,
-                      ).animate(curve),
-                      child: child,
-                    ),
-                  );
-                },
-            transitionDuration: const Duration(milliseconds: 500),
-          ),
-        );
-      }
-    }
+    ref.read(authProvider).setCurrentUser(widget.user);
+    // Navigator key regeneration in main.dart handles routing automatically.
   }
 
   Future<void> _resend() async {
+    final email = widget.user.email;
+    if (email == null || email.isEmpty) return;
+
     if (_resendAttempts >= 3) {
-      AppNotification.showError(
-        context,
-        'Maximum resend attempts reached. Please restart.',
-      );
-      Navigator.of(context).pop();
+      if (mounted) {
+        AppNotification.showError(
+          context,
+          'Maximum resend attempts reached. Please restart.',
+        );
+      }
       return;
     }
 
     setState(() => _loading = true);
-    final error = await ref.read(authProvider).sendOtp(widget.email);
+    final error = await ref.read(authProvider).sendOtp(email);
     if (!mounted) return;
     setState(() => _loading = false);
+
     if (error != null) {
       AppNotification.showError(context, error);
     } else {
       _resendAttempts++;
-      AppNotification.showSuccess(context, 'New code sent to ${widget.email}');
+      AppNotification.showSuccess(context, 'New code sent to $email');
       _startResendTimer();
     }
   }
@@ -286,10 +214,7 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
     final parts = email.split('@');
     final name = parts[0];
     final domain = parts[1];
-
-    if (name.length <= 2) {
-      return '${name.substring(0, 1)}**@$domain';
-    }
+    if (name.length <= 2) return '${name.substring(0, 1)}**@$domain';
     return '${name.substring(0, 2)}**@$domain';
   }
 
@@ -298,6 +223,7 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final textColor = isDark ? Colors.white : Colors.black;
+    final email = widget.user.email ?? '';
 
     return AuthBackground(
       child: SafeArea(
@@ -306,31 +232,29 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Back button
-              Align(
-                alignment: Alignment.centerLeft,
-                child: IconButton(
-                  icon: Icon(Icons.arrow_back_ios, color: textColor, size: 20),
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
-              ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 24),
 
-              // Logo
+              // Lock icon
               Center(
-                child: Image.asset(
-                  'assets/images/reebaplus_logo.png',
+                child: Container(
+                  width: 72,
                   height: 72,
-                  color: isDark ? null : theme.colorScheme.primary,
-                  errorBuilder: (_, __, ___) =>
-                      Icon(Icons.storefront, size: 72, color: textColor),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primary.withValues(alpha: 0.15),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.verified_user_rounded,
+                    size: 36,
+                    color: theme.colorScheme.primary,
+                  ),
                 ),
               ),
               const SizedBox(height: 20),
 
               Center(
                 child: Text(
-                  'Check your email',
+                  'Verify your identity',
                   style: TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.w700,
@@ -341,7 +265,7 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
               const SizedBox(height: 8),
               Center(
                 child: Text(
-                  'Enter the 6-digit code sent to\n${_maskEmail(widget.email)}',
+                  'Enter the 6-digit code sent to\n${_maskEmail(email)}',
                   style: TextStyle(
                     fontSize: 13,
                     color: textColor.withValues(alpha: 0.7),
@@ -351,7 +275,7 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
               ),
               const SizedBox(height: 36),
 
-              // OTP input — single invisible field driving 6 styled boxes
+              // OTP input
               ShakeWidget(
                 key: _shakeKey,
                 child: OtpBoxRow(
@@ -397,13 +321,13 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
               const SizedBox(height: 16),
 
               AppButton(
-                text: 'Verify',
+                text: 'Verify & Continue',
                 isLoading: _loading,
                 onPressed: _canSubmit ? _submit : null,
               ),
               const SizedBox(height: 20),
 
-              // Resend button with countdown
+              // Resend
               Center(
                 child: _resendCountdown > 0
                     ? Text(
@@ -431,7 +355,3 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
     );
   }
 }
-
-// ShakeWidget and OtpBoxRow extracted to:
-//   lib/features/auth/widgets/shake_widget.dart
-//   lib/features/auth/widgets/otp_input.dart

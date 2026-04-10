@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:drift/drift.dart' show innerJoin;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -14,8 +13,10 @@ import 'package:reebaplus_pos/core/providers/app_providers.dart';
 import 'package:reebaplus_pos/core/theme/app_decorations.dart';
 import 'package:reebaplus_pos/core/theme/colors.dart';
 import 'package:reebaplus_pos/core/utils/notifications.dart';
+import 'package:reebaplus_pos/core/utils/currency_input_formatter.dart';
 import 'package:reebaplus_pos/core/utils/number_format.dart';
 import 'package:reebaplus_pos/core/utils/responsive.dart';
+import 'package:flutter/services.dart';
 import 'package:reebaplus_pos/core/widgets/amber_button.dart';
 import 'package:reebaplus_pos/core/widgets/status_badge.dart';
 import 'package:reebaplus_pos/features/customers/data/models/customer.dart';
@@ -43,6 +44,7 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
   CustomerData? _customerData;
   int _walletBalance = 0;
   List<WalletTransactionData> _walletHistory = [];
+  String _selectedPeriod = 'All Time';
   List<OrderData> _orders = [];
   List<CrateBalanceEntry> _crateBalances = [];
 
@@ -125,6 +127,32 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
       _customerData?.walletLimitKobo ?? widget.customer?.walletLimitKobo ?? 0;
   int? get _customerId => widget.customer?.id;
 
+  List<WalletTransactionData> get _filteredHistory {
+    if (_selectedPeriod == 'All Time') return _walletHistory;
+    final now = DateTime.now();
+    late final DateTime from;
+    switch (_selectedPeriod) {
+      case 'Today':
+        from = DateTime(now.year, now.month, now.day);
+        break;
+      case 'This Week':
+        final weekStart = now.subtract(Duration(days: now.weekday - 1));
+        from = DateTime(weekStart.year, weekStart.month, weekStart.day);
+        break;
+      case 'This Month':
+        from = DateTime(now.year, now.month, 1);
+        break;
+      case 'This Year':
+        from = DateTime(now.year, 1, 1);
+        break;
+      default:
+        return _walletHistory;
+    }
+    return _walletHistory
+        .where((txn) => !txn.createdAt.isBefore(from))
+        .toList();
+  }
+
   String _initials(String name) {
     final parts = name.trim().split(' ').where((p) => p.isNotEmpty).toList();
     if (parts.isEmpty) return '?';
@@ -203,10 +231,11 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
               _SheetField(
                 controller: amountCtrl,
                 label: 'Amount (₦)',
-                keyboard: TextInputType.number,
+                keyboard: const TextInputType.numberWithOptions(decimal: true),
+                inputFormatters: [CurrencyInputFormatter()],
                 validator: (v) {
-                  final n = double.tryParse(v ?? '');
-                  if (n == null || n <= 0) return 'Enter a valid amount';
+                  final n = parseCurrency(v ?? '');
+                  if (n <= 0) return 'Enter a valid amount';
                   return null;
                 },
               ),
@@ -222,7 +251,7 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
                 icon: Icons.add,
                 onPressed: () async {
                   if (!formKey.currentState!.validate()) return;
-                  final amount = double.parse(amountCtrl.text.trim());
+                  final amount = parseCurrency(amountCtrl.text);
                   final note = noteCtrl.text.trim().isEmpty
                       ? 'Manual top-up'
                       : noteCtrl.text.trim();
@@ -293,10 +322,11 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
               _SheetField(
                 controller: limitCtrl,
                 label: 'Limit Amount (₦)',
-                keyboard: TextInputType.number,
+                keyboard: const TextInputType.numberWithOptions(decimal: true),
+                inputFormatters: [CurrencyInputFormatter()],
                 validator: (v) {
-                  final n = double.tryParse(v ?? '');
-                  if (n == null || n < 0) {
+                  final n = parseCurrency(v ?? '');
+                  if (n < 0) {
                     return 'Enter a valid amount (0 to remove limit)';
                   }
                   return null;
@@ -308,7 +338,7 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
                 icon: Icons.check,
                 onPressed: () async {
                   if (!formKey.currentState!.validate()) return;
-                  final amount = double.parse(limitCtrl.text.trim());
+                  final amount = parseCurrency(limitCtrl.text);
                   final id = _customerId;
                   if (id == null) return;
                   final messenger = ScaffoldMessenger.of(context);
@@ -351,6 +381,16 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
         'price': i.unitPriceKobo / 100.0,
       };
     }).toList();
+
+    // Resolve branch name from warehouse
+    String? branchName;
+    if (order.warehouseId != null) {
+      final warehouses = await db.select(db.warehouses).get();
+      branchName = warehouses
+          .where((w) => w.id == order.warehouseId)
+          .map((w) => w.name)
+          .firstOrNull;
+    }
 
     if (!mounted) return;
 
@@ -416,6 +456,7 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
                           riderName: order.riderName,
                           reprintDate: reprintDate,
                           reshareDate: reshareDate,
+                          branchName: branchName,
                         ),
                       ),
                     ),
@@ -434,7 +475,12 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
                                 setModalState(
                                   () => reprintDate = DateTime.now(),
                                 );
-                                _printReceiptFromDetail(ctx, order, items);
+                                _printReceiptFromDetail(
+                                  ctx,
+                                  order,
+                                  items,
+                                  branchName,
+                                );
                               },
                             ),
                           ),
@@ -480,6 +526,7 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
     BuildContext ctx,
     OrderData order,
     List<Map<String, dynamic>> items,
+    String? branchName,
   ) async {
     try {
       final granted = await ref
@@ -505,6 +552,7 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
         riderName: order.riderName,
         orderStatus: order.status,
         refundAmount: order.amountPaidKobo / 100.0,
+        branchName: branchName,
       );
 
       if (!ctx.mounted) return;
@@ -844,6 +892,53 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
             SizedBox(height: context.getRSize(14)),
             Row(
               children: [
+                Text(
+                  'Period:',
+                  style: TextStyle(
+                    fontSize: context.getRFontSize(12),
+                    fontWeight: FontWeight.w600,
+                    color: theme.colorScheme.onSurface.withAlpha(128),
+                  ),
+                ),
+                SizedBox(width: context.getRSize(8)),
+                Expanded(
+                  child: DropdownButton<String>(
+                    value: _selectedPeriod,
+                    isExpanded: true,
+                    underline: const SizedBox.shrink(),
+                    isDense: true,
+                    style: TextStyle(
+                      fontSize: context.getRFontSize(13),
+                      fontWeight: FontWeight.w600,
+                      color: theme.colorScheme.onSurface,
+                    ),
+                    dropdownColor: theme.colorScheme.surface,
+                    icon: Icon(
+                      FontAwesomeIcons.chevronDown,
+                      size: context.getRSize(11),
+                      color: theme.colorScheme.onSurface.withAlpha(128),
+                    ),
+                    items:
+                        [
+                              'Today',
+                              'This Week',
+                              'This Month',
+                              'This Year',
+                              'All Time',
+                            ]
+                            .map(
+                              (p) => DropdownMenuItem(value: p, child: Text(p)),
+                            )
+                            .toList(),
+                    onChanged: (v) =>
+                        setState(() => _selectedPeriod = v ?? 'All Time'),
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: context.getRSize(14)),
+            Row(
+              children: [
                 Expanded(
                   child: AmberButton(
                     label: 'Add Funds',
@@ -909,6 +1004,85 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
     );
   }
 
+  // ── Wallet Summary ──────────────────────────────────────────────────────────
+
+  Widget _buildSummaryTile(
+    ThemeData theme,
+    String label,
+    double amount,
+    Color color,
+  ) {
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: context.getRSize(14),
+        vertical: context.getRSize(10),
+      ),
+      decoration: AppDecorations.surfaceCard(context, radius: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: context.getRFontSize(11),
+              fontWeight: FontWeight.w600,
+              color: theme.colorScheme.onSurface.withAlpha(128),
+            ),
+          ),
+          SizedBox(height: context.getRSize(4)),
+          Text(
+            formatCurrency(amount),
+            style: TextStyle(
+              fontSize: context.getRFontSize(15),
+              fontWeight: FontWeight.w800,
+              color: color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWalletSummaryRow(ThemeData theme) {
+    int totalInKobo = 0, totalOutKobo = 0;
+    for (final txn in _filteredHistory) {
+      if (txn.type == 'credit') {
+        totalInKobo += txn.amountKobo;
+      } else {
+        totalOutKobo += txn.amountKobo;
+      }
+    }
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        context.getRSize(20),
+        context.getRSize(12),
+        context.getRSize(20),
+        0,
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: _buildSummaryTile(
+              theme,
+              'Total In',
+              totalInKobo / 100.0,
+              success,
+            ),
+          ),
+          SizedBox(width: context.getRSize(10)),
+          Expanded(
+            child: _buildSummaryTile(
+              theme,
+              'Total Out',
+              totalOutKobo / 100.0,
+              danger,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   // ── Tab: Wallet History ─────────────────────────────────────────────────────
 
   Widget _buildWalletHistoryTab(ThemeData theme) {
@@ -919,77 +1093,97 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
         theme: theme,
       );
     }
-    return ListView.builder(
-      padding: EdgeInsets.fromLTRB(
-        context.getRSize(20),
-        context.getRSize(12),
-        context.getRSize(20),
-        context.getRSize(20),
-      ),
-      itemCount: _walletHistory.length,
-      itemBuilder: (ctx, i) {
-        final txn = _walletHistory[i];
-        final isCredit = txn.type == 'credit';
-        final amount = txn.amountKobo / 100.0;
-        final color = isCredit ? success : danger;
-        return Padding(
-          padding: EdgeInsets.only(bottom: ctx.getRSize(10)),
-          child: Container(
-            padding: EdgeInsets.all(ctx.getRSize(14)),
-            decoration: AppDecorations.surfaceCard(ctx, radius: 12),
-            child: Row(
-              children: [
-                Container(
-                  width: ctx.getRSize(38),
-                  height: ctx.getRSize(38),
-                  decoration: BoxDecoration(
-                    color: color.withAlpha(30),
-                    shape: BoxShape.circle,
+
+    final filtered = _filteredHistory;
+
+    return Column(
+      children: [
+        _buildWalletSummaryRow(theme),
+        SizedBox(height: context.getRSize(4)),
+        Expanded(
+          child: filtered.isEmpty
+              ? _EmptyState(
+                  icon: FontAwesomeIcons.filterCircleXmark,
+                  message: 'No transactions in this period',
+                  theme: theme,
+                )
+              : ListView.builder(
+                  padding: EdgeInsets.fromLTRB(
+                    context.getRSize(20),
+                    context.getRSize(12),
+                    context.getRSize(20),
+                    context.getRSize(20),
                   ),
-                  child: Icon(
-                    isCredit
-                        ? FontAwesomeIcons.arrowDown
-                        : FontAwesomeIcons.arrowUp,
-                    color: color,
-                    size: ctx.getRSize(16),
-                  ),
-                ),
-                SizedBox(width: ctx.getRSize(12)),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        _friendlyRefType(txn.referenceType),
-                        style: TextStyle(
-                          fontSize: ctx.getRFontSize(14),
-                          fontWeight: FontWeight.w600,
-                          color: theme.colorScheme.onSurface,
+                  itemCount: filtered.length,
+                  itemBuilder: (ctx, i) {
+                    final txn = filtered[i];
+                    final isCredit = txn.type == 'credit';
+                    final amount = txn.amountKobo / 100.0;
+                    final color = isCredit ? success : danger;
+                    return Padding(
+                      padding: EdgeInsets.only(bottom: ctx.getRSize(10)),
+                      child: Container(
+                        padding: EdgeInsets.all(ctx.getRSize(14)),
+                        decoration: AppDecorations.surfaceCard(ctx, radius: 12),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: ctx.getRSize(38),
+                              height: ctx.getRSize(38),
+                              decoration: BoxDecoration(
+                                color: color.withAlpha(30),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                isCredit
+                                    ? FontAwesomeIcons.arrowDown
+                                    : FontAwesomeIcons.arrowUp,
+                                color: color,
+                                size: ctx.getRSize(16),
+                              ),
+                            ),
+                            SizedBox(width: ctx.getRSize(12)),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    _friendlyRefType(txn.referenceType),
+                                    style: TextStyle(
+                                      fontSize: ctx.getRFontSize(14),
+                                      fontWeight: FontWeight.w600,
+                                      color: theme.colorScheme.onSurface,
+                                    ),
+                                  ),
+                                  Text(
+                                    DateFormat(
+                                      'd MMM yyyy, h:mm a',
+                                    ).format(txn.createdAt),
+                                    style: TextStyle(
+                                      fontSize: ctx.getRFontSize(11),
+                                      color: theme.colorScheme.onSurface
+                                          .withAlpha(115),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Text(
+                              '${isCredit ? '+' : '-'}${formatCurrency(amount)}',
+                              style: TextStyle(
+                                fontSize: ctx.getRFontSize(15),
+                                fontWeight: FontWeight.w800,
+                                color: color,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      Text(
-                        DateFormat('d MMM yyyy, h:mm a').format(txn.createdAt),
-                        style: TextStyle(
-                          fontSize: ctx.getRFontSize(11),
-                          color: theme.colorScheme.onSurface.withAlpha(115),
-                        ),
-                      ),
-                    ],
-                  ),
+                    );
+                  },
                 ),
-                Text(
-                  '${isCredit ? '+' : '-'}${formatCurrency(amount)}',
-                  style: TextStyle(
-                    fontSize: ctx.getRFontSize(15),
-                    fontWeight: FontWeight.w800,
-                    color: color,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
+        ),
+      ],
     );
   }
 
@@ -1310,11 +1504,13 @@ class _SheetField extends StatelessWidget {
   final TextEditingController controller;
   final String label;
   final TextInputType keyboard;
+  final List<TextInputFormatter>? inputFormatters;
   final String? Function(String?)? validator;
   const _SheetField({
     required this.controller,
     required this.label,
     required this.keyboard,
+    this.inputFormatters,
     this.validator,
   });
 
@@ -1323,6 +1519,7 @@ class _SheetField extends StatelessWidget {
     return TextFormField(
       controller: controller,
       keyboardType: keyboard,
+      inputFormatters: inputFormatters,
       validator: validator,
       decoration: InputDecoration(
         labelText: label,

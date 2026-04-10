@@ -12,6 +12,7 @@ import 'package:reebaplus_pos/core/providers/app_providers.dart';
 import 'package:reebaplus_pos/shared/widgets/receipt_widget.dart';
 import 'package:reebaplus_pos/core/utils/responsive.dart';
 import 'package:reebaplus_pos/core/utils/logger.dart';
+import 'package:reebaplus_pos/core/database/app_database.dart';
 import 'package:reebaplus_pos/features/pos/services/receipt_builder.dart';
 import 'package:reebaplus_pos/features/customers/data/models/customer.dart';
 import 'package:reebaplus_pos/core/theme/colors.dart';
@@ -22,6 +23,7 @@ import 'package:reebaplus_pos/core/utils/currency_input_formatter.dart';
 import 'package:reebaplus_pos/shared/widgets/app_input.dart';
 import 'package:reebaplus_pos/shared/widgets/app_button.dart';
 import 'package:reebaplus_pos/shared/widgets/printer_picker.dart';
+import 'package:reebaplus_pos/shared/services/cart_service.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CheckoutPage — shown after "Proceed to Checkout" in the cart.
@@ -63,22 +65,28 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
   bool _paymentConfirmed = false;
   bool _isProcessing = false;
   Map<int, String> _manufacturerNames = {};
+  String? _branchName;
+  late final Customer? _initialCustomer;
 
   // Computed on confirm — passed to receipt
 
   double _amountPaid = 0;
   String _currentOrderId = '';
 
-  bool get _isWalkIn => widget.customer == null || widget.customer!.isWalkIn;
+  late final CartService _cart;
+  bool get _isWalkIn => _initialCustomer == null || _initialCustomer.isWalkIn;
   Color get _bg => Theme.of(context).scaffoldBackgroundColor;
   Color get _surface => Theme.of(context).colorScheme.surface;
   Color get _text => Theme.of(context).colorScheme.onSurface;
-  Color get _subtext => Theme.of(context).textTheme.bodySmall?.color ?? Theme.of(context).iconTheme.color!;
+  Color get _subtext =>
+      Theme.of(context).textTheme.bodySmall?.color ??
+      Theme.of(context).iconTheme.color!;
   Color get _border => Theme.of(context).dividerColor;
 
   @override
   void initState() {
     super.initState();
+    _initialCustomer = widget.customer;
     AppLogger.info(
       'CheckoutPage: Initializing with ${widget.cart.length} items. Total: ${widget.total}',
     );
@@ -89,7 +97,8 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
       );
     }
     _loadManufacturers();
-    ref.read(cartProvider).activeCustomer.addListener(_onCustomerChanged);
+    _cart = ref.read(cartProvider);
+    _cart.activeCustomer.addListener(_onCustomerChanged);
   }
 
   void _onCustomerChanged() {
@@ -97,17 +106,37 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
   }
 
   Future<void> _loadManufacturers() async {
-    final list = await ref.read(databaseProvider).inventoryDao.getAllManufacturers();
+    final db = ref.read(databaseProvider);
+    final nav = ref.read(navigationProvider);
+    final auth = ref.read(authProvider);
+
+    final warehouseId =
+        nav.lockedWarehouseId.value ?? auth.currentUser?.warehouseId;
+
+    final results = await Future.wait([
+      db.inventoryDao.getAllManufacturers(),
+      if (warehouseId != null)
+        (db.select(
+          db.warehouses,
+        )..where((t) => t.id.equals(warehouseId))).getSingleOrNull(),
+    ]);
+
+    final list = results[0] as List<ManufacturerData>;
+    final activeWarehouse = results.length > 1
+        ? results[1] as WarehouseData?
+        : null;
+
     if (mounted) {
       setState(() {
         _manufacturerNames = {for (final m in list) m.id: m.name};
+        _branchName = activeWarehouse?.name;
       });
     }
   }
 
   @override
   void dispose() {
-    ref.read(cartProvider).activeCustomer.removeListener(_onCustomerChanged);
+    _cart.activeCustomer.removeListener(_onCustomerChanged);
     _cashReceivedCtrl.dispose();
     super.dispose();
   }
@@ -125,14 +154,14 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
   }
 
   String get _customerDisplayName =>
-      widget.customer?.name ?? 'Walk-in Customer';
+      _initialCustomer?.name ?? 'Walk-in Customer';
 
   double get _cashReceivedValue => parseCurrency(_cashReceivedCtrl.text);
 
   double get _dynamicNewCustomerWallet {
     final oldCustomerWallet = _isWalkIn
         ? 0.0
-        : (widget.customer?.customerWallet ?? 0.0);
+        : (_initialCustomer?.customerWallet ?? 0.0);
     double effectiveCash;
     switch (_paymentType) {
       case PaymentType.fullCash:
@@ -153,32 +182,32 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-        backgroundColor: _bg,
-        appBar: AppBar(
-          backgroundColor: _surface,
-          elevation: 0,
-          leading: IconButton(
-            icon: Icon(
-              Icons.arrow_back_ios_new,
-              size: context.getRSize(20),
-              color: _text,
-            ),
-            onPressed: () => Navigator.pop(context),
+      backgroundColor: _bg,
+      appBar: AppBar(
+        backgroundColor: _surface,
+        elevation: 0,
+        leading: IconButton(
+          icon: Icon(
+            Icons.arrow_back_ios_new,
+            size: context.getRSize(20),
+            color: _text,
           ),
-          title: Text(
-            _paymentConfirmed ? 'Receipt' : 'Checkout',
-            style: TextStyle(
-              fontSize: context.getRFontSize(18),
-              fontWeight: FontWeight.w800,
-              color: _text,
-            ),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Text(
+          _paymentConfirmed ? 'Receipt' : 'Checkout',
+          style: TextStyle(
+            fontSize: context.getRFontSize(18),
+            fontWeight: FontWeight.w800,
+            color: _text,
           ),
-          centerTitle: true,
         ),
-        body: SafeArea(
-          top: false,
-          child: _paymentConfirmed ? _buildReceiptView() : _buildCheckoutForm(),
-        ),
+        centerTitle: true,
+      ),
+      body: SafeArea(
+        top: false,
+        child: _paymentConfirmed ? _buildReceiptView() : _buildCheckoutForm(),
+      ),
     );
   }
 
@@ -233,7 +262,9 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
                 Container(
                   padding: EdgeInsets.all(context.getRSize(10)),
                   decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.12),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.primary.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Icon(
@@ -314,7 +345,9 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
               controller: _cashReceivedCtrl,
               labelText: 'Amount Paid Now',
               hintText: '₦ Enter amount',
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
               inputFormatters: [CurrencyInputFormatter()],
               onChanged: (v) => setState(() {}),
             ),
@@ -325,9 +358,15 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
                 vertical: context.getRSize(12),
               ),
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.07),
+                color: Theme.of(
+                  context,
+                ).colorScheme.primary.withValues(alpha: 0.07),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.2)),
+                border: Border.all(
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.primary.withValues(alpha: 0.2),
+                ),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -365,7 +404,7 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
               Padding(
                 padding: EdgeInsets.symmetric(horizontal: context.getRSize(4)),
                 child: Text(
-                  'Remaining will be added to ${widget.customer!.name}\'s balance',
+                  'Remaining will be added to ${_initialCustomer!.name}\'s balance',
                   style: TextStyle(
                     fontSize: context.getRFontSize(12),
                     color: _subtext,
@@ -421,7 +460,7 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
 
     // Wallet payment validation
     if (_paymentType == PaymentType.fullCash && _isWalletPayment) {
-      final walletBalance = widget.customer?.customerWallet ?? 0.0;
+      final walletBalance = _initialCustomer?.customerWallet ?? 0.0;
       if (walletBalance < widget.total) {
         AppNotification.showError(
           context,
@@ -440,7 +479,7 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
     // Debt limit validations (partial cash / credit sale only)
     if (_paymentType == PaymentType.partialCash ||
         _paymentType == PaymentType.credit) {
-      final customer = widget.customer!;
+      final customer = _initialCustomer!;
       final limitKobo = customer.walletLimitKobo;
 
       // Block if no debt limit has been set
@@ -496,17 +535,32 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
 
       // ── Call atomic transaction ──────────────────────────────────────
       final auth = ref.read(authProvider);
-      final orderNo = await ref.read(orderServiceProvider).addOrder(
-        customerId: widget.customer?.id,
-        cart: widget.cart,
-        totalAmountKobo: totalKobo,
-        amountPaidKobo: amountPaidKobo,
-        paymentType: _paymentLabel,
-        staffId: auth.currentUser?.id ?? 1,
-        warehouseId: auth.currentUser?.warehouseId,
-        crateDepositPaidKobo: (widget.crateDeposit * 100).round(),
-        paymentSubType: _isWalletPayment ? 'wallet' : 'cash',
-      );
+      final nav = ref.read(navigationProvider);
+      final warehouseId =
+          nav.lockedWarehouseId.value ?? auth.currentUser?.warehouseId;
+
+      // Ensure branch name is resolved before proceeding to receipt
+      if (_branchName == null && warehouseId != null) {
+        final db = ref.read(databaseProvider);
+        final w = await (db.select(
+          db.warehouses,
+        )..where((t) => t.id.equals(warehouseId))).getSingleOrNull();
+        if (mounted) setState(() => _branchName = w?.name);
+      }
+
+      final orderNo = await ref
+          .read(orderServiceProvider)
+          .addOrder(
+            customerId: _initialCustomer?.id,
+            cart: widget.cart,
+            totalAmountKobo: totalKobo,
+            amountPaidKobo: amountPaidKobo,
+            paymentType: _paymentLabel,
+            staffId: auth.currentUser?.id ?? 1,
+            warehouseId: warehouseId,
+            crateDepositPaidKobo: (widget.crateDeposit * 100).round(),
+            paymentSubType: _isWalletPayment ? 'wallet' : 'cash',
+          );
 
       // ── Success Flow ────────────────────────────────────────────────
       if (mounted) {
@@ -553,12 +607,13 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
                 total: widget.total,
                 paymentMethod: _paymentLabel,
                 customerName: _customerDisplayName,
-                customerAddress: widget.customer?.addressText,
-                customerPhone: widget.customer?.phone,
+                customerAddress: _initialCustomer?.addressText ?? 'N/A',
+                customerPhone: _initialCustomer?.phone,
                 cashReceived: _amountPaid,
                 walletBalance: _isWalkIn ? null : _dynamicNewCustomerWallet,
                 riderName: 'Pick-up Order',
                 manufacturerNames: _manufacturerNames,
+                branchName: _branchName,
               ),
             ),
           ),
@@ -679,7 +734,9 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
       );
       await file.writeAsBytes(imageBytes);
 
-      await Share.shareXFiles([XFile(file.path)], text: 'Reebaplus POS Receipt');
+      await Share.shareXFiles([
+        XFile(file.path),
+      ], text: 'Reebaplus POS Receipt');
     } catch (e) {
       if (!mounted) return;
       AppNotification.showError(context, 'Error sharing receipt: $e');
@@ -689,12 +746,16 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
   Future<void> _printReceipt() async {
     try {
       final printer = ref.read(printerServiceProvider);
+
+      // Request Bluetooth permissions first.
       final granted = await printer.requestPermissions();
+      if (!mounted) return;
       if (!granted) {
-        if (!mounted) return;
         AppNotification.showError(context, 'Bluetooth permissions denied');
         return;
       }
+
+      AppNotification.showInfo(context, 'Preparing receipt...');
 
       final List<int> receiptBytes = await ThermalReceiptService.buildReceipt(
         orderId: _currentOrderId,
@@ -709,56 +770,75 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
         cashReceived: _amountPaid,
         walletBalance: _isWalkIn ? null : _dynamicNewCustomerWallet,
         riderName: 'Pick-up Order',
+        branchName: _branchName,
       );
 
       if (!mounted) return;
 
-      final success = await printer.printBytes(receiptBytes);
-      if (success) {
-        if (!mounted) return;
-        AppNotification.showSuccess(context, 'Print successful');
-        return;
+      // Proactively check connection before writing.
+      final connected = await printer.isConnected;
+      if (connected) {
+        // Already connected — try printing directly.
+        final success = await printer.printBytesDirectly(receiptBytes);
+        if (success) {
+          if (!mounted) return;
+          AppNotification.showSuccess(context, 'Print successful');
+          return;
+        }
       }
 
-      // If print failed (likely not connected), show printer picker
-      if (mounted) {
-        showModalBottomSheet(
-          context: context,
-          isScrollControlled: true,
-          backgroundColor: _surface,
-          constraints: BoxConstraints(
-            maxHeight: MediaQuery.of(context).size.height * 0.5,
-          ),
-          shape: const RoundedRectangleBorder(
-            borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-          ),
-          builder: (_) => PrinterPicker(
-            onSelected: (device) async {
-              if (!mounted) return;
-              Navigator.pop(context);
-              
-              if (!mounted) return;
-              AppNotification.showSuccess(context, 'Connecting to ${device.name}...');
-              
-              final connected = await printer.connect(device.macAdress);
-              if (!mounted) return;
-              
-              if (connected) {
-                await printer.printBytes(receiptBytes);
-                if (!mounted) return;
-                AppNotification.showSuccess(context, 'Print successful');
-              } else {
-                AppNotification.showError(context, 'Failed to connect to ${device.name}');
-              }
-            },
-          ),
-        );
-      }
+      // Not connected (or direct print failed) — show picker immediately.
+      if (!mounted) return;
+      _showPrinterPicker(printer, receiptBytes);
     } catch (e) {
       if (mounted) {
         AppNotification.showError(context, 'Print error: $e');
       }
     }
+  }
+
+  void _showPrinterPicker(dynamic printer, List<int> receiptBytes) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: _surface,
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.5,
+      ),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (_) => PrinterPicker(
+        onSelected: (device) async {
+          if (!mounted) return;
+          Navigator.pop(context);
+
+          if (!mounted) return;
+          AppNotification.showSuccess(
+            context,
+            'Connecting to ${device.name}...',
+          );
+
+          final connected = await printer.connect(device.macAdress);
+          if (!mounted) return;
+
+          if (connected) {
+            final success = await printer.printBytesDirectly(receiptBytes);
+            if (!mounted) return;
+            if (success) {
+              AppNotification.showSuccess(context, 'Print successful');
+            } else {
+              AppNotification.showError(context, 'Print failed after connect');
+            }
+          } else {
+            AppNotification.showError(
+              context,
+              'Failed to connect to ${device.name}',
+            );
+          }
+        },
+      ),
+    );
   }
 
   // ── Wallet sub-options (shown under Full Cash when customer is named) ───────
@@ -1047,9 +1127,9 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
       onTap: disabled
           ? null
           : () => setState(() {
-                _paymentType = type;
-                if (type != PaymentType.fullCash) _isWalletPayment = false;
-              }),
+              _paymentType = type;
+              if (type != PaymentType.fullCash) _isWalletPayment = false;
+            }),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
         margin: EdgeInsets.only(bottom: context.getRSize(10)),
@@ -1136,7 +1216,4 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
       ),
     );
   }
-
 }
-
-

@@ -44,7 +44,13 @@ class CartService extends ValueNotifier<List<Map<String, dynamic>>> {
     activeCustomer.value = customer;
   }
 
-  void addItem(dynamic product, {double qty = 1.0}) {
+  /// Adds a product to the cart, clamping the total quantity to [maxStock]
+  /// (the available stock for the locked warehouse). Returns true if the
+  /// full requested [qty] was accepted, false if it was clamped or rejected.
+  ///
+  /// Pass [maxStock] as a very large number (or omit) for legacy Map products
+  /// (Quick Sale), which have no inventory tracking.
+  bool addItem(dynamic product, {double qty = 1.0, int? maxStock}) {
     // Handling both legacy Map (Quick Sale) and new ProductData class
     final String name = product is ProductData ? product.name : product['name'];
     final int? id = product is ProductData ? product.id : null;
@@ -52,8 +58,22 @@ class CartService extends ValueNotifier<List<Map<String, dynamic>>> {
     final current = List<Map<String, dynamic>>.from(_userCarts[_uid] ?? []);
     final index = current.indexWhere((item) => item['id'] == id && item['name'] == name);
 
+    // Determine the existing qty (0 if not yet in cart) and clamp.
+    final double existingQty =
+        index != -1 ? (current[index]['qty'] as num).toDouble() : 0.0;
+    final int cap = maxStock ?? 1 << 30; // effectively no cap
+    final double allowed = (cap - existingQty).clamp(0.0, qty);
+    final bool fullyAccepted = allowed >= qty;
+
+    if (allowed <= 0) {
+      // Already at limit — nothing to add.
+      return false;
+    }
+
     if (index != -1) {
-      current[index]['qty'] += qty;
+      current[index]['qty'] = existingQty + allowed;
+      // Refresh maxStock in case it changed since the item was first added.
+      if (maxStock != null) current[index]['maxStock'] = maxStock;
     } else {
       current.add({
         'id': id,
@@ -65,7 +85,7 @@ class CartService extends ValueNotifier<List<Map<String, dynamic>>> {
                 : product.retailPriceKobo) /
                 100.0
             : product['price'],
-        'qty': qty,
+        'qty': allowed,
         'icon': product is ProductData ? (product.iconCodePoint ?? FontAwesomeIcons.box.codePoint) : product['icon'],
         'color': product is ProductData ? product.colorHex : product['color'],
         'category': product is ProductData ? product.categoryId : product['category'],
@@ -74,25 +94,39 @@ class CartService extends ValueNotifier<List<Map<String, dynamic>>> {
         'emptyCrateValueKobo': product is ProductData ? product.emptyCrateValueKobo : (product['emptyCrateValueKobo'] ?? 0),
         'manufacturerId': product is ProductData ? product.manufacturerId : product['manufacturerId'],
         'buyingPriceKobo': product is ProductData ? product.buyingPriceKobo : (product['buyingPriceKobo'] ?? 0),
+        'size': product is ProductData ? product.size : product['size'],
+        'unit': product is ProductData ? product.unit : (product['unit'] ?? 'Bottle'),
+        'trackEmpties': product is ProductData ? product.trackEmpties : (product['trackEmpties'] ?? false),
+        'maxStock': maxStock ?? (1 << 30),
       });
     }
 
     _userCarts[_uid] = current;
     value = List.from(current);
+    return fullyAccepted;
   }
 
-  void updateQty(String productName, double newQty) {
+  /// Updates the quantity of a cart line. The new qty is clamped to the
+  /// item's stored `maxStock`. Returns true if the requested [newQty] was
+  /// applied as-is, false if it was clamped (or the item wasn't found).
+  bool updateQty(String productName, double newQty) {
     final current = List<Map<String, dynamic>>.from(_userCarts[_uid] ?? []);
     final index = current.indexWhere((item) => item['name'] == productName);
-    if (index != -1) {
-      if (newQty <= 0) {
-        current.removeAt(index);
-      } else {
-        current[index]['qty'] = newQty;
-      }
+    if (index == -1) return false;
+
+    if (newQty <= 0) {
+      current.removeAt(index);
       _userCarts[_uid] = current;
       value = List.from(current);
+      return true;
     }
+
+    final int cap = (current[index]['maxStock'] as int?) ?? (1 << 30);
+    final double clamped = newQty > cap ? cap.toDouble() : newQty;
+    current[index]['qty'] = clamped;
+    _userCarts[_uid] = current;
+    value = List.from(current);
+    return clamped >= newQty;
   }
 
   void removeItem(String productName) {

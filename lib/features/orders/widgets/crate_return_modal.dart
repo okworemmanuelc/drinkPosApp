@@ -19,38 +19,45 @@ class CrateReturnModal extends ConsumerStatefulWidget {
   const CrateReturnModal({super.key, required this.orderWithItems});
 
   /// Opens the modal only when appropriate:
-  ///   - There must be crate-group items in the order.
+  ///   - There must be bottle-unit items in the order (these are the items
+  ///     that generate empty-crate returns).
   ///   - If the deposit already fully covers the expected crate deposit, skip.
-  static Future<void> show(
+  /// Returns `true` if the user confirmed crate returns, `false` if skipped
+  /// or if the modal was not shown (guards triggered).
+  static Future<bool> show(
     BuildContext context,
     OrderWithItems orderWithItems, {
     required WidgetRef ref,
   }) async {
-    // Guard 1: skip if no crate items
-    final hasCrates = orderWithItems.items.any(
-      (i) => i.product.crateGroupId != null,
+    // Guard 1: skip if no bottle items with trackEmpties enabled
+    final hasBottles = orderWithItems.items.any(
+      (i) =>
+          i.product.unit.toLowerCase() == 'bottle' && i.product.trackEmpties,
     );
-    if (!hasCrates) return;
+    if (!hasBottles) return true; // no crates to track — proceed
 
-    // Guard 2: skip if full deposit was already paid
+    // Guard 2: skip if full deposit was already paid.
+    // Expected deposit = sum over tracked bottle items of (manufacturer.depositAmountKobo * qty).
     final db = ref.read(databaseProvider);
-    final allGroups = await db.inventoryDao.getAllCrateGroups();
-    final groupDepositMap = {
-      for (final g in allGroups) g.id: g.depositAmountKobo,
+    final manufacturers = await db.inventoryDao.getAllManufacturers();
+    final mfrDeposit = {
+      for (final m in manufacturers) m.id: m.depositAmountKobo,
     };
     int expectedDepositKobo = 0;
     for (final ri in orderWithItems.items) {
-      final cgId = ri.product.crateGroupId;
-      if (cgId != null) {
-        expectedDepositKobo += (groupDepositMap[cgId] ?? 0) * ri.item.quantity;
-      }
+      if (ri.product.unit.toLowerCase() != 'bottle') continue;
+      if (!ri.product.trackEmpties) continue;
+      final mfrId = ri.product.manufacturerId;
+      if (mfrId == null) continue;
+      expectedDepositKobo += (mfrDeposit[mfrId] ?? 0) * ri.item.quantity;
     }
     final paidDepositKobo = orderWithItems.order.crateDepositPaidKobo;
-    if (expectedDepositKobo > 0 && paidDepositKobo >= expectedDepositKobo)
-      return;
+    if (expectedDepositKobo > 0 && paidDepositKobo >= expectedDepositKobo) {
+      return true; // deposit covered — proceed
+    }
 
-    if (!context.mounted) return;
-    return showModalBottomSheet(
+    if (!context.mounted) return false;
+    final result = await showModalBottomSheet<bool>(
       context: context,
       isDismissible: false,
       enableDrag: false,
@@ -58,6 +65,7 @@ class CrateReturnModal extends ConsumerStatefulWidget {
       backgroundColor: Colors.transparent,
       builder: (_) => CrateReturnModal(orderWithItems: orderWithItems),
     );
+    return result == true;
   }
 
   @override
@@ -85,24 +93,23 @@ class _CrateReturnModalState extends ConsumerState<CrateReturnModal> {
   }
 
   Future<void> _buildRows() async {
-    // Accumulate: manufacturerId → {name, total qty, cgBreakdown}
+    // Accumulate: manufacturerId → {name, total qty}
+    // Bottles (unit == 'Bottle') are the only items that generate crate returns.
     final Map<int, _ManufacturerAccum> accum = {};
 
     for (final ri in widget.orderWithItems.items) {
       final product = ri.product;
-      if (product.crateGroupId == null) continue; // skip non-crate items
+      if (product.unit.toLowerCase() != 'bottle') continue;
+      if (!product.trackEmpties) continue;
 
       final mfId = product.manufacturerId ?? 0;
       final mfName =
           product.manufacturer ??
           (mfId == 0 ? 'Unknown Manufacturer' : 'Manufacturer $mfId');
-      final cgId = product.crateGroupId!;
       final qty = ri.item.quantity;
 
       accum.putIfAbsent(mfId, () => _ManufacturerAccum(id: mfId, name: mfName));
       accum[mfId]!.totalQty += qty;
-      accum[mfId]!.cgBreakdown[cgId] =
-          (accum[mfId]!.cgBreakdown[cgId] ?? 0) + qty;
     }
 
     final rows = accum.values
@@ -111,7 +118,6 @@ class _CrateReturnModalState extends ConsumerState<CrateReturnModal> {
             manufacturerId: a.id,
             name: a.name,
             expectedQty: a.totalQty,
-            cgBreakdown: Map.unmodifiable(a.cgBreakdown),
             controller: TextEditingController(text: a.totalQty.toString()),
           ),
         )
@@ -178,7 +184,7 @@ class _CrateReturnModalState extends ConsumerState<CrateReturnModal> {
           );
         }
       }
-      if (mounted) Navigator.pop(context);
+      if (mounted) Navigator.pop(context, true);
       return;
     }
 
@@ -191,9 +197,6 @@ class _CrateReturnModalState extends ConsumerState<CrateReturnModal> {
           'manufacturerName': row.name,
           'expectedQty': row.expectedQty,
           'returnedQty': entered,
-          'cgBreakdown': row.cgBreakdown.map(
-            (k, v) => MapEntry(k.toString(), v),
-          ),
         };
       }).toList();
 
@@ -217,7 +220,7 @@ class _CrateReturnModalState extends ConsumerState<CrateReturnModal> {
           _sentToManager = true;
         });
         await Future.delayed(const Duration(milliseconds: 1200));
-        if (mounted) Navigator.pop(context);
+        if (mounted) Navigator.pop(context, true);
       }
       return;
     }
@@ -232,32 +235,20 @@ class _CrateReturnModalState extends ConsumerState<CrateReturnModal> {
           returned,
         );
       }
-      // 2. Record customer crate balance per crate group (proportional distribution)
-      _distributeAndRecord(customer.id, row, returned);
+      // 2. Record customer crate balance keyed by manufacturer.
+      if (row.manufacturerId != 0) {
+        await ref
+            .read(databaseProvider)
+            .customersDao
+            .recordCrateReturnByManufacturer(
+              customer.id,
+              row.manufacturerId,
+              returned,
+            );
+      }
     }
 
-    if (mounted) Navigator.pop(context);
-  }
-
-  /// Distributes [returnedQty] across the crate groups of [row] proportionally
-  /// and calls recordCrateReturn for each.
-  void _distributeAndRecord(
-    int customerId,
-    _ManufacturerRow row,
-    int returnedQty,
-  ) {
-    if (row.cgBreakdown.isEmpty) return;
-    final entries = row.cgBreakdown.entries.toList();
-    int remaining = returnedQty;
-    for (int i = 0; i < entries.length; i++) {
-      final cgId = entries[i].key;
-      final cgExpected = entries[i].value;
-      final cgReturned = i == entries.length - 1
-          ? remaining
-          : (returnedQty * cgExpected / row.expectedQty).round();
-      remaining -= cgReturned;
-      ref.read(databaseProvider).customersDao.recordCrateReturn(customerId, cgId, cgReturned);
-    }
+    if (mounted) Navigator.pop(context, true);
   }
 
   @override
@@ -361,7 +352,7 @@ class _CrateReturnModalState extends ConsumerState<CrateReturnModal> {
                         variant: AppButtonVariant.ghost,
                         onPressed: (_saving || _sentToManager)
                             ? null
-                            : () => Navigator.pop(context),
+                            : () => Navigator.pop(context, false),
                       ),
                     ),
                     SizedBox(width: context.getRSize(12)),
@@ -370,7 +361,7 @@ class _CrateReturnModalState extends ConsumerState<CrateReturnModal> {
                       child: AppButton(
                         text: _sentToManager
                             ? 'Sent to Manager'
-                            : (_saving ? 'Saving...' : 'Confirm Returns'),
+                            : (_saving ? 'Saving...' : 'Confirm'),
                         icon: _sentToManager
                             ? FontAwesomeIcons.clockRotateLeft
                             : FontAwesomeIcons.check,
@@ -489,14 +480,12 @@ class _ManufacturerRow {
   final int manufacturerId;
   final String name;
   final int expectedQty;
-  final Map<int, int> cgBreakdown; // crateGroupId → expected qty
   final TextEditingController controller;
 
   _ManufacturerRow({
     required this.manufacturerId,
     required this.name,
     required this.expectedQty,
-    required this.cgBreakdown,
     required this.controller,
   });
 }
@@ -505,7 +494,6 @@ class _ManufacturerAccum {
   final int id;
   final String name;
   int totalQty = 0;
-  Map<int, int> cgBreakdown = {};
 
   _ManufacturerAccum({required this.id, required this.name});
 }

@@ -1,4 +1,3 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:local_auth/local_auth.dart';
@@ -8,10 +7,8 @@ import 'package:reebaplus_pos/shared/widgets/app_button.dart';
 import 'package:reebaplus_pos/core/database/app_database.dart';
 import 'package:reebaplus_pos/core/providers/app_providers.dart';
 import 'package:reebaplus_pos/features/auth/widgets/onboarding_step_indicator.dart';
-import 'package:reebaplus_pos/shared/widgets/main_layout.dart';
-import 'package:reebaplus_pos/features/auth/screens/success_dashboard_entry_screen.dart';
-import 'package:reebaplus_pos/features/auth/screens/access_granted_screen.dart';
 import 'package:reebaplus_pos/features/auth/widgets/auth_background.dart';
+import 'package:reebaplus_pos/shared/services/auth_service.dart';
 
 class BiometricSetupScreen extends ConsumerStatefulWidget {
   final UserData user;
@@ -65,7 +62,7 @@ class _BiometricSetupScreenState extends ConsumerState<BiometricSetupScreen> {
 
       if (authenticated) {
         final prefs = await SharedPreferences.getInstance();
-        await prefs.setBool('use_biometrics', true);
+        await prefs.setBool('biometrics_enabled', true);
         _done();
       } else {
         setState(() {
@@ -83,28 +80,20 @@ class _BiometricSetupScreenState extends ConsumerState<BiometricSetupScreen> {
 
   void _skip() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('use_biometrics', false);
+    await prefs.setBool('biometrics_enabled', false);
     _done();
   }
 
   void _done() {
-    ref.read(authProvider).setCurrentUser(widget.user);
-    if (!mounted) return;
+    final auth = ref.read(authProvider);
     if (widget.isNewBusinessSetup) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const SuccessDashboardEntryScreen()),
-      );
+      auth.pendingPostLoginRoute = PostLoginRoute.successDashboard;
     } else if (widget.isJoinFlow) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (_) => AccessGrantedScreen(user: widget.user),
-        ),
-      );
-    } else {
-      Navigator.of(
-        context,
-      ).pushReplacement(MaterialPageRoute(builder: (_) => const MainLayout()));
+      auth.pendingPostLoginRoute = PostLoginRoute.accessGranted;
+      auth.pendingPostLoginUser = widget.user;
     }
+    auth.setCurrentUser(widget.user);
+    // Navigator key regeneration in main.dart handles routing automatically.
   }
 
   @override

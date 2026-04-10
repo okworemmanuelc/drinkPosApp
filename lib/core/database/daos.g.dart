@@ -286,6 +286,7 @@ mixin _$StockLedgerDaoMixin on DatabaseAccessor<AppDatabase> {
   $UsersTable get users => attachedDatabase.users;
   $StockTransactionsTable get stockTransactions =>
       attachedDatabase.stockTransactions;
+  $InventoryTable get inventory => attachedDatabase.inventory;
   StockLedgerDaoManager get managers => StockLedgerDaoManager(this);
 }
 
@@ -313,6 +314,8 @@ class StockLedgerDaoManager {
         _db.attachedDatabase,
         _db.stockTransactions,
       );
+  $$InventoryTableTableManager get inventory =>
+      $$InventoryTableTableManager(_db.attachedDatabase, _db.inventory);
 }
 
 mixin _$StockTransferDaoMixin on DatabaseAccessor<AppDatabase> {

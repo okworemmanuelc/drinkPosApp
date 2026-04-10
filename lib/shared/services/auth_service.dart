@@ -1,22 +1,32 @@
 import 'dart:async';
 import 'package:flutter/widgets.dart';
 import 'package:drift/drift.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'dart:math';
 import 'package:reebaplus_pos/core/database/app_database.dart';
 import 'package:reebaplus_pos/shared/services/navigation_service.dart';
+import 'package:reebaplus_pos/shared/services/secure_storage_service.dart';
+
+/// Route to show after login instead of the default MainLayout.
+enum PostLoginRoute { none, successDashboard, accessGranted }
 
 /// Holds the currently logged-in user.
 /// `value` is null when nobody is logged in.
 class AuthService extends ValueNotifier<UserData?> {
   final AppDatabase _db;
   final NavigationService _nav;
+  final SecureStorageService _secure;
 
-  AuthService(this._db, this._nav) : super(null);
+  AuthService(this._db, this._nav, this._secure) : super(null);
 
   /// Notifies listeners whenever the device-level user ID changes.
   final ValueNotifier<int?> deviceUserIdNotifier = ValueNotifier<int?>(null);
+
+  /// Set before calling [setCurrentUser] to route to a special post-login screen.
+  PostLoginRoute pendingPostLoginRoute = PostLoginRoute.none;
+  UserData? pendingPostLoginUser;
 
   /// The currently logged-in user, or null if nobody is logged in.
   UserData? get currentUser => value;
@@ -24,37 +34,52 @@ class AuthService extends ValueNotifier<UserData?> {
   /// Returns every user in the database whose PIN matches [pin].
   /// There may be more than one match (e.g. two staff share a PIN),
   /// so we return a list and let the UI ask the user to pick one.
-  Future<List<UserData>> getUsersByPin(String pin) async {
+  Future<List<UserData>> getUsersByPin(String pin, {String? email}) async {
+    if (email != null && email.isNotEmpty) {
+      final result = await (_db.select(
+        _db.users,
+      )..where((u) => u.pin.equals(pin) & u.email.equals(email))).get();
+      return result;
+    }
+
     final result = await (_db.select(
       _db.users,
     )..where((u) => u.pin.equals(pin))).get();
     return result;
   }
 
-  // ── Device persistence ─────────────────────────────────────────────────────
-
-  static const _deviceUserKey = 'device_user_id';
+  // ── Device persistence (encrypted) ──────────────────────────────────────
 
   /// Returns the locally-persisted user ID, or null if no user has ever
   /// logged in on this device.
-  Future<int?> getDeviceUserId() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getInt(_deviceUserKey);
-  }
+  Future<int?> getDeviceUserId() => _secure.getDeviceUserId();
+
+  /// Returns the last successfully logged-in email.
+  Future<String?> getLastLoggedInEmail() => _secure.getLastLoggedInEmail();
 
   /// Persists [userId] so the next app launch goes straight to PIN screen.
   Future<void> saveDeviceUserId(int userId) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt(_deviceUserKey, userId);
+    await _secure.saveDeviceUserId(userId);
     deviceUserIdNotifier.value = userId;
   }
 
+  /// Persists [email] as the last logged-in user.
+  Future<void> saveLastLoggedInEmail(String email) =>
+      _secure.saveLastLoggedInEmail(email);
+
   /// Clears the persisted device session (call on explicit logout).
   Future<void> clearDeviceUserId() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_deviceUserKey);
+    await _secure.clearDeviceUserId();
     deviceUserIdNotifier.value = null;
   }
+
+  // ── Auth method tracking ────────────────────────────────────────────────
+
+  /// Saves the authentication method ("google" or "email") for this session.
+  Future<void> saveAuthMethod(String method) => _secure.saveAuthMethod(method);
+
+  /// Returns the stored auth method, or null if not set.
+  Future<String?> getAuthMethod() => _secure.getAuthMethod();
 
   // ── Supabase OTP ───────────────────────────────────────────────────────────
 
@@ -127,6 +152,7 @@ class AuthService extends ValueNotifier<UserData?> {
         _nav.setIndex(1);
       }
       saveDeviceUserId(user.id);
+      if (user.email != null) saveLastLoggedInEmail(user.email!);
 
       // Set synchronously so VLB listener fires before any route pop cleans up
       value = user;
@@ -147,14 +173,12 @@ class AuthService extends ValueNotifier<UserData?> {
 
       // 1. Initialize createdAt if null
       if (currentUser.createdAt == null) {
-        await (_db.update(_db.users)
-              ..where((u) => u.id.equals(currentUser.id)))
+        await (_db.update(_db.users)..where((u) => u.id.equals(currentUser.id)))
             .write(UsersCompanion(createdAt: Value(now)));
-        // Refresh local state
+        // Refresh local variable (do NOT set value here — avoid extra navigator rebuilds)
         currentUser = await (_db.select(
           _db.users,
         )..where((u) => u.id.equals(currentUser.id))).getSingle();
-        value = currentUser;
       }
 
       final joinDate = currentUser.createdAt ?? now;
@@ -171,8 +195,7 @@ class AuthService extends ValueNotifier<UserData?> {
           linkedRecordId: currentUser.id.toString(),
         );
 
-        await (_db.update(_db.users)
-              ..where((u) => u.id.equals(currentUser.id)))
+        await (_db.update(_db.users)..where((u) => u.id.equals(currentUser.id)))
             .write(UsersCompanion(lastNotificationSentAt: Value(now)));
       }
 
@@ -220,9 +243,10 @@ class AuthService extends ValueNotifier<UserData?> {
   /// Completely wipes the session, reverting the device to a fresh state.
   /// Next launch will demand Email + OTP.
   Future<void> fullLogout() async {
-    // 1. Wipe device association FIRST so the notifier fires and _hasDeviceUser
+    // 1. Wipe all encrypted auth data so the notifier fires and _hasDeviceUser
     //    becomes false before the ValueListenableBuilder rebuilds.
-    await clearDeviceUserId();
+    await _secure.clearAll();
+    deviceUserIdNotifier.value = null;
 
     // 2. Terminate all sessions globally via Supabase (fire-and-forget —
     //    network failures should not prevent local logout).
@@ -232,7 +256,14 @@ class AuthService extends ValueNotifier<UserData?> {
           (e) => debugPrint('[AuthService] Supabase signOut error: $e'),
         );
 
-    // 3. Clear local state — triggers the ValueListenableBuilder to rebuild.
+    // 3. Sign out of Google if applicable (fire-and-forget).
+    try {
+      await GoogleSignIn().signOut();
+    } catch (e) {
+      debugPrint('[AuthService] Google signOut error: $e');
+    }
+
+    // 4. Clear local state — triggers the ValueListenableBuilder to rebuild.
     //    At this point _hasDeviceUser is already false → routes to EmailEntryScreen.
     value = null;
     _nav.clearWarehouseLock();
@@ -259,8 +290,9 @@ class AuthService extends ValueNotifier<UserData?> {
     if (existing != null) {
       await (_db.update(_db.users)..where((u) => u.id.equals(existing.id)))
           .write(UsersCompanion(name: Value(name)));
-      return (_db.select(_db.users)..where((u) => u.id.equals(existing.id)))
-          .getSingle();
+      return (_db.select(
+        _db.users,
+      )..where((u) => u.id.equals(existing.id))).getSingle();
     }
     final id = await database
         .into(_db.users)
@@ -274,13 +306,65 @@ class AuthService extends ValueNotifier<UserData?> {
             avatarColor: const Value('#8B5CF6'),
           ),
         );
-    return (_db.select(
-      _db.users,
-    )..where((u) => u.id.equals(id))).getSingle();
+    return (_db.select(_db.users)..where((u) => u.id.equals(id))).getSingle();
+  }
+
+  // ── Initialisation ──────────────────────────────────────────────────────
+  Future<void> init() async {}
+
+  // ── Google Sign-In (via Supabase OAuth) ──────────────────────────────────
+
+  /// Authenticates with Google via Supabase OAuth redirect flow.
+  /// Opens a browser for Google login, then redirects back to the app.
+  /// Returns the user's email on success, or null if cancelled / failed.
+  Future<String?> signInWithGoogle() async {
+    try {
+      final supabase = Supabase.instance.client;
+
+      // Start the OAuth flow — opens the browser.
+      final success = await supabase.auth.signInWithOAuth(
+        OAuthProvider.google,
+        redirectTo: 'reebaplus://login-callback',
+        authScreenLaunchMode: LaunchMode.externalApplication,
+      );
+
+      if (!success) {
+        debugPrint('[AuthService] Google OAuth launch failed');
+        return null;
+      }
+
+      // Wait for the auth state to change (user redirected back).
+      final completer = Completer<String?>();
+      late final StreamSubscription<AuthState> sub;
+
+      sub = supabase.auth.onAuthStateChange.listen((data) {
+        if (data.event == AuthChangeEvent.signedIn) {
+          final email = data.session?.user.email;
+          sub.cancel();
+          completer.complete(email?.toLowerCase());
+        }
+      });
+
+      // Timeout after 2 minutes if the user doesn't complete the flow.
+      final email = await completer.future.timeout(
+        const Duration(minutes: 2),
+        onTimeout: () {
+          sub.cancel();
+          return null;
+        },
+      );
+
+      if (email != null) {
+        debugPrint('[AuthService] Google + Supabase sign-in success: $email');
+      }
+      return email;
+    } catch (e) {
+      debugPrint('[AuthService] Google Sign-In error: $e');
+      return null;
+    }
   }
 
   // ── Stubs kept for backward compatibility ───────────────────────────────
-  Future<void> init() async {}
   Future<String?> signUpWithEmail({
     required String name,
     required String email,
@@ -291,7 +375,6 @@ class AuthService extends ValueNotifier<UserData?> {
     required String password,
   }) async => null;
   Future<bool> userExists(String email) async => false;
-  Future<String?> signInWithGoogle({bool isSignUp = false}) async => null;
   Future<void> setPin(String pin) async {}
   Future<void> setBiometric(bool enabled) async {}
   Future<bool> hasQuickAccess() async => false;
@@ -375,8 +458,7 @@ class AuthService extends ValueNotifier<UserData?> {
 
     final now = DateTime.now();
     if (invite.expiresAt.isBefore(now)) {
-      await (_db.update(_db.invites)
-            ..where((t) => t.id.equals(invite.id)))
+      await (_db.update(_db.invites)..where((t) => t.id.equals(invite.id)))
           .write(const InvitesCompanion(status: Value('expired')));
       return InviteValidationResult.error(
         'This invite has expired. Ask your manager for a new one.',
@@ -424,9 +506,7 @@ class AuthService extends ValueNotifier<UserData?> {
       if (invite.role.toLowerCase().contains('manager')) tier = 4;
       if (invite.role.toLowerCase().contains('ceo')) tier = 5;
 
-      await (_db.update(
-        _db.users,
-      )..where((t) => t.id.equals(userId))).write(
+      await (_db.update(_db.users)..where((t) => t.id.equals(userId))).write(
         UsersCompanion(
           role: Value(invite.role),
           roleTier: Value(tier),
@@ -439,9 +519,9 @@ class AuthService extends ValueNotifier<UserData?> {
 
   /// Cancels an invite.
   Future<void> revokeInvite(int inviteId) async {
-    await (_db.update(_db.invites)
-          ..where((t) => t.id.equals(inviteId)))
-        .write(const InvitesCompanion(status: Value('revoked')));
+    await (_db.update(_db.invites)..where((t) => t.id.equals(inviteId))).write(
+      const InvitesCompanion(status: Value('revoked')),
+    );
   }
 
   /// Re-issues an invite with a new code and expiry.
@@ -449,9 +529,7 @@ class AuthService extends ValueNotifier<UserData?> {
     final code = _generateSecureCode();
     final expiresAt = DateTime.now().add(const Duration(hours: 48));
 
-    await (_db.update(
-      _db.invites,
-    )..where((t) => t.id.equals(inviteId))).write(
+    await (_db.update(_db.invites)..where((t) => t.id.equals(inviteId))).write(
       InvitesCompanion(
         code: Value(code),
         status: const Value('pending'),
@@ -482,4 +560,3 @@ class InviteValidationResult {
 
   bool get isSuccess => error == null;
 }
-

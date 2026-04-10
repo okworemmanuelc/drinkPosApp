@@ -54,6 +54,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   List<ExpenseData> _allExpenses = [];
   List<Customer> _customers = [];
   double _totalStockValue = 0;
+  List<UserData> _staffList = [];
 
   bool _ordersLoading = true;
   bool _expensesLoading = true;
@@ -129,15 +130,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       }
     });
 
-    _expensesSub = db.expensesDao.watchAll().listen((expenses) async {
-      await minLoading;
-      if (mounted) {
-        setState(() {
-          _allExpenses = expenses;
-          _expensesLoading = false;
-        });
-      }
-    });
+    _subscribeExpenses(_selectedWarehouseId);
 
     _customersSub = db.customersDao.watchAllCustomers().listen((
       customers,
@@ -151,13 +144,22 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       }
     });
 
-    // For managers locked to a warehouse, only count stock in that warehouse
-    final stockStream = (_warehouseLocked && _selectedWarehouseId != null)
-        ? db.inventoryDao.watchProductsByWarehouse(_selectedWarehouseId!)
-        : db.inventoryDao.watchAllProductDatasWithStock();
+    _subscribeInventory(_selectedWarehouseId);
 
-    _inventorySub = stockStream.listen((items) async {
-      await minLoading;
+    // Load staff list once (for staff sales breakdown)
+    final staff = await db.select(db.users).get();
+    if (mounted) setState(() => _staffList = staff);
+  }
+
+  /// Re-subscribable inventory stream — call on warehouse change.
+  void _subscribeInventory(int? warehouseId) {
+    _inventorySub?.cancel();
+    if (mounted) setState(() => _inventoryLoading = true);
+    final db = ref.read(databaseProvider);
+    final stream = warehouseId != null
+        ? db.inventoryDao.watchProductsByWarehouse(warehouseId)
+        : db.inventoryDao.watchAllProductDatasWithStock();
+    _inventorySub = stream.listen((items) {
       if (mounted) {
         setState(() {
           _totalStockValue = items.fold<double>(
@@ -166,6 +168,21 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 sum + (item.totalStock * item.product.sellingPriceKobo / 100.0),
           );
           _inventoryLoading = false;
+        });
+      }
+    });
+  }
+
+  /// Re-subscribable expenses stream — call on warehouse change.
+  void _subscribeExpenses(int? warehouseId) {
+    _expensesSub?.cancel();
+    if (mounted) setState(() => _expensesLoading = true);
+    final db = ref.read(databaseProvider);
+    _expensesSub = db.expensesDao.watchAll(warehouseId: warehouseId).listen((expenses) {
+      if (mounted) {
+        setState(() {
+          _allExpenses = expenses;
+          _expensesLoading = false;
         });
       }
     });
@@ -213,13 +230,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         )
         .toList();
 
+    // Warehouse filtering is handled at the SQL level by _subscribeExpenses;
+    // here we only need the period filter.
     final filteredExpenses = _allExpenses
-        .where(
-          (e) =>
-              _isDateInPeriod(e.timestamp, _selectedPeriod) &&
-              (_selectedWarehouseId == null ||
-                  e.warehouseId == _selectedWarehouseId),
-        )
+        .where((e) => _isDateInPeriod(e.timestamp, _selectedPeriod))
         .toList();
 
     // Filter customers by warehouse for credit/debt metrics
@@ -280,6 +294,18 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           (c.walletBalanceKobo < 0 ? c.walletBalanceKobo.abs() / 100.0 : 0),
     );
 
+    // Per-staff sales breakdown (from already-filtered orders)
+    final staffSalesMap = <int, double>{};
+    for (final o in filteredOrdersWithItems) {
+      final sid = o.order.staffId;
+      if (sid != null) {
+        staffSalesMap[sid] =
+            (staffSalesMap[sid] ?? 0) + o.order.totalAmountKobo / 100.0;
+      }
+    }
+    final staffSalesList = staffSalesMap.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+
     return SharedScaffold(
         activeRoute: 'dashboard',
         backgroundColor: _bg,
@@ -314,6 +340,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               debt: totalDebt,
               expenses: totalExpenses,
               filteredOrders: filteredOrdersWithItems,
+              staffSalesList: staffSalesList,
             ),
             SizedBox(height: context.spacingL),
           ],
@@ -547,7 +574,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             (wh) => DropdownMenuItem(value: wh.id, child: Text(wh.name)),
           ),
         ],
-        onChanged: (v) => setState(() => _selectedWarehouseId = v),
+        onChanged: (v) {
+          setState(() => _selectedWarehouseId = v);
+          _subscribeInventory(v);
+          _subscribeExpenses(v);
+        },
       ),
     );
   }
@@ -585,6 +616,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     required double debt,
     required double expenses,
     required List<OrderWithItems> filteredOrders,
+    required List<MapEntry<int, double>> staffSalesList,
   }) {
     final userTier = ref.read(authProvider).currentUser?.roleTier ?? 1;
     final canDrill = userTier >= 4;
@@ -723,7 +755,115 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   );
                 },
               ),
+        if (userTier >= 4)
+          _buildStaffSalesSection(staffSalesList),
       ],
+    );
+  }
+
+  Widget _buildStaffSalesSection(List<MapEntry<int, double>> staffSalesList) {
+    if (_ordersLoading) {
+      return Padding(
+        padding: EdgeInsets.only(top: context.spacingL),
+        child: const ShimmerStatCard(),
+      );
+    }
+
+    final nameMap = {for (final u in _staffList) u.id: u};
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(height: context.spacingL),
+        Text(
+          'Staff Sales',
+          style: context.bodyLarge.copyWith(
+            fontWeight: FontWeight.bold,
+            color: _text,
+          ),
+        ),
+        SizedBox(height: context.spacingS),
+        Container(
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: _surface,
+            borderRadius: BorderRadius.circular(context.radiusL),
+            border: Border.all(color: _border),
+          ),
+          child: staffSalesList.isEmpty
+              ? Padding(
+                  padding: EdgeInsets.all(context.spacingM),
+                  child: Text(
+                    'No staff sales recorded for this period',
+                    style: TextStyle(
+                      color: _subtext,
+                      fontSize: context.getRFontSize(13),
+                    ),
+                  ),
+                )
+              : Column(
+                  children: [
+                    for (int i = 0; i < staffSalesList.length; i++) ...[
+                      if (i > 0) Divider(height: 1, color: _border),
+                      _buildStaffRow(staffSalesList[i], nameMap),
+                    ],
+                  ],
+                ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStaffRow(
+    MapEntry<int, double> entry,
+    Map<int, UserData> nameMap,
+  ) {
+    final user = nameMap[entry.key];
+    final name = user?.name ?? 'Unknown Staff';
+    final colorHex = user?.avatarColor ?? '#3B82F6';
+    final color = Color(int.parse(colorHex.replaceFirst('#', '0xFF')));
+
+    return Padding(
+      padding: EdgeInsets.symmetric(
+        horizontal: context.spacingM,
+        vertical: context.getRSize(10),
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: context.getRSize(18),
+            backgroundColor: color.withValues(alpha: 0.15),
+            child: Text(
+              name[0].toUpperCase(),
+              style: TextStyle(
+                color: color,
+                fontWeight: FontWeight.bold,
+                fontSize: context.getRFontSize(14),
+              ),
+            ),
+          ),
+          SizedBox(width: context.spacingM),
+          Expanded(
+            child: Text(
+              name,
+              style: TextStyle(
+                fontSize: context.getRFontSize(14),
+                fontWeight: FontWeight.w600,
+                color: _text,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          Text(
+            formatCurrency(entry.value),
+            style: TextStyle(
+              fontSize: context.getRFontSize(14),
+              fontWeight: FontWeight.w800,
+              color: _text,
+            ),
+          ),
+        ],
+      ),
     );
   }
 

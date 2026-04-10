@@ -12,7 +12,6 @@ import 'package:reebaplus_pos/shared/widgets/notification_bell.dart';
 import 'package:reebaplus_pos/shared/widgets/app_button.dart';
 import 'package:reebaplus_pos/shared/widgets/app_input.dart';
 
-
 import 'package:reebaplus_pos/core/theme/design_tokens.dart';
 import 'package:reebaplus_pos/core/utils/responsive.dart';
 import 'package:reebaplus_pos/core/database/app_database.dart';
@@ -30,7 +29,9 @@ class _WarehouseScreenState extends ConsumerState<WarehouseScreen> {
   Color get _bg => Theme.of(context).scaffoldBackgroundColor;
   Color get _surface => Theme.of(context).colorScheme.surface;
   Color get _text => Theme.of(context).colorScheme.onSurface;
-  Color get _subtext => Theme.of(context).textTheme.bodySmall?.color ?? Theme.of(context).iconTheme.color!;
+  Color get _subtext =>
+      Theme.of(context).textTheme.bodySmall?.color ??
+      Theme.of(context).iconTheme.color!;
   Color get _border => Theme.of(context).dividerColor;
   List<WarehouseData> _warehouses = [];
   StreamSubscription<List<WarehouseData>>? _warehousesSub;
@@ -53,7 +54,9 @@ class _WarehouseScreenState extends ConsumerState<WarehouseScreen> {
   // ── Add Warehouse ──────────────────────────────────────────────────────────
   void _showAddSheet(BuildContext context) {
     final nameCtrl = TextEditingController();
-    final locationCtrl = TextEditingController();
+    final addressCtrl = TextEditingController();
+    final cityStateCtrl = TextEditingController();
+    final countryCtrl = TextEditingController();
     final formKey = GlobalKey<FormState>();
     bool saving = false;
 
@@ -63,9 +66,7 @@ class _WarehouseScreenState extends ConsumerState<WarehouseScreen> {
       backgroundColor: Colors.transparent,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setSheet) => Padding(
-          padding: EdgeInsets.only(
-            bottom: ctx.bottomInset,
-          ),
+          padding: EdgeInsets.only(bottom: ctx.bottomInset),
           child: Container(
             decoration: BoxDecoration(
               color: _surface,
@@ -81,98 +82,136 @@ class _WarehouseScreenState extends ConsumerState<WarehouseScreen> {
             ),
             child: Form(
               key: formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Handle
-                  Center(
-                    child: Container(
-                      width: 40,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: _border,
-                        borderRadius: BorderRadius.circular(2),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Handle
+                    Center(
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: _border,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
                       ),
                     ),
-                  ),
-                  SizedBox(height: rSize(ctx, 20)),
+                    SizedBox(height: rSize(ctx, 20)),
 
-                  // Title
-                  Row(
-                    children: [
-                      Container(
-                        padding: EdgeInsets.all(rSize(ctx, 10)),
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(12),
+                    // Title
+                    Row(
+                      children: [
+                        Container(
+                          padding: EdgeInsets.all(rSize(ctx, 10)),
+                          decoration: BoxDecoration(
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.primary.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Icon(
+                            FontAwesomeIcons.warehouse,
+                            color: Theme.of(context).colorScheme.primary,
+                            size: rSize(ctx, 18),
+                          ),
                         ),
-                        child: Icon(
-                          FontAwesomeIcons.warehouse,
-                          color: Theme.of(context).colorScheme.primary,
-                          size: rSize(ctx, 18),
+                        SizedBox(width: rSize(ctx, 12)),
+                        Text(
+                          'New Warehouse',
+                          style: TextStyle(
+                            fontSize: rFontSize(ctx, 18),
+                            fontWeight: FontWeight.bold,
+                            color: _text,
+                          ),
                         ),
+                      ],
+                    ),
+                    SizedBox(height: rSize(ctx, 24)),
+
+                    AppInput(
+                      controller: nameCtrl,
+                      labelText: 'Warehouse Name',
+                      hintText: 'e.g. Main Store, Annex B',
+                      prefixIcon: const Icon(
+                        Icons.warehouse_outlined,
+                        size: 20,
                       ),
-                      SizedBox(width: rSize(ctx, 12)),
-                      Text(
-                        'New Warehouse',
-                        style: TextStyle(
-                          fontSize: rFontSize(ctx, 18),
-                          fontWeight: FontWeight.bold,
-                          color: _text,
-                        ),
+                      validator: (v) => v == null || v.trim().isEmpty
+                          ? 'Name is required'
+                          : null,
+                    ),
+                    SizedBox(height: rSize(ctx, 16)),
+
+                    AppInput(
+                      controller: addressCtrl,
+                      labelText: 'Street Address',
+                      hintText: 'e.g. 14 Market Road',
+                      prefixIcon: const Icon(Icons.map_outlined, size: 20),
+                      validator: (v) => v == null || v.trim().isEmpty
+                          ? 'Street Address is required'
+                          : null,
+                    ),
+                    SizedBox(height: rSize(ctx, 16)),
+
+                    AppInput(
+                      controller: cityStateCtrl,
+                      labelText: 'City and State',
+                      hintText: 'e.g. Lagos Island, Lagos',
+                      prefixIcon: const Icon(
+                        Icons.location_city_outlined,
+                        size: 20,
                       ),
-                    ],
-                  ),
-                  SizedBox(height: rSize(ctx, 24)),
+                      validator: (v) => v == null || v.trim().isEmpty
+                          ? 'City and State are required'
+                          : null,
+                    ),
+                    SizedBox(height: rSize(ctx, 16)),
 
-                  AppInput(
-                    controller: nameCtrl,
-                    labelText: 'Warehouse Name',
-                    hintText: 'e.g. Main Store, Annex B',
-                    prefixIcon: const Icon(Icons.warehouse_outlined, size: 20),
-                    validator: (v) => v == null || v.trim().isEmpty
-                        ? 'Name is required'
-                        : null,
-                  ),
-                  SizedBox(height: rSize(ctx, 16)),
+                    AppInput(
+                      controller: countryCtrl,
+                      labelText: 'Country',
+                      hintText: 'e.g. Nigeria',
+                      prefixIcon: const Icon(Icons.public_outlined, size: 20),
+                      validator: (v) => v == null || v.trim().isEmpty
+                          ? 'Country is required'
+                          : null,
+                    ),
+                    SizedBox(height: rSize(ctx, 28)),
 
-                  AppInput(
-                    controller: locationCtrl,
-                    labelText: 'Location / Address (optional)',
-                    hintText: 'e.g. 14 Market Road, Lagos',
-                    prefixIcon: const Icon(Icons.location_on_outlined, size: 20),
-                  ),
-                  SizedBox(height: rSize(ctx, 28)),
+                    // Save button
+                    AppButton(
+                      text: 'Save Warehouse',
+                      onPressed: saving
+                          ? null
+                          : () async {
+                              if (!formKey.currentState!.validate()) return;
+                              setSheet(() => saving = true);
+                              try {
+                                final db = ref.read(databaseProvider);
+                                final combinedLocation =
+                                    '${addressCtrl.text.trim()}, ${cityStateCtrl.text.trim()}, ${countryCtrl.text.trim()}';
 
-                  // Save button
-                  AppButton(
-                    text: 'Save Warehouse',
-                    onPressed: saving
-                        ? null
-                        : () async {
-                            if (!formKey.currentState!.validate()) return;
-                            setSheet(() => saving = true);
-                            try {
-                              final db = ref.read(databaseProvider);
-                              await db.into(db.warehouses).insert(
-                                    WarehousesCompanion.insert(
-                                      name: nameCtrl.text.trim(),
-                                      location: locationCtrl.text.trim().isEmpty
-                                          ? const Value.absent()
-                                          : Value(locationCtrl.text.trim()),
-                                    ),
-                                  );
-                              if (ctx.mounted) Navigator.pop(ctx);
-                            } catch (e) {
-                              setSheet(() => saving = false);
-                              if (ctx.mounted) {
-                                AppNotification.showError(ctx, 'Error: $e');
+                                await db
+                                    .into(db.warehouses)
+                                    .insert(
+                                      WarehousesCompanion.insert(
+                                        name: nameCtrl.text.trim(),
+                                        location: Value(combinedLocation),
+                                      ),
+                                    );
+                                if (ctx.mounted) Navigator.pop(ctx);
+                              } catch (e) {
+                                setSheet(() => saving = false);
+                                if (ctx.mounted) {
+                                  AppNotification.showError(ctx, 'Error: $e');
+                                }
                               }
-                            }
-                          },
-                  ),
-                ],
+                            },
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -184,7 +223,19 @@ class _WarehouseScreenState extends ConsumerState<WarehouseScreen> {
   // ── Edit Warehouse ─────────────────────────────────────────────────────────
   void _showEditSheet(BuildContext context, WarehouseData warehouse) {
     final nameCtrl = TextEditingController(text: warehouse.name);
-    final locationCtrl = TextEditingController(text: warehouse.location ?? '');
+
+    // Parse location: "Street, City/State, Country"
+    final locParts = (warehouse.location ?? '').split(', ');
+    final addressCtrl = TextEditingController(
+      text: locParts.isNotEmpty ? locParts[0] : '',
+    );
+    final cityStateCtrl = TextEditingController(
+      text: locParts.length > 1 ? locParts[1] : '',
+    );
+    final countryCtrl = TextEditingController(
+      text: locParts.length > 2 ? locParts[2] : '',
+    );
+
     final formKey = GlobalKey<FormState>();
     bool saving = false;
 
@@ -194,9 +245,7 @@ class _WarehouseScreenState extends ConsumerState<WarehouseScreen> {
       backgroundColor: Colors.transparent,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setSheet) => Padding(
-          padding: EdgeInsets.only(
-            bottom: ctx.bottomInset,
-          ),
+          padding: EdgeInsets.only(bottom: ctx.bottomInset),
           child: Container(
             decoration: BoxDecoration(
               color: _surface,
@@ -212,86 +261,120 @@ class _WarehouseScreenState extends ConsumerState<WarehouseScreen> {
             ),
             child: Form(
               key: formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Center(
-                    child: Container(
-                      width: 40,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: _border,
-                        borderRadius: BorderRadius.circular(2),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: _border,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
                       ),
                     ),
-                  ),
-                  SizedBox(height: rSize(ctx, 20)),
-                  Row(
-                    children: [
-                      Container(
-                        padding: EdgeInsets.all(rSize(ctx, 10)),
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(12),
+                    SizedBox(height: rSize(ctx, 20)),
+                    Row(
+                      children: [
+                        Container(
+                          padding: EdgeInsets.all(rSize(ctx, 10)),
+                          decoration: BoxDecoration(
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.primary.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Icon(
+                            FontAwesomeIcons.penToSquare,
+                            color: Theme.of(context).colorScheme.primary,
+                            size: rSize(ctx, 18),
+                          ),
                         ),
-                        child: Icon(
-                          FontAwesomeIcons.penToSquare,
-                          color: Theme.of(context).colorScheme.primary,
-                          size: rSize(ctx, 18),
+                        SizedBox(width: rSize(ctx, 12)),
+                        Text(
+                          'Edit Warehouse',
+                          style: TextStyle(
+                            fontSize: rFontSize(ctx, 18),
+                            fontWeight: FontWeight.bold,
+                            color: _text,
+                          ),
                         ),
+                      ],
+                    ),
+                    SizedBox(height: rSize(ctx, 24)),
+                    AppInput(
+                      controller: nameCtrl,
+                      labelText: 'Warehouse Name',
+                      hintText: 'e.g. Main Store',
+                      prefixIcon: const Icon(
+                        Icons.warehouse_outlined,
+                        size: 20,
                       ),
-                      SizedBox(width: rSize(ctx, 12)),
-                      Text(
-                        'Edit Warehouse',
-                        style: TextStyle(
-                          fontSize: rFontSize(ctx, 18),
-                          fontWeight: FontWeight.bold,
-                          color: _text,
-                        ),
+                      validator: (v) => v == null || v.trim().isEmpty
+                          ? 'Name is required'
+                          : null,
+                    ),
+                    SizedBox(height: rSize(ctx, 16)),
+                    AppInput(
+                      controller: addressCtrl,
+                      labelText: 'Street Address',
+                      hintText: 'e.g. 14 Market Road',
+                      prefixIcon: const Icon(Icons.map_outlined, size: 20),
+                      validator: (v) => v == null || v.trim().isEmpty
+                          ? 'Street Address is required'
+                          : null,
+                    ),
+                    SizedBox(height: rSize(ctx, 16)),
+                    AppInput(
+                      controller: cityStateCtrl,
+                      labelText: 'City and State',
+                      hintText: 'e.g. Lagos Island, Lagos',
+                      prefixIcon: const Icon(
+                        Icons.location_city_outlined,
+                        size: 20,
                       ),
-                    ],
-                  ),
-                  SizedBox(height: rSize(ctx, 24)),
-                  AppInput(
-                    controller: nameCtrl,
-                    labelText: 'Warehouse Name',
-                    hintText: 'e.g. Main Store',
-                    prefixIcon: const Icon(Icons.warehouse_outlined, size: 20),
-                    validator: (v) => v == null || v.trim().isEmpty
-                        ? 'Name is required'
-                        : null,
-                  ),
-                  SizedBox(height: rSize(ctx, 16)),
-                  AppInput(
-                    controller: locationCtrl,
-                    labelText: 'Location / Address (optional)',
-                    hintText: 'e.g. 14 Market Road, Lagos',
-                    prefixIcon: const Icon(Icons.location_on_outlined, size: 20),
-                  ),
-                  SizedBox(height: rSize(ctx, 28)),
-                  AppButton(
-                    text: 'Save Changes',
-                    onPressed: saving
-                        ? null
-                        : () async {
-                            if (!formKey.currentState!.validate()) return;
-                            setSheet(() => saving = true);
-                            final db = ref.read(databaseProvider);
-                            await (db.update(db.warehouses)
-                                  ..where((t) => t.id.equals(warehouse.id)))
-                                .write(
-                                  WarehousesCompanion(
-                                    name: Value(nameCtrl.text.trim()),
-                                    location: locationCtrl.text.trim().isEmpty
-                                        ? const Value(null)
-                                        : Value(locationCtrl.text.trim()),
-                                  ),
-                                );
-                            if (ctx.mounted) Navigator.pop(ctx);
-                          },
-                  ),
-                ],
+                      validator: (v) => v == null || v.trim().isEmpty
+                          ? 'City and State are required'
+                          : null,
+                    ),
+                    SizedBox(height: rSize(ctx, 16)),
+                    AppInput(
+                      controller: countryCtrl,
+                      labelText: 'Country',
+                      hintText: 'e.g. Nigeria',
+                      prefixIcon: const Icon(Icons.public_outlined, size: 20),
+                      validator: (v) => v == null || v.trim().isEmpty
+                          ? 'Country is required'
+                          : null,
+                    ),
+                    SizedBox(height: rSize(ctx, 28)),
+                    AppButton(
+                      text: 'Save Changes',
+                      onPressed: saving
+                          ? null
+                          : () async {
+                              if (!formKey.currentState!.validate()) return;
+                              setSheet(() => saving = true);
+                              final db = ref.read(databaseProvider);
+                              final combinedLocation =
+                                  '${addressCtrl.text.trim()}, ${cityStateCtrl.text.trim()}, ${countryCtrl.text.trim()}';
+
+                              await (db.update(
+                                db.warehouses,
+                              )..where((t) => t.id.equals(warehouse.id))).write(
+                                WarehousesCompanion(
+                                  name: Value(nameCtrl.text.trim()),
+                                  location: Value(combinedLocation),
+                                ),
+                              );
+                              if (ctx.mounted) Navigator.pop(ctx);
+                            },
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -306,9 +389,9 @@ class _WarehouseScreenState extends ConsumerState<WarehouseScreen> {
     WarehouseData warehouse,
   ) async {
     final db = ref.read(databaseProvider);
-    final rows = await (db.select(db.inventory)
-          ..where((t) => t.warehouseId.equals(warehouse.id)))
-        .get();
+    final rows = await (db.select(
+      db.inventory,
+    )..where((t) => t.warehouseId.equals(warehouse.id))).get();
     final stock = rows.fold<int>(0, (sum, r) => sum + r.quantity);
     if (!context.mounted) return;
 
@@ -403,48 +486,48 @@ class _WarehouseScreenState extends ConsumerState<WarehouseScreen> {
   @override
   Widget build(BuildContext context) {
     return SharedScaffold(
-        activeRoute: 'warehouse',
-        backgroundColor: _bg,
-        appBar: AppBar(
-          backgroundColor: _surface,
-          elevation: 0,
-          leading: const MenuButton(),
-          title: const AppBarHeader(
-            icon: FontAwesomeIcons.warehouse,
-            title: 'Warehouses',
-            subtitle: 'Manage Storage Locations',
-          ),
-          actions: [
-            const NotificationBell(),
-            SizedBox(width: rSize(context, 8)),
-          ],
+      activeRoute: 'warehouse',
+      backgroundColor: _bg,
+      appBar: AppBar(
+        backgroundColor: _surface,
+        elevation: 0,
+        leading: const MenuButton(),
+        title: const AppBarHeader(
+          icon: FontAwesomeIcons.warehouse,
+          title: 'Warehouses',
+          subtitle: 'Manage Storage Locations',
         ),
-        floatingActionButton: AppFAB(
-          onPressed: () => _showAddSheet(context),
-          icon: Icons.add_rounded,
-          label: 'Add Warehouse',
-        ),
-        body: Builder(
-          builder: (context) {
-            final warehouses = _warehouses;
+        actions: [
+          const NotificationBell(),
+          SizedBox(width: rSize(context, 8)),
+        ],
+      ),
+      floatingActionButton: AppFAB(
+        onPressed: () => _showAddSheet(context),
+        icon: Icons.add_rounded,
+        label: 'Add Warehouse',
+      ),
+      body: Builder(
+        builder: (context) {
+          final warehouses = _warehouses;
 
-            if (warehouses.isEmpty) {
-              return _buildEmptyState(context);
-            }
+          if (warehouses.isEmpty) {
+            return _buildEmptyState(context);
+          }
 
-            return ListView.builder(
-              padding: EdgeInsets.fromLTRB(
-                rSize(context, 16),
-                rSize(context, 16),
-                rSize(context, 16),
-                rSize(context, 100),
-              ),
-              itemCount: warehouses.length,
-              itemBuilder: (context, index) =>
-                  _buildWarehouseCard(context, warehouses[index]),
-            );
-          },
-        ),
+          return ListView.builder(
+            padding: EdgeInsets.fromLTRB(
+              rSize(context, 16),
+              rSize(context, 16),
+              rSize(context, 16),
+              rSize(context, 100),
+            ),
+            itemCount: warehouses.length,
+            itemBuilder: (context, index) =>
+                _buildWarehouseCard(context, warehouses[index]),
+          );
+        },
+      ),
     );
   }
 
@@ -457,13 +540,17 @@ class _WarehouseScreenState extends ConsumerState<WarehouseScreen> {
           Container(
             padding: EdgeInsets.all(rSize(context, 24)),
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.08),
+              color: Theme.of(
+                context,
+              ).colorScheme.primary.withValues(alpha: 0.08),
               shape: BoxShape.circle,
             ),
             child: Icon(
               FontAwesomeIcons.warehouse,
               size: rSize(context, 40),
-              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5),
+              color: Theme.of(
+                context,
+              ).colorScheme.primary.withValues(alpha: 0.5),
             ),
           ),
           SizedBox(height: rSize(context, 20)),
@@ -499,7 +586,6 @@ class _WarehouseScreenState extends ConsumerState<WarehouseScreen> {
       onStaff: () => ref.read(navigationProvider).setIndex(8),
     );
   }
-
 }
 
 // ── Reactive warehouse card ────────────────────────────────────────────────────
@@ -528,7 +614,9 @@ class _WarehouseCardState extends ConsumerState<_WarehouseCard> {
   StreamSubscription<List<UserData>>? _staffSub;
   Color get _surface => Theme.of(context).colorScheme.surface;
   Color get _text => Theme.of(context).colorScheme.onSurface;
-  Color get _subtext => Theme.of(context).textTheme.bodySmall?.color ?? Theme.of(context).iconTheme.color!;
+  Color get _subtext =>
+      Theme.of(context).textTheme.bodySmall?.color ??
+      Theme.of(context).iconTheme.color!;
   // Stronger border for card edges and dividers — more visible in light mode
   Color get _strongBorder => Theme.of(context).dividerColor;
   // Subtle blue-tinted stripe for stats/actions section in light mode
@@ -539,14 +627,12 @@ class _WarehouseCardState extends ConsumerState<_WarehouseCard> {
     super.initState();
     final db = ref.read(databaseProvider);
     final id = widget.warehouse.id;
-    _invSub = db.inventoryDao
-        .watchProductDatasWithStockByWarehouse(id)
-        .listen((list) {
+    _invSub = db.inventoryDao.watchProductDatasWithStockByWarehouse(id).listen((
+      list,
+    ) {
       if (mounted) setState(() => _inventory = list);
     });
-    _staffSub = db.warehousesDao
-        .watchStaffByWarehouse(id)
-        .listen((list) {
+    _staffSub = db.warehousesDao.watchStaffByWarehouse(id).listen((list) {
       if (mounted) setState(() => _staff = list);
     });
   }
@@ -599,11 +685,16 @@ class _WarehouseCardState extends ConsumerState<_WarehouseCard> {
                   Container(
                     padding: EdgeInsets.all(rSize(context, 12)),
                     decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.primary.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: Icon(FontAwesomeIcons.warehouse,
-                        color: Theme.of(context).colorScheme.primary, size: rSize(context, 20)),
+                    child: Icon(
+                      FontAwesomeIcons.warehouse,
+                      color: Theme.of(context).colorScheme.primary,
+                      size: rSize(context, 20),
+                    ),
                   ),
                   SizedBox(width: rSize(context, 14)),
                   Expanded(
@@ -623,8 +714,11 @@ class _WarehouseCardState extends ConsumerState<_WarehouseCard> {
                           SizedBox(height: rSize(context, 3)),
                           Row(
                             children: [
-                              Icon(Icons.location_on_outlined,
-                                  size: rSize(context, 12), color: _subtext),
+                              Icon(
+                                Icons.location_on_outlined,
+                                size: rSize(context, 12),
+                                color: _subtext,
+                              ),
                               SizedBox(width: rSize(context, 4)),
                               Expanded(
                                 child: Text(
@@ -643,8 +737,11 @@ class _WarehouseCardState extends ConsumerState<_WarehouseCard> {
                       ],
                     ),
                   ),
-                  Icon(FontAwesomeIcons.chevronRight,
-                      size: rSize(context, 13), color: _subtext),
+                  Icon(
+                    FontAwesomeIcons.chevronRight,
+                    size: rSize(context, 13),
+                    color: _subtext,
+                  ),
                 ],
               ),
             ),
@@ -693,8 +790,9 @@ class _WarehouseCardState extends ConsumerState<_WarehouseCard> {
             decoration: BoxDecoration(
               color: _stripe,
               border: Border(top: BorderSide(color: _strongBorder)),
-              borderRadius:
-                  const BorderRadius.vertical(bottom: Radius.circular(16)),
+              borderRadius: const BorderRadius.vertical(
+                bottom: Radius.circular(16),
+              ),
             ),
             child: Row(
               children: [
@@ -804,8 +902,3 @@ class _WarehouseCardState extends ConsumerState<_WarehouseCard> {
     );
   }
 }
-
-
-
-
-

@@ -33,22 +33,32 @@ class AuthBackground extends StatelessWidget {
       resizeToAvoidBottomInset: resizeToAvoidBottomInset,
       body: Stack(
         children: [
-          // Background Image
-          Positioned.fill(
-            child: Image.asset(
-              bgImage,
-              fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) =>
-                  Container(color: isDark ? Colors.black : Colors.grey[100]),
-            ),
-          ),
-          // Blur overlay
-          Positioned.fill(
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: blurSigma, sigmaY: blurSigma),
-              child: Container(
-                color: overlayColor.withValues(alpha: overlayOpacity),
-              ),
+          // Background Image (Isolated with RepaintBoundary)
+          RepaintBoundary(
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: Image.asset(
+                    bgImage,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Container(
+                      color: isDark ? Colors.black : Colors.grey[100],
+                    ),
+                  ),
+                ),
+                // Blur overlay
+                Positioned.fill(
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(
+                      sigmaX: blurSigma,
+                      sigmaY: blurSigma,
+                    ),
+                    child: Container(
+                      color: overlayColor.withValues(alpha: overlayOpacity),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
           child,

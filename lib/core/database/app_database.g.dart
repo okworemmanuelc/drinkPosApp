@@ -3056,6 +3056,32 @@ class $ProductsTable extends Products
     requiredDuringInsert: false,
     defaultValue: const Constant(0),
   );
+  static const VerificationMeta _trackEmptiesMeta = const VerificationMeta(
+    'trackEmpties',
+  );
+  @override
+  late final GeneratedColumn<bool> trackEmpties = GeneratedColumn<bool>(
+    'track_empties',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("track_empties" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _imagePathMeta = const VerificationMeta(
+    'imagePath',
+  );
+  @override
+  late final GeneratedColumn<String> imagePath = GeneratedColumn<String>(
+    'image_path',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -3084,6 +3110,8 @@ class $ProductsTable extends Products
     safetyStockQty,
     monthlyTargetUnits,
     emptyCrateValueKobo,
+    trackEmpties,
+    imagePath,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -3300,6 +3328,21 @@ class $ProductsTable extends Products
         ),
       );
     }
+    if (data.containsKey('track_empties')) {
+      context.handle(
+        _trackEmptiesMeta,
+        trackEmpties.isAcceptableOrUnknown(
+          data['track_empties']!,
+          _trackEmptiesMeta,
+        ),
+      );
+    }
+    if (data.containsKey('image_path')) {
+      context.handle(
+        _imagePathMeta,
+        imagePath.isAcceptableOrUnknown(data['image_path']!, _imagePathMeta),
+      );
+    }
     return context;
   }
 
@@ -3413,6 +3456,14 @@ class $ProductsTable extends Products
         DriftSqlType.int,
         data['${effectivePrefix}empty_crate_value_kobo'],
       )!,
+      trackEmpties: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}track_empties'],
+      )!,
+      imagePath: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}image_path'],
+      ),
     );
   }
 
@@ -3449,6 +3500,8 @@ class ProductData extends DataClass implements Insertable<ProductData> {
   final int safetyStockQty;
   final int monthlyTargetUnits;
   final int emptyCrateValueKobo;
+  final bool trackEmpties;
+  final String? imagePath;
   const ProductData({
     required this.id,
     this.categoryId,
@@ -3476,6 +3529,8 @@ class ProductData extends DataClass implements Insertable<ProductData> {
     required this.safetyStockQty,
     required this.monthlyTargetUnits,
     required this.emptyCrateValueKobo,
+    required this.trackEmpties,
+    this.imagePath,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -3530,6 +3585,10 @@ class ProductData extends DataClass implements Insertable<ProductData> {
     map['safety_stock_qty'] = Variable<int>(safetyStockQty);
     map['monthly_target_units'] = Variable<int>(monthlyTargetUnits);
     map['empty_crate_value_kobo'] = Variable<int>(emptyCrateValueKobo);
+    map['track_empties'] = Variable<bool>(trackEmpties);
+    if (!nullToAbsent || imagePath != null) {
+      map['image_path'] = Variable<String>(imagePath);
+    }
     return map;
   }
 
@@ -3581,6 +3640,10 @@ class ProductData extends DataClass implements Insertable<ProductData> {
       safetyStockQty: Value(safetyStockQty),
       monthlyTargetUnits: Value(monthlyTargetUnits),
       emptyCrateValueKobo: Value(emptyCrateValueKobo),
+      trackEmpties: Value(trackEmpties),
+      imagePath: imagePath == null && nullToAbsent
+          ? const Value.absent()
+          : Value(imagePath),
     );
   }
 
@@ -3622,6 +3685,8 @@ class ProductData extends DataClass implements Insertable<ProductData> {
       emptyCrateValueKobo: serializer.fromJson<int>(
         json['emptyCrateValueKobo'],
       ),
+      trackEmpties: serializer.fromJson<bool>(json['trackEmpties']),
+      imagePath: serializer.fromJson<String?>(json['imagePath']),
     );
   }
   @override
@@ -3654,6 +3719,8 @@ class ProductData extends DataClass implements Insertable<ProductData> {
       'safetyStockQty': serializer.toJson<int>(safetyStockQty),
       'monthlyTargetUnits': serializer.toJson<int>(monthlyTargetUnits),
       'emptyCrateValueKobo': serializer.toJson<int>(emptyCrateValueKobo),
+      'trackEmpties': serializer.toJson<bool>(trackEmpties),
+      'imagePath': serializer.toJson<String?>(imagePath),
     };
   }
 
@@ -3684,6 +3751,8 @@ class ProductData extends DataClass implements Insertable<ProductData> {
     int? safetyStockQty,
     int? monthlyTargetUnits,
     int? emptyCrateValueKobo,
+    bool? trackEmpties,
+    Value<String?> imagePath = const Value.absent(),
   }) => ProductData(
     id: id ?? this.id,
     categoryId: categoryId.present ? categoryId.value : this.categoryId,
@@ -3719,6 +3788,8 @@ class ProductData extends DataClass implements Insertable<ProductData> {
     safetyStockQty: safetyStockQty ?? this.safetyStockQty,
     monthlyTargetUnits: monthlyTargetUnits ?? this.monthlyTargetUnits,
     emptyCrateValueKobo: emptyCrateValueKobo ?? this.emptyCrateValueKobo,
+    trackEmpties: trackEmpties ?? this.trackEmpties,
+    imagePath: imagePath.present ? imagePath.value : this.imagePath,
   );
   ProductData copyWithCompanion(ProductsCompanion data) {
     return ProductData(
@@ -3784,6 +3855,10 @@ class ProductData extends DataClass implements Insertable<ProductData> {
       emptyCrateValueKobo: data.emptyCrateValueKobo.present
           ? data.emptyCrateValueKobo.value
           : this.emptyCrateValueKobo,
+      trackEmpties: data.trackEmpties.present
+          ? data.trackEmpties.value
+          : this.trackEmpties,
+      imagePath: data.imagePath.present ? data.imagePath.value : this.imagePath,
     );
   }
 
@@ -3815,7 +3890,9 @@ class ProductData extends DataClass implements Insertable<ProductData> {
           ..write('leadTimeDays: $leadTimeDays, ')
           ..write('safetyStockQty: $safetyStockQty, ')
           ..write('monthlyTargetUnits: $monthlyTargetUnits, ')
-          ..write('emptyCrateValueKobo: $emptyCrateValueKobo')
+          ..write('emptyCrateValueKobo: $emptyCrateValueKobo, ')
+          ..write('trackEmpties: $trackEmpties, ')
+          ..write('imagePath: $imagePath')
           ..write(')'))
         .toString();
   }
@@ -3848,6 +3925,8 @@ class ProductData extends DataClass implements Insertable<ProductData> {
     safetyStockQty,
     monthlyTargetUnits,
     emptyCrateValueKobo,
+    trackEmpties,
+    imagePath,
   ]);
   @override
   bool operator ==(Object other) =>
@@ -3878,7 +3957,9 @@ class ProductData extends DataClass implements Insertable<ProductData> {
           other.leadTimeDays == this.leadTimeDays &&
           other.safetyStockQty == this.safetyStockQty &&
           other.monthlyTargetUnits == this.monthlyTargetUnits &&
-          other.emptyCrateValueKobo == this.emptyCrateValueKobo);
+          other.emptyCrateValueKobo == this.emptyCrateValueKobo &&
+          other.trackEmpties == this.trackEmpties &&
+          other.imagePath == this.imagePath);
 }
 
 class ProductsCompanion extends UpdateCompanion<ProductData> {
@@ -3908,6 +3989,8 @@ class ProductsCompanion extends UpdateCompanion<ProductData> {
   final Value<int> safetyStockQty;
   final Value<int> monthlyTargetUnits;
   final Value<int> emptyCrateValueKobo;
+  final Value<bool> trackEmpties;
+  final Value<String?> imagePath;
   const ProductsCompanion({
     this.id = const Value.absent(),
     this.categoryId = const Value.absent(),
@@ -3935,6 +4018,8 @@ class ProductsCompanion extends UpdateCompanion<ProductData> {
     this.safetyStockQty = const Value.absent(),
     this.monthlyTargetUnits = const Value.absent(),
     this.emptyCrateValueKobo = const Value.absent(),
+    this.trackEmpties = const Value.absent(),
+    this.imagePath = const Value.absent(),
   });
   ProductsCompanion.insert({
     this.id = const Value.absent(),
@@ -3963,6 +4048,8 @@ class ProductsCompanion extends UpdateCompanion<ProductData> {
     this.safetyStockQty = const Value.absent(),
     this.monthlyTargetUnits = const Value.absent(),
     this.emptyCrateValueKobo = const Value.absent(),
+    this.trackEmpties = const Value.absent(),
+    this.imagePath = const Value.absent(),
   }) : name = Value(name);
   static Insertable<ProductData> custom({
     Expression<int>? id,
@@ -3991,6 +4078,8 @@ class ProductsCompanion extends UpdateCompanion<ProductData> {
     Expression<int>? safetyStockQty,
     Expression<int>? monthlyTargetUnits,
     Expression<int>? emptyCrateValueKobo,
+    Expression<bool>? trackEmpties,
+    Expression<String>? imagePath,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -4023,6 +4112,8 @@ class ProductsCompanion extends UpdateCompanion<ProductData> {
         'monthly_target_units': monthlyTargetUnits,
       if (emptyCrateValueKobo != null)
         'empty_crate_value_kobo': emptyCrateValueKobo,
+      if (trackEmpties != null) 'track_empties': trackEmpties,
+      if (imagePath != null) 'image_path': imagePath,
     });
   }
 
@@ -4053,6 +4144,8 @@ class ProductsCompanion extends UpdateCompanion<ProductData> {
     Value<int>? safetyStockQty,
     Value<int>? monthlyTargetUnits,
     Value<int>? emptyCrateValueKobo,
+    Value<bool>? trackEmpties,
+    Value<String?>? imagePath,
   }) {
     return ProductsCompanion(
       id: id ?? this.id,
@@ -4081,6 +4174,8 @@ class ProductsCompanion extends UpdateCompanion<ProductData> {
       safetyStockQty: safetyStockQty ?? this.safetyStockQty,
       monthlyTargetUnits: monthlyTargetUnits ?? this.monthlyTargetUnits,
       emptyCrateValueKobo: emptyCrateValueKobo ?? this.emptyCrateValueKobo,
+      trackEmpties: trackEmpties ?? this.trackEmpties,
+      imagePath: imagePath ?? this.imagePath,
     );
   }
 
@@ -4167,6 +4262,12 @@ class ProductsCompanion extends UpdateCompanion<ProductData> {
     if (emptyCrateValueKobo.present) {
       map['empty_crate_value_kobo'] = Variable<int>(emptyCrateValueKobo.value);
     }
+    if (trackEmpties.present) {
+      map['track_empties'] = Variable<bool>(trackEmpties.value);
+    }
+    if (imagePath.present) {
+      map['image_path'] = Variable<String>(imagePath.value);
+    }
     return map;
   }
 
@@ -4198,7 +4299,9 @@ class ProductsCompanion extends UpdateCompanion<ProductData> {
           ..write('leadTimeDays: $leadTimeDays, ')
           ..write('safetyStockQty: $safetyStockQty, ')
           ..write('monthlyTargetUnits: $monthlyTargetUnits, ')
-          ..write('emptyCrateValueKobo: $emptyCrateValueKobo')
+          ..write('emptyCrateValueKobo: $emptyCrateValueKobo, ')
+          ..write('trackEmpties: $trackEmpties, ')
+          ..write('imagePath: $imagePath')
           ..write(')'))
         .toString();
   }
@@ -21766,6 +21869,8 @@ typedef $$ProductsTableCreateCompanionBuilder =
       Value<int> safetyStockQty,
       Value<int> monthlyTargetUnits,
       Value<int> emptyCrateValueKobo,
+      Value<bool> trackEmpties,
+      Value<String?> imagePath,
     });
 typedef $$ProductsTableUpdateCompanionBuilder =
     ProductsCompanion Function({
@@ -21795,6 +21900,8 @@ typedef $$ProductsTableUpdateCompanionBuilder =
       Value<int> safetyStockQty,
       Value<int> monthlyTargetUnits,
       Value<int> emptyCrateValueKobo,
+      Value<bool> trackEmpties,
+      Value<String?> imagePath,
     });
 
 final class $$ProductsTableReferences
@@ -22156,6 +22263,16 @@ class $$ProductsTableFilterComposer
 
   ColumnFilters<int> get emptyCrateValueKobo => $composableBuilder(
     column: $table.emptyCrateValueKobo,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get trackEmpties => $composableBuilder(
+    column: $table.trackEmpties,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get imagePath => $composableBuilder(
+    column: $table.imagePath,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -22571,6 +22688,16 @@ class $$ProductsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get trackEmpties => $composableBuilder(
+    column: $table.trackEmpties,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get imagePath => $composableBuilder(
+    column: $table.imagePath,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$CategoriesTableOrderingComposer get categoryId {
     final $$CategoriesTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -22766,6 +22893,14 @@ class $$ProductsTableAnnotationComposer
     column: $table.emptyCrateValueKobo,
     builder: (column) => column,
   );
+
+  GeneratedColumn<bool> get trackEmpties => $composableBuilder(
+    column: $table.trackEmpties,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get imagePath =>
+      $composableBuilder(column: $table.imagePath, builder: (column) => column);
 
   $$CategoriesTableAnnotationComposer get categoryId {
     final $$CategoriesTableAnnotationComposer composer = $composerBuilder(
@@ -23128,6 +23263,8 @@ class $$ProductsTableTableManager
                 Value<int> safetyStockQty = const Value.absent(),
                 Value<int> monthlyTargetUnits = const Value.absent(),
                 Value<int> emptyCrateValueKobo = const Value.absent(),
+                Value<bool> trackEmpties = const Value.absent(),
+                Value<String?> imagePath = const Value.absent(),
               }) => ProductsCompanion(
                 id: id,
                 categoryId: categoryId,
@@ -23155,6 +23292,8 @@ class $$ProductsTableTableManager
                 safetyStockQty: safetyStockQty,
                 monthlyTargetUnits: monthlyTargetUnits,
                 emptyCrateValueKobo: emptyCrateValueKobo,
+                trackEmpties: trackEmpties,
+                imagePath: imagePath,
               ),
           createCompanionCallback:
               ({
@@ -23184,6 +23323,8 @@ class $$ProductsTableTableManager
                 Value<int> safetyStockQty = const Value.absent(),
                 Value<int> monthlyTargetUnits = const Value.absent(),
                 Value<int> emptyCrateValueKobo = const Value.absent(),
+                Value<bool> trackEmpties = const Value.absent(),
+                Value<String?> imagePath = const Value.absent(),
               }) => ProductsCompanion.insert(
                 id: id,
                 categoryId: categoryId,
@@ -23211,6 +23352,8 @@ class $$ProductsTableTableManager
                 safetyStockQty: safetyStockQty,
                 monthlyTargetUnits: monthlyTargetUnits,
                 emptyCrateValueKobo: emptyCrateValueKobo,
+                trackEmpties: trackEmpties,
+                imagePath: imagePath,
               ),
           withReferenceMapper: (p0) => p0
               .map(

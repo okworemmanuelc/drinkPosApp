@@ -25,7 +25,11 @@ import 'package:reebaplus_pos/features/inventory/screens/product_detail_screen.d
 import 'package:reebaplus_pos/core/theme/design_tokens.dart';
 import 'package:reebaplus_pos/core/database/app_database.dart';
 import 'package:reebaplus_pos/features/inventory/widgets/add_product_sheet.dart';
+import 'package:reebaplus_pos/features/inventory/widgets/inventory_history_tab.dart';
+import 'package:reebaplus_pos/features/inventory/widgets/update_product_sheet.dart';
 import 'package:reebaplus_pos/features/pos/widgets/category_filter_bar.dart';
+import 'package:reebaplus_pos/core/utils/product_name.dart';
+import 'package:reebaplus_pos/core/utils/currency_input_formatter.dart';
 import 'package:reebaplus_pos/shared/widgets/shimmer_loading.dart';
 import 'package:reebaplus_pos/shared/services/navigation_service.dart';
 
@@ -62,8 +66,6 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen>
   StreamSubscription<Map<String, int>>? _bottlesSub;
   StreamSubscription<Map<String, int>>? _emptyCratesSub;
   StreamSubscription<int>? _emptyCratesSumSub;
-  StreamSubscription<List<ActivityLogData>>? _logsSub;
-  List<ActivityLogData> _dbLogs = [];
   Color get _bg => Theme.of(context).scaffoldBackgroundColor;
   Color get _surface => Theme.of(context).colorScheme.surface;
 
@@ -135,19 +137,13 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen>
       ) {
         if (mounted) setState(() => _fullCratesByMfr = data);
       });
-      _emptyCratesSub = db.inventoryDao
-          .watchEmptyCratesByManufacturer()
-          .listen((data) {
-            if (mounted) setState(() => _emptyCratesByMfr = data);
-          });
+      _emptyCratesSub = db.inventoryDao.watchEmptyCratesByManufacturer().listen(
+        (data) {
+          if (mounted) setState(() => _emptyCratesByMfr = data);
+        },
+      );
 
-      _logsSub = db.activityLogDao.watchRecent().listen((data) {
-        if (mounted) setState(() => _dbLogs = data);
-      });
-
-      _crateGroupsSub = db.inventoryDao.watchAllCrateGroups().listen((
-        data,
-      ) {
+      _crateGroupsSub = db.inventoryDao.watchAllCrateGroups().listen((data) {
         if (mounted) setState(() => _dbCrateGroups = data);
       });
     });
@@ -162,7 +158,6 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen>
     _bottlesSub?.cancel();
     _emptyCratesSub?.cancel();
     _emptyCratesSumSub?.cancel();
-    _logsSub?.cancel();
     _tabController.dispose();
     _nav.selectedWarehouseId.removeListener(_handleWarehouseNavigation);
     super.dispose();
@@ -189,9 +184,7 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen>
 
     final db = ref.read(databaseProvider);
     final productStream = warehouseId != null
-        ? db.inventoryDao.watchProductDatasWithStockByWarehouse(
-            warehouseId,
-          )
+        ? db.inventoryDao.watchProductDatasWithStockByWarehouse(warehouseId)
         : db.inventoryDao.watchAllProductDatasWithStock();
 
     _productsSub = productStream.listen((data) async {
@@ -244,7 +237,11 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen>
               _buildProductsTab(context),
               _buildSuppliersTab(context),
               _buildCratesTab(context),
-              _buildLogTab(context),
+              InventoryHistoryTab(
+                warehouseId: _selectedWarehouseId == 'all'
+                    ? null
+                    : int.tryParse(_selectedWarehouseId),
+              ),
             ],
           ),
         ),
@@ -270,7 +267,10 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen>
             context,
             MaterialPageRoute(
               builder: (context) => StockCountScreen(
-                warehouseId: ref.read(navigationProvider).lockedWarehouseId.value,
+                warehouseId: ref
+                    .read(navigationProvider)
+                    .lockedWarehouseId
+                    .value,
               ),
             ),
           ),
@@ -454,7 +454,7 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen>
           Tab(text: 'Products'),
           Tab(text: 'Suppliers'),
           Tab(text: 'Empty Crates'),
-          Tab(text: 'Activity Log'),
+          Tab(text: 'History'),
         ],
       ),
     );
@@ -802,6 +802,18 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen>
         : Theme.of(context).colorScheme.primary;
 
     return GestureDetector(
+      onLongPress: () {
+        showModalBottomSheet(
+          context: context,
+          isScrollControlled: true,
+          backgroundColor: Colors.transparent,
+          builder: (ctx) => UpdateProductSheet(
+            product: product,
+            totalStock: currentStock,
+            onProductUpdated: () => setState(() {}),
+          ),
+        );
+      },
       onTap: () {
         final inventoryItem = InventoryItem(
           id: product.id.toString(),
@@ -827,6 +839,7 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen>
           category: product.categoryId?.toString(),
           manufacturer: product.manufacturer,
           size: product.size,
+          unit: product.unit,
         );
         Navigator.push(
           context,
@@ -904,7 +917,11 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen>
                       children: [
                         Flexible(
                           child: Text(
-                            product.name,
+                            productDisplayName(
+                              product.name,
+                              product.size,
+                              unit: product.unit,
+                            ),
                             overflow: TextOverflow.ellipsis,
                             maxLines: 1,
                             style: TextStyle(
@@ -1383,6 +1400,7 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen>
                       'Deposit (₦)',
                       '0',
                       isNumber: true,
+                      isCurrency: true,
                     ),
                   ),
                 ],
@@ -1394,23 +1412,27 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen>
                 onPressed: () async {
                   if (nameCtrl.text.trim().isEmpty) return;
                   final mfrName = nameCtrl.text.trim();
-                  await ref.read(databaseProvider).inventoryDao.insertManufacturer(
-                    ManufacturersCompanion.insert(
-                      name: mfrName,
-                      emptyCrateStock: Value(
-                        int.tryParse(stockCtrl.text.trim()) ?? 0,
-                      ),
-                      depositAmountKobo: Value(
-                        ((double.tryParse(depositCtrl.text.trim()) ?? 0) * 100)
-                            .round(),
-                      ),
-                    ),
-                  );
-                  await ref.read(activityLogProvider).logAction(
-                    'add_manufacturer',
-                    '${ref.read(authProvider).currentUser?.name ?? 'Unknown'} added manufacturer: $mfrName',
-                    relatedEntityType: 'manufacturer',
-                  );
+                  await ref
+                      .read(databaseProvider)
+                      .inventoryDao
+                      .insertManufacturer(
+                        ManufacturersCompanion.insert(
+                          name: mfrName,
+                          emptyCrateStock: Value(
+                            int.tryParse(stockCtrl.text.trim()) ?? 0,
+                          ),
+                          depositAmountKobo: Value(
+                            ((parseCurrency(depositCtrl.text)) * 100).round(),
+                          ),
+                        ),
+                      );
+                  await ref
+                      .read(activityLogProvider)
+                      .logAction(
+                        'add_manufacturer',
+                        '${ref.read(authProvider).currentUser?.name ?? 'Unknown'} added manufacturer: $mfrName',
+                        relatedEntityType: 'manufacturer',
+                      );
                   if (context.mounted) Navigator.pop(ctx);
                 },
               ),
@@ -1545,6 +1567,7 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen>
                           ? 'Amount to add'
                           : 'New total amount',
                       isNumber: true,
+                      isCurrency: true,
                       readOnly: !isCEO,
                       showLabel: false,
                     ),
@@ -1619,6 +1642,7 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen>
                               ? '+ /- amount'
                               : 'New price for all items',
                           isNumber: true,
+                          isCurrency: true,
                         ),
                       ],
                     ),
@@ -1640,8 +1664,7 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen>
 
                     // Update Deposit
                     if (isCEO && depositCtrl.text.isNotEmpty) {
-                      final inputVal =
-                          double.tryParse(depositCtrl.text.trim()) ?? 0;
+                      final inputVal = parseCurrency(depositCtrl.text);
                       final inputKobo = (inputVal * 100).round();
                       int newDepositKobo = mfr.depositAmountKobo;
                       if (depositMode == 'add') {
@@ -1657,39 +1680,29 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen>
 
                     // Update Product Crate Values
                     if (isCEO && crateValueCtrl.text.isNotEmpty) {
-                      final inputVal =
-                          double.tryParse(crateValueCtrl.text.trim()) ?? 0;
+                      final inputVal = parseCurrency(crateValueCtrl.text);
                       final inputKobo = (inputVal * 100).round();
 
                       if (priceMode == 'add') {
-                        // This would require a more complex DB operation to add relative
-                        // to current. For now, we update if simple change is requested
-                        // but user said "same procedure" so I'll try to support add too
-                        // if DB allows or I'll just use simple replace for price if not feasible.
-                        // Actually I'll just use replace for price for now as 'Add' to a unit
-                        // price is less common, but I'll set it to newVal anyway.
-                        // Wait, I can't easily fetch 'current' for all without a more complex SQL.
-                        // I'll stick to replacing for price regardless of mode for now but
-                        // with a newVal if 'add' was meant as 'new absolute plus current'.
-                        await db.catalogDao
-                            .updateManufacturerEmptyCrateValue(
-                              mfr.id,
-                              inputKobo,
-                            );
+                        await db.catalogDao.updateManufacturerEmptyCrateValue(
+                          mfr.id,
+                          inputKobo,
+                        );
                       } else {
-                        await db.catalogDao
-                            .updateManufacturerEmptyCrateValue(
-                              mfr.id,
-                              inputKobo,
-                            );
+                        await db.catalogDao.updateManufacturerEmptyCrateValue(
+                          mfr.id,
+                          inputKobo,
+                        );
                       }
                     }
 
-                    await ref.read(activityLogProvider).logAction(
-                      'update_manufacturer',
-                      '${ref.read(authProvider).currentUser?.name ?? 'Unknown'} updated crate stock/deposit for ${mfr.name}',
-                      relatedEntityType: 'manufacturer',
-                    );
+                    await ref
+                        .read(activityLogProvider)
+                        .logAction(
+                          'update_manufacturer',
+                          '${ref.read(authProvider).currentUser?.name ?? 'Unknown'} updated crate stock/deposit for ${mfr.name}',
+                          relatedEntityType: 'manufacturer',
+                        );
                     if (context.mounted) Navigator.pop(ctx);
                   },
                 ),
@@ -1734,6 +1747,7 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen>
     String label,
     String hint, {
     bool isNumber = false,
+    bool isCurrency = false,
     bool readOnly = false,
     bool showLabel = true,
   }) {
@@ -1745,6 +1759,7 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen>
       keyboardType: isNumber
           ? const TextInputType.numberWithOptions(decimal: true)
           : TextInputType.text,
+      inputFormatters: isCurrency ? [CurrencyInputFormatter()] : null,
       fillColor: Theme.of(context).cardColor,
     );
   }
@@ -1901,15 +1916,17 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen>
                   final newStock =
                       int.tryParse(stockCtrl.text.trim()) ??
                       grp.emptyCrateStock;
-                  await ref.read(databaseProvider).inventoryDao.updateCrateGroupStock(
-                    grp.id,
-                    newStock,
-                  );
-                  await ref.read(activityLogProvider).logAction(
-                    'crate_group_update',
-                    '${ref.read(authProvider).currentUser?.name ?? 'Unknown'} set ${grp.name} crate stock to $newStock',
-                    relatedEntityType: 'crate_group',
-                  );
+                  await ref
+                      .read(databaseProvider)
+                      .inventoryDao
+                      .updateCrateGroupStock(grp.id, newStock);
+                  await ref
+                      .read(activityLogProvider)
+                      .logAction(
+                        'crate_group_update',
+                        '${ref.read(authProvider).currentUser?.name ?? 'Unknown'} set ${grp.name} crate stock to $newStock',
+                        relatedEntityType: 'crate_group',
+                      );
                   if (context.mounted) Navigator.pop(ctx);
                 },
               ),
@@ -1918,150 +1935,6 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen>
         ),
       ),
     );
-  }
-
-  Widget _buildLogTab(BuildContext context) {
-    if (_isFirstLoad) {
-      return ListView.separated(
-        padding: EdgeInsets.fromLTRB(
-          context.getRSize(16),
-          context.getRSize(16),
-          context.getRSize(16),
-          context.getRSize(120),
-        ),
-        itemCount: 8,
-        separatorBuilder: (_, __) => SizedBox(height: context.getRSize(8)),
-        itemBuilder: (_, __) => const ShimmerListTile(),
-      );
-    }
-    final logs = _dbLogs;
-    if (logs.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              FontAwesomeIcons.clockRotateLeft,
-              size: context.getRSize(48),
-              color: _border,
-            ),
-            SizedBox(height: context.getRSize(16)),
-            Text(
-              'No activity yet',
-              style: TextStyle(
-                color: _subtext,
-                fontWeight: FontWeight.bold,
-                fontSize: context.getRFontSize(16),
-              ),
-            ),
-            SizedBox(height: context.getRSize(6)),
-            Text(
-              'Updates will appear here with date, time, and user',
-              style: TextStyle(
-                color: _subtext,
-                fontSize: context.getRFontSize(13),
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      );
-    }
-    return ListView.separated(
-      padding: EdgeInsets.fromLTRB(
-        context.getRSize(16),
-        context.getRSize(16),
-        context.getRSize(16),
-        context.getRSize(120),
-      ),
-      itemCount: logs.length,
-      separatorBuilder: (_, __) => SizedBox(height: context.getRSize(8)),
-      itemBuilder: (ctx, i) => _buildLogRow(ctx, logs[i]),
-    );
-  }
-
-  Widget _buildLogRow(BuildContext context, ActivityLogData log) {
-    final actionColors = {
-      'Inventory Restock': AppColors.success,
-      'Stock Adjustment': Theme.of(context).colorScheme.primary,
-      'crate_update': AppColors.warning,
-      'new_supplier': Theme.of(context).colorScheme.secondary,
-    };
-    final color =
-        actionColors[log.action] ?? Theme.of(context).colorScheme.primary;
-
-    return Container(
-      padding: EdgeInsets.all(context.getRSize(14)),
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: _border),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: context.getRSize(42),
-            height: context.getRSize(42),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(
-              log.action.contains('Restock')
-                  ? FontAwesomeIcons.arrowUp
-                  : log.action.contains('Crate')
-                  ? FontAwesomeIcons.beerMugEmpty
-                  : log.action.contains('Supplier')
-                  ? FontAwesomeIcons.buildingColumns
-                  : FontAwesomeIcons.pen,
-              size: context.getRSize(16),
-              color: color,
-            ),
-          ),
-          SizedBox(width: context.getRSize(12)),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  log.action,
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: context.getRFontSize(14),
-                    color: _text,
-                  ),
-                ),
-                SizedBox(height: context.getRSize(2)),
-                Text(
-                  'User: ${log.userId ?? "System"} · ${_formatTimestamp(log.timestamp)}',
-                  style: TextStyle(
-                    fontSize: context.getRFontSize(11),
-                    color: _subtext,
-                  ),
-                ),
-                SizedBox(height: context.getRSize(4)),
-                Text(
-                  log.description,
-                  style: TextStyle(
-                    fontSize: context.getRFontSize(12),
-                    color: _subtext,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  String _formatTimestamp(DateTime dt) {
-    final now = DateTime.now();
-    final diff = now.difference(dt);
-    if (diff.inMinutes < 1) return 'Just now';
-    if (diff.inHours < 1) return '${diff.inMinutes}m ago';
-    if (diff.inDays < 1) return '${diff.inHours}h ago';
-    return '${dt.day}/${dt.month}/${dt.year} ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
   }
 
   void _showAddProductSheet() {
@@ -2150,12 +2023,15 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen>
                     supplierWallet: 0.0,
                   );
                   ref.read(supplierServiceProvider).addSupplier(newSupplier);
-                  ref.read(databaseProvider).activityLogDao.log(
-                    action: 'New Supplier',
-                    description: 'Supplier added: ${newSupplier.name}',
-                    entityId: newSupplier.id,
-                    entityType: 'Supplier',
-                  );
+                  ref
+                      .read(databaseProvider)
+                      .activityLogDao
+                      .log(
+                        action: 'New Supplier',
+                        description: 'Supplier added: ${newSupplier.name}',
+                        entityId: newSupplier.id,
+                        entityType: 'Supplier',
+                      );
                   Navigator.pop(ctx);
                 },
               ),

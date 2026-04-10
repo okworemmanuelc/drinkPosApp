@@ -23,7 +23,9 @@ import 'package:reebaplus_pos/shared/widgets/app_input.dart';
 import 'package:reebaplus_pos/shared/widgets/app_dropdown.dart';
 import 'package:reebaplus_pos/shared/widgets/app_button.dart';
 import 'package:reebaplus_pos/core/utils/notifications.dart';
+import 'package:reebaplus_pos/core/utils/product_name.dart';
 import 'package:reebaplus_pos/features/pos/widgets/edit_item_modal.dart';
+import 'package:reebaplus_pos/shared/services/cart_service.dart';
 
 class CartScreen extends ConsumerStatefulWidget {
   final List<Map<String, dynamic>> cart;
@@ -49,9 +51,9 @@ class _CartScreenState extends ConsumerState<CartScreen>
     with SingleTickerProviderStateMixin {
   late double _crateDeposit;
   Customer? _activeCustomer;
-  List<CrateGroupData> _crateGroups = [];
   List<ManufacturerData> _manufacturers = [];
   List<WarehouseData> _warehouses = [];
+  late final CartService _cart;
 
   // ── Clear animation ──
   late AnimationController _clearCtrl;
@@ -78,15 +80,12 @@ class _CartScreenState extends ConsumerState<CartScreen>
       vsync: this,
       duration: const Duration(milliseconds: 480),
     );
-    final cart = ref.read(cartProvider);
+    _cart = ref.read(cartProvider);
     final db = ref.read(databaseProvider);
-    cart.addListener(_onCartChanged);
-    cart.activeCustomer.addListener(_onActiveCustomerChanged);
+    _cart.addListener(_onCartChanged);
+    _cart.activeCustomer.addListener(_onActiveCustomerChanged);
     db.select(db.warehouses).get().then((ws) {
       if (mounted) setState(() => _warehouses = ws);
-    });
-    db.select(db.crateGroups).watch().listen((data) {
-      if (mounted) setState(() => _crateGroups = data);
     });
     db.select(db.manufacturers).watch().listen((data) {
       if (mounted) setState(() => _manufacturers = data);
@@ -95,11 +94,8 @@ class _CartScreenState extends ConsumerState<CartScreen>
 
   @override
   void dispose() {
-    ref.read(cartProvider).removeListener(_onCartChanged);
-    ref
-        .read(cartProvider)
-        .activeCustomer
-        .removeListener(_onActiveCustomerChanged);
+    _cart.removeListener(_onCartChanged);
+    _cart.activeCustomer.removeListener(_onActiveCustomerChanged);
     _clearCtrl.dispose();
     super.dispose();
   }
@@ -833,53 +829,40 @@ class _CartScreenState extends ConsumerState<CartScreen>
           ),
     );
 
-    // ── Crate detection & crate deposit computation ──
-    // Items with a crateGroupId generate a crate deposit.
-    final crateItems = cartItems
-        .where((i) => i['crateGroupId'] != null)
+    // ── Bottle detection & crate deposit computation ──
+    // Empty crates are tracked for any product whose unit == 'Bottle'.
+    // The deposit price per bottle is read live from the manufacturer's
+    // current `depositAmountKobo`, so a CEO edit reflects everywhere
+    // immediately. CrateGroups are no longer the gating identifier.
+    final bottleItems = cartItems
+        .where(
+          (i) =>
+              (i['unit'] as String?)?.toLowerCase() == 'bottle' &&
+              (i['trackEmpties'] as bool? ?? false),
+        )
         .toList();
-    final hasCrates = crateItems.isNotEmpty;
+    final hasBottles = bottleItems.isNotEmpty;
 
-    // Compute aggregate deposit across items
+    // Compute aggregate deposit across items.
+    // Required deposit = emptyCrateValueKobo × qty for each bottle item.
     double computedDeposit = 0;
     final List<_CrateDepositLine> depositLines = [];
-    // Keyed by manufacturerId for display labels
     final Map<int, double> mfrAmounts = {};
     final Map<int, double> mfrQtys = {};
     final Map<int, String> mfrNames = {};
-    // Keyed by crateGroupId for customer credit calculation
-    final Map<int, double> groupQtys = {};
     // Tracks items with no manufacturerId, keyed by product name
     final Map<String, double> ungroupedAmounts = {};
     final Map<String, double> ungroupedQtys = {};
 
-    for (final item in crateItems) {
-      final groupId = item['crateGroupId'] as int?;
+    for (final item in bottleItems) {
       final mfrId = item['manufacturerId'] as int?;
-      final productValue = (item['emptyCrateValueKobo'] ?? 0) as num;
       final qty = (item['qty'] as num).toDouble();
+      final int crateValueKobo = (item['emptyCrateValueKobo'] as int?) ?? 0;
 
-      double depositPerCrate;
-      if (productValue > 0) {
-        // Product-specific deposit — no crateGroup lookup needed
-        depositPerCrate = productValue / 100.0;
-      } else {
-        // Fall back to CrateGroup default
-        if (groupId == null) continue;
-        final cg = _crateGroups.where((g) => g.id == groupId).firstOrNull;
-        if (cg == null) continue;
-        depositPerCrate = cg.depositAmountKobo / 100.0;
-      }
-
+      final depositPerCrate = crateValueKobo / 100.0;
       final amount = qty * depositPerCrate;
       computedDeposit += amount;
 
-      // Track by crateGroupId for customer credit
-      if (groupId != null) {
-        groupQtys[groupId] = (groupQtys[groupId] ?? 0) + qty;
-      }
-
-      // Group by manufacturer for display
       if (mfrId != null) {
         mfrQtys[mfrId] = (mfrQtys[mfrId] ?? 0) + qty;
         mfrAmounts[mfrId] = (mfrAmounts[mfrId] ?? 0) + amount;
@@ -917,15 +900,19 @@ class _CartScreenState extends ConsumerState<CartScreen>
       );
     }
 
-    // Customer crate balance offset
+    // Customer crate balance offset — sum credits per manufacturer using
+    // the customer's stored balance (keyed by manufacturer name for now).
     double customerCrateCredit = 0;
-    if (hasCrates && _activeCustomer != null) {
-      for (final entry in groupQtys.entries) {
-        final cg = _crateGroups.where((g) => g.id == entry.key).firstOrNull;
-        if (cg == null) continue;
-        final depositPerCrate = cg.depositAmountKobo / 100.0;
-        final bal = _activeCustomer!.emptyCratesBalance[cg.name] ?? 0;
-        customerCrateCredit += bal * depositPerCrate;
+    if (hasBottles && _activeCustomer != null) {
+      for (final mfrId in mfrQtys.keys) {
+        final mfrName = mfrNames[mfrId] ?? '';
+        final bal = _activeCustomer!.emptyCratesBalance[mfrName] ?? 0;
+        if (bal <= 0) continue;
+        // Use the per-manufacturer deposit amount for credit calculation
+        final mfr = _manufacturers.where((m) => m.id == mfrId).firstOrNull;
+        final depositKobo = mfr?.depositAmountKobo ?? 0;
+        if (depositKobo <= 0) continue;
+        customerCrateCredit += bal * (depositKobo / 100.0);
       }
     }
 
@@ -1207,7 +1194,11 @@ class _CartScreenState extends ConsumerState<CartScreen>
                                               CrossAxisAlignment.start,
                                           children: [
                                             Text(
-                                              item['name'],
+                                              productDisplayName(
+                                                item['name'] as String,
+                                                item['size'] as String?,
+                                                unit: item['unit'] as String?,
+                                              ),
                                               style: TextStyle(
                                                 fontWeight: FontWeight.bold,
                                                 fontSize: context.getRFontSize(
@@ -1312,7 +1303,7 @@ class _CartScreenState extends ConsumerState<CartScreen>
                                   children: [
                                     _totalRow('Subtotal', sub, small: true),
                                     SizedBox(height: context.getRSize(8)),
-                                    if (hasCrates) ...[
+                                    if (hasBottles) ...[
                                       // ── Empty Crates section ──
                                       Container(
                                         width: double.infinity,
@@ -1649,23 +1640,28 @@ class _CartScreenState extends ConsumerState<CartScreen>
                                       variant: AppButtonVariant.primary,
                                       icon: FontAwesomeIcons.checkToSlot,
                                       onPressed: () {
-                                        Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (_) => CheckoutPage(
-                                              cart:
-                                                  List<
-                                                    Map<String, dynamic>
-                                                  >.from(cartItems),
-                                              subtotal: sub,
-                                              crateDeposit: _crateDeposit,
-                                              total: tot,
-                                              customer: _activeCustomer,
-                                              onCheckoutSuccess:
-                                                  widget.onCheckoutSuccess,
+                                        final currentCustomer = _activeCustomer;
+                                        void goToCheckout() {
+                                          Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (_) => CheckoutPage(
+                                                cart:
+                                                    List<
+                                                      Map<String, dynamic>
+                                                    >.from(cartItems),
+                                                subtotal: sub,
+                                                crateDeposit: _crateDeposit,
+                                                total: tot,
+                                                customer: currentCustomer,
+                                                onCheckoutSuccess:
+                                                    widget.onCheckoutSuccess,
+                                              ),
                                             ),
-                                          ),
-                                        );
+                                          );
+                                        }
+
+                                        goToCheckout();
                                       },
                                     ),
                                   ],

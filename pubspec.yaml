@@ -46,6 +46,8 @@ dependencies:
   barcode_widget: ^2.0.4
   file_picker: ^8.1.7
   connectivity_plus: ^6.1.1
+  image_picker: ^1.1.2
+  image: ^4.3.0
 
   # Database
   drift: ^2.11.0
@@ -57,6 +59,7 @@ dependencies:
   google_sign_in: ^6.2.1
   local_auth: ^2.2.0
   shared_preferences: ^2.2.3
+  flutter_secure_storage: ^9.2.4
   crypto: ^3.0.3
   rxdart: 0.28.0
   flutter_svg: ^2.2.4

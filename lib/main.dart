@@ -7,12 +7,16 @@ import 'package:reebaplus_pos/core/theme/app_theme.dart';
 import 'package:reebaplus_pos/core/theme/theme_notifier.dart';
 import 'package:reebaplus_pos/core/database/app_database.dart';
 import 'package:reebaplus_pos/core/providers/app_providers.dart';
+import 'package:reebaplus_pos/shared/services/secure_storage_service.dart';
 import 'package:reebaplus_pos/features/auth/screens/login_screen.dart';
 import 'package:reebaplus_pos/features/auth/screens/email_entry_screen.dart';
 import 'package:reebaplus_pos/features/auth/screens/warehouse_assignment_screen.dart';
 import 'package:reebaplus_pos/shared/widgets/main_layout.dart';
 import 'package:reebaplus_pos/shared/widgets/auto_lock_wrapper.dart';
 import 'package:reebaplus_pos/shared/widgets/force_update_wrapper.dart';
+import 'package:reebaplus_pos/shared/services/auth_service.dart';
+import 'package:reebaplus_pos/features/auth/screens/success_dashboard_entry_screen.dart';
+import 'package:reebaplus_pos/features/auth/screens/access_granted_screen.dart';
 
 /// Shared future — completes when Supabase client is ready for OTP calls.
 late final Future<void> supabaseReady;
@@ -40,6 +44,9 @@ void main() async {
   markDbReady();
 
   await themeController.init();
+
+  // Migrate legacy SharedPreferences auth data to encrypted storage.
+  await SecureStorageService.migrateFromSharedPreferences();
 
   runApp(const ProviderScope(child: ReebaplusPosApp()));
 }
@@ -146,6 +153,23 @@ class _ReebaplusPosAppState extends ConsumerState<ReebaplusPosApp> {
                   ? const LoginScreen()
                   : const EmailEntryScreen();
             }
+
+            // Check for special post-login screens set by BiometricSetupScreen.
+            final pendingRoute = auth.pendingPostLoginRoute;
+            if (pendingRoute != PostLoginRoute.none) {
+              auth.pendingPostLoginRoute = PostLoginRoute.none;
+              switch (pendingRoute) {
+                case PostLoginRoute.successDashboard:
+                  return const SuccessDashboardEntryScreen();
+                case PostLoginRoute.accessGranted:
+                  final pendingUser = auth.pendingPostLoginUser ?? user;
+                  auth.pendingPostLoginUser = null;
+                  return AccessGrantedScreen(user: pendingUser);
+                case PostLoginRoute.none:
+                  break;
+              }
+            }
+
             if (user.roleTier < 5 && user.warehouseId == null) {
               return WarehouseAssignmentScreen(user: user);
             }

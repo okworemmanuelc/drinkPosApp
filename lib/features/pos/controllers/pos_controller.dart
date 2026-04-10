@@ -147,7 +147,6 @@ class PosController extends ChangeNotifier {
     var items = allProducts
         .where(
           (item) =>
-              item.totalStock > 0 &&
               item.product.isAvailable &&
               !item.product.isDeleted,
         )

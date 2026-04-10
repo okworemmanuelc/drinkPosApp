@@ -1,11 +1,16 @@
-import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as p;
 
+import 'package:reebaplus_pos/shared/widgets/auto_lock_wrapper.dart';
 import 'package:reebaplus_pos/core/theme/colors.dart';
 import 'package:reebaplus_pos/core/providers/app_providers.dart';
 
+import 'package:reebaplus_pos/core/utils/currency_input_formatter.dart';
 import 'package:reebaplus_pos/core/utils/number_format.dart';
 import 'package:reebaplus_pos/core/utils/responsive.dart';
 import 'package:reebaplus_pos/core/utils/stock_calculator.dart';
@@ -16,6 +21,7 @@ import 'package:reebaplus_pos/shared/widgets/app_button.dart';
 import 'package:reebaplus_pos/core/utils/notifications.dart';
 import 'package:reebaplus_pos/shared/widgets/app_input.dart';
 import 'package:reebaplus_pos/shared/widgets/shimmer_loading.dart';
+import 'package:reebaplus_pos/features/inventory/widgets/update_product_sheet.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ProductDetailScreen — full-screen product information view
@@ -35,7 +41,8 @@ class ProductDetailScreen extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<ProductDetailScreen> createState() => _ProductDetailScreenState();
+  ConsumerState<ProductDetailScreen> createState() =>
+      _ProductDetailScreenState();
 }
 
 class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
@@ -54,8 +61,12 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
   int? _emptyCrateStock; // original value loaded from DB
   int? _selectedManufacturerId; // DB id of the linked manufacturer
   int? _selectedCategoryId;
+  String? _selectedUnit;
+  List<String> _allUnits = [];
   List<CategoryData> _allCategories = [];
   List<ManufacturerData> _allManufacturers = [];
+
+  ProductData? _productData; // full DB row, used by UpdateProductSheet
 
   ProductSalesSummary? _salesSummary;
   LastDeliveryInfo? _lastDelivery;
@@ -63,6 +74,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
   bool _contentReady = false; // deferred load flag
   bool _canEdit =
       true; // false for managers viewing other-warehouse products, and for staff
+  String? _imagePath;
 
   @override
   void initState() {
@@ -75,20 +87,22 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
       ),
     );
     _buyingPriceController = TextEditingController(
-      text: (widget.item.buyingPrice ?? 0).toString(),
+      text: fmtNumber(widget.item.buyingPrice ?? 0),
     );
     _retailPriceController = TextEditingController(
-      text: (widget.item.retailPrice ?? 0).toString(),
+      text: fmtNumber(widget.item.retailPrice ?? 0),
     );
     _bulkBreakerPriceController = TextEditingController(
-      text: (widget.item.bulkBreakerPrice ?? 0).toString(),
+      text: fmtNumber(widget.item.bulkBreakerPrice ?? 0),
     );
     _distributorPriceController = TextEditingController(
-      text: (widget.item.distributorPrice ?? 0).toString(),
+      text: fmtNumber(widget.item.distributorPrice ?? 0),
     );
     _monthlyTargetController = TextEditingController(text: '0');
     _emptyCratesController = TextEditingController(text: '0');
     _emptyCrateValueController = TextEditingController(text: '0');
+    _selectedUnit = widget.item.unit;
+    _imagePath = widget.item.imagePath;
 
     _retailPriceController.addListener(_onRetailPriceChanged);
 
@@ -141,12 +155,25 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     final product = await db.catalogDao.findById(productId);
     final categories = await db.select(db.categories).get();
     final manufacturers = await db.inventoryDao.getAllManufacturers();
+    final uniqueUnits = await db.catalogDao.getUniqueProductUnits();
 
     if (mounted) {
       setState(() {
         _allCategories = categories;
         _allManufacturers = manufacturers;
+        _allUnits = {
+          'Bottle',
+          'Crate',
+          'Pack',
+          'Carton',
+          'Keg',
+          'Can',
+          if (_selectedUnit != null) _selectedUnit!,
+          ...uniqueUnits,
+        }.toList()..sort();
+
         if (product != null) {
+          _productData = product;
           _monthlyTarget = product.monthlyTargetUnits;
           _monthlyTargetController.text = _monthlyTarget.toString();
           _selectedCategoryId = product.categoryId;
@@ -162,9 +189,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     }
 
     // Load sales summary from completed orders
-    final summary = await db.ordersDao.getSalesSummaryForProduct(
-      productId,
-    );
+    final summary = await db.ordersDao.getSalesSummaryForProduct(productId);
     if (mounted) setState(() => _salesSummary = summary);
 
     // Load last delivery from purchases
@@ -182,7 +207,10 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
   }
 
   Future<void> _loadEmptyCrateStock(int manufacturerId) async {
-    final manufacturers = await ref.read(databaseProvider).inventoryDao.getAllManufacturers();
+    final manufacturers = await ref
+        .read(databaseProvider)
+        .inventoryDao
+        .getAllManufacturers();
     final mfr = manufacturers.where((m) => m.id == manufacturerId).firstOrNull;
     if (mfr != null && mounted) {
       setState(() {
@@ -335,11 +363,26 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                   child: Stack(
                     children: [
                       Center(
-                        child: Icon(
-                          widget.item.icon,
-                          color: Colors.white,
-                          size: context.getRSize(36),
-                        ),
+                        child: _imagePath != null
+                            ? ClipRRect(
+                                borderRadius: BorderRadius.circular(22),
+                                child: Image.file(
+                                  File(_imagePath!),
+                                  width: context.getRSize(76),
+                                  height: context.getRSize(76),
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (ctx, _, __) => Icon(
+                                    widget.item.icon,
+                                    color: Colors.white,
+                                    size: context.getRSize(36),
+                                  ),
+                                ),
+                              )
+                            : Icon(
+                                widget.item.icon,
+                                color: Colors.white,
+                                size: context.getRSize(36),
+                              ),
                       ),
                       Positioned(
                         right: 0,
@@ -428,8 +471,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
 
   Widget _buildBody(BuildContext context) {
     final double totalStockValue = stockValue(
-      double.tryParse(_retailPriceController.text) ??
-          (widget.item.retailPrice ?? 0).toDouble(),
+      parseCurrency(_retailPriceController.text),
       widget.item.totalStock,
     );
 
@@ -542,6 +584,27 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                   ],
                   onChanged: _canEdit
                       ? (val) => setState(() => _selectedCategoryId = val)
+                      : (_) {},
+                ),
+              ),
+            ),
+            _divider(context),
+            // Product Unit Dropdown
+            _infoRow(
+              context,
+              FontAwesomeIcons.box,
+              'Product Unit',
+              '',
+              const Color(0xFFF59E0B),
+              trailing: SizedBox(
+                width: context.getRSize(150),
+                child: AppDropdown<String?>(
+                  value: _selectedUnit,
+                  items: _allUnits
+                      .map((u) => DropdownMenuItem(value: u, child: Text(u)))
+                      .toList(),
+                  onChanged: _canEdit
+                      ? (val) => setState(() => _selectedUnit = val)
                       : (_) {},
                 ),
               ),
@@ -700,8 +763,23 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
             AppButton(
               text: 'Update Product',
               variant: AppButtonVariant.primary,
-              icon: FontAwesomeIcons.check,
-              onPressed: _updateProduct,
+              icon: FontAwesomeIcons.penToSquare,
+              onPressed: _productData == null
+                  ? null
+                  : () => showModalBottomSheet<void>(
+                      context: context,
+                      isScrollControlled: true,
+                      backgroundColor: Colors.transparent,
+                      builder: (_) => UpdateProductSheet(
+                        product: _productData!,
+                        totalStock: widget.item.totalStock.toInt(),
+                        currentWarehouseId: widget.selectedWarehouseId,
+                        onProductUpdated: () {
+                          widget.onUpdateStock();
+                          if (mounted) Navigator.pop(context);
+                        },
+                      ),
+                    ),
             ),
           ] else ...[
             // ── Read-only notice ──────────────────────────────────────
@@ -1136,8 +1214,73 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     return '${dt.day} ${months[dt.month - 1]} ${dt.year}';
   }
 
-  void _pickImage() {
-    AppNotification.showError(context, 'Image picking not implemented');
+  Future<void> _pickImage() async {
+    if (!_canEdit) return;
+
+    AutoLockWrapper.suppressNextResume = true;
+    final picker = ImagePicker();
+    try {
+      final XFile? image = await picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 800,
+        maxHeight: 800,
+        imageQuality: 85,
+      );
+
+      if (image == null) return;
+
+      // Save image to app directory for persistence
+      final appDir = await getApplicationDocumentsDirectory();
+      final fileName =
+          'product_${widget.item.id}_${DateTime.now().millisecondsSinceEpoch}${p.extension(image.path)}';
+      final savedImage = await File(
+        image.path,
+      ).copy('${appDir.path}/$fileName');
+
+      setState(() {
+        _imagePath = savedImage.path;
+      });
+
+      // Update in DB
+      final productId = int.tryParse(widget.item.id);
+      if (productId != null) {
+        await ref
+            .read(databaseProvider)
+            .catalogDao
+            .updateProductDetails(
+              productId,
+              name: _nameController.text.trim(),
+              manufacturer: _productData?.manufacturer,
+              manufacturerId: _selectedManufacturerId,
+              buyingPriceKobo:
+                  ((parseCurrency(_buyingPriceController.text)) * 100).round(),
+              retailPriceKobo:
+                  ((parseCurrency(_retailPriceController.text)) * 100).round(),
+              bulkBreakerPriceKobo:
+                  ((parseCurrency(_bulkBreakerPriceController.text)) * 100)
+                      .round(),
+              distributorPriceKobo:
+                  ((parseCurrency(_distributorPriceController.text)) * 100)
+                      .round(),
+              emptyCrateValueKobo:
+                  (parseCurrency(_emptyCrateValueController.text) * 100)
+                      .toInt(),
+              categoryId: _selectedCategoryId,
+              unit: _selectedUnit,
+              lowStockThreshold: widget.item.lowStockThreshold.toInt(),
+              imagePath: _imagePath,
+            );
+
+        if (mounted) {
+          AppNotification.showSuccess(context, 'Product image updated');
+          widget.onUpdateStock(); // Refresh parent view
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        AppNotification.showError(context, 'Failed to pick image: $e');
+      }
+    }
   }
 
   Widget _inlinePriceInput(TextEditingController controller) {
@@ -1155,7 +1298,8 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
       child: AppInput(
         controller: controller,
         readOnly: !_canEdit,
-        keyboardType: TextInputType.number,
+        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        inputFormatters: [CurrencyInputFormatter()],
         textAlign: TextAlign.end,
         onChanged: (v) => setState(() {}),
         border: InputBorder.none,
@@ -1164,187 +1308,6 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
         fillColor: Colors.transparent,
       ),
     );
-  }
-
-  Future<void> _updateProduct() async {
-    final name = _nameController.text.trim();
-    if (name.isEmpty) {
-      AppNotification.showError(context, 'Product name cannot be empty');
-      return;
-    }
-
-    final newQty =
-        double.tryParse(_quantityController.text) ?? widget.item.totalStock;
-    final buying = double.tryParse(_buyingPriceController.text) ?? 0;
-    final retail = double.tryParse(_retailPriceController.text) ?? 0;
-    final bulk = double.tryParse(_bulkBreakerPriceController.text) ?? 0;
-    final distributor = double.tryParse(_distributorPriceController.text) ?? 0;
-
-    if (buying > retail) {
-      AppNotification.showError(
-        context,
-        'Buying price (₦$buying) cannot be higher than retail price (₦$retail).',
-      );
-      return;
-    }
-
-    final emptyVal = double.tryParse(_emptyCrateValueController.text) ?? 0;
-    final productId = int.parse(widget.item.id);
-
-    // Capture old values for change summary (before DB write)
-    final oldRetail = widget.item.retailPrice ?? 0.0;
-    final oldBuying = widget.item.buyingPrice ?? 0.0;
-
-    try {
-      final db = ref.read(databaseProvider);
-      final auth = ref.read(authProvider);
-      final logService = ref.read(activityLogProvider);
-      final cart = ref.read(cartProvider);
-
-      // 1. Update Products table — name, manufacturer, prices, empty crate value, category
-      final mfr = _allManufacturers
-          .where((m) => m.id == _selectedManufacturerId)
-          .firstOrNull;
-      await db.catalogDao.updateProductDetails(
-        productId,
-        name: name,
-        manufacturer: mfr?.name,
-        manufacturerId: _selectedManufacturerId,
-        buyingPriceKobo: (buying * 100).round(),
-        retailPriceKobo: (retail * 100).round(),
-        bulkBreakerPriceKobo: bulk > 0 ? (bulk * 100).round() : null,
-        distributorPriceKobo: distributor > 0
-            ? (distributor * 100).round()
-            : null,
-        emptyCrateValueKobo: (emptyVal * 100).round(),
-        categoryId: _selectedCategoryId,
-      );
-
-      // 2. Save monthly target
-      await db.catalogDao.updateMonthlyTarget(productId, _monthlyTarget);
-
-      // 3. Adjust empty crates on the manufacturer if linked
-      if (_selectedManufacturerId != null) {
-        final newCrates = int.tryParse(_emptyCratesController.text) ?? 0;
-        final originalCrates = _emptyCrateStock ?? 0;
-        final crateDelta = newCrates - originalCrates;
-        if (crateDelta > 0) {
-          await db.inventoryDao.addEmptyCrates(
-            _selectedManufacturerId!,
-            crateDelta,
-          );
-          await logService.logAction(
-            'crate_stock_update',
-            '${auth.currentUser?.name ?? 'Unknown'} added $crateDelta empty crates for $name',
-            relatedEntityId: widget.item.id,
-            relatedEntityType: 'product',
-          );
-        } else if (crateDelta < 0) {
-          await db.inventoryDao.deductEmptyCrates(
-            _selectedManufacturerId!,
-            -crateDelta,
-          );
-          await logService.logAction(
-            'crate_stock_update',
-            '${auth.currentUser?.name ?? 'Unknown'} removed ${-crateDelta} empty crates for $name',
-            relatedEntityId: widget.item.id,
-            relatedEntityType: 'product',
-          );
-        }
-        setState(() => _emptyCrateStock = newCrates);
-      }
-
-      // 4. Adjust stock quantity if changed
-      final warehouseId = widget.item.warehouseStock.keys.isNotEmpty
-          ? int.tryParse(
-                  widget.item.warehouseStock.keys.first.replaceAll('w', ''),
-                ) ??
-                1
-          : 1;
-      final diff = (newQty - widget.item.totalStock).toInt();
-      if (diff != 0) {
-        await db.inventoryDao.adjustStock(
-          productId,
-          warehouseId,
-          diff,
-          'Manual adjustment by ${auth.currentUser?.name ?? 'Unknown'}',
-          auth.currentUser?.id,
-        );
-        await logService.logAction(
-          'stock_adjustment',
-          '${auth.currentUser?.name ?? 'Unknown'} ${diff > 0 ? 'added $diff' : 'removed ${diff.abs()}'} units of $name',
-          relatedEntityId: widget.item.id,
-          relatedEntityType: 'product',
-        );
-      }
-
-      // 5. Push updated product fields into any active cart
-      cart.refreshProduct(
-        productId: productId,
-        name: name,
-        price: retail,
-        emptyCrateValueKobo: (emptyVal * 100).round(),
-      );
-
-      // 6. Log the edit
-      await logService.logAction(
-        'update_product',
-        '${auth.currentUser?.name ?? 'Unknown'} updated product details for $name',
-        relatedEntityId: widget.item.id,
-        relatedEntityType: 'product',
-      );
-
-      // 7. Notify CEO if a manager made the update
-      final user = auth.currentUser;
-      if (user != null && user.roleTier == 4) {
-        final changes = <String>[];
-        if (retail != oldRetail) {
-          changes.add(
-            'Retail: ₦${oldRetail.toStringAsFixed(0)}→₦${retail.toStringAsFixed(0)}',
-          );
-        }
-        if (buying != oldBuying) {
-          changes.add(
-            'Buying: ₦${oldBuying.toStringAsFixed(0)}→₦${buying.toStringAsFixed(0)}',
-          );
-        }
-        final summaryText = changes.isEmpty
-            ? '${user.name} updated $name'
-            : '${user.name} updated $name — ${changes.join(', ')}';
-        await db.notificationsDao.create(
-          'product_update',
-          summaryText,
-          linkedRecordId: jsonEncode({
-            'product': name,
-            'manager': user.name,
-            'summary': summaryText,
-          }),
-        );
-      }
-
-      // 8. Update local item object for UI feedback
-      setState(() {
-        widget.item.productName = name;
-        widget.item.manufacturer = mfr?.name;
-        widget.item.buyingPrice = buying;
-        widget.item.retailPrice = retail;
-        widget.item.bulkBreakerPrice = bulk;
-        widget.item.distributorPrice = distributor;
-        final wKey = widget.item.warehouseStock.keys.firstOrNull ?? 'w1';
-        widget.item.warehouseStock[wKey] = newQty;
-      });
-
-      widget.onUpdateStock();
-
-      if (mounted) {
-        AppNotification.showSuccess(context, '$name updated successfully');
-        Navigator.pop(context);
-      }
-    } catch (e) {
-      if (mounted) {
-        AppNotification.showError(context, 'Update failed: $e');
-      }
-    }
   }
 
   void _confirmDelete(BuildContext context) {
@@ -1371,13 +1334,18 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
             onPressed: () async {
               final productName = widget.item.productName;
               final productId = widget.item.id;
-              await ref.read(databaseProvider).catalogDao.softDeleteProduct(int.parse(productId));
-              await ref.read(activityLogProvider).logAction(
-                'delete_product',
-                '${ref.read(authProvider).currentUser?.name ?? 'Unknown'} deleted product: $productName',
-                relatedEntityId: productId,
-                relatedEntityType: 'product',
-              );
+              await ref
+                  .read(databaseProvider)
+                  .catalogDao
+                  .softDeleteProduct(int.parse(productId));
+              await ref
+                  .read(activityLogProvider)
+                  .logAction(
+                    'delete_product',
+                    '${ref.read(authProvider).currentUser?.name ?? 'Unknown'} deleted product: $productName',
+                    relatedEntityId: productId,
+                    relatedEntityType: 'product',
+                  );
               ref.read(cartProvider).removeItem(productName);
               if (!context.mounted) return;
               Navigator.pop(ctx);

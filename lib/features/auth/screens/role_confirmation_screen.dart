@@ -38,7 +38,7 @@ class RoleConfirmationScreen extends StatelessWidget {
     final businessName = result.businessName ?? 'Unknown Business';
     final locationName = 'Main Location';
     final role = result.invite?.role ?? 'Staff';
-    final inviterName = result.inviterName ?? 'Manager';
+    final inviterName = result.inviterName ?? 'CEO';
 
     return AuthBackground(
       child: SafeArea(

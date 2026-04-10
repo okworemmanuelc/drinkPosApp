@@ -71,5 +71,17 @@ class PrinterService {
       return false;
     }
   }
+
+  /// Writes bytes without attempting auto-connect. Use this after the user
+  /// has manually selected a device through the [PrinterPicker].
+  Future<bool> printBytesDirectly(List<int> bytes) async {
+    try {
+      if (!await isConnected) return false;
+      return await PrintBluetoothThermal.writeBytes(bytes);
+    } catch (e) {
+      AppLogger.error('Direct printing failed: $e');
+      return false;
+    }
+  }
 }
 

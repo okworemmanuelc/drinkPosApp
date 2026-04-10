@@ -1,14 +1,15 @@
-import 'dart:ui';
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:reebaplus_pos/core/database/app_database.dart';
 import 'package:reebaplus_pos/core/providers/app_providers.dart';
+import 'package:reebaplus_pos/core/utils/responsive.dart';
 import 'package:reebaplus_pos/features/auth/screens/biometric_setup_screen.dart';
 import 'package:reebaplus_pos/features/auth/widgets/onboarding_step_indicator.dart';
 import 'package:reebaplus_pos/features/auth/widgets/auth_background.dart';
 import 'package:reebaplus_pos/core/theme/app_decorations.dart';
+import 'package:flutter/services.dart';
 
 /// Shown to new staff (pin == '') after their email OTP is verified.
 /// Two-phase flow: enter PIN → confirm PIN → save to DB → auto-login.
@@ -122,7 +123,7 @@ class _CreatePinScreenState extends ConsumerState<CreatePinScreen> {
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(
             builder: (_) => BiometricSetupScreen(
-              user: widget.user,
+              user: updatedUser,
               isNewBusinessSetup: widget.isNewBusinessSetup,
               isJoinFlow: widget.isJoinFlow,
             ),
@@ -148,7 +149,7 @@ class _CreatePinScreenState extends ConsumerState<CreatePinScreen> {
       child: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+            padding: context.rPaddingSymmetric(horizontal: 32, vertical: 24),
             child: AnimatedSwitcher(
               duration: const Duration(milliseconds: 500),
               child: _saving
@@ -170,24 +171,28 @@ class _CreatePinScreenState extends ConsumerState<CreatePinScreen> {
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         CircleAvatar(
-          radius: 44,
+          radius: context.getRSize(44),
           backgroundColor: primary.withValues(alpha: 0.1),
-          child: Icon(Icons.check_rounded, size: 48, color: primary),
+          child: Icon(
+            Icons.check_rounded,
+            size: context.getRSize(48),
+            color: primary,
+          ),
         ),
-        const SizedBox(height: 24),
+        SizedBox(height: context.getRSize(24)),
         Text(
           'PIN Setup Complete',
           style: TextStyle(
-            fontSize: 22,
+            fontSize: context.getRFontSize(22),
             fontWeight: FontWeight.w700,
             color: textColor,
           ),
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: context.getRSize(8)),
         Text(
           'Securing your account...',
           style: TextStyle(
-            fontSize: 14,
+            fontSize: context.getRFontSize(14),
             color: textColor.withValues(alpha: 0.6),
           ),
         ),
@@ -203,7 +208,7 @@ class _CreatePinScreenState extends ConsumerState<CreatePinScreen> {
     final textColor = isDark ? Colors.white : Colors.black;
 
     return Column(
-      key: ValueKey(_confirming ? 'confirm' : 'create'),
+      key: const ValueKey('input'),
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         if (_isOnboarding)
@@ -214,60 +219,66 @@ class _CreatePinScreenState extends ConsumerState<CreatePinScreen> {
                 ? OnboardingStepIndicator.pathALabels
                 : OnboardingStepIndicator.pathBLabels,
           ),
-        if (_isOnboarding) const SizedBox(height: 16),
+        if (_isOnboarding) SizedBox(height: context.getRSize(16)),
         // Logo
         Image.asset(
           'assets/images/reebaplus_logo.png',
-          height: 80,
+          height: context.getRSize(60),
           color: isDark ? null : primary,
-          errorBuilder: (_, __, ___) =>
-              Icon(Icons.storefront, size: 80, color: textColor),
+          errorBuilder: (_, __, ___) => Icon(
+            Icons.storefront,
+            size: context.getRSize(60),
+            color: textColor,
+          ),
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: context.getRSize(12)),
 
         Text(
           _confirming ? 'Confirm your PIN' : 'Create a PIN',
           style: TextStyle(
-            fontSize: 22,
+            fontSize: context.getRFontSize(22),
             fontWeight: FontWeight.w700,
             color: textColor,
           ),
         ),
-        const SizedBox(height: 6),
+        SizedBox(height: context.getRSize(6)),
         Text(
           'Welcome, ${widget.user.name}!',
           style: TextStyle(
-            fontSize: 15,
+            fontSize: context.getRFontSize(15),
             color: textColor.withValues(alpha: 0.8),
             fontWeight: FontWeight.w500,
           ),
         ),
-        const SizedBox(height: 4),
+        SizedBox(height: context.getRSize(4)),
         Text(
           _confirming
               ? 'Re-enter the same PIN to confirm'
               : 'Choose a 6-digit PIN for quick login',
           style: TextStyle(
-            fontSize: 13,
+            fontSize: context.getRFontSize(13),
             color: textColor.withValues(alpha: 0.6),
           ),
           textAlign: TextAlign.center,
         ),
-        if (!_confirming) ...[
-          const SizedBox(height: 4),
-          Text(
-            'You\'ll use this PIN every time you log in',
-            style: TextStyle(
-              fontSize: 12,
-              color: _errorMessage != null
-                  ? Colors.transparent
-                  : textColor.withValues(alpha: 0.4),
-              fontStyle: FontStyle.italic,
+        SizedBox(
+          height: context.getRSize(20), // Exact height for the line + spacing
+          child: Opacity(
+            opacity: _confirming ? 0.0 : 1.0,
+            child: Text(
+              'You\'ll use this PIN every time you log in',
+              style: TextStyle(
+                fontSize: context.getRFontSize(12),
+                color: _errorMessage != null
+                    ? Colors.transparent
+                    : textColor.withValues(alpha: 0.4),
+                fontStyle: FontStyle.italic,
+              ),
+              textAlign: TextAlign.center,
             ),
-            textAlign: TextAlign.center,
           ),
-        ],
-        const SizedBox(height: 36),
+        ),
+        SizedBox(height: context.getRSize(24)),
 
         // Six dots
         _ShakeWidget(
@@ -278,9 +289,9 @@ class _CreatePinScreenState extends ConsumerState<CreatePinScreen> {
               final filled = i < _pin.length;
               return AnimatedContainer(
                 duration: const Duration(milliseconds: 150),
-                margin: const EdgeInsets.symmetric(horizontal: 8),
-                width: 18,
-                height: 18,
+                margin: context.rPaddingSymmetric(horizontal: 6),
+                width: context.getRSize(14),
+                height: context.getRSize(14),
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: filled ? primary : textColor.withValues(alpha: 0.05),
@@ -293,42 +304,45 @@ class _CreatePinScreenState extends ConsumerState<CreatePinScreen> {
             }),
           ),
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: context.getRSize(12)),
 
         // Error feedback
         SizedBox(
-          height: 20,
+          height: context.getRSize(20),
           child: _errorMessage != null
               ? Text(
                   _errorMessage!,
-                  style: const TextStyle(
-                    color: Color(0xFFFF6B6B),
-                    fontSize: 13,
+                  style: TextStyle(
+                    color: const Color(0xFFFF6B6B),
+                    fontSize: context.getRFontSize(13),
                   ),
                   textAlign: TextAlign.center,
                 )
               : null,
         ),
-        const SizedBox(height: 24),
+        SizedBox(height: context.getRSize(16)),
 
         // Numpad
         ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 300),
+          constraints: BoxConstraints(maxWidth: context.getRSize(240)),
           child: Column(
             children: [
               _buildKeyRow(['1', '2', '3']),
-              const SizedBox(height: 12),
+              SizedBox(height: context.getRSize(8)),
               _buildKeyRow(['4', '5', '6']),
-              const SizedBox(height: 12),
+              SizedBox(height: context.getRSize(8)),
               _buildKeyRow(['7', '8', '9']),
-              const SizedBox(height: 12),
+              SizedBox(height: context.getRSize(8)),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const SizedBox(width: 80, height: 80),
-                  const SizedBox(width: 12),
+                  SizedBox(
+                    width: context.getRSize(64),
+                    height: context.getRSize(64),
+                  ),
+                  SizedBox(width: context.getRSize(12)),
                   _KeyBtn(label: '0', onTap: () => _onDigit('0')),
-                  const SizedBox(width: 12),
+                  SizedBox(width: context.getRSize(12)),
                   _KeyBtn(icon: Icons.backspace_outlined, onTap: _onBackspace),
                 ],
               ),
@@ -337,9 +351,13 @@ class _CreatePinScreenState extends ConsumerState<CreatePinScreen> {
         ),
 
         // Phase indicator / Back button
-        const SizedBox(height: 24),
-        if (_confirming)
-          TextButton(
+        SizedBox(height: context.getRSize(20)),
+        Visibility(
+          visible: _confirming,
+          maintainSize: true,
+          maintainAnimation: true,
+          maintainState: true,
+          child: TextButton(
             onPressed: () => setState(() {
               _pin = '';
               _firstPin = '';
@@ -350,10 +368,11 @@ class _CreatePinScreenState extends ConsumerState<CreatePinScreen> {
               '← Back to create PIN',
               style: TextStyle(
                 color: textColor.withValues(alpha: 0.55),
-                fontSize: 13,
+                fontSize: context.getRFontSize(13),
               ),
             ),
           ),
+        ),
       ],
     );
   }
@@ -363,7 +382,7 @@ class _CreatePinScreenState extends ConsumerState<CreatePinScreen> {
       mainAxisAlignment: MainAxisAlignment.center,
       children: digits.map((d) {
         return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 6),
+          padding: context.rPaddingSymmetric(horizontal: 6),
           child: _KeyBtn(label: d, onTap: () => _onDigit(d)),
         );
       }).toList(),
@@ -387,24 +406,39 @@ class _KeyBtn extends StatelessWidget {
     final textColor = isDark ? Colors.white : Colors.black;
 
     return Container(
-      decoration: AppDecorations.glassCard(context, radius: 20),
+      decoration:
+          AppDecorations.glassCard(
+            context,
+            radius: context.getRSize(16),
+          ).copyWith(
+            boxShadow: [
+              BoxShadow(
+                color: textColor.withValues(alpha: 0.05),
+                blurRadius: 10,
+                spreadRadius: 2,
+              ),
+            ],
+          ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
+          onHighlightChanged: (isHighlighted) {
+            if (isHighlighted) {
+              HapticFeedback.lightImpact();
+            }
+          },
           onTap: onTap,
-          borderRadius: BorderRadius.circular(20),
-          highlightColor: textColor.withValues(alpha: 0.1),
-          splashColor: textColor.withValues(alpha: 0.2),
+          borderRadius: BorderRadius.circular(context.getRSize(16)),
           child: SizedBox(
-            width: 80,
-            height: 80,
+            width: context.getRSize(64),
+            height: context.getRSize(64),
             child: Center(
               child: icon != null
-                  ? Icon(icon, color: textColor, size: 26)
+                  ? Icon(icon, color: textColor, size: context.getRSize(22))
                   : Text(
                       label!,
                       style: TextStyle(
-                        fontSize: 28,
+                        fontSize: context.getRFontSize(24),
                         fontWeight: FontWeight.w600,
                         color: textColor,
                       ),

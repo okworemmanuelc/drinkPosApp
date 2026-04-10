@@ -9,11 +9,12 @@ import 'package:reebaplus_pos/core/utils/responsive.dart';
 import 'package:reebaplus_pos/core/utils/notifications.dart';
 import 'package:reebaplus_pos/features/auth/screens/email_entry_screen.dart';
 import 'package:reebaplus_pos/features/auth/screens/otp_verification_screen.dart';
-import 'package:reebaplus_pos/shared/widgets/main_layout.dart';
 import 'dart:async';
 import 'package:local_auth/local_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:reebaplus_pos/features/auth/widgets/auth_background.dart';
+import 'package:reebaplus_pos/features/staff/screens/staff_constants.dart';
+
 import 'package:reebaplus_pos/core/theme/app_decorations.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -25,9 +26,10 @@ class LoginScreen extends ConsumerStatefulWidget {
 
 class _LoginScreenState extends ConsumerState<LoginScreen>
     with SingleTickerProviderStateMixin {
-  String _pin = '';
   bool _checking = false;
+  final ValueNotifier<String> _pinNotifier = ValueNotifier<String>('');
   bool _biometricsAvailable = false;
+  final TextEditingController _emailController = TextEditingController();
 
   // ── Returning User & Lockout State ──────────────────────────────────────────
   UserData? _identifiedUser;
@@ -85,7 +87,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     if (userId != null) {
       final user = await db.warehousesDao.getUserById(userId);
       if (mounted && user != null) {
-        setState(() => _identifiedUser = user);
+        setState(() {
+          _identifiedUser = user;
+          if (user.email != null) _emailController.text = user.email!;
+        });
+      }
+    }
+
+    // Try prefilling email if _identifiedUser is null
+    if (_emailController.text.isEmpty) {
+      final lastEmail = await auth.getLastLoggedInEmail();
+      if (mounted && lastEmail != null) {
+        setState(() => _emailController.text = lastEmail);
       }
     }
 
@@ -121,7 +134,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
       final auth = LocalAuthentication();
       final available =
           await auth.canCheckBiometrics || await auth.isDeviceSupported();
-      if (mounted) setState(() => _biometricsAvailable = available);
+      final prefs = await SharedPreferences.getInstance();
+
+      // One-time migration: old onboarding key → unified key
+      final oldKey = prefs.getBool('use_biometrics');
+      if (oldKey != null && !prefs.containsKey('biometrics_enabled')) {
+        await prefs.setBool('biometrics_enabled', oldKey);
+      }
+
+      final isEnabled = prefs.getBool('biometrics_enabled') ?? false;
+      if (mounted)
+        setState(() => _biometricsAvailable = available && isEnabled);
     } catch (_) {}
   }
 
@@ -156,7 +179,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
               .read(databaseProvider)
               .warehousesDao
               .getUserById(userId);
-          if (user != null) _enterApp(user);
+          if (user != null) {
+            _enterApp(user);
+            return;
+          }
+        }
+        // If we reach here, biometrics worked but no user is registered on this device
+        if (mounted) {
+          AppNotification.showError(
+            context,
+            'Biometrics authenticated, but no user is registered on this device. Please log in with your PIN first.',
+          );
         }
       } else {
         // User cancelled or biometric not recognised — show a hint
@@ -191,31 +224,32 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   void dispose() {
     _checkAnim.dispose();
     _lockoutTimer?.cancel();
+    _emailController.dispose();
+    _pinNotifier.dispose();
     super.dispose();
   }
 
   // ── PIN input helpers ──────────────────────────────────────────────────────
 
   void _onDigit(String digit) {
-    if (_pin.length >= 6 ||
+    if (_pinNotifier.value.length >= 6 ||
         _checking ||
         _loginSuccess ||
         _lockoutUntil != null) {
       return;
     }
-    HapticFeedback.lightImpact();
-    setState(() {
-      _pin += digit;
-    });
-    if (_pin.length == 6) _submit();
+    // Update value WITHOUT full screen rebuild to maintain 120fps input & retain ink ripple
+    _pinNotifier.value += digit;
+
+    if (_pinNotifier.value.length == 6) _submit();
   }
 
   void _onBackspace() {
-    if (_pin.isEmpty || _checking || _loginSuccess) return;
-    HapticFeedback.selectionClick();
-    setState(() {
-      _pin = _pin.substring(0, _pin.length - 1);
-    });
+    if (_pinNotifier.value.isEmpty || _checking || _loginSuccess) return;
+    _pinNotifier.value = _pinNotifier.value.substring(
+      0,
+      _pinNotifier.value.length - 1,
+    );
   }
 
   Future<void> _submit() async {
@@ -225,13 +259,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
 
     List<UserData> matches;
     try {
-      matches = await ref.read(authProvider).getUsersByPin(_pin);
+      matches = await ref
+          .read(authProvider)
+          .getUsersByPin(
+            _pinNotifier.value,
+            email: _emailController.text.trim(),
+          );
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _pin = '';
         _checking = false;
       });
+      _pinNotifier.value = '';
       if (mounted) {
         AppNotification.showError(context, 'Login failed. Please try again.');
       }
@@ -241,11 +280,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     if (!mounted) return;
 
     if (matches.isEmpty) {
+      HapticFeedback.heavyImpact();
+      Future.delayed(const Duration(milliseconds: 150), () {
+        HapticFeedback.heavyImpact();
+      });
+
       _failedAttempts++;
       final prefs = await SharedPreferences.getInstance();
 
       setState(() {
-        _pin = '';
         _checking = false;
 
         if (_failedAttempts >= 5) {
@@ -260,6 +303,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
               '${5 - _failedAttempts} attempts remaining before lockout.';
         }
       });
+      _pinNotifier.value = '';
 
       if (mounted && _lockoutUntil == null) {
         AppNotification.showError(context, 'Wrong PIN. Please try again.');
@@ -285,6 +329,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
 
   /// Plays the success animation then opens the app.
   Future<void> _enterApp(UserData user) async {
+    if (!mounted) return;
+
     setState(() {
       _loginSuccess = true;
       _loggedInUser = user;
@@ -293,29 +339,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     _checkAnim.forward();
 
     // Controlled delay (1.2s) to show the "Welcome" overlay and completion animation.
-    // This allows the user to feel the successful entry before background loading starts.
     await Future.delayed(const Duration(milliseconds: 1200));
-
-    ref.read(authProvider).setCurrentUser(user);
-
     if (!mounted) return;
 
-    // If LoginScreen is the home route ('/'), VLB swaps it for MainLayout — no
-    // navigation needed.  But if it was pushed by the OTP flow (pushReplacement
-    // removed the home route), VLB is disposed and can never fire, so we must
-    // navigate explicitly.
-    final isHomeRoute = ModalRoute.of(context)?.settings.name == '/';
-    if (isHomeRoute) {
-      // VLB will handle the swap — nothing to do here.
-      return;
-    }
-
-    // LoginScreen was pushed on top of (or replacing) the home route.
-    // Clear the entire stack and go straight to MainLayout.
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => const MainLayout()),
-      (route) => false,
-    );
+    // Users proceed directly to the app using PIN.
+    ref.read(authProvider).setCurrentUser(user);
+    // Navigator key regeneration in main.dart handles routing automatically.
   }
 
   /// Clears device persistence and navigates to email entry so the user can
@@ -346,13 +375,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   }
 
   Future<void> _forgotPin() async {
-    if (_identifiedUser == null || (_identifiedUser!.email ?? '').isEmpty) {
-      AppNotification.showError(context, 'No email linked to this account.');
+    final email = _emailController.text.trim();
+    if (email.isEmpty) {
+      AppNotification.showError(
+        context,
+        'Please enter your email address first.',
+      );
       return;
     }
 
     setState(() => _checking = true);
-    final error = await ref.read(authProvider).sendOtp(_identifiedUser!.email!);
+    final error = await ref.read(authProvider).sendOtp(email);
     if (!mounted) return;
     setState(() => _checking = false);
 
@@ -415,8 +448,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                   subtextColor: subtextColor,
                 )
               : _PinPad(
-                  key: const ValueKey('pinpad'),
-                  pin: _pin,
+                  pinNotifier: _pinNotifier,
+                  emailController: _emailController,
                   checking: _checking,
                   identifiedUser: _identifiedUser,
                   lockoutUntil: _lockoutUntil,
@@ -588,7 +621,8 @@ class _LoadingDotsState extends State<_LoadingDots>
 // ── PIN pad widget ─────────────────────────────────────────────────────────
 
 class _PinPad extends StatelessWidget {
-  final String pin;
+  final ValueNotifier<String> pinNotifier;
+  final TextEditingController emailController;
   final bool checking;
   final UserData? identifiedUser;
   final DateTime? lockoutUntil;
@@ -606,7 +640,8 @@ class _PinPad extends StatelessWidget {
 
   const _PinPad({
     super.key,
-    required this.pin,
+    required this.pinNotifier,
+    required this.emailController,
     required this.checking,
     this.identifiedUser,
     this.lockoutUntil,
@@ -644,14 +679,14 @@ class _PinPad extends StatelessWidget {
 
     return Center(
       child: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+        padding: context.rPaddingSymmetric(horizontal: 32, vertical: 16),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             // ── Header/Avatar ──────────────────────────────────────────
             if (identifiedUser != null) ...[
               CircleAvatar(
-                radius: 40,
+                radius: context.getRSize(32),
                 backgroundColor: _hexColor(
                   context,
                   identifiedUser!.avatarColor,
@@ -661,79 +696,89 @@ class _PinPad extends StatelessWidget {
                       ? identifiedUser!.name[0].toUpperCase()
                       : '?',
                   style: TextStyle(
-                    fontSize: 32,
+                    fontSize: context.getRFontSize(26),
                     fontWeight: FontWeight.bold,
                     color: _hexColor(context, identifiedUser!.avatarColor),
                   ),
                 ),
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: context.getRSize(12)),
               Text(
                 'Welcome back, ${identifiedUser!.name.split(' ').first}',
                 style: TextStyle(
-                  fontSize: 22,
+                  fontSize: context.getRFontSize(20),
                   fontWeight: FontWeight.w700,
                   color: textColor,
                 ),
               ),
             ] else ...[
-              Image.asset('assets/images/reebaplus_logo.png', height: 80),
-              const SizedBox(height: 16),
-              Text(
-                'Reebaplus POS',
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w700,
-                  color: textColor,
-                ),
+              Image.asset(
+                'assets/images/reebaplus_logo.png',
+                height: context.getRSize(60),
               ),
+              SizedBox(height: context.getRSize(12)),
             ],
 
-            const SizedBox(height: 6),
+            SizedBox(height: context.getRSize(16)),
+            // ── Email Input ──────────────────────────────────────────
+            Padding(
+              padding: EdgeInsets.only(bottom: context.getRSize(16)),
+              child: TextFormField(
+                controller: emailController,
+                style: TextStyle(color: textColor),
+                decoration: AppDecorations.authInputDecoration(
+                  context,
+                  label: 'Email Address',
+                  prefixIcon: Icons.email_outlined,
+                ),
+                keyboardType: TextInputType.emailAddress,
+                textInputAction: TextInputAction.next,
+              ),
+            ),
             Text(
               isLockedOut
                   ? 'Device locked due to multiple failed attempts'
                   : 'Enter your 6-digit PIN to continue',
               style: TextStyle(
-                fontSize: 14,
+                fontSize: context.getRFontSize(14),
                 color: isLockedOut ? Colors.redAccent : subtextColor,
               ),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 32),
+            SizedBox(height: context.getRSize(20)),
 
             if (isLockedOut) ...[
               // ── Lockout State ─────────────────────────────────────────────
               Container(
-                padding: const EdgeInsets.symmetric(
+                padding: context.rPaddingSymmetric(
                   horizontal: 24,
                   vertical: 32,
                 ),
                 decoration: BoxDecoration(
                   color: Colors.redAccent.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(context.getRSize(20)),
                   border: Border.all(
                     color: Colors.redAccent.withValues(alpha: 0.3),
                   ),
                 ),
                 child: Column(
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.lock_clock_rounded,
                       color: Colors.redAccent,
-                      size: 48,
+                      size: context.getRSize(48),
                     ),
-                    const SizedBox(height: 16),
+                    SizedBox(height: context.getRSize(16)),
                     Text(
                       _formatDuration(lockoutUntil!.difference(DateTime.now())),
-                      style: const TextStyle(
-                        fontSize: 36,
+                      style: TextStyle(
+                        fontSize: context.getRFontSize(36),
                         fontWeight: FontWeight.bold,
                         color: Colors.redAccent,
                         letterSpacing: 2,
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    SizedBox(height: context.getRSize(8)),
                     const Text(
                       'Try again later',
                       style: TextStyle(color: Colors.redAccent),
@@ -741,50 +786,55 @@ class _PinPad extends StatelessWidget {
                   ],
                 ),
               ),
-              const SizedBox(height: 24),
+              SizedBox(height: context.getRSize(24)),
               TextButton.icon(
                 onPressed: onSwitchToEmail,
-                icon: const Icon(Icons.email_rounded, size: 18),
+                icon: Icon(Icons.email_rounded, size: context.getRSize(18)),
                 label: const Text('Reset PIN with Email'),
                 style: TextButton.styleFrom(foregroundColor: textColor),
               ),
             ] else ...[
               // ── Six dots ────────────────────────────────────────────────
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(6, (i) {
-                  final filled = i < pin.length;
-                  return AnimatedContainer(
-                    duration: const Duration(milliseconds: 150),
-                    margin: const EdgeInsets.symmetric(horizontal: 8),
-                    width: 16,
-                    height: 16,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: filled
-                          ? Theme.of(context).colorScheme.primary
-                          : textColor.withValues(alpha: 0.1),
-                      border: Border.all(
-                        color: filled
-                            ? Theme.of(context).colorScheme.primary
-                            : textColor.withValues(alpha: 0.3),
-                        width: 2,
-                      ),
-                    ),
+              ValueListenableBuilder<String>(
+                valueListenable: pinNotifier,
+                builder: (context, currentPin, _) {
+                  return Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: List.generate(6, (i) {
+                      final filled = i < currentPin.length;
+                      return AnimatedContainer(
+                        duration: const Duration(milliseconds: 150),
+                        margin: context.rPaddingSymmetric(horizontal: 6),
+                        width: context.getRSize(12),
+                        height: context.getRSize(12),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: filled
+                              ? Theme.of(context).colorScheme.primary
+                              : textColor.withValues(alpha: 0.1),
+                          border: Border.all(
+                            color: filled
+                                ? Theme.of(context).colorScheme.primary
+                                : textColor.withValues(alpha: 0.3),
+                            width: 2,
+                          ),
+                        ),
+                      );
+                    }),
                   );
-                }),
+                },
               ),
 
               // ── Warning Message ────────────────────────────────────────────
               SizedBox(
-                height: 32,
+                height: context.getRSize(24),
                 child: warningText != null
                     ? Center(
                         child: Text(
                           warningText!,
-                          style: const TextStyle(
+                          style: TextStyle(
                             color: Colors.orangeAccent,
-                            fontSize: 13,
+                            fontSize: context.getRFontSize(13),
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -794,27 +844,37 @@ class _PinPad extends StatelessWidget {
 
               // ── Numeric keypad ───────────────────────────────────────────
               ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 280),
+                constraints: BoxConstraints(maxWidth: context.getRSize(240)),
                 child: Column(
                   children: [
-                    _buildKeyRow(['1', '2', '3'], surface, textColor),
-                    const SizedBox(height: 12),
-                    _buildKeyRow(['4', '5', '6'], surface, textColor),
-                    const SizedBox(height: 12),
-                    _buildKeyRow(['7', '8', '9'], surface, textColor),
-                    const SizedBox(height: 12),
+                    _buildKeyRow(context, ['1', '2', '3'], surface, textColor),
+                    SizedBox(height: context.getRSize(8)),
+                    _buildKeyRow(context, ['4', '5', '6'], surface, textColor),
+                    SizedBox(height: context.getRSize(8)),
+                    _buildKeyRow(context, ['7', '8', '9'], surface, textColor),
+                    SizedBox(height: context.getRSize(8)),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const SizedBox(width: 76, height: 76),
-                        const SizedBox(width: 12),
+                        biometricsAvailable && onBiometrics != null
+                            ? _KeyButton(
+                                icon: Icons.fingerprint_rounded,
+                                surface: surface,
+                                textColor: textColor,
+                                onTap: onBiometrics!,
+                              )
+                            : SizedBox(
+                                width: context.getRSize(64),
+                                height: context.getRSize(64),
+                              ),
+                        SizedBox(width: context.getRSize(8)),
                         _KeyButton(
                           label: '0',
                           surface: surface,
                           textColor: textColor,
                           onTap: () => onDigit('0'),
                         ),
-                        const SizedBox(width: 12),
+                        SizedBox(width: context.getRSize(8)),
                         _KeyButton(
                           icon: Icons.backspace_outlined,
                           surface: surface,
@@ -827,21 +887,7 @@ class _PinPad extends StatelessWidget {
                 ),
               ),
 
-              // ── Biometrics button ────────────────────────────────────────
-              if (biometricsAvailable && onBiometrics != null) ...[
-                const SizedBox(height: 8),
-                TextButton.icon(
-                  onPressed: onBiometrics,
-                  icon: const Icon(Icons.fingerprint_rounded, size: 22),
-                  label: const Text('Sign in with Biometrics'),
-                  style: TextButton.styleFrom(
-                    foregroundColor: textColor.withValues(alpha: 0.8),
-                    textStyle: const TextStyle(fontSize: 14),
-                  ),
-                ),
-              ],
-
-              const SizedBox(height: 32),
+              SizedBox(height: context.getRSize(20)),
 
               // ── Switch-account / Not You link ──────────────────────────────
               if (onSwitchToEmail != null)
@@ -853,7 +899,7 @@ class _PinPad extends StatelessWidget {
                         : 'Login with a different account',
                     style: TextStyle(
                       color: textColor.withValues(alpha: 0.65),
-                      fontSize: 14,
+                      fontSize: context.getRFontSize(14),
                       decoration: TextDecoration.underline,
                     ),
                   ),
@@ -867,7 +913,7 @@ class _PinPad extends StatelessWidget {
                     'Forgot PIN?',
                     style: TextStyle(
                       color: textColor.withValues(alpha: 0.5),
-                      fontSize: 13,
+                      fontSize: context.getRFontSize(13),
                     ),
                   ),
                 ),
@@ -878,12 +924,17 @@ class _PinPad extends StatelessWidget {
     );
   }
 
-  Widget _buildKeyRow(List<String> digits, Color surface, Color textColor) {
+  Widget _buildKeyRow(
+    BuildContext context,
+    List<String> digits,
+    Color surface,
+    Color textColor,
+  ) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: digits.map((d) {
         return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 6),
+          padding: context.rPaddingSymmetric(horizontal: 6),
           child: _KeyButton(
             label: d,
             surface: surface,
@@ -916,22 +967,39 @@ class _KeyButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: AppDecorations.glassCard(context, radius: 20),
+      decoration:
+          AppDecorations.glassCard(
+            context,
+            radius: context.getRSize(16),
+          ).copyWith(
+            boxShadow: [
+              BoxShadow(
+                color: textColor.withValues(alpha: 0.05),
+                blurRadius: 10,
+                spreadRadius: 2,
+              ),
+            ],
+          ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
+          onHighlightChanged: (isHighlighted) {
+            if (isHighlighted) {
+              HapticFeedback.lightImpact();
+            }
+          },
           onTap: onTap,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(context.getRSize(16)),
           child: SizedBox(
-            width: 76,
-            height: 76,
+            width: context.getRSize(64),
+            height: context.getRSize(64),
             child: Center(
               child: icon != null
-                  ? Icon(icon, color: textColor, size: 26)
+                  ? Icon(icon, color: textColor, size: context.getRSize(22))
                   : Text(
                       label!,
                       style: TextStyle(
-                        fontSize: 28,
+                        fontSize: context.getRFontSize(24),
                         fontWeight: FontWeight.w600,
                         color: textColor,
                       ),
@@ -1016,7 +1084,7 @@ class _UserPickerSheet extends StatelessWidget {
                 style: TextStyle(fontWeight: FontWeight.w600, color: textColor),
               ),
               subtitle: Text(
-                _roleLabel(u.role),
+                roleFor(u.role).label,
                 style: TextStyle(fontSize: 12, color: subtextColor),
               ),
               onTap: () => onSelected(u),
@@ -1032,23 +1100,6 @@ class _UserPickerSheet extends StatelessWidget {
       return Color(int.parse(hex.replaceFirst('#', '0xFF')));
     } catch (_) {
       return Theme.of(context).colorScheme.primary;
-    }
-  }
-
-  String _roleLabel(String role) {
-    switch (role) {
-      case 'CEO':
-        return 'CEO';
-      case 'manager':
-        return 'Manager';
-      case 'cashier':
-        return 'Cashier';
-      case 'stock_keeper':
-        return 'Stock Keeper';
-      case 'rider':
-        return 'Rider';
-      default:
-        return role;
     }
   }
 }

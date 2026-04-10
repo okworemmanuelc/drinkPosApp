@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -110,11 +111,26 @@ class _ProductPreviewModalState extends State<ProductPreviewModal>
                           color: primaryColor.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(16),
                         ),
-                        child: Icon(
-                          FontAwesomeIcons.beerMugEmpty,
-                          color: primaryColor,
-                          size: context.getRSize(24),
-                        ),
+                        child: product.imagePath != null
+                            ? ClipRRect(
+                                borderRadius: BorderRadius.circular(16),
+                                child: Image.file(
+                                  File(product.imagePath!),
+                                  width: context.getRSize(48),
+                                  height: context.getRSize(48),
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (ctx, _, __) => Icon(
+                                    FontAwesomeIcons.beerMugEmpty,
+                                    color: primaryColor,
+                                    size: context.getRSize(24),
+                                  ),
+                                ),
+                              )
+                            : Icon(
+                                FontAwesomeIcons.beerMugEmpty,
+                                color: primaryColor,
+                                size: context.getRSize(24),
+                              ),
                       ),
                       SizedBox(width: context.getRSize(16)),
                       Expanded(

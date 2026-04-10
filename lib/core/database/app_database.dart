@@ -119,6 +119,8 @@ class Products extends Table {
       integer().withDefault(const Constant(0))();
   IntColumn get emptyCrateValueKobo =>
       integer().withDefault(const Constant(0))();
+  BoolColumn get trackEmpties => boolean().withDefault(const Constant(false))();
+  TextColumn get imagePath => text().nullable()();
 }
 
 // 6. Inventory
@@ -579,7 +581,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 30;
+  int get schemaVersion => 32;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -674,6 +676,28 @@ class AppDatabase extends _$AppDatabase {
           await m.createTable(invites);
           try {
             await m.addColumn(users, users.businessId);
+          } catch (_) {}
+        }
+
+        if (from < 31) {
+          // Version 31: Add trackEmpties flag to Products.
+          // Existing bottle products default to true so behaviour is unchanged.
+          try {
+            await m.addColumn(products, products.trackEmpties);
+          } catch (_) {}
+          try {
+            await customStatement(
+              "UPDATE products SET track_empties = 1 WHERE LOWER(unit) = 'bottle'",
+            );
+          } catch (e) {
+            debugPrint('[AppDatabase] v31 trackEmpties migration error: $e');
+          }
+        }
+
+        if (from < 32) {
+          // Version 32: Add imagePath to Products
+          try {
+            await m.addColumn(products, products.imagePath);
           } catch (_) {}
         }
 

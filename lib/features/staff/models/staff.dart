@@ -11,15 +11,7 @@ class Staff {
 }
 
 class StaffService {
-  static final List<Staff> _staffList = [
-    Staff(id: 's1', name: 'John Okoro', role: 'CEO'),
-    Staff(id: 's2', name: 'Alice Smith', role: 'Manager'),
-    Staff(id: 's3', name: 'Bob Johnson', role: 'Storekeeper'),
-    Staff(id: 's4', name: 'Mary Adams', role: 'Cashier'),
-    Staff(id: 's5', name: 'Chukwudi Obi', role: 'Rider'),
-    Staff(id: 's6', name: 'Sani Bello', role: 'Rider'),
-    Staff(id: 's7', name: 'Grace Ojo', role: 'Cleaner'),
-  ];
+  static final List<Staff> _staffList = [];
 
   List<Staff> getAll() => _staffList;
 

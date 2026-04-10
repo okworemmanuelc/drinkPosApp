@@ -12,6 +12,7 @@ import 'package:reebaplus_pos/core/database/app_database.dart';
 import 'package:reebaplus_pos/core/utils/notifications.dart';
 import 'package:reebaplus_pos/shared/widgets/app_button.dart';
 import 'package:reebaplus_pos/shared/widgets/app_input.dart';
+import 'package:reebaplus_pos/core/utils/currency_input_formatter.dart';
 
 class ReceiveDeliverySheet extends ConsumerStatefulWidget {
   const ReceiveDeliverySheet({super.key});
@@ -26,7 +27,8 @@ class ReceiveDeliverySheet extends ConsumerStatefulWidget {
   }
 
   @override
-  ConsumerState<ReceiveDeliverySheet> createState() => _ReceiveDeliverySheetState();
+  ConsumerState<ReceiveDeliverySheet> createState() =>
+      _ReceiveDeliverySheetState();
 }
 
 class _DeliveryItemLine {
@@ -38,6 +40,7 @@ class _DeliveryItemLine {
   Supplier? selectedSupplier;
   String selectedCategory = 'Other';
   CrateGroupData? selectedCrateGroup;
+  bool trackEmpties = false;
 
   double get lineTotal {
     final qty = double.tryParse(qtyCtrl.text) ?? 0;
@@ -82,9 +85,7 @@ class _ReceiveDeliverySheetState extends ConsumerState<ReceiveDeliverySheet> {
 
   Future<void> _loadProducts() async {
     final db = ref.read(databaseProvider);
-    final products = await db.catalogDao
-        .watchAvailableProductDatas()
-        .first;
+    final products = await db.catalogDao.watchAvailableProductDatas().first;
     if (mounted) setState(() => _allProducts = products);
   }
 
@@ -200,10 +201,19 @@ class _ReceiveDeliverySheetState extends ConsumerState<ReceiveDeliverySheet> {
         null,
       );
 
-      // Auto-add empty crates for crate products
-      if (l.selectedCrateGroup != null) {
+      // Persist the trackEmpties setting if it differs from the product's saved value.
+      if (l.selectedProduct!.trackEmpties != l.trackEmpties) {
+        await db.catalogDao.updateTrackEmpties(
+          l.selectedProduct!.id,
+          l.trackEmpties,
+        );
+      }
+
+      // When trackEmpties is on, received bottle crates enter the empty-crate pool
+      // so the manufacturer's stock count reflects crates now in circulation.
+      if (l.trackEmpties && l.selectedProduct!.manufacturerId != null) {
         await db.inventoryDao.addEmptyCrates(
-          l.selectedCrateGroup!.id,
+          l.selectedProduct!.manufacturerId!,
           qty,
         );
       }
@@ -231,12 +241,14 @@ class _ReceiveDeliverySheetState extends ConsumerState<ReceiveDeliverySheet> {
 
     ref.read(deliveryServiceProvider).addDelivery(delivery);
 
-    await ref.read(activityLogProvider).logAction(
-      "Delivery Received",
-      "Delivery from $mainSupplierName to ${_selectedWarehouse!.name} — ${deliveryItems.length} item(s), ${totalQty.toInt()} units added to stock",
-      relatedEntityId: delivery.id,
-      relatedEntityType: "delivery",
-    );
+    await ref
+        .read(activityLogProvider)
+        .logAction(
+          "Delivery Received",
+          "Delivery from $mainSupplierName to ${_selectedWarehouse!.name} — ${deliveryItems.length} item(s), ${totalQty.toInt()} units added to stock",
+          relatedEntityId: delivery.id,
+          relatedEntityType: "delivery",
+        );
 
     if (!mounted) return;
 
@@ -253,6 +265,7 @@ class _ReceiveDeliverySheetState extends ConsumerState<ReceiveDeliverySheet> {
     String hint, {
     bool isNumber = false,
     bool isAutocomplete = false,
+    bool isCurrency = false,
     _DeliveryItemLine? line,
   }) {
     if (isAutocomplete && line != null) {
@@ -273,6 +286,8 @@ class _ReceiveDeliverySheetState extends ConsumerState<ReceiveDeliverySheet> {
             line.retailPriceCtrl.text = (selection.retailPriceKobo / 100)
                 .round()
                 .toString();
+            // Pre-fill trackEmpties from the product's saved setting.
+            line.trackEmpties = selection.trackEmpties;
 
             if (selection.crateGroupId != null) {
               final match = _crateGroups
@@ -309,7 +324,10 @@ class _ReceiveDeliverySheetState extends ConsumerState<ReceiveDeliverySheet> {
 
     return AppInput(
       controller: ctrl,
-      keyboardType: isNumber ? TextInputType.number : TextInputType.text,
+      keyboardType: isNumber
+          ? const TextInputType.numberWithOptions(decimal: true)
+          : TextInputType.text,
+      inputFormatters: isCurrency ? [CurrencyInputFormatter()] : null,
       labelText: label,
       hintText: hint,
       fillColor: _cardBg,
@@ -527,11 +545,34 @@ class _ReceiveDeliverySheetState extends ConsumerState<ReceiveDeliverySheet> {
               line.retailPriceCtrl,
               '0',
               isNumber: true,
+              isCurrency: true,
             ),
 
             const SizedBox(height: 12),
 
-            _inputField('Qty *', line.qtyCtrl, '0', isNumber: true),
+            _inputField(
+              'Qty (${line.selectedProduct?.unit ?? ''}) *',
+              line.qtyCtrl,
+              '0',
+              isNumber: true,
+            ),
+
+            // ── TRACK EMPTIES ──────────────────────────────────────────────
+            if (line.selectedProduct?.unit.toLowerCase() == 'bottle') ...[
+              const SizedBox(height: 8),
+              CheckboxListTile(
+                value: line.trackEmpties,
+                onChanged: (v) =>
+                    setState(() => line.trackEmpties = v ?? false),
+                title: const Text('Track empty crate returns'),
+                subtitle: const Text(
+                  'Enables deposit and crate return flow when this product is sold',
+                ),
+                controlAffinity: ListTileControlAffinity.leading,
+                contentPadding: EdgeInsets.zero,
+                dense: true,
+              ),
+            ],
 
             SizedBox(height: context.getRSize(16)),
             Align(

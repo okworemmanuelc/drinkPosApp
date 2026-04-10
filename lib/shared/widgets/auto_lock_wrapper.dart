@@ -8,6 +8,10 @@ class AutoLockWrapper extends ConsumerStatefulWidget {
 
   const AutoLockWrapper({super.key, required this.child});
 
+  /// Set this to true immediately before opening a system file/image picker.
+  /// The auto-lock check will be skipped for that single resume event.
+  static bool suppressNextResume = false;
+
   @override
   ConsumerState<AutoLockWrapper> createState() => _AutoLockWrapperState();
 }
@@ -15,7 +19,6 @@ class AutoLockWrapper extends ConsumerStatefulWidget {
 class _AutoLockWrapperState extends ConsumerState<AutoLockWrapper>
     with WidgetsBindingObserver {
   static const String _pausedTimeKey = 'app_paused_time';
-  static const int _lockMinutes = 5;
   static const int _shiftExpirationHours = 12;
 
   @override
@@ -34,12 +37,22 @@ class _AutoLockWrapperState extends ConsumerState<AutoLockWrapper>
   void didChangeAppLifecycleState(AppLifecycleState state) async {
     final prefs = await SharedPreferences.getInstance();
 
-    if (state == AppLifecycleState.paused ||
-        state == AppLifecycleState.inactive ||
-        state == AppLifecycleState.detached) {
-      // Record time when app goes to background
-      await prefs.setInt(_pausedTimeKey, DateTime.now().millisecondsSinceEpoch);
+    if (state != AppLifecycleState.resumed) {
+      // Record time when app goes to background ONLY if it wasn't recorded yet.
+      // This prevents the 'inactive' state on wakeup from resetting the timer.
+      if (!prefs.containsKey(_pausedTimeKey)) {
+        await prefs.setInt(
+          _pausedTimeKey,
+          DateTime.now().millisecondsSinceEpoch,
+        );
+      }
     } else if (state == AppLifecycleState.resumed) {
+      // If a file/image picker was opened, skip the lock check for this resume.
+      if (AutoLockWrapper.suppressNextResume) {
+        AutoLockWrapper.suppressNextResume = false;
+        await prefs.remove(_pausedTimeKey);
+        return;
+      }
       final pausedMs = prefs.getInt(_pausedTimeKey);
       if (pausedMs != null) {
         final pausedTime = DateTime.fromMillisecondsSinceEpoch(pausedMs);
@@ -51,10 +64,14 @@ class _AutoLockWrapperState extends ConsumerState<AutoLockWrapper>
           if (auth.currentUser != null) {
             auth.fullLogout();
           }
-        } else if (difference.inMinutes >= _lockMinutes) {
-          // Idle timeout reached, force soft lock
-          if (auth.currentUser != null) {
-            auth.logout();
+        } else {
+          final autoLockSeconds =
+              prefs.getInt('auto_lock_interval_seconds') ?? 300;
+          if (autoLockSeconds > 0 && difference.inSeconds >= autoLockSeconds) {
+            // Idle timeout reached, force soft lock
+            if (auth.currentUser != null) {
+              auth.logout();
+            }
           }
         }
         await prefs.remove(_pausedTimeKey);

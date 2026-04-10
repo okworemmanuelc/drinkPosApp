@@ -124,50 +124,51 @@ class _StaffScreenState extends ConsumerState<StaffScreen> {
 
   @override
   Widget build(BuildContext context) {
-        return Scaffold(
-          backgroundColor: _bg,
-          appBar: AppBar(
-            backgroundColor: _surface,
-            elevation: 0,
-            leading: const MenuButton(),
-            title: const AppBarHeader(
-              icon: FontAwesomeIcons.userTie,
-              title: 'Staff Management',
-              subtitle: 'Manage your team & roles',
-            ),
-            actions: const [NotificationBell(), SizedBox(width: 8)],
-            bottom: PreferredSize(
-              preferredSize: const Size.fromHeight(60),
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                child: AppInput(
-                  onChanged: (v) => setState(() => _searchQuery = v),
-                  hintText: 'Search staff by name...',
-                  prefixIcon: Icon(
-                    FontAwesomeIcons.magnifyingGlass,
-                    size: 16,
-                    color: _subtext,
-                  ),
-                  fillColor: _bg,
-                ),
+    final currentUser = ref.watch(authProvider).currentUser;
+    return Scaffold(
+      backgroundColor: _bg,
+      appBar: AppBar(
+        backgroundColor: _surface,
+        elevation: 0,
+        leading: const MenuButton(),
+        title: const AppBarHeader(
+          icon: FontAwesomeIcons.userTie,
+          title: 'Staff Management',
+          subtitle: 'Manage your team & roles',
+        ),
+        actions: const [NotificationBell(), SizedBox(width: 8)],
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(60),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+            child: AppInput(
+              onChanged: (v) => setState(() => _searchQuery = v),
+              hintText: 'Search staff by name...',
+              prefixIcon: Icon(
+                FontAwesomeIcons.magnifyingGlass,
+                size: 16,
+                color: _subtext,
               ),
+              fillColor: _bg,
             ),
           ),
-          drawer: const AppDrawer(activeRoute: 'staff'),
-          body: _buildBody(),
-          floatingActionButton: RoleGuard(
-            minTier: 4,
-            fallback: const SizedBox.shrink(),
-            child: AppFAB(
-              onPressed: () => _showStaffSheet(context),
-              icon: FontAwesomeIcons.plus,
-              label: 'Add Staff',
-            ),
-          ),
-        );
+        ),
+      ),
+      drawer: const AppDrawer(activeRoute: 'staff'),
+      body: _buildBody(currentUser),
+      floatingActionButton: RoleGuard(
+        minTier: 4,
+        fallback: const SizedBox.shrink(),
+        child: AppFAB(
+          onPressed: () => _showStaffSheet(context),
+          icon: FontAwesomeIcons.plus,
+          label: 'Add Staff',
+        ),
+      ),
+    );
   }
 
-  Widget _buildBody() {
+  Widget _buildBody(UserData? currentUser) {
     final listRaw = _items;
     var list = [...listRaw];
 
@@ -224,7 +225,9 @@ class _StaffScreenState extends ConsumerState<StaffScreen> {
                         const SizedBox(height: 8),
                         ...list
                             .where((u) => u.tier == tier)
-                            .map((u) => _buildStaffCard(context, u)),
+                            .map(
+                              (u) => _buildStaffCard(context, u, currentUser),
+                            ),
                         const SizedBox(height: 16),
                       ],
                     ],
@@ -313,145 +316,162 @@ class _StaffScreenState extends ConsumerState<StaffScreen> {
     );
   }
 
-  Widget _buildStaffCard(BuildContext context, StaffListItem item) {
+  Widget _buildStaffCard(
+    BuildContext context,
+    StaffListItem item,
+    UserData? currentUser,
+  ) {
     final roleInfo = roleFor(item.user?.role ?? item.invite?.role ?? '');
     final avatarColor = item.avatarColor != null
         ? _parseColor(item.avatarColor!) ?? roleInfo.color
         : roleInfo.color;
     final initials = _initials(item.name);
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: _card,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _border),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: InkWell(
-        onTap: () {
-          if (item.status != 'active' || item.user == null) return;
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) =>
-                  StaffDetailsScreen(user: item.user!, warehouses: _warehouses),
+    // Authorization check: Staff below this one in tier cannot view profile
+    final isDisabled = currentUser != null && currentUser.roleTier < item.tier;
+
+    return Opacity(
+      opacity: isDisabled ? 0.5 : 1.0,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        decoration: BoxDecoration(
+          color: _card,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: _border),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
             ),
-          );
-        },
-        onLongPress: () => _showStaffActions(context, item),
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: EdgeInsets.all(context.getRSize(14)),
-          child: Row(
-            children: [
-              Container(
-                width: context.getRSize(48),
-                height: context.getRSize(48),
-                decoration: BoxDecoration(
-                  color: avatarColor.withValues(alpha: 0.2),
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: avatarColor.withValues(alpha: 0.5),
-                    width: 2,
-                  ),
-                ),
-                child: Center(
-                  child: Text(
-                    initials,
-                    style: TextStyle(
-                      color: avatarColor,
-                      fontWeight: FontWeight.bold,
-                      fontSize: context.getRFontSize(16),
-                    ),
-                  ),
-                ),
-              ),
-              SizedBox(width: context.getRSize(14)),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      item.name,
-                      style: TextStyle(
-                        color: _text,
-                        fontWeight: FontWeight.bold,
-                        fontSize: context.getRFontSize(15),
+          ],
+        ),
+        child: InkWell(
+          onTap: isDisabled
+              ? null
+              : () {
+                  if (item.status != 'active' || item.user == null) return;
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => StaffDetailsScreen(
+                        user: item.user!,
+                        warehouses: _warehouses,
                       ),
                     ),
-                    SizedBox(height: context.getRSize(4)),
-                    Row(
-                      children: [
-                        Container(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: context.getRSize(8),
-                            vertical: context.getRSize(2),
-                          ),
-                          decoration: BoxDecoration(
-                            color: roleInfo.color.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Text(
-                            roleInfo.label,
-                            style: TextStyle(
-                              color: roleInfo.color,
-                              fontSize: context.getRFontSize(11),
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
+                  );
+                },
+          onLongPress: isDisabled
+              ? null
+              : () => _showStaffActions(context, item),
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: EdgeInsets.all(context.getRSize(14)),
+            child: Row(
+              children: [
+                Container(
+                  width: context.getRSize(48),
+                  height: context.getRSize(48),
+                  decoration: BoxDecoration(
+                    color: avatarColor.withValues(alpha: 0.2),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: avatarColor.withValues(alpha: 0.5),
+                      width: 2,
+                    ),
+                  ),
+                  child: Center(
+                    child: Text(
+                      initials,
+                      style: TextStyle(
+                        color: avatarColor,
+                        fontWeight: FontWeight.bold,
+                        fontSize: context.getRFontSize(16),
+                      ),
+                    ),
+                  ),
+                ),
+                SizedBox(width: context.getRSize(14)),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        item.name,
+                        style: TextStyle(
+                          color: _text,
+                          fontWeight: FontWeight.bold,
+                          fontSize: context.getRFontSize(15),
                         ),
-                        if (item.status != 'active') ...[
-                          SizedBox(width: context.getRSize(8)),
+                      ),
+                      SizedBox(height: context.getRSize(4)),
+                      Row(
+                        children: [
                           Container(
                             padding: EdgeInsets.symmetric(
                               horizontal: context.getRSize(8),
                               vertical: context.getRSize(2),
                             ),
                             decoration: BoxDecoration(
-                              color:
-                                  (item.status == 'pending'
-                                          ? Colors.orange
-                                          : Colors.red)
-                                      .withValues(alpha: 0.15),
+                              color: roleInfo.color.withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(20),
                             ),
                             child: Text(
-                              item.status.toUpperCase(),
+                              roleInfo.label,
                               style: TextStyle(
-                                color: item.status == 'pending'
-                                    ? Colors.orange
-                                    : Colors.red,
-                                fontSize: context.getRFontSize(10),
-                                fontWeight: FontWeight.bold,
+                                color: roleInfo.color,
+                                fontSize: context.getRFontSize(11),
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
                           ),
+                          if (item.status != 'active') ...[
+                            SizedBox(width: context.getRSize(8)),
+                            Container(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: context.getRSize(8),
+                                vertical: context.getRSize(2),
+                              ),
+                              decoration: BoxDecoration(
+                                color:
+                                    (item.status == 'pending'
+                                            ? Colors.orange
+                                            : Colors.red)
+                                        .withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                item.status.toUpperCase(),
+                                style: TextStyle(
+                                  color: item.status == 'pending'
+                                      ? Colors.orange
+                                      : Colors.red,
+                                  fontSize: context.getRFontSize(10),
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
                         ],
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              RoleGuard(
-                minTier: 4,
-                fallback: const SizedBox.shrink(),
-                child: IconButton(
-                  onPressed: () => _showStaffActions(context, item),
-                  icon: Icon(
-                    FontAwesomeIcons.ellipsisVertical,
-                    size: context.getRSize(16),
-                    color: _subtext.withValues(alpha: 0.6),
+                      ),
+                    ],
                   ),
                 ),
-              ),
-            ],
+                if (!isDisabled)
+                  RoleGuard(
+                    minTier: 4,
+                    fallback: const SizedBox.shrink(),
+                    child: IconButton(
+                      onPressed: () => _showStaffActions(context, item),
+                      icon: Icon(
+                        FontAwesomeIcons.ellipsisVertical,
+                        size: context.getRSize(16),
+                        color: _subtext.withValues(alpha: 0.6),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ),
         ),
       ),
@@ -594,162 +614,155 @@ class _StaffFormSheetState extends ConsumerState<_StaffFormSheet> {
 
   @override
   Widget build(BuildContext context) {
-        return Padding(
-          padding: EdgeInsets.only(bottom: context.bottomInset),
-          child: Container(
-            decoration: BoxDecoration(
-              color: _surface,
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(30),
-              ),
-            ),
-            padding: const EdgeInsets.all(24),
-            child: Form(
-              key: _formKey,
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Center(
-                      child: Container(
-                        width: 40,
-                        height: 4,
-                        margin: const EdgeInsets.only(bottom: 20),
-                        decoration: BoxDecoration(
-                          color: _subtext.withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
+    return Padding(
+      padding: EdgeInsets.only(bottom: context.bottomInset),
+      child: Container(
+        decoration: BoxDecoration(
+          color: _surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+        ),
+        padding: const EdgeInsets.all(24),
+        child: Form(
+          key: _formKey,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    margin: const EdgeInsets.only(bottom: 20),
+                    decoration: BoxDecoration(
+                      color: _subtext.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(2),
                     ),
-                    Text(
-                      widget.user == null
-                          ? 'Add New Staff'
-                          : 'Edit Staff Details',
-                      style: TextStyle(
-                        color: _text,
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-
-                    AppInput(
-                      controller: _nameCtrl,
-                      labelText: 'Full Name',
-                      hintText: 'Enter full name',
-                      validator: (v) =>
-                          v == null || v.isEmpty ? 'Name is required' : null,
-                    ),
-                    const SizedBox(height: 16),
-                    AppInput(
-                      controller: _emailCtrl,
-                      labelText: 'Email Address',
-                      hintText: 'Enter email address',
-                      keyboardType: TextInputType.emailAddress,
-                      validator: (v) {
-                        if (v == null || v.isEmpty) return 'Email is required';
-                        if (!RegExp(
-                          r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
-                        ).hasMatch(v)) {
-                          return 'Enter a valid email';
-                        }
-                        return null;
-                      },
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    // PIN field only shown when editing an existing staff member.
-                    // New staff set their own 6-digit PIN on first login.
-                    if (widget.user != null)
-                      AppInput(
-                        controller: _pinCtrl,
-                        labelText: 'Access PIN (6 Digits)',
-                        hintText: 'Enter 6-digit PIN',
-                        obscureText: !_showPin,
-                        keyboardType: TextInputType.number,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                        ],
-                        suffixIcon: IconButton(
-                          onPressed: () => setState(() => _showPin = !_showPin),
-                          icon: Icon(
-                            _showPin
-                                ? FontAwesomeIcons.eyeSlash
-                                : FontAwesomeIcons.eye,
-                            size: 16,
-                            color: _subtext,
-                          ),
-                        ),
-                        validator: (v) => v == null || v.length != 6
-                            ? 'PIN must be 6 digits'
-                            : null,
-                      ),
-
-                    const SizedBox(height: 16),
-
-                    AppDropdown<RoleOption>(
-                      labelText: 'Role & Access Level',
-                      value: _selectedRole,
-                      items: roleOptions.map((r) {
-                        return DropdownMenuItem<RoleOption>(
-                          value: r,
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 8,
-                                height: 8,
-                                decoration: BoxDecoration(
-                                  color: r.color,
-                                  shape: BoxShape.circle,
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Flexible(
-                                child: Text(
-                                  r.label,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      }).toList(),
-                      onChanged: (r) => setState(() => _selectedRole = r!),
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    AppDropdown<int>(
-                      labelText: 'Assigned Warehouse',
-                      value: _selectedWarehouseId,
-                      hintText: 'Select Warehouse',
-                      items: widget.warehouses.map((w) {
-                        return DropdownMenuItem<int>(
-                          value: w.id,
-                          child: Text(w.name),
-                        );
-                      }).toList(),
-                      onChanged: (id) =>
-                          setState(() => _selectedWarehouseId = id!),
-                    ),
-
-                    const SizedBox(height: 32),
-
-                    // Submit Button
-                    AppButton(
-                      text: widget.user == null
-                          ? (_isSaving ? 'Sending...' : 'Send Invite')
-                          : 'Save Changes',
-                      onPressed: _isSaving ? () {} : _submit,
-                    ),
-                  ],
+                  ),
                 ),
-              ),
+                Text(
+                  widget.user == null ? 'Add New Staff' : 'Edit Staff Details',
+                  style: TextStyle(
+                    color: _text,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 24),
+
+                AppInput(
+                  controller: _nameCtrl,
+                  labelText: 'Full Name',
+                  hintText: 'Enter full name',
+                  validator: (v) =>
+                      v == null || v.isEmpty ? 'Name is required' : null,
+                ),
+                const SizedBox(height: 16),
+                AppInput(
+                  controller: _emailCtrl,
+                  labelText: 'Email Address',
+                  hintText: 'Enter email address',
+                  keyboardType: TextInputType.emailAddress,
+                  validator: (v) {
+                    if (v == null || v.isEmpty) return 'Email is required';
+                    if (!RegExp(
+                      r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+                    ).hasMatch(v)) {
+                      return 'Enter a valid email';
+                    }
+                    return null;
+                  },
+                ),
+
+                const SizedBox(height: 16),
+
+                // PIN field only shown when editing an existing staff member.
+                // New staff set their own 6-digit PIN on first login.
+                if (widget.user != null)
+                  AppInput(
+                    controller: _pinCtrl,
+                    labelText: 'Access PIN (6 Digits)',
+                    hintText: 'Enter 6-digit PIN',
+                    obscureText: !_showPin,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    suffixIcon: IconButton(
+                      onPressed: () => setState(() => _showPin = !_showPin),
+                      icon: Icon(
+                        _showPin
+                            ? FontAwesomeIcons.eyeSlash
+                            : FontAwesomeIcons.eye,
+                        size: 16,
+                        color: _subtext,
+                      ),
+                    ),
+                    validator: (v) => v == null || v.length != 6
+                        ? 'PIN must be 6 digits'
+                        : null,
+                  ),
+
+                const SizedBox(height: 16),
+
+                AppDropdown<RoleOption>(
+                  labelText: 'Role & Access Level',
+                  value: _selectedRole,
+                  items: roleOptions.map((r) {
+                    return DropdownMenuItem<RoleOption>(
+                      value: r,
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 8,
+                            height: 8,
+                            decoration: BoxDecoration(
+                              color: r.color,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Flexible(
+                            child: Text(
+                              r.label,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                  onChanged: (r) => setState(() => _selectedRole = r!),
+                ),
+
+                const SizedBox(height: 16),
+
+                AppDropdown<int>(
+                  labelText: 'Assigned Warehouse',
+                  value: _selectedWarehouseId,
+                  hintText: 'Select Warehouse',
+                  items: widget.warehouses.map((w) {
+                    return DropdownMenuItem<int>(
+                      value: w.id,
+                      child: Text(w.name),
+                    );
+                  }).toList(),
+                  onChanged: (id) => setState(() => _selectedWarehouseId = id!),
+                ),
+
+                const SizedBox(height: 32),
+
+                // Submit Button
+                AppButton(
+                  text: widget.user == null
+                      ? (_isSaving ? 'Sending...' : 'Send Invite')
+                      : 'Save Changes',
+                  onPressed: _isSaving ? () {} : _submit,
+                ),
+              ],
             ),
           ),
-        );
+        ),
+      ),
+    );
   }
 
   void _submit() async {
@@ -840,12 +853,14 @@ class _StaffFormSheetState extends ConsumerState<_StaffFormSheet> {
       if (!mounted) return;
       setState(() => _isSaving = true);
       try {
-        final link = await ref.read(authProvider).createInvite(
-          email: email,
-          inviteeName: name,
-          role: role,
-          warehouseId: _selectedWarehouseId,
-        );
+        final link = await ref
+            .read(authProvider)
+            .createInvite(
+              email: email,
+              inviteeName: name,
+              role: role,
+              warehouseId: _selectedWarehouseId,
+            );
         if (!mounted) return;
         Navigator.pop(context);
         showDialog(
@@ -905,7 +920,7 @@ class _StaffFormSheetState extends ConsumerState<_StaffFormSheet> {
                         onPressed: () {
                           Clipboard.setData(ClipboardData(text: link));
                           AppNotification.showSuccess(
-                            context,
+                            ctx,
                             'Link copied to clipboard!',
                           );
                         },
@@ -1110,7 +1125,9 @@ class _StaffActionSheet extends ConsumerWidget {
               color: Colors.orange,
               onTap: () async {
                 Navigator.pop(context);
-                final link = await ref.read(authProvider).resendInvite(item.invite!.id);
+                final link = await ref
+                    .read(authProvider)
+                    .resendInvite(item.invite!.id);
                 if (context.mounted) {
                   Clipboard.setData(ClipboardData(text: link));
                   AppNotification.showSuccess(

@@ -77,9 +77,12 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
     // Only pre-load the landing tab
     _initializedTabs.add(ref.read(navigationProvider).currentIndex.value);
 
-    _pendingOrdersSub = ref.read(orderServiceProvider).watchPendingOrders().listen((orders) {
-      if (mounted) setState(() => _pendingOrderCount = orders.length);
-    });
+    _pendingOrdersSub = ref
+        .read(orderServiceProvider)
+        .watchPendingOrders()
+        .listen((orders) {
+          if (mounted) setState(() => _pendingOrderCount = orders.length);
+        });
   }
 
   @override
@@ -164,11 +167,11 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
                     t.textTheme.bodySmall?.color ?? t.iconTheme.color!;
 
                 if (isCashier) {
-                  // Cashier nav: POS(1), Stock(2), Orders(3), Cart(9)
+                  // Cashier nav: Stock(2), POS(1), Orders(3), Cart(9)
                   final bool isNavTab = [1, 2, 3, 9].contains(currentIndex);
-                  final int navIndex = currentIndex == 1
+                  final int navIndex = currentIndex == 2
                       ? 0
-                      : (currentIndex == 2
+                      : (currentIndex == 1
                             ? 1
                             : (currentIndex == 3
                                   ? 2
@@ -181,13 +184,13 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
                         : iconColor,
                     unselectedItemColor: iconColor,
                     onTap: (index) {
-                      int indexToSet = 1;
+                      int indexToSet = 2;
                       switch (index) {
                         case 0:
-                          indexToSet = 1;
+                          indexToSet = 2;
                           break;
                         case 1:
-                          indexToSet = 2;
+                          indexToSet = 1;
                           break;
                         case 2:
                           indexToSet = 3;
@@ -209,15 +212,6 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
                     type: BottomNavigationBarType.fixed,
                     items: [
                       BottomNavigationBarItem(
-                        icon: const Icon(Icons.point_of_sale_outlined),
-                        activeIcon: Icon(
-                          isNavTab
-                              ? Icons.point_of_sale
-                              : Icons.point_of_sale_outlined,
-                        ),
-                        label: 'POS',
-                      ),
-                      BottomNavigationBarItem(
                         icon: const Icon(Icons.inventory_2_outlined),
                         activeIcon: Icon(
                           isNavTab
@@ -225,6 +219,15 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
                               : Icons.inventory_2_outlined,
                         ),
                         label: 'Stock',
+                      ),
+                      BottomNavigationBarItem(
+                        icon: const Icon(Icons.point_of_sale_outlined),
+                        activeIcon: Icon(
+                          isNavTab
+                              ? Icons.point_of_sale
+                              : Icons.point_of_sale_outlined,
+                        ),
+                        label: 'POS',
                       ),
                       BottomNavigationBarItem(
                         icon: Badge(
@@ -276,13 +279,13 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
                   );
                 }
 
-                // Manager / CEO nav: Home(0), POS(1), Stock(2), Orders(3), Cart(9)
+                // Manager / CEO nav: Home(0), Stock(2), POS(1), Orders(3), Cart(9)
                 final bool isNavTab = [0, 1, 2, 3, 9].contains(currentIndex);
                 final int navIndex = currentIndex == 0
                     ? 0
-                    : (currentIndex == 1
+                    : (currentIndex == 2
                           ? 1
-                          : (currentIndex == 2
+                          : (currentIndex == 1
                                 ? 2
                                 : (currentIndex == 3
                                       ? 3
@@ -301,10 +304,10 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
                         indexToSet = 0;
                         break;
                       case 1:
-                        indexToSet = 1;
+                        indexToSet = 2;
                         break;
                       case 2:
-                        indexToSet = 2;
+                        indexToSet = 1;
                         break;
                       case 3:
                         indexToSet = 3;
@@ -333,15 +336,6 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
                       label: 'Home',
                     ),
                     BottomNavigationBarItem(
-                      icon: const Icon(Icons.point_of_sale_outlined),
-                      activeIcon: Icon(
-                        isNavTab
-                            ? Icons.point_of_sale
-                            : Icons.point_of_sale_outlined,
-                      ),
-                      label: 'POS',
-                    ),
-                    BottomNavigationBarItem(
                       icon: const Icon(Icons.inventory_2_outlined),
                       activeIcon: Icon(
                         isNavTab
@@ -349,6 +343,15 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
                             : Icons.inventory_2_outlined,
                       ),
                       label: 'Stock',
+                    ),
+                    BottomNavigationBarItem(
+                      icon: const Icon(Icons.point_of_sale_outlined),
+                      activeIcon: Icon(
+                        isNavTab
+                            ? Icons.point_of_sale
+                            : Icons.point_of_sale_outlined,
+                      ),
+                      label: 'POS',
                     ),
                     BottomNavigationBarItem(
                       icon: Badge(

@@ -56,6 +56,10 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> with _$CatalogDaoMixin {
     int? distributorPriceKobo,
     int? emptyCrateValueKobo,
     int? categoryId,
+    String? unit,
+    bool? trackEmpties,
+    int? lowStockThreshold,
+    String? imagePath,
   }) => (update(products)..where((t) => t.id.equals(productId))).write(
     ProductsCompanion(
       name: Value(name),
@@ -68,8 +72,27 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> with _$CatalogDaoMixin {
       distributorPriceKobo: Value(distributorPriceKobo),
       emptyCrateValueKobo: Value(emptyCrateValueKobo ?? 0),
       categoryId: categoryId != null ? Value(categoryId) : const Value.absent(),
+      unit: unit != null ? Value(unit) : const Value.absent(),
+      trackEmpties: trackEmpties != null
+          ? Value(trackEmpties)
+          : const Value.absent(),
+      lowStockThreshold: lowStockThreshold != null
+          ? Value(lowStockThreshold)
+          : const Value.absent(),
+      imagePath: imagePath != null ? Value(imagePath) : const Value.absent(),
     ),
   );
+
+  /// Returns unique unit values found in the products table.
+  Future<List<String>> getUniqueProductUnits() async {
+    final query = selectOnly(products, distinct: true)
+      ..addColumns([products.unit]);
+    final rows = await query.get();
+    return rows
+        .map((row) => row.read(products.unit))
+        .whereType<String>()
+        .toList();
+  }
 
   Future<void> updateMonthlyTarget(int productId, int targetUnits) =>
       (update(products)..where((t) => t.id.equals(productId))).write(
@@ -91,6 +114,12 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> with _$CatalogDaoMixin {
     int valueKobo,
   ) => (update(products)..where((t) => t.manufacturerId.equals(manufacturerId)))
       .write(ProductsCompanion(emptyCrateValueKobo: Value(valueKobo)));
+
+  /// Toggles empty-crate tracking for a single product.
+  Future<void> updateTrackEmpties(int productId, bool value) =>
+      (update(products)..where((t) => t.id.equals(productId))).write(
+        ProductsCompanion(trackEmpties: Value(value)),
+      );
 }
 
 @DriftAccessor(
@@ -300,7 +329,6 @@ class InventoryDao extends DatabaseAccessor<AppDatabase>
               totalStock: row.read(qty) ?? 0,
             ),
           )
-          .where((p) => p.totalStock > 0)
           .toList(),
     );
   }
@@ -379,6 +407,21 @@ class InventoryDao extends DatabaseAccessor<AppDatabase>
           ),
         );
       }
+
+      // Record in stock ledger for audit trail
+      await db.stockLedgerDao.insertTransaction(
+        StockTransactionsCompanion.insert(
+          transactionId:
+              '${DateTime.now().microsecondsSinceEpoch}-${Random().nextInt(10000)}',
+          productId: productId,
+          locationId: warehouseId,
+          quantityDelta: delta,
+          movementType: 'adjustment',
+          referenceId: Value(note),
+          performedBy: staffId ?? 0,
+          createdAt: Value(DateTime.now()),
+        ),
+      );
     });
   }
 
@@ -684,10 +727,14 @@ class OrdersDao extends DatabaseAccessor<AppDatabase> with _$OrdersDaoMixin {
         ),
       );
 
-      // 2. Deduct stock and add empty crates for every item in the order
+      // 2. Deduct stock for every item in the order.
+      // Empty-crate accounting is handled by `CrateReturnModal._confirm()`
+      // before this method is called, so we no longer add empty crates here
+      // (doing so would double-count).
       final items = await (select(
         orderItems,
       )..where((t) => t.orderId.equals(orderId))).get();
+      final now = DateTime.now();
       for (final item in items) {
         await db.inventoryDao.deductStock(
           item.productId,
@@ -695,42 +742,86 @@ class OrdersDao extends DatabaseAccessor<AppDatabase> with _$OrdersDaoMixin {
           item.quantity,
         );
 
-        // Crate products: returning bottles creates empty crates for the manufacturer
-        final productWithCat = await (select(products).join([
-          leftOuterJoin(
-            categories,
-            categories.id.equalsExp(products.categoryId),
+        // Record sale in stock ledger for audit trail
+        await db.stockLedgerDao.insertTransaction(
+          StockTransactionsCompanion.insert(
+            transactionId:
+                '${now.microsecondsSinceEpoch}-${Random().nextInt(10000)}-${item.productId}',
+            productId: item.productId,
+            locationId: item.warehouseId,
+            quantityDelta: -item.quantity,
+            movementType: 'sale',
+            referenceId: Value(orderId.toString()),
+            performedBy: staffId,
+            createdAt: Value(now),
           ),
-        ])..where(products.id.equals(item.productId))).getSingleOrNull();
-
-        final p = productWithCat?.readTable(products);
-        final c = productWithCat?.readTableOrNull(categories);
-
-        if (c != null &&
-            [
-              'Alcoholic',
-              'Non-Alcoholic',
-              'Energy Drinks',
-              'Wines',
-              'Spirits',
-            ].contains(c.name)) {
-          await db.inventoryDao.addEmptyCrates(
-            p!.manufacturerId!,
-            item.quantity,
-          );
-        }
+        );
       }
     });
   }
 
   Future<void> markCancelled(int orderId, String reason, int staffId) async {
-    await (update(orders)..where((t) => t.id.equals(orderId))).write(
-      OrdersCompanion(
-        status: const Value('cancelled'),
-        cancelledAt: Value(DateTime.now()),
-        cancellationReason: Value(reason),
-      ),
-    );
+    await transaction(() async {
+      // Check if the order was completed (stock already deducted)
+      final order = await (select(orders)
+            ..where((t) => t.id.equals(orderId)))
+          .getSingleOrNull();
+
+      await (update(orders)..where((t) => t.id.equals(orderId))).write(
+        OrdersCompanion(
+          status: const Value('cancelled'),
+          cancelledAt: Value(DateTime.now()),
+          cancellationReason: Value(reason),
+        ),
+      );
+
+      // If order was completed, reverse stock deductions and record returns
+      if (order != null && order.status == 'completed') {
+        final items = await (select(orderItems)
+              ..where((t) => t.orderId.equals(orderId)))
+            .get();
+        final now = DateTime.now();
+        for (final item in items) {
+          // Add stock back (direct inventory update — not adjustStock, to
+          // avoid generating a duplicate 'adjustment' ledger entry)
+          final existing = await (select(db.inventory)
+                ..where((t) =>
+                    t.productId.equals(item.productId) &
+                    t.warehouseId.equals(item.warehouseId)))
+              .getSingleOrNull();
+          if (existing != null) {
+            final newQty =
+                (existing.quantity + item.quantity).clamp(0, 999999);
+            await (update(db.inventory)
+                  ..where((t) => t.id.equals(existing.id)))
+                .write(InventoryCompanion(quantity: Value(newQty)));
+          } else {
+            await into(db.inventory).insert(
+              InventoryCompanion.insert(
+                productId: item.productId,
+                warehouseId: item.warehouseId,
+                quantity: Value(item.quantity),
+              ),
+            );
+          }
+
+          // Record return in stock ledger
+          await db.stockLedgerDao.insertTransaction(
+            StockTransactionsCompanion.insert(
+              transactionId:
+                  '${now.microsecondsSinceEpoch}-${Random().nextInt(10000)}-ret-${item.productId}',
+              productId: item.productId,
+              locationId: item.warehouseId,
+              quantityDelta: item.quantity,
+              movementType: 'return',
+              referenceId: Value(orderId.toString()),
+              performedBy: staffId,
+              createdAt: Value(now),
+            ),
+          );
+        }
+      }
+    });
   }
 
   Future<void> assignRider(int orderId, String riderName) async {
@@ -746,14 +837,17 @@ class OrdersDao extends DatabaseAccessor<AppDatabase> with _$OrdersDaoMixin {
     required int amountPaidKobo,
     required int totalAmountKobo,
     required int staffId,
-    int? warehouseId,
   }) async {
     return transaction(() async {
       // 1. Generate Order Number
       final orderNo = await generateOrderNumber();
       final orderWithNo = order.copyWith(
         orderNumber: Value(orderNo),
-        warehouseId: Value(warehouseId),
+        // If customerId is -1 (Walk-in), store as null in DB to avoid FK issues
+        // and ensure watchAllOrdersWithItems works correctly.
+        customerId: (order.customerId.value == -1)
+            ? const Value(null)
+            : order.customerId,
       );
 
       // 2. Insert Order
@@ -1130,6 +1224,27 @@ class CustomersDao extends DatabaseAccessor<AppDatabase>
     }
   }
 
+  /// Records returned crates keyed by manufacturer (rather than crate group).
+  /// Internally uses the existing CustomerCrateBalances table with a sentinel
+  /// `crateGroupId = -manufacturerId` (negative ids never collide with real
+  /// CrateGroup primary keys, which are positive auto-increments).
+  /// A negative balance means the customer has returned more than they owe.
+  Future<void> recordCrateReturnByManufacturer(
+    int customerId,
+    int manufacturerId,
+    int returnedQty,
+  ) async {
+    final sentinel = -manufacturerId;
+    // Sentinel IDs are negative and don't exist in CrateGroups, so we
+    // temporarily disable FK enforcement for this upsert only.
+    await customStatement('PRAGMA foreign_keys = OFF');
+    try {
+      await recordCrateReturn(customerId, sentinel, returnedQty);
+    } finally {
+      await customStatement('PRAGMA foreign_keys = ON');
+    }
+  }
+
   Stream<Map<String, int>> watchCrateBalance(int customerId) =>
       Stream.value({});
 
@@ -1343,7 +1458,7 @@ class NotificationsDao extends DatabaseAccessor<AppDatabase>
   Future<void> clearAll() => delete(notifications).go();
 }
 
-@DriftAccessor(tables: [StockTransactions, Products])
+@DriftAccessor(tables: [StockTransactions, Products, Users, Warehouses, Inventory])
 class StockLedgerDao extends DatabaseAccessor<AppDatabase>
     with _$StockLedgerDaoMixin {
   StockLedgerDao(super.db);
@@ -1378,6 +1493,228 @@ class StockLedgerDao extends DatabaseAccessor<AppDatabase>
           ..where((t) => t.productId.equals(productId))
           ..orderBy([(t) => OrderingTerm.desc(t.createdAt)]))
         .watch();
+  }
+
+  /// Streams all stock transactions with joined product/user/warehouse names.
+  /// Filters by warehouse, date range, and movement type.
+  Stream<List<StockTransactionWithDetails>> watchAllTransactionsFiltered({
+    int? warehouseId,
+    DateTime? startDate,
+    DateTime? endDate,
+    String? movementType,
+  }) {
+    final u = alias(users, 'u');
+    final w = alias(warehouses, 'w');
+
+    final query = select(stockTransactions).join([
+      innerJoin(products, products.id.equalsExp(stockTransactions.productId)),
+      innerJoin(u, u.id.equalsExp(stockTransactions.performedBy)),
+      innerJoin(w, w.id.equalsExp(stockTransactions.locationId)),
+    ]);
+
+    if (warehouseId != null) {
+      query.where(stockTransactions.locationId.equals(warehouseId));
+    }
+    if (startDate != null) {
+      query.where(stockTransactions.createdAt
+          .isBiggerOrEqualValue(startDate));
+    }
+    if (endDate != null) {
+      query.where(stockTransactions.createdAt.isSmallerOrEqualValue(endDate));
+    }
+    if (movementType != null) {
+      query.where(stockTransactions.movementType.equals(movementType));
+    }
+
+    query.orderBy([OrderingTerm.desc(stockTransactions.createdAt)]);
+
+    return query.watch().map((rows) => rows.map((row) {
+          final tx = row.readTable(stockTransactions);
+          final product = row.readTable(products);
+          final user = row.readTable(u);
+          final warehouse = row.readTable(w);
+          return StockTransactionWithDetails(
+            transactionId: tx.transactionId,
+            productId: product.id,
+            productName: product.name,
+            movementType: tx.movementType,
+            quantityDelta: tx.quantityDelta,
+            performedByName: user.name,
+            locationId: tx.locationId,
+            warehouseName: warehouse.name,
+            referenceId: tx.referenceId,
+            createdAt: tx.createdAt,
+            unitPriceKobo: product.retailPriceKobo,
+          );
+        }).toList());
+  }
+
+  /// One-shot version of [watchAllTransactionsFiltered].
+  Future<List<StockTransactionWithDetails>> getTransactionsFiltered({
+    int? warehouseId,
+    DateTime? startDate,
+    DateTime? endDate,
+    String? movementType,
+  }) {
+    final u = alias(users, 'u');
+    final w = alias(warehouses, 'w');
+
+    final query = select(stockTransactions).join([
+      innerJoin(products, products.id.equalsExp(stockTransactions.productId)),
+      innerJoin(u, u.id.equalsExp(stockTransactions.performedBy)),
+      innerJoin(w, w.id.equalsExp(stockTransactions.locationId)),
+    ]);
+
+    if (warehouseId != null) {
+      query.where(stockTransactions.locationId.equals(warehouseId));
+    }
+    if (startDate != null) {
+      query.where(stockTransactions.createdAt
+          .isBiggerOrEqualValue(startDate));
+    }
+    if (endDate != null) {
+      query.where(stockTransactions.createdAt.isSmallerOrEqualValue(endDate));
+    }
+    if (movementType != null) {
+      query.where(stockTransactions.movementType.equals(movementType));
+    }
+
+    query.orderBy([OrderingTerm.desc(stockTransactions.createdAt)]);
+
+    return query.get().then((rows) => rows.map((row) {
+          final tx = row.readTable(stockTransactions);
+          final product = row.readTable(products);
+          final user = row.readTable(u);
+          final warehouse = row.readTable(w);
+          return StockTransactionWithDetails(
+            transactionId: tx.transactionId,
+            productId: product.id,
+            productName: product.name,
+            movementType: tx.movementType,
+            quantityDelta: tx.quantityDelta,
+            performedByName: user.name,
+            locationId: tx.locationId,
+            warehouseName: warehouse.name,
+            referenceId: tx.referenceId,
+            createdAt: tx.createdAt,
+            unitPriceKobo: product.retailPriceKobo,
+          );
+        }).toList());
+  }
+
+  /// Returns period summary: total inbound, total outbound, adjustment count.
+  Future<PeriodStockSummary> getPeriodSummary({
+    int? warehouseId,
+    DateTime? startDate,
+    DateTime? endDate,
+  }) async {
+    final txs = await getTransactionsFiltered(
+      warehouseId: warehouseId,
+      startDate: startDate,
+      endDate: endDate,
+    );
+    int totalIn = 0;
+    int totalOut = 0;
+    int adjustmentCount = 0;
+    int flaggedCount = 0;
+    for (final tx in txs) {
+      if (tx.quantityDelta > 0) {
+        totalIn += tx.quantityDelta;
+      } else {
+        totalOut += tx.quantityDelta.abs();
+      }
+      if (tx.movementType == 'adjustment') {
+        adjustmentCount++;
+        flaggedCount++;
+      }
+    }
+    return PeriodStockSummary(
+      totalIn: totalIn,
+      totalOut: totalOut,
+      adjustmentCount: adjustmentCount,
+      flaggedCount: flaggedCount,
+      transactionCount: txs.length,
+    );
+  }
+
+  /// Returns all transactions for a product ordered by date ASC with running balance.
+  Future<List<StockTransactionWithBalance>> getRunningBalanceForProduct(
+    int productId, {
+    int? warehouseId,
+  }) async {
+    final query = select(stockTransactions)
+      ..where((t) => t.productId.equals(productId))
+      ..orderBy([(t) => OrderingTerm.asc(t.createdAt)]);
+    if (warehouseId != null) {
+      query.where((t) => t.locationId.equals(warehouseId));
+    }
+    final txs = await query.get();
+    int runningBalance = 0;
+    final result = <StockTransactionWithBalance>[];
+    for (final tx in txs) {
+      final previous = runningBalance;
+      runningBalance += tx.quantityDelta;
+      result.add(StockTransactionWithBalance(
+        transaction: tx,
+        previousBalance: previous,
+        newBalance: runningBalance,
+        isFlagged: runningBalance < 0,
+      ));
+    }
+    return result;
+  }
+
+  /// Computes the period reconciliation for all products in a warehouse.
+  Future<PeriodReconciliation> getPeriodReconciliation({
+    required int warehouseId,
+    required DateTime startDate,
+    required DateTime endDate,
+  }) async {
+    // Opening stock: sum of all deltas before startDate for this warehouse
+    final openingQuery = selectOnly(stockTransactions)
+      ..addColumns([stockTransactions.quantityDelta.sum()])
+      ..where(stockTransactions.locationId.equals(warehouseId) &
+          stockTransactions.createdAt.isSmallerThanValue(startDate));
+    final openingResult = await openingQuery
+        .map((row) => row.read(stockTransactions.quantityDelta.sum()) ?? 0)
+        .getSingleOrNull();
+    final openingStock = openingResult ?? 0;
+
+    // Period movements
+    final periodTxs = await getTransactionsFiltered(
+      warehouseId: warehouseId,
+      startDate: startDate,
+      endDate: endDate,
+    );
+    int stockIn = 0;
+    int stockOut = 0;
+    for (final tx in periodTxs) {
+      if (tx.quantityDelta > 0) {
+        stockIn += tx.quantityDelta;
+      } else {
+        stockOut += tx.quantityDelta.abs();
+      }
+    }
+
+    final expectedClosing = openingStock + stockIn - stockOut;
+
+    // Actual closing: sum of all inventory rows for this warehouse
+    final actualQuery = selectOnly(inventory)
+      ..addColumns([inventory.quantity.sum()])
+      ..where(inventory.warehouseId.equals(warehouseId));
+    final actualResult = await actualQuery
+        .map((row) => row.read(inventory.quantity.sum()) ?? 0)
+        .getSingleOrNull();
+    final actualClosing = actualResult ?? 0;
+
+    return PeriodReconciliation(
+      openingStock: openingStock,
+      stockIn: stockIn,
+      stockOut: stockOut,
+      expectedClosing: expectedClosing,
+      actualClosing: actualClosing,
+      variance: actualClosing - expectedClosing,
+    );
   }
 
   Future<List<ProductBelowROP>> getProductsBelowROP(int locationId) async {
@@ -1441,6 +1778,112 @@ class ProductBelowROP {
     required this.currentStock,
     required this.rop,
   });
+}
+
+class StockTransactionWithDetails {
+  final String transactionId;
+  final int productId;
+  final String productName;
+  final String movementType;
+  final int quantityDelta;
+  final String performedByName;
+  final int locationId;
+  final String? warehouseName;
+  final String? referenceId;
+  final DateTime createdAt;
+  final int unitPriceKobo;
+
+  StockTransactionWithDetails({
+    required this.transactionId,
+    required this.productId,
+    required this.productName,
+    required this.movementType,
+    required this.quantityDelta,
+    required this.performedByName,
+    required this.locationId,
+    this.warehouseName,
+    this.referenceId,
+    required this.createdAt,
+    required this.unitPriceKobo,
+  });
+
+  int get valueKobo => quantityDelta.abs() * unitPriceKobo;
+  bool get isInflow => quantityDelta > 0;
+  bool get isOutflow => quantityDelta < 0;
+  bool get isAdjustment => movementType == 'adjustment';
+
+  String get movementLabel {
+    switch (movementType) {
+      case 'sale':
+        return 'Sale';
+      case 'return':
+        return 'Return';
+      case 'damage':
+        return 'Damaged';
+      case 'transfer_out':
+        return 'Transfer Out';
+      case 'transfer_in':
+        return 'Transfer In';
+      case 'purchase_received':
+        return 'Stock Received';
+      case 'adjustment':
+        return 'Adjustment';
+      case 'transfer_cancelled':
+        return 'Transfer Cancelled';
+      default:
+        return movementType;
+    }
+  }
+}
+
+class StockTransactionWithBalance {
+  final StockTransactionData transaction;
+  final int previousBalance;
+  final int newBalance;
+  final bool isFlagged;
+
+  StockTransactionWithBalance({
+    required this.transaction,
+    required this.previousBalance,
+    required this.newBalance,
+    required this.isFlagged,
+  });
+}
+
+class PeriodStockSummary {
+  final int totalIn;
+  final int totalOut;
+  final int adjustmentCount;
+  final int flaggedCount;
+  final int transactionCount;
+
+  PeriodStockSummary({
+    required this.totalIn,
+    required this.totalOut,
+    required this.adjustmentCount,
+    required this.flaggedCount,
+    required this.transactionCount,
+  });
+}
+
+class PeriodReconciliation {
+  final int openingStock;
+  final int stockIn;
+  final int stockOut;
+  final int expectedClosing;
+  final int actualClosing;
+  final int variance;
+
+  PeriodReconciliation({
+    required this.openingStock,
+    required this.stockIn,
+    required this.stockOut,
+    required this.expectedClosing,
+    required this.actualClosing,
+    required this.variance,
+  });
+
+  bool get hasVariance => variance != 0;
 }
 
 @DriftAccessor(tables: [StockTransfers, StockTransactions])

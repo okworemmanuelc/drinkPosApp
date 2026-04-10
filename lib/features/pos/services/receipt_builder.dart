@@ -1,6 +1,7 @@
 import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart';
 
 import 'package:reebaplus_pos/core/utils/number_format.dart'; // assuming fmtNumber is exported here
+import 'package:reebaplus_pos/core/utils/product_name.dart';
 import 'package:reebaplus_pos/core/utils/stock_calculator.dart';
 
 class ThermalReceiptService {
@@ -23,6 +24,7 @@ class ThermalReceiptService {
     String? deliveryRef,
     String? orderStatus,
     double? refundAmount,
+    String? branchName,
   }) async {
     // Generate profile for 58mm printer
     final profile = await CapabilityProfile.load();
@@ -82,8 +84,18 @@ class ThermalReceiptService {
       ),
     );
     bytes += generator.text(
-      'Wholesale Drinks & POS', // Optional tagline
+      'Wholesale Drinks & POS',
       styles: const PosStyles(align: PosAlign.center),
+    );
+    if (branchName != null && branchName.isNotEmpty) {
+      bytes += generator.text(
+        'Branch: $branchName',
+        styles: const PosStyles(align: PosAlign.center),
+      );
+    }
+    bytes += generator.text(
+      deliveryRef != null ? 'DELIVERY RECEIPT' : 'SALES RECEIPT',
+      styles: const PosStyles(align: PosAlign.center, bold: true),
     );
     bytes += generator.hr(); // "--------------------------------"
 
@@ -115,7 +127,10 @@ class ThermalReceiptService {
 
     bytes += generator.text('Order #$orderId');
     if (deliveryRef != null) {
-      bytes += generator.text('Delivery Ref: $deliveryRef', styles: const PosStyles(bold: true));
+      bytes += generator.text(
+        'Delivery Ref: $deliveryRef',
+        styles: const PosStyles(bold: true),
+      );
     }
     bytes += generator.text('Date: $dateStr');
     if (reprintDate != null) {
@@ -128,7 +143,11 @@ class ThermalReceiptService {
     // --- 3. ITEMS LIST ---
     // Single line per item: [qty]x [product name]         [price]
     for (var item in cart) {
-      final String name = item['name'].toString();
+      final String name = productDisplayName(
+        item['name'].toString(),
+        item['size'] as String?,
+        unit: item['unit'] as String?,
+      );
       final double qty = (item['qty'] as num).toDouble();
       final double price = (item['price'] as num).toDouble();
       final double lineTotal = stockValue(price, qty);
@@ -193,24 +212,11 @@ class ThermalReceiptService {
       styles: const PosStyles(bold: true),
     );
 
-    if (walletBalance != null) {
-      bytes += _buildTwoColumnRow(
-        generator,
-        'Amount Paid:',
-        formatCurrency(cashReceived ?? total).replaceAll('₦', 'N'),
-      );
-      bytes += _buildTwoColumnRow(
-        generator,
-        'Wallet Balance:',
-        formatCurrency(walletBalance).replaceAll('₦', 'N'),
-      );
-    } else {
-      bytes += _buildTwoColumnRow(
-        generator,
-        'Amount Paid:',
-        formatCurrency(cashReceived ?? total).replaceAll('₦', 'N'),
-      );
-    }
+    bytes += _buildTwoColumnRow(
+      generator,
+      'Amount Paid:',
+      formatCurrency(cashReceived ?? total).replaceAll('₦', 'N'),
+    );
 
     bytes += generator.text('');
 
