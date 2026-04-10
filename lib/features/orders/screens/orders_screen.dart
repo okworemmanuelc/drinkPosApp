@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -7,6 +8,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:screenshot/screenshot.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:print_bluetooth_thermal/print_bluetooth_thermal.dart';
 
 import 'package:reebaplus_pos/core/theme/colors.dart';
 
@@ -42,7 +44,16 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final ScreenshotController _screenshotCtrl = ScreenshotController();
+
+  // Date filters
   String _completedFilter = 'All Time';
+  String _cancelledFilter = 'All Time';
+
+  // Search
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+  Timer? _searchDebounce;
+
   Color get _bg => Theme.of(context).scaffoldBackgroundColor;
   Color get surfaceCol => Theme.of(context).colorScheme.surface;
   Color get textCol => Theme.of(context).colorScheme.onSurface;
@@ -64,67 +75,121 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
   @override
   void dispose() {
     _tabController.dispose();
+    _searchController.dispose();
+    _searchDebounce?.cancel();
     super.dispose();
+  }
+
+  void _onSearchChanged(String value) {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 300), () {
+      setState(() => _searchQuery = value.trim().toLowerCase());
+    });
+  }
+
+  /// Resolves a warehouseId to its branch name.
+  Future<String?> _resolveBranchName(int? warehouseId) async {
+    if (warehouseId == null) return null;
+    final db = ref.read(databaseProvider);
+    final warehouses = await db.select(db.warehouses).get();
+    return warehouses
+        .where((w) => w.id == warehouseId)
+        .map((w) => w.name)
+        .firstOrNull;
+  }
+
+  List<OrderWithItems> _applySearch(List<OrderWithItems> list) {
+    if (_searchQuery.isEmpty) return list;
+    return list.where((o) {
+      final name = (o.customer?.name ?? 'walk-in').toLowerCase();
+      final orderNum = o.order.orderNumber.toLowerCase();
+      final orderId = o.order.id.toString();
+      return name.contains(_searchQuery) ||
+          orderNum.contains(_searchQuery) ||
+          orderId.contains(_searchQuery);
+    }).toList();
   }
 
   @override
   Widget build(BuildContext context) {
     return SharedScaffold(
-          activeRoute: 'orders',
-          backgroundColor: _bg,
-          appBar: _buildAppBar(context),
-          body: Builder(
-            builder: (context) {
-              final ordersAsync = ref.watch(allOrdersProvider);
+      activeRoute: 'orders',
+      backgroundColor: _bg,
+      appBar: _buildAppBar(context),
+      body: Builder(
+        builder: (context) {
+          final ordersAsync = ref.watch(allOrdersProvider);
 
-              return ordersAsync.when(
-                loading: () => const SingleChildScrollView(
-                  child: ShimmerOrderList(count: 7),
-                ),
-                error: (e, _) => Center(child: Text('Error: $e')),
-                data: (allOrdersWithItems) {
-              final pending = allOrdersWithItems
-                  .where((o) => o.order.status == 'pending')
-                  .toList();
-
-              // Apply date filters for Completed
+          return ordersAsync.when(
+            loading: () =>
+                const SingleChildScrollView(child: ShimmerOrderList(count: 7)),
+            error: (e, _) => Center(child: Text('Error: $e')),
+            data: (allOrdersWithItems) {
               final now = DateTime.now();
+
+              final pending = _applySearch(
+                allOrdersWithItems
+                    .where((o) => o.order.status == 'pending')
+                    .toList(),
+              );
+
               final separatedCompleted = allOrdersWithItems
                   .where((o) => o.order.status == 'completed')
                   .toList();
+              final completed = _applySearch(
+                separatedCompleted.where((o) {
+                  if (_completedFilter == 'All Time') return true;
+                  final t = o.order.completedAt ?? o.order.createdAt;
+                  final diff = now.difference(t);
+                  if (_completedFilter == 'Day') {
+                    return diff.inDays == 0 && now.day == t.day;
+                  }
+                  if (_completedFilter == 'Week') return diff.inDays <= 7;
+                  if (_completedFilter == 'Month') return diff.inDays <= 30;
+                  if (_completedFilter == 'Year') return diff.inDays <= 365;
+                  return true;
+                }).toList(),
+              );
 
-              final completed = separatedCompleted.where((o) {
-                if (_completedFilter == 'All Time') return true;
-                final t = o.order.completedAt ?? o.order.createdAt;
-                final diff = now.difference(t);
-                if (_completedFilter == 'Day') {
-                  return diff.inDays == 0 && now.day == t.day;
-                }
-                if (_completedFilter == 'Week') return diff.inDays <= 7;
-                if (_completedFilter == 'Month') return diff.inDays <= 30;
-                if (_completedFilter == 'Year') return diff.inDays <= 365;
-                if (_completedFilter == 'To Date') return true;
-                return true;
-              }).toList();
-
-              final cancelled = allOrdersWithItems
+              final separatedCancelled = allOrdersWithItems
                   .where((o) => o.order.status == 'cancelled')
                   .toList();
-
-              return TabBarView(
-                controller: _tabController,
-                children: [
-                  _buildOrderList(context, pending, status: 'pending'),
-                  _buildCompletedTab(context, completed),
-                  _buildOrderList(context, cancelled, status: 'cancelled'),
-                ],
+              final cancelled = _applySearch(
+                separatedCancelled.where((o) {
+                  if (_cancelledFilter == 'All Time') return true;
+                  final t = o.order.cancelledAt ?? o.order.createdAt;
+                  final diff = now.difference(t);
+                  if (_cancelledFilter == 'Day') {
+                    return diff.inDays == 0 && now.day == t.day;
+                  }
+                  if (_cancelledFilter == 'Week') return diff.inDays <= 7;
+                  if (_cancelledFilter == 'Month') return diff.inDays <= 30;
+                  if (_cancelledFilter == 'Year') return diff.inDays <= 365;
+                  return true;
+                }).toList(),
               );
-                },
+
+              return NestedScrollView(
+                headerSliverBuilder: (context, innerBoxIsScrolled) => [
+                  SliverToBoxAdapter(child: _buildTabBar(context)),
+                ],
+                body: TabBarView(
+                  controller: _tabController,
+                  children: [
+                    _buildPendingTab(context, pending),
+                    _buildCompletedTab(context, completed),
+                    _buildCancelledTab(context, cancelled),
+                  ],
+                ),
               );
             },
-          ),
+          );
+        },
+      ),
     );
   }
+
+  // ─────────────────────────── APP BAR ────────────────────────────────────
 
   PreferredSizeWidget _buildAppBar(BuildContext context) {
     return AppBar(
@@ -139,7 +204,13 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
       ),
       centerTitle: true,
       actions: const [NotificationBell(), SizedBox(width: 8)],
-      bottom: TabBar(
+    );
+  }
+
+  Widget _buildTabBar(BuildContext context) {
+    return Material(
+      color: surfaceCol,
+      child: TabBar(
         controller: _tabController,
         labelColor: Theme.of(context).colorScheme.primary,
         unselectedLabelColor: subtextCol,
@@ -161,16 +232,256 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
     );
   }
 
-  Widget _buildCompletedTab(BuildContext context, List<OrderWithItems> list) {
-    return Column(
-      children: [
-        _buildFilterChips(context),
-        Expanded(child: _buildOrderList(context, list, status: 'completed')),
+  // ─────────────────────────── SEARCH BAR ─────────────────────────────────
+
+  Widget _buildSearchBar(BuildContext context) {
+    return Container(
+      color: surfaceCol,
+      padding: EdgeInsets.fromLTRB(
+        context.getRSize(16),
+        context.getRSize(10),
+        context.getRSize(16),
+        context.getRSize(10),
+      ),
+      child: TextField(
+        controller: _searchController,
+        onChanged: _onSearchChanged,
+        style: TextStyle(
+          color: textCol,
+          fontSize: context.getRFontSize(14),
+        ),
+        decoration: InputDecoration(
+          hintText: 'Search by customer or order #',
+          hintStyle: TextStyle(
+            color: subtextCol,
+            fontSize: context.getRFontSize(13),
+          ),
+          prefixIcon: Icon(
+            FontAwesomeIcons.magnifyingGlass,
+            size: context.getRSize(15),
+            color: subtextCol,
+          ),
+          suffixIcon: _searchQuery.isNotEmpty
+              ? GestureDetector(
+                  onTap: () {
+                    _searchController.clear();
+                    setState(() => _searchQuery = '');
+                  },
+                  child: Icon(
+                    FontAwesomeIcons.xmark,
+                    size: context.getRSize(14),
+                    color: subtextCol,
+                  ),
+                )
+              : null,
+          filled: true,
+          fillColor: _bg,
+          contentPadding: EdgeInsets.symmetric(
+            horizontal: context.getRSize(16),
+            vertical: context.getRSize(10),
+          ),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: borderCol),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: borderCol),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(
+              color: Theme.of(context).colorScheme.primary,
+              width: 1.5,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ─────────────────────────── TABS ───────────────────────────────────────
+
+  Widget _buildPendingTab(BuildContext context, List<OrderWithItems> list) {
+    // Compute summary stats
+    final totalValue = list.fold<int>(
+      0,
+      (sum, o) => sum + o.order.netAmountKobo,
+    );
+    final totalOutstanding = list.fold<int>(
+      0,
+      (sum, o) =>
+          sum +
+          (o.order.netAmountKobo - o.order.amountPaidKobo).clamp(0, 999999999),
+    );
+    final unassigned =
+        list.where((o) => o.order.riderName == 'Pick-up Order').length;
+
+    final stats = [
+      _StatItem(
+        label: 'Pending',
+        value: '${list.length}',
+        color: Theme.of(context).colorScheme.primary,
+      ),
+      _StatItem(
+        label: 'Total Value',
+        value: formatCurrency(totalValue / 100.0),
+        color: Theme.of(context).colorScheme.primary,
+      ),
+      _StatItem(
+        label: 'Outstanding',
+        value: formatCurrency(totalOutstanding / 100.0),
+        color: danger,
+      ),
+      _StatItem(
+        label: 'Pick-up',
+        value: '$unassigned',
+        color: subtextCol,
+      ),
+    ];
+
+    final searchBarHeight = context.getRSize(64.0);
+    return CustomScrollView(
+      slivers: [
+        SliverToBoxAdapter(child: _SummaryStrip(stats: stats)),
+        SliverPersistentHeader(
+          pinned: true,
+          delegate: _PinnedHeaderDelegate(
+            height: searchBarHeight,
+            child: _buildSearchBar(context),
+          ),
+        ),
+        ..._buildOrderSlivers(context, list, status: 'pending'),
       ],
     );
   }
 
-  Widget _buildFilterChips(BuildContext context) {
+  Widget _buildCompletedTab(BuildContext context, List<OrderWithItems> list) {
+    final totalRevenue = list.fold<int>(
+      0,
+      (sum, o) => sum + o.order.netAmountKobo,
+    );
+    final totalCollected = list.fold<int>(
+      0,
+      (sum, o) => sum + o.order.amountPaidKobo,
+    );
+    final crateDeposits = list.fold<int>(
+      0,
+      (sum, o) => sum + o.order.crateDepositPaidKobo,
+    );
+
+    final stats = [
+      _StatItem(
+        label: 'Completed',
+        value: '${list.length}',
+        color: success,
+      ),
+      _StatItem(
+        label: 'Revenue',
+        value: formatCurrency(totalRevenue / 100.0),
+        color: Theme.of(context).colorScheme.primary,
+      ),
+      _StatItem(
+        label: 'Collected',
+        value: formatCurrency(totalCollected / 100.0),
+        color: success,
+      ),
+      _StatItem(
+        label: 'Crate Deposits',
+        value: formatCurrency(crateDeposits / 100.0),
+        color: subtextCol,
+      ),
+    ];
+
+    final searchBarHeight = context.getRSize(64.0);
+    final filterChipHeight = context.getRSize(56.0);
+    return CustomScrollView(
+      slivers: [
+        SliverToBoxAdapter(child: _SummaryStrip(stats: stats)),
+        SliverPersistentHeader(
+          pinned: true,
+          delegate: _PinnedHeaderDelegate(
+            height: searchBarHeight,
+            child: _buildSearchBar(context),
+          ),
+        ),
+        SliverPersistentHeader(
+          pinned: true,
+          delegate: _PinnedHeaderDelegate(
+            height: filterChipHeight,
+            child: _buildFilterChips(
+              context,
+              selected: _completedFilter,
+              onSelect: (f) => setState(() => _completedFilter = f),
+            ),
+          ),
+        ),
+        ..._buildOrderSlivers(context, list, status: 'completed'),
+      ],
+    );
+  }
+
+  Widget _buildCancelledTab(BuildContext context, List<OrderWithItems> list) {
+    final valueForfeited = list.fold<int>(
+      0,
+      (sum, o) => sum + o.order.netAmountKobo,
+    );
+    final refundsIssued =
+        list.where((o) => o.order.status == 'refunded').length;
+
+    final stats = [
+      _StatItem(
+        label: 'Cancelled',
+        value: '${list.length}',
+        color: danger,
+      ),
+      _StatItem(
+        label: 'Value Forfeited',
+        value: formatCurrency(valueForfeited / 100.0),
+        color: danger,
+      ),
+      _StatItem(
+        label: 'Refunds Issued',
+        value: '$refundsIssued',
+        color: blueMain,
+      ),
+    ];
+
+    final searchBarHeight = context.getRSize(64.0);
+    final filterChipHeight = context.getRSize(56.0);
+    return CustomScrollView(
+      slivers: [
+        SliverToBoxAdapter(child: _SummaryStrip(stats: stats)),
+        SliverPersistentHeader(
+          pinned: true,
+          delegate: _PinnedHeaderDelegate(
+            height: searchBarHeight,
+            child: _buildSearchBar(context),
+          ),
+        ),
+        SliverPersistentHeader(
+          pinned: true,
+          delegate: _PinnedHeaderDelegate(
+            height: filterChipHeight,
+            child: _buildFilterChips(
+              context,
+              selected: _cancelledFilter,
+              onSelect: (f) => setState(() => _cancelledFilter = f),
+            ),
+          ),
+        ),
+        ..._buildOrderSlivers(context, list, status: 'cancelled'),
+      ],
+    );
+  }
+
+  // ─────────────────────────── FILTER CHIPS ───────────────────────────────
+
+  Widget _buildFilterChips(
+    BuildContext context, {
+    required String selected,
+    required ValueChanged<String> onSelect,
+  }) {
     final filters = ['Day', 'Week', 'Month', 'Year', 'To Date', 'All Time'];
     return Container(
       color: surfaceCol,
@@ -184,7 +495,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
             SizedBox(width: context.getRSize(8)),
         itemBuilder: (context, index) {
           final f = filters[index];
-          final isSelected = f == _completedFilter;
+          final isSelected = f == selected;
           return FilterChip(
             label: Text(
               f,
@@ -195,9 +506,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
               ),
             ),
             selected: isSelected,
-            onSelected: (val) {
-              setState(() => _completedFilter = f);
-            },
+            onSelected: (_) => onSelect(f),
             selectedColor: Theme.of(context).colorScheme.primary,
             backgroundColor: _bg,
             shape: RoundedRectangleBorder(
@@ -213,7 +522,9 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
     );
   }
 
-  Widget _buildOrderList(
+  // ─────────────────────────── ORDER LIST ─────────────────────────────────
+
+  List<Widget> _buildOrderSlivers(
     BuildContext context,
     List<OrderWithItems> list, {
     required String status,
@@ -223,123 +534,112 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
       String text;
       if (status == 'pending') {
         icon = FontAwesomeIcons.boxOpen;
-        text = 'No pending orders';
+        text = _searchQuery.isNotEmpty
+            ? 'No pending orders match "$_searchQuery"'
+            : 'No pending orders';
       } else if (status == 'completed') {
         icon = FontAwesomeIcons.clipboardCheck;
-        text = 'No completed orders';
+        text = _searchQuery.isNotEmpty
+            ? 'No completed orders match "$_searchQuery"'
+            : 'No completed orders';
       } else {
         icon = FontAwesomeIcons.ban;
-        text = 'No cancelled orders';
+        text = _searchQuery.isNotEmpty
+            ? 'No cancelled orders match "$_searchQuery"'
+            : 'No cancelled orders';
       }
 
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: context.getRSize(48), color: borderCol),
-            SizedBox(height: context.getRSize(16)),
-            Text(
-              text,
-              style: TextStyle(
-                color: subtextCol,
-                fontSize: context.getRFontSize(16),
-                fontWeight: FontWeight.w600,
-              ),
+      return [
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, size: context.getRSize(48), color: borderCol),
+                SizedBox(height: context.getRSize(16)),
+                Text(
+                  text,
+                  style: TextStyle(
+                    color: subtextCol,
+                    fontSize: context.getRFontSize(16),
+                    fontWeight: FontWeight.w600,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
             ),
-          ],
+          ),
         ),
-      );
+      ];
     }
 
-    return ListView.builder(
-      padding: EdgeInsets.fromLTRB(
-        context.getRSize(16),
-        context.getRSize(16),
-        context.getRSize(16),
-        context.getRSize(100),
+    return [
+      SliverPadding(
+        padding: EdgeInsets.fromLTRB(
+          context.getRSize(16),
+          context.getRSize(16),
+          context.getRSize(16),
+          context.getRSize(100),
+        ),
+        sliver: SliverList(
+          delegate: SliverChildBuilderDelegate(
+            (context, index) {
+              final item = list[index];
+              return _OrderCard(
+                orderWithItems: item,
+                status: status,
+                onMarkAsDelivered: status == 'pending'
+                    ? () => _markAsDelivered(item)
+                    : null,
+                onCancel:
+                    status == 'pending' ? () => _cancelOrder(item.order) : null,
+                onAssignRider: status == 'pending'
+                    ? (orderId) => _showRiderSelection(context, orderId)
+                    : null,
+                onRefund: status == 'cancelled'
+                    ? () => _showRefundChoice(context, item.order)
+                    : null,
+                onViewReceipt: () => _viewReceipt(context, item),
+              );
+            },
+            childCount: list.length,
+          ),
+        ),
       ),
-      itemCount: list.length,
-      itemBuilder: (context, index) {
-        final item = list[index];
-        return _OrderCard(
-          orderWithItems: item,
-          status: status,
-          onMarkAsDelivered: status == 'pending'
-              ? () => _markAsDelivered(item)
-              : null,
-          onCancel: status == 'pending' ? () => _cancelOrder(item.order) : null,
-          onAssignRider: status == 'pending'
-              ? (orderId) => _showRiderSelection(context, orderId)
-              : null,
-          onRefund: status == 'cancelled'
-              ? () => _showRefundChoice(context, item.order)
-              : null,
-          onViewReceipt: () => _viewReceipt(context, item),
-        );
-      },
-    );
+    ];
   }
 
+  // ─────────────────────── ACTION HANDLERS (unchanged) ────────────────────
+
   void _markAsDelivered(OrderWithItems orderWithItems) {
-    final order = orderWithItems.order;
-    showDialog(
-      context: context,
-      builder: (ctx) {
-        return AlertDialog(
-          backgroundColor: surfaceCol,
-          title: Text(
-            'Confirm Order',
-            style: TextStyle(color: textCol, fontWeight: FontWeight.bold),
-          ),
-          content: Text(
-            'Mark order #${order.id} as completed?',
-            style: TextStyle(color: subtextCol),
-          ),
-          actions: [
-            AppButton(
-              text: 'Cancel',
-              variant: AppButtonVariant.ghost,
-              size: AppButtonSize.small,
-              onPressed: () => Navigator.pop(ctx),
-            ),
-            AppButton(
-              text: 'Confirm',
-              onPressed: () {
-                Navigator.pop(ctx);
-                _executeMarkDelivered(orderWithItems);
-              },
-              size: AppButtonSize.small,
-            ),
-          ],
-        );
-      },
-    );
+    _executeMarkDelivered(orderWithItems);
   }
 
   void _executeMarkDelivered(OrderWithItems orderWithItems) async {
     final order = orderWithItems.order;
 
-    // 1. Show crate return modal FIRST — must be confirmed before completing.
-    // CrateReturnModal.show() handles its own guards (no glass items / deposit
-    // already paid) and returns immediately in those cases. The modal is
-    // non-dismissible, so awaiting it guarantees the user has confirmed.
-    if (order.customerId != null && mounted) {
-      await CrateReturnModal.show(context, orderWithItems, ref: ref);
+    if (mounted) {
+      final confirmed = await CrateReturnModal.show(
+        context,
+        orderWithItems,
+        ref: ref,
+      );
+      if (!confirmed) return;
     }
 
     if (!mounted) return;
 
-    // 2. Only now mark the order as completed
-    await ref.read(orderServiceProvider).markAsCompleted(
-      order.id,
-      ref.read(authProvider).currentUser?.id ?? 1,
-    );
+    await ref
+        .read(orderServiceProvider)
+        .markAsCompleted(order.id, ref.read(authProvider).currentUser?.id ?? 1);
 
-    // 3. Generate Delivery Receipt
     final receipt = model.DeliveryReceipt(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       orderId: order.id.toString(),
-      referenceNumber: ref.read(deliveryReceiptServiceProvider).generateReference(),
+      referenceNumber: ref
+          .read(deliveryReceiptServiceProvider)
+          .generateReference(),
       riderName: order.riderName,
       outstandingAmount: (order.netAmountKobo - order.amountPaidKobo) / 100.0,
       paidAmount: order.amountPaidKobo / 100.0,
@@ -347,7 +647,6 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
     );
     ref.read(deliveryReceiptServiceProvider).addReceipt(receipt);
 
-    // 4. Show success notification only after everything is confirmed
     if (mounted) {
       AppNotification.showSuccess(
         context,
@@ -383,7 +682,9 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
               size: AppButtonSize.small,
               onPressed: () {
                 Navigator.pop(ctx);
-                ref.read(orderServiceProvider).markAsCancelled(order.id, 'Cancelled by staff', 1);
+                ref
+                    .read(orderServiceProvider)
+                    .markAsCancelled(order.id, 'Cancelled by staff', 1);
               },
             ),
           ],
@@ -396,7 +697,6 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
     final isPartial = order.amountPaidKobo < order.netAmountKobo;
 
     if (isPartial) {
-      // Force wallet refund for partial payments, no choice modal needed but maybe a confirmation
       showDialog(
         context: context,
         builder: (ctx) => AlertDialog(
@@ -431,7 +731,6 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
       return;
     }
 
-    // Full payment choice modal
     showModalBottomSheet(
       context: context,
       useSafeArea: true,
@@ -505,7 +804,6 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
   }
 
   void _processRefund(OrderData order, {required bool toWallet}) {
-    // ref.read(orderServiceProvider).refundOrder(order.id, toWallet: toWallet); // Not yet implemented in Service
     AppNotification.showSuccess(
       context,
       'Refund of ${formatCurrency(order.amountPaidKobo / 100.0)} processed to ${toWallet ? 'Wallet' : 'Cash'}.',
@@ -576,10 +874,9 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
                                 style: TextStyle(color: textCol),
                               ),
                               onTap: () {
-                                ref.read(orderServiceProvider).assignRider(
-                                  orderId,
-                                  'Pick-up Order',
-                                );
+                                ref
+                                    .read(orderServiceProvider)
+                                    .assignRider(orderId, 'Pick-up Order');
                                 Navigator.pop(ctx);
                               },
                             ),
@@ -602,7 +899,9 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
                                   ),
                                 ),
                                 onTap: () {
-                                  ref.read(orderServiceProvider).assignRider(orderId, staff.name);
+                                  ref
+                                      .read(orderServiceProvider)
+                                      .assignRider(orderId, staff.name);
                                   Navigator.pop(ctx);
                                 },
                               ),
@@ -610,9 +909,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
                           ],
                         ),
                       ),
-                    SizedBox(
-                      height: context.getRSize(40),
-                    ), // Increased padding for system navigation
+                    SizedBox(height: context.getRSize(40)),
                   ],
                 ),
               ),
@@ -623,9 +920,13 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
     );
   }
 
-  void _viewReceipt(BuildContext context, OrderWithItems richOrder) {
+  void _viewReceipt(BuildContext context, OrderWithItems richOrder) async {
     DateTime? reshareDate;
     DateTime? reprintDate;
+
+    final branchName = await _resolveBranchName(richOrder.order.warehouseId);
+
+    if (!context.mounted) return;
 
     showModalBottomSheet(
       context: context,
@@ -673,6 +974,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
                               .map(
                                 (ri) => {
                                   'name': ri.product.name,
+                                  'size': ri.product.size,
                                   'qty': ri.item.quantity,
                                   'price': ri.item.unitPriceKobo / 100.0,
                                 },
@@ -686,14 +988,16 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
                               richOrder.customer?.name ?? 'Walk-in Customer',
                           customerAddress:
                               richOrder.customer?.addressText ?? 'N/A',
-                          cashReceived: currentOrder.amountPaidKobo / 100.0,
-                          walletBalance: richOrder.customer?.customerWallet,
+                          cashReceived: currentOrder.paymentType == 'Wallet Payment'
+                              ? currentOrder.netAmountKobo / 100.0
+                              : currentOrder.amountPaidKobo / 100.0,
                           reprintDate: reprintDate,
                           reshareDate: reshareDate,
                           riderName: currentOrder.riderName,
                           deliveryRef: null,
                           orderStatus: currentOrder.status,
                           refundAmount: currentOrder.amountPaidKobo / 100.0,
+                          branchName: branchName,
                         ),
                       ),
                     ),
@@ -711,8 +1015,13 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
                               onPressed: () {
                                 setModalState(() {
                                   reprintDate = DateTime.now();
+                                  reshareDate = null;
                                 });
-                                _printReceipt(context, richOrder);
+                                _printReceipt(
+                                  context,
+                                  richOrder,
+                                  branchName: branchName,
+                                );
                               },
                             ),
                           ),
@@ -745,8 +1054,8 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
                               onPressed: () async {
                                 setModalState(() {
                                   reshareDate = DateTime.now();
+                                  reprintDate = null;
                                 });
-                                // Small delay to ensure UI updates before capture
                                 await Future.delayed(
                                   const Duration(milliseconds: 100),
                                 );
@@ -778,31 +1087,39 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
 
   Future<void> _printReceipt(
     BuildContext context,
-    OrderWithItems richOrder,
-  ) async {
+    OrderWithItems richOrder, {
+    String? branchName,
+  }) async {
     final order = richOrder.order;
 
     final receiptMapping = richOrder.items
         .map(
           (ri) => {
             'name': ri.product.name,
+            'size': ri.product.size,
             'qty': ri.item.quantity,
             'price': ri.item.unitPriceKobo / 100.0,
           },
         )
         .toList();
 
-    final deliveryReceipt = ref.read(deliveryReceiptServiceProvider).getByOrderId(
-      order.id.toString(),
-    );
+    final deliveryReceipt = ref
+        .read(deliveryReceiptServiceProvider)
+        .getByOrderId(order.id.toString());
+
+    AppNotification.showInfo(context, 'Preparing receipt...');
 
     try {
-      final granted = await ref.read(printerServiceProvider).requestPermissions();
+      final printer = ref.read(printerServiceProvider);
+      final granted = await printer.requestPermissions();
       if (!granted) {
         if (!context.mounted) return;
         AppNotification.showError(context, 'Bluetooth permissions denied');
         return;
       }
+
+      final finalBranchName =
+          branchName ?? await _resolveBranchName(order.warehouseId);
 
       final bytes = await ThermalReceiptService.buildReceipt(
         orderId: order.orderNumber,
@@ -813,28 +1130,33 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
         paymentMethod: order.paymentType,
         customerName: richOrder.customer?.name ?? 'Walk-in Customer',
         customerAddress: richOrder.customer?.addressText ?? 'N/A',
-        cashReceived: order.amountPaidKobo / 100.0,
+        cashReceived: order.paymentType == 'Wallet Payment'
+            ? order.netAmountKobo / 100.0
+            : order.amountPaidKobo / 100.0,
         walletBalance: richOrder.customer?.customerWallet,
         reprintDate: DateTime.now(),
         riderName: order.riderName,
         deliveryRef: deliveryReceipt?.referenceNumber,
         orderStatus: order.status,
         refundAmount: order.amountPaidKobo / 100.0,
+        branchName: finalBranchName,
       );
 
       if (!context.mounted) return;
 
-      final success = await ref.read(printerServiceProvider).printBytes(bytes);
-      if (success) {
-        if (!context.mounted) return;
-        AppNotification.showSuccess(context, 'Print successful');
-        _logReprint(order.id.toString());
-        return;
+      final isConnected = await printer.isConnected;
+      if (isConnected) {
+        final success = await printer.printBytesDirectly(bytes);
+        if (success) {
+          if (!context.mounted) return;
+          AppNotification.showSuccess(context, 'Print successful');
+          _logReprint(order.id.toString());
+          return;
+        }
       }
 
-      // If print failed (not connected), show printer picker
       if (context.mounted) {
-        showModalBottomSheet(
+        final selectedDevice = await showModalBottomSheet<BluetoothInfo>(
           context: context,
           isScrollControlled: true,
           backgroundColor: surfaceCol,
@@ -844,35 +1166,36 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
           shape: const RoundedRectangleBorder(
             borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
           ),
-          builder: (_) => PrinterPicker(
-            onSelected: (device) async {
-              if (!context.mounted) return;
-              Navigator.pop(context);
-
-              if (!context.mounted) return;
-              AppNotification.showSuccess(
-                context,
-                'Connecting to ${device.name}...',
-              );
-
-              final connected = await ref.read(printerServiceProvider).connect(device.macAdress);
-              if (!mounted) return;
-
-              if (connected) {
-                await ref.read(printerServiceProvider).printBytes(bytes);
-                if (!context.mounted) return;
-                AppNotification.showSuccess(context, 'Print successful');
-                _logReprint(order.id.toString());
-              } else {
-                if (!context.mounted) return;
-                AppNotification.showError(
-                  context,
-                  'Failed to connect to ${device.name}',
-                );
-              }
-            },
+          builder: (pickerCtx) => PrinterPicker(
+            onSelected: (device) => Navigator.pop(pickerCtx, device),
           ),
         );
+
+        if (selectedDevice != null && context.mounted) {
+          AppNotification.showInfo(
+            context,
+            'Connecting to ${selectedDevice.name}...',
+          );
+
+          final connected = await printer.connect(selectedDevice.macAdress);
+          if (!context.mounted) return;
+
+          if (connected) {
+            final printOk = await printer.printBytesDirectly(bytes);
+            if (!context.mounted) return;
+            if (printOk) {
+              AppNotification.showSuccess(context, 'Print successful');
+              _logReprint(order.id.toString());
+            } else {
+              AppNotification.showError(context, 'Print failed after connect');
+            }
+          } else {
+            AppNotification.showError(
+              context,
+              'Failed to connect to ${selectedDevice.name}',
+            );
+          }
+        }
       }
     } catch (e) {
       if (context.mounted) {
@@ -887,9 +1210,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
     DateTime? reshareDate,
   }) async {
     final order = richOrder.order;
-    // ref.read(orderServiceProvider).addReprint(order.id);
 
-    // Wait for UI to update with 'REPRINTED' or 'RESHARED' stamp before taking screenshot
     await Future.delayed(const Duration(milliseconds: 100));
 
     try {
@@ -924,18 +1245,109 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
   }
 
   Future<void> _logReprint(String orderId) async {
-    await ref.read(activityLogProvider).logAction(
-      'Receipt Reprinted',
-      'Receipt for order #$orderId was reprinted',
-      relatedEntityId: orderId,
-      relatedEntityType: 'order',
+    await ref
+        .read(activityLogProvider)
+        .logAction(
+          'Receipt Reprinted',
+          'Receipt for order #$orderId was reprinted',
+          relatedEntityId: orderId,
+          relatedEntityType: 'order',
+        );
+  }
+}
+
+// ═══════════════════════════ SUMMARY STRIP ══════════════════════════════════
+
+class _StatItem {
+  final String label;
+  final String value;
+  final Color? color;
+  const _StatItem({required this.label, required this.value, this.color});
+}
+
+class _SummaryStrip extends StatelessWidget {
+  final List<_StatItem> stats;
+  const _SummaryStrip({required this.stats});
+
+  @override
+  Widget build(BuildContext context) {
+    final surfaceCol = Theme.of(context).colorScheme.surface;
+    final borderCol = Theme.of(context).dividerColor;
+    final subtextCol =
+        Theme.of(context).textTheme.bodySmall?.color ??
+        Theme.of(context).iconTheme.color!;
+
+    return Container(
+      padding: EdgeInsets.fromLTRB(
+        context.getRSize(16),
+        context.getRSize(12),
+        context.getRSize(16),
+        context.getRSize(12),
+      ),
+      decoration: BoxDecoration(
+        color: surfaceCol,
+        border: Border(bottom: BorderSide(color: borderCol)),
+      ),
+      child: Row(
+        children: stats.map((stat) {
+          final isLast = stat == stats.last;
+          return Expanded(
+            child: Container(
+              margin: isLast
+                  ? EdgeInsets.zero
+                  : EdgeInsets.only(right: context.getRSize(1)),
+              padding: EdgeInsets.symmetric(
+                vertical: context.getRSize(8),
+                horizontal: context.getRSize(4),
+              ),
+              decoration: isLast
+                  ? null
+                  : BoxDecoration(
+                      border: Border(
+                        right: BorderSide(color: borderCol),
+                      ),
+                    ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Text(
+                    stat.value,
+                    style: TextStyle(
+                      color: stat.color ??
+                          Theme.of(context).colorScheme.onSurface,
+                      fontWeight: FontWeight.bold,
+                      fontSize: context.getRFontSize(13),
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                  ),
+                  SizedBox(height: context.getRSize(2)),
+                  Text(
+                    stat.label,
+                    style: TextStyle(
+                      color: subtextCol,
+                      fontSize: context.getRFontSize(10),
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            ),
+          );
+        }).toList(),
+      ),
     );
   }
 }
 
+// ═══════════════════════════ ORDER CARD ═════════════════════════════════════
+
 class _OrderCard extends StatelessWidget {
   final OrderWithItems orderWithItems;
-  final String status; // 'pending', 'completed', 'cancelled'
+  final String status;
   final VoidCallback? onMarkAsDelivered;
   final VoidCallback? onCancel;
   final Function(int)? onAssignRider;
@@ -952,6 +1364,37 @@ class _OrderCard extends StatelessWidget {
     required this.onViewReceipt,
   });
 
+  // Returns a color for the payment type badge
+  Color _paymentColor(String paymentType, Color primaryColor) {
+    final lower = paymentType.toLowerCase();
+    if (lower.contains('wallet')) return blueMain;
+    if (lower.contains('partial')) return primaryColor;
+    if (lower.contains('credit')) return danger;
+    return success; // Full Cash / Card
+  }
+
+  // Returns a short label for the payment type badge
+  String _paymentLabel(String paymentType) {
+    final lower = paymentType.toLowerCase();
+    if (lower.contains('wallet')) return 'Wallet';
+    if (lower.contains('partial')) return 'Partial';
+    if (lower.contains('credit')) return 'Credit';
+    return 'Cash';
+  }
+
+  // Formats date as "04 Apr 2026" or "Today"
+  String _formatDate(DateTime t) {
+    final now = DateTime.now();
+    final isToday =
+        t.year == now.year && t.month == now.month && t.day == now.day;
+    if (isToday) return 'Today';
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ];
+    return '${t.day.toString().padLeft(2, '0')} ${months[t.month - 1]} ${t.year}';
+  }
+
   @override
   Widget build(BuildContext context) {
     final textCol = Theme.of(context).colorScheme.onSurface;
@@ -961,24 +1404,45 @@ class _OrderCard extends StatelessWidget {
     final borderCol = Theme.of(context).dividerColor;
     final cardCol = Theme.of(context).cardColor;
     final surfaceCol = Theme.of(context).colorScheme.surface;
+    final primary = Theme.of(context).colorScheme.primary;
+
     final order = orderWithItems.order;
     final customer = orderWithItems.customer;
-    final walletBalanceKobo = customer?.walletBalanceKobo ?? 0;
-    final balanceColor = walletBalanceKobo < 0 ? danger : success;
+    final items = orderWithItems.items;
 
-    // Formatting date
+    // Accent color for the left border stripe
+    final Color accentColor;
+    if (status == 'pending') {
+      accentColor = primary;
+    } else if (status == 'completed') {
+      accentColor = success;
+    } else {
+      accentColor = danger;
+    }
+
+    // Financial values
+    final outstanding = order.netAmountKobo - order.amountPaidKobo;
+    final isWalletPayment = order.paymentType == 'Wallet Payment';
+    final hasOutstanding = outstanding > 0 && !isWalletPayment;
+    final hasDiscount = order.discountKobo > 0;
+
+    // Wallet badge — only for named customers with a negative balance (debt)
+    final walletBalanceKobo = customer?.walletBalanceKobo ?? 0;
+    final showWalletDebt = customer != null && walletBalanceKobo < 0;
+
+    // Timestamp
     final time = status == 'pending'
         ? order.createdAt
-        : (order.completedAt ?? order.createdAt);
-    final isToday =
-        time.year == DateTime.now().year &&
-        time.month == DateTime.now().month &&
-        time.day == DateTime.now().day;
-    final dateStr = isToday
-        ? 'Today, '
-        : '${time.day}/${time.month}/${time.year} ';
+        : (status == 'completed'
+              ? (order.completedAt ?? order.createdAt)
+              : (order.cancelledAt ?? order.createdAt));
+    final dateStr = _formatDate(time);
     final timeStr =
         '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
+
+    // Items display — show first 2, then "+N more"
+    final displayItems = items.length > 2 ? items.sublist(0, 2) : items;
+    final extraCount = items.length - displayItems.length;
 
     return Container(
       margin: EdgeInsets.only(bottom: context.getRSize(16)),
@@ -999,336 +1463,603 @@ class _OrderCard extends StatelessWidget {
         child: InkWell(
           borderRadius: BorderRadius.circular(16),
           onTap: onViewReceipt,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header: Customer Info
-              Padding(
-                padding: EdgeInsets.all(context.getRSize(16)),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: EdgeInsets.all(context.getRSize(10)),
-                      decoration: BoxDecoration(
-                        color: Theme.of(
-                          context,
-                        ).colorScheme.primary.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Icon(
-                        FontAwesomeIcons.user,
-                        size: context.getRSize(16),
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
-                    ),
-                    SizedBox(width: context.getRSize(12)),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            customer?.name ?? 'Walk-in Customer',
-                            style: TextStyle(
-                              color: textCol,
-                              fontWeight: FontWeight.bold,
-                              fontSize: context.getRFontSize(15),
-                            ),
-                          ),
-                          SizedBox(height: context.getRSize(2)),
-                          Text(
-                            customer?.addressText ?? 'N/A',
-                            style: TextStyle(
-                              color: subtextCol,
-                              fontSize: context.getRFontSize(13),
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ),
-                    ),
-                    if (status == 'pending')
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Column(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(15),
+            child: IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Left accent stripe
+                  Container(width: 4, color: accentColor),
+
+                  // Card content
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // ── Header: Customer + badges ──────────────────────
+                        Padding(
+                          padding: EdgeInsets.all(context.getRSize(14)),
+                          child: Row(
                             children: [
-                              IconButton(
-                                icon: Icon(
-                                  FontAwesomeIcons.motorcycle,
-                                  size: context.getRSize(20),
-                                  color: Theme.of(context).colorScheme.primary,
+                              // Avatar
+                              Container(
+                                padding: EdgeInsets.all(context.getRSize(9)),
+                                decoration: BoxDecoration(
+                                  color: primary.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(10),
                                 ),
-                                onPressed: () => onAssignRider?.call(order.id),
-                                padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(),
+                                child: Icon(
+                                  FontAwesomeIcons.user,
+                                  size: context.getRSize(15),
+                                  color: primary,
+                                ),
                               ),
-                              SizedBox(height: context.getRSize(4)),
-                              Text(
-                                order.riderName,
-                                style: TextStyle(
-                                  fontSize: context.getRFontSize(10),
-                                  color: subtextCol,
-                                  fontWeight: FontWeight.w600,
+                              SizedBox(width: context.getRSize(10)),
+
+                              // Name + address
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      customer?.name ?? 'Walk-in Customer',
+                                      style: TextStyle(
+                                        color: textCol,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: context.getRFontSize(14),
+                                      ),
+                                    ),
+                                    if (customer?.addressText != null &&
+                                        customer!.addressText != 'N/A')
+                                      Text(
+                                        customer.addressText,
+                                        style: TextStyle(
+                                          color: subtextCol,
+                                          fontSize: context.getRFontSize(12),
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                  ],
                                 ),
+                              ),
+                              SizedBox(width: context.getRSize(8)),
+
+                              // Right side: rider (pending) or status badge (others)
+                              if (status == 'pending')
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.center,
+                                  children: [
+                                    IconButton(
+                                      icon: Icon(
+                                        FontAwesomeIcons.motorcycle,
+                                        size: context.getRSize(18),
+                                        color: primary,
+                                      ),
+                                      onPressed: () =>
+                                          onAssignRider?.call(order.id),
+                                      padding: EdgeInsets.zero,
+                                      constraints: const BoxConstraints(),
+                                    ),
+                                    SizedBox(height: context.getRSize(2)),
+                                    Text(
+                                      order.riderName,
+                                      style: TextStyle(
+                                        fontSize: context.getRFontSize(9),
+                                        color: subtextCol,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                )
+                              else
+                                _StatusBadge(status: order.status),
+                            ],
+                          ),
+                        ),
+
+                        Divider(height: 1, color: borderCol),
+
+                        // ── Order ID, date/time, and payment badge ─────────
+                        Padding(
+                          padding: EdgeInsets.fromLTRB(
+                            context.getRSize(14),
+                            context.getRSize(10),
+                            context.getRSize(14),
+                            0,
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Order #${order.id}',
+                                      style: TextStyle(
+                                        color: subtextCol,
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: context.getRFontSize(12),
+                                      ),
+                                    ),
+                                    Text(
+                                      '$dateStr · $timeStr',
+                                      style: TextStyle(
+                                        color: subtextCol,
+                                        fontSize: context.getRFontSize(11),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              // Payment type badge
+                              _PaymentBadge(
+                                label: _paymentLabel(order.paymentType),
+                                color: _paymentColor(order.paymentType, primary),
                               ),
                             ],
                           ),
-                        ],
-                      ),
-                    if (status != 'pending')
-                      Container(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: context.getRSize(10),
-                          vertical: context.getRSize(6),
                         ),
-                        decoration: BoxDecoration(
-                          color:
-                              (order.status == 'completed'
-                                      ? success
-                                      : (order.status == 'refunded'
-                                            ? blueMain
-                                            : danger))
-                                  .withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color:
-                                (order.status == 'completed'
-                                        ? success
-                                        : (order.status == 'refunded'
-                                              ? blueMain
-                                              : danger))
-                                    .withValues(alpha: 0.2),
+
+                        // ── Items list ─────────────────────────────────────
+                        Padding(
+                          padding: EdgeInsets.fromLTRB(
+                            context.getRSize(14),
+                            context.getRSize(10),
+                            context.getRSize(14),
+                            0,
+                          ),
+                          child: Column(
+                            children: [
+                              ...displayItems.map((richItem) {
+                                final item = richItem.item;
+                                final product = richItem.product;
+                                return Padding(
+                                  padding: EdgeInsets.only(
+                                    bottom: context.getRSize(4),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        width: context.getRSize(4),
+                                        height: context.getRSize(4),
+                                        margin: EdgeInsets.only(
+                                          right: context.getRSize(8),
+                                          top: context.getRSize(1),
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: subtextCol.withValues(
+                                            alpha: 0.5,
+                                          ),
+                                          shape: BoxShape.circle,
+                                        ),
+                                      ),
+                                      Expanded(
+                                        child: Text(
+                                          '${item.quantity}× ${product.name}',
+                                          style: TextStyle(
+                                            color: textCol,
+                                            fontSize: context.getRFontSize(13),
+                                          ),
+                                        ),
+                                      ),
+                                      Text(
+                                        formatCurrency(item.totalKobo / 100.0),
+                                        style: TextStyle(
+                                          color: textCol,
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: context.getRFontSize(13),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              }),
+                              if (extraCount > 0)
+                                Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: Padding(
+                                    padding: EdgeInsets.only(
+                                      left: context.getRSize(12),
+                                      top: context.getRSize(2),
+                                    ),
+                                    child: Text(
+                                      '+$extraCount more item${extraCount > 1 ? 's' : ''}',
+                                      style: TextStyle(
+                                        color: subtextCol,
+                                        fontSize: context.getRFontSize(12),
+                                        fontStyle: FontStyle.italic,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
                           ),
                         ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              order.status == 'completed'
-                                  ? FontAwesomeIcons.check
-                                  : (order.status == 'refunded'
-                                        ? FontAwesomeIcons.rotateLeft
-                                        : FontAwesomeIcons.ban),
-                              size: context.getRSize(10),
-                              color: order.status == 'completed'
-                                  ? success
-                                  : (order.status == 'refunded'
-                                        ? blueMain
-                                        : danger),
+
+                        Padding(
+                          padding: EdgeInsets.fromLTRB(
+                            context.getRSize(14),
+                            context.getRSize(10),
+                            context.getRSize(14),
+                            context.getRSize(14),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Divider(height: 1, color: borderCol),
+                              SizedBox(height: context.getRSize(10)),
+
+                              // ── Totals row ─────────────────────────────
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Text(
+                                            'Total  ',
+                                            style: TextStyle(
+                                              color: subtextCol,
+                                              fontSize:
+                                                  context.getRFontSize(12),
+                                            ),
+                                          ),
+                                          Text(
+                                            formatCurrency(
+                                              order.netAmountKobo / 100.0,
+                                            ),
+                                            style: TextStyle(
+                                              color: primary,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize:
+                                                  context.getRFontSize(15),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      SizedBox(height: context.getRSize(2)),
+                                      Text(
+                                        'Paid: ${formatCurrency(order.amountPaidKobo / 100.0)}',
+                                        style: TextStyle(
+                                          color: subtextCol,
+                                          fontSize: context.getRFontSize(12),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  // Debt badge (named customers, negative balance)
+                                  if (showWalletDebt)
+                                    _WalletDebtBadge(
+                                      balanceKobo: walletBalanceKobo,
+                                    ),
+                                ],
+                              ),
+
+                              // ── Discount row ───────────────────────────
+                              if (hasDiscount) ...[
+                                SizedBox(height: context.getRSize(6)),
+                                Row(
+                                  children: [
+                                    Icon(
+                                      FontAwesomeIcons.tag,
+                                      size: context.getRSize(11),
+                                      color: success,
+                                    ),
+                                    SizedBox(width: context.getRSize(5)),
+                                    Text(
+                                      'Discount: -${formatCurrency(order.discountKobo / 100.0)}',
+                                      style: TextStyle(
+                                        color: success,
+                                        fontSize: context.getRFontSize(12),
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+
+                              // ── Outstanding badge ──────────────────────
+                              if (hasOutstanding) ...[
+                                SizedBox(height: context.getRSize(6)),
+                                Container(
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: context.getRSize(10),
+                                    vertical: context.getRSize(5),
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: danger.withValues(alpha: 0.08),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                      color: danger.withValues(alpha: 0.2),
+                                    ),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        FontAwesomeIcons.clockRotateLeft,
+                                        size: context.getRSize(11),
+                                        color: danger,
+                                      ),
+                                      SizedBox(width: context.getRSize(6)),
+                                      Text(
+                                        'Owes: ${formatCurrency(outstanding / 100.0)}',
+                                        style: TextStyle(
+                                          color: danger,
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: context.getRFontSize(12),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+
+                              // ── Cancellation reason ────────────────────
+                              if (status == 'cancelled' &&
+                                  order.cancellationReason != null &&
+                                  order.cancellationReason!.isNotEmpty) ...[
+                                SizedBox(height: context.getRSize(6)),
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Icon(
+                                      FontAwesomeIcons.circleInfo,
+                                      size: context.getRSize(11),
+                                      color: subtextCol,
+                                    ),
+                                    SizedBox(width: context.getRSize(5)),
+                                    Expanded(
+                                      child: Text(
+                                        order.cancellationReason!,
+                                        style: TextStyle(
+                                          color: subtextCol,
+                                          fontSize: context.getRFontSize(12),
+                                          fontStyle: FontStyle.italic,
+                                        ),
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+
+                        // ── Footer actions (pending only) ──────────────────
+                        if (status == 'pending')
+                          Container(
+                            padding: EdgeInsets.fromLTRB(
+                              context.getRSize(14),
+                              context.getRSize(12),
+                              context.getRSize(14),
+                              context.getRSize(14),
                             ),
-                            SizedBox(width: context.getRSize(6)),
-                            Text(
-                              order.status.toUpperCase(),
-                              style: TextStyle(
-                                color: order.status == 'completed'
-                                    ? success
-                                    : (order.status == 'refunded'
-                                          ? blueMain
-                                          : danger),
-                                fontWeight: FontWeight.bold,
-                                fontSize: context.getRFontSize(11),
+                            decoration: BoxDecoration(
+                              color: surfaceCol,
+                              border: Border(
+                                top: BorderSide(color: borderCol),
                               ),
                             ),
-                          ],
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-              Divider(height: 1, color: borderCol),
-
-              // Order ID & Time
-              Padding(
-                padding: EdgeInsets.fromLTRB(
-                  context.getRSize(16),
-                  context.getRSize(12),
-                  context.getRSize(16),
-                  0,
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Order #${order.id}',
-                          style: TextStyle(
-                            color: subtextCol,
-                            fontWeight: FontWeight.w600,
-                            fontSize: context.getRFontSize(13),
+                            child: Row(
+                              children: [
+                                if (onCancel != null)
+                                  Expanded(
+                                    child: AppButton(
+                                      text: 'Cancel',
+                                      icon: FontAwesomeIcons.ban,
+                                      variant: AppButtonVariant.ghost,
+                                      size: AppButtonSize.xsmall,
+                                      onPressed: onCancel,
+                                    ),
+                                  ),
+                                SizedBox(width: context.getRSize(12)),
+                                if (onMarkAsDelivered != null)
+                                  Expanded(
+                                    child: AppButton(
+                                      text: 'Confirm',
+                                      icon: FontAwesomeIcons.truckFast,
+                                      size: AppButtonSize.xsmall,
+                                      onPressed: onMarkAsDelivered,
+                                    ),
+                                  ),
+                              ],
+                            ),
                           ),
-                        ),
-                        if (order.barcode != null)
-                          Text(
-                            'Barcode: ${order.barcode}',
-                            style: TextStyle(
-                              color: subtextCol,
-                              fontSize: context.getRFontSize(11),
-                              letterSpacing: 0.5,
+
+                        // ── Refund button (cancelled) ──────────────────────
+                        if (status == 'cancelled' && onRefund != null)
+                          Container(
+                            padding: EdgeInsets.fromLTRB(
+                              context.getRSize(14),
+                              context.getRSize(12),
+                              context.getRSize(14),
+                              context.getRSize(14),
+                            ),
+                            decoration: BoxDecoration(
+                              color: surfaceCol,
+                              border: Border(
+                                top: BorderSide(color: borderCol),
+                              ),
+                            ),
+                            child: AppButton(
+                              text: 'Initiate Refund',
+                              icon: FontAwesomeIcons.rotateLeft,
+                              variant: AppButtonVariant.danger,
+                              size: AppButtonSize.xsmall,
+                              onPressed: onRefund,
                             ),
                           ),
                       ],
                     ),
-                    Text(
-                      '$dateStr$timeStr',
-                      style: TextStyle(
-                        color: subtextCol,
-                        fontSize: context.getRFontSize(12),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              // Items List
-              Padding(
-                padding: EdgeInsets.all(context.getRSize(16)),
-                child: Column(
-                  children: orderWithItems.items.map((richItem) {
-                    final item = richItem.item;
-                    final product = richItem.product;
-                    return Padding(
-                      padding: EdgeInsets.only(bottom: context.getRSize(6)),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Expanded(
-                            child: Text(
-                              '${item.quantity}x ${product.name}',
-                              style: TextStyle(
-                                color: textCol,
-                                fontSize: context.getRFontSize(14),
-                              ),
-                            ),
-                          ),
-                          Text(
-                            formatCurrency(item.totalKobo / 100.0),
-                            style: TextStyle(
-                              color: textCol,
-                              fontWeight: FontWeight.w600,
-                              fontSize: context.getRFontSize(14),
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  }).toList(),
-                ),
-              ),
-
-              Divider(height: 1, color: borderCol),
-
-              // Totals
-              Padding(
-                padding: EdgeInsets.all(context.getRSize(16)),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Total: ${formatCurrency(order.netAmountKobo / 100.0)}',
-                            style: TextStyle(
-                              color: Theme.of(context).colorScheme.primary,
-                              fontWeight: FontWeight.bold,
-                              fontSize: context.getRFontSize(14),
-                            ),
-                          ),
-                          SizedBox(height: context.getRSize(4)),
-                          Text(
-                            'Paid: ${formatCurrency(order.amountPaidKobo / 100.0)} • ${order.paymentType}',
-                            style: TextStyle(
-                              color: subtextCol,
-                              fontSize: context.getRFontSize(12),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    SizedBox(width: context.getRSize(8)),
-                    Container(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: context.getRSize(10),
-                        vertical: context.getRSize(6),
-                      ),
-                      decoration: BoxDecoration(
-                        color: balanceColor.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: balanceColor.withValues(alpha: 0.2),
-                        ),
-                      ),
-                      child: Text(
-                        'Wallet Balance: ${formatCurrency(walletBalanceKobo / 100.0)}',
-                        style: TextStyle(
-                          color: balanceColor,
-                          fontWeight: FontWeight.bold,
-                          fontSize: context.getRFontSize(11),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              // Footer Actions for Pending
-              if (status == 'pending')
-                Container(
-                  padding: EdgeInsets.fromLTRB(
-                    context.getRSize(16),
-                    context.getRSize(16),
-                    context.getRSize(16),
-                    context.getRSize(16),
                   ),
-                  decoration: BoxDecoration(
-                    color: surfaceCol,
-                    borderRadius: const BorderRadius.vertical(
-                      bottom: Radius.circular(16),
-                    ),
-                    border: Border(top: BorderSide(color: borderCol)),
-                  ),
-                  child: Row(
-                    children: [
-                      if (onCancel != null)
-                        Expanded(
-                          child: AppButton(
-                            text: 'Cancel',
-                            icon: FontAwesomeIcons.ban,
-                            variant: AppButtonVariant.ghost,
-                            size: AppButtonSize.xsmall,
-                            onPressed: onCancel,
-                          ),
-                        ),
-                      SizedBox(width: context.getRSize(12)),
-                      if (onMarkAsDelivered != null)
-                        Expanded(
-                          child: AppButton(
-                            text: 'Confirm',
-                            icon: FontAwesomeIcons.truckFast,
-                            size: AppButtonSize.xsmall,
-                            onPressed: onMarkAsDelivered,
-                          ),
-                        ),
-                      if (status == 'cancelled' && onRefund != null)
-                        Expanded(
-                          child: AppButton(
-                            text: 'Initiate Refund',
-                            icon: FontAwesomeIcons.rotateLeft,
-                            variant: AppButtonVariant.danger,
-                            size: AppButtonSize.xsmall,
-                            onPressed: onRefund,
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-            ],
+                ],
+              ),
+            ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════ HELPER WIDGETS ══════════════════════════════════
+
+class _StatusBadge extends StatelessWidget {
+  final String status;
+  const _StatusBadge({required this.status});
+
+  @override
+  Widget build(BuildContext context) {
+    final Color color;
+    final IconData icon;
+    final String label;
+
+    switch (status) {
+      case 'completed':
+        color = success;
+        icon = FontAwesomeIcons.check;
+        label = 'DONE';
+        break;
+      case 'refunded':
+        color = blueMain;
+        icon = FontAwesomeIcons.rotateLeft;
+        label = 'REFUNDED';
+        break;
+      default:
+        color = danger;
+        icon = FontAwesomeIcons.ban;
+        label = 'CANCELLED';
+    }
+
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: context.getRSize(8),
+        vertical: context.getRSize(5),
+      ),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: context.getRSize(10), color: color),
+          SizedBox(width: context.getRSize(5)),
+          Text(
+            label,
+            style: TextStyle(
+              color: color,
+              fontWeight: FontWeight.bold,
+              fontSize: context.getRFontSize(10),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PaymentBadge extends StatelessWidget {
+  final String label;
+  final Color color;
+  const _PaymentBadge({required this.label, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: context.getRSize(8),
+        vertical: context.getRSize(4),
+      ),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: color.withValues(alpha: 0.25)),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: color,
+          fontWeight: FontWeight.w700,
+          fontSize: context.getRFontSize(10),
+        ),
+      ),
+    );
+  }
+}
+
+// ═══════════════════════ PINNED HEADER DELEGATE ══════════════════════════════
+
+class _PinnedHeaderDelegate extends SliverPersistentHeaderDelegate {
+  final double height;
+  final Widget child;
+
+  _PinnedHeaderDelegate({required this.height, required this.child});
+
+  @override
+  double get minExtent => height;
+
+  @override
+  double get maxExtent => height;
+
+  @override
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) => child;
+
+  @override
+  bool shouldRebuild(_PinnedHeaderDelegate oldDelegate) => true;
+}
+
+class _WalletDebtBadge extends StatelessWidget {
+  final int balanceKobo;
+  const _WalletDebtBadge({required this.balanceKobo});
+
+  @override
+  Widget build(BuildContext context) {
+    // balanceKobo is negative — show the debt amount positively
+    final debtAmount = balanceKobo.abs();
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: context.getRSize(8),
+        vertical: context.getRSize(5),
+      ),
+      decoration: BoxDecoration(
+        color: danger.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: danger.withValues(alpha: 0.2)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            FontAwesomeIcons.wallet,
+            size: context.getRSize(10),
+            color: danger,
+          ),
+          SizedBox(width: context.getRSize(4)),
+          Text(
+            'Debt: ${formatCurrency(debtAmount / 100.0)}',
+            style: TextStyle(
+              color: danger,
+              fontWeight: FontWeight.bold,
+              fontSize: context.getRFontSize(10),
+            ),
+          ),
+        ],
       ),
     );
   }
