@@ -1,30 +1,37 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:reebaplus_pos/features/auth/screens/new_owner_name_screen.dart';
 import 'package:reebaplus_pos/features/auth/screens/invite_code_screen.dart';
 import 'package:reebaplus_pos/features/auth/widgets/onboarding_step_indicator.dart';
 import 'package:reebaplus_pos/features/auth/widgets/auth_background.dart';
 import 'package:reebaplus_pos/core/theme/app_decorations.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:reebaplus_pos/core/providers/app_providers.dart';
 
-class BusinessTypeSelectionScreen extends StatelessWidget {
+class BusinessTypeSelectionScreen extends ConsumerWidget {
   final String email;
 
   const BusinessTypeSelectionScreen({super.key, required this.email});
 
-  void _onRegister(BuildContext context) {
+  Future<void> _onRegister(BuildContext context, WidgetRef ref) async {
+    // Ensure the database is completely empty before starting a new business
+    await ref.read(databaseProvider).clearAllData();
+    if (!context.mounted) return;
     Navigator.of(
       context,
     ).push(MaterialPageRoute(builder: (_) => NewOwnerNameScreen(email: email)));
   }
 
-  void _onJoin(BuildContext context) {
+  Future<void> _onJoin(BuildContext context, WidgetRef ref) async {
+    // Ensure the database is completely empty before joining a business
+    await ref.read(databaseProvider).clearAllData();
+    if (!context.mounted) return;
     Navigator.of(
       context,
     ).push(MaterialPageRoute(builder: (_) => InviteCodeScreen(email: email)));
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final textColor = isDark ? Colors.white : Colors.black;
@@ -90,7 +97,7 @@ class BusinessTypeSelectionScreen extends StatelessWidget {
                 subtitle:
                     'For owners & founders setting up for the first time.',
                 icon: Icons.add_business_rounded,
-                onTap: () => _onRegister(context),
+                onTap: () => _onRegister(context, ref),
               ),
 
               const SizedBox(height: 20),
@@ -101,7 +108,7 @@ class BusinessTypeSelectionScreen extends StatelessWidget {
                 title: 'Join an existing business',
                 subtitle: 'For employees or partners who have an invite.',
                 icon: Icons.people_alt_rounded,
-                onTap: () => _onJoin(context),
+                onTap: () => _onJoin(context, ref),
               ),
             ],
           ),

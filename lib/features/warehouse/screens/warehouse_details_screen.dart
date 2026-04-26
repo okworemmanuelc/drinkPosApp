@@ -26,10 +26,12 @@ class _WarehouseDetailsScreenState
   WarehouseData? _liveWarehouse;
   List<ProductDataWithStock> _inventory = [];
   List<UserData> _staff = [];
+  List<CustomerData> _customers = [];
 
   StreamSubscription<WarehouseData?>? _warehouseSub;
   StreamSubscription<List<ProductDataWithStock>>? _inventorySub;
   StreamSubscription<List<UserData>>? _staffSub;
+  StreamSubscription<List<CustomerData>>? _customersSub;
 
   Color get _bg => Theme.of(context).scaffoldBackgroundColor;
   Color get _surface => Theme.of(context).colorScheme.surface;
@@ -58,6 +60,11 @@ class _WarehouseDetailsScreenState
     _staffSub = db.warehousesDao.watchStaffByWarehouse(id).listen((list) {
       if (mounted) setState(() => _staff = list);
     });
+    _customersSub = db.customersDao.watchCustomersByWarehouse(id).listen((
+      list,
+    ) {
+      if (mounted) setState(() => _customers = list);
+    });
   }
 
   @override
@@ -65,6 +72,7 @@ class _WarehouseDetailsScreenState
     _warehouseSub?.cancel();
     _inventorySub?.cancel();
     _staffSub?.cancel();
+    _customersSub?.cancel();
     super.dispose();
   }
 
@@ -91,6 +99,7 @@ class _WarehouseDetailsScreenState
         )
         .length;
     final regularStaff = _staff.length - managers;
+    final customersCount = _customers.length;
     final currentUser = ref.watch(authProvider).currentUser;
 
     return SharedScaffold(
@@ -124,6 +133,7 @@ class _WarehouseDetailsScreenState
                 riders,
                 activeProducts,
                 lowStock,
+                customersCount,
               ),
               SizedBox(height: rSize(context, 24)),
               _buildInventoryList(),
@@ -227,6 +237,7 @@ class _WarehouseDetailsScreenState
     int riders,
     int activeProducts,
     int lowStock,
+    int customersCount,
   ) {
     return GridView.count(
       shrinkWrap: true,
@@ -265,6 +276,21 @@ class _WarehouseDetailsScreenState
           lowStock.toString(),
           FontAwesomeIcons.triangleExclamation,
           AppColors.danger,
+        ),
+        GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () {
+            final nav = ref.read(navigationProvider);
+            nav.customersInitialWarehouseId.value = widget.warehouse.id;
+            Navigator.of(context).pop();
+            nav.setIndex(4);
+          },
+          child: _buildStatCard(
+            'Customers',
+            customersCount.toString(),
+            FontAwesomeIcons.users,
+            const Color(0xFF06B6D4),
+          ),
         ),
       ],
     );

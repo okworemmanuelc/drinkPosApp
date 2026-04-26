@@ -1,4 +1,3 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -10,6 +9,7 @@ import 'package:reebaplus_pos/features/auth/screens/location_details_screen.dart
 import 'package:drift/drift.dart' hide Column;
 import 'package:reebaplus_pos/features/auth/widgets/auth_background.dart';
 import 'package:reebaplus_pos/core/theme/app_decorations.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class BusinessDetailsScreen extends ConsumerStatefulWidget {
   final UserData user;
@@ -70,50 +70,90 @@ class _BusinessDetailsScreenState extends ConsumerState<BusinessDetailsScreen> {
 
     setState(() => _loading = true);
 
-    // Save to AppSettings (simulated wait)
-    await Future.delayed(const Duration(milliseconds: 400));
+    try {
+      final name = _nameController.text.trim();
+      final phone = _phoneController.text.trim();
+      final email = _emailController.text.trim();
 
-    final db = ref.read(databaseProvider);
-    await db.batch((batch) {
-      batch.insert(
-        db.appSettings,
-        AppSettingsCompanion.insert(
-          key: 'business_name',
-          value: _nameController.text.trim(),
-        ),
-        mode: InsertMode.insertOrReplace,
-      );
-      batch.insert(
-        db.appSettings,
-        AppSettingsCompanion.insert(key: 'business_type', value: businessType),
-        mode: InsertMode.insertOrReplace,
-      );
-      batch.insert(
-        db.appSettings,
-        AppSettingsCompanion.insert(
-          key: 'business_phone',
-          value: _phoneController.text.trim(),
-        ),
-        mode: InsertMode.insertOrReplace,
-      );
-      batch.insert(
-        db.appSettings,
-        AppSettingsCompanion.insert(
-          key: 'business_email',
-          value: _emailController.text.trim(),
-        ),
-        mode: InsertMode.insertOrReplace,
-      );
-    });
+      // 1. Push new business to Supabase immediately
+      final supabase = Supabase.instance.client;
+      final userId = supabase.auth.currentUser?.id;
 
-    if (!mounted) return;
-    setState(() => _loading = false);
+      if (userId == null) {
+        throw Exception('Not authenticated with Supabase. Please log in again.');
+      }
 
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => LocationDetailsScreen(user: widget.user),
-      ),
-    );
+      // 1. & 2. Create business and link profile atomically via RPC
+      // This bypasses the RLS chicken-and-egg issue when inserting with RETURNING.
+      final response = await supabase.rpc('create_new_business', params: {
+        'p_name': name,
+        'p_type': businessType,
+        'p_phone': phone,
+        'p_email': email,
+        'p_user_name': widget.user.name,
+      });
+
+      final int businessId = response as int;
+
+      // 3. Save Business to local database
+      final db = ref.read(databaseProvider);
+      await db.into(db.businesses).insertOnConflictUpdate(
+        BusinessesCompanion.insert(
+          id: Value(businessId), // Explicitly use the Supabase ID!
+          name: name,
+          type: Value(businessType),
+          phone: Value(phone),
+          email: Value(email),
+        ),
+      );
+
+      // 4. Update the local user's business_id
+      await (db.update(db.users)..where((u) => u.id.equals(widget.user.id)))
+          .write(UsersCompanion(businessId: Value(businessId)));
+
+      // 5. Update Local App Settings for immediate display
+      await db.batch((batch) {
+        batch.insert(
+          db.appSettings,
+          AppSettingsCompanion.insert(key: 'business_name', value: name),
+          mode: InsertMode.insertOrReplace,
+        );
+        batch.insert(
+          db.appSettings,
+          AppSettingsCompanion.insert(key: 'business_type', value: businessType),
+          mode: InsertMode.insertOrReplace,
+        );
+        batch.insert(
+          db.appSettings,
+          AppSettingsCompanion.insert(key: 'business_phone', value: phone),
+          mode: InsertMode.insertOrReplace,
+        );
+        batch.insert(
+          db.appSettings,
+          AppSettingsCompanion.insert(key: 'business_email', value: email),
+          mode: InsertMode.insertOrReplace,
+        );
+      });
+
+      // Refetch the updated user locally
+      final updatedUser = await (db.select(db.users)..where((u) => u.id.equals(widget.user.id))).getSingle();
+
+      if (!mounted) return;
+      setState(() => _loading = false);
+
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => LocationDetailsScreen(user: updatedUser),
+        ),
+      );
+    } catch (e) {
+      debugPrint('[BusinessDetailsScreen] Error creating business: $e');
+      if (!mounted) return;
+      setState(() => _loading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error creating business: $e')),
+      );
+    }
   }
 
   @override

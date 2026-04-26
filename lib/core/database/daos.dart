@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:math';
 import 'package:drift/drift.dart';
 import 'package:intl/intl.dart';
@@ -16,8 +17,49 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> with _$CatalogDaoMixin {
   Future<List<SupplierData>> getAllSuppliers() => select(suppliers).get();
   Future<int> insertSupplier(SuppliersCompanion companion) =>
       into(suppliers).insert(companion);
-  Future<int> insertProduct(ProductsCompanion companion) =>
-      into(products).insert(companion);
+  Future<int> insertProduct(ProductsCompanion companion) async {
+    final withSync = companion.copyWith(
+      lastUpdatedAt: Value(DateTime.now()),
+    );
+    final id = await into(products).insert(withSync);
+    final inserted = await findById(id);
+    await db.syncDao.enqueue(
+      'products:insert',
+      jsonEncode({
+        'id': inserted!.id,
+        'business_id': inserted.businessId,
+        'category_id': inserted.categoryId,
+        'crate_group_id': inserted.crateGroupId,
+        'size': inserted.size,
+        'name': inserted.name,
+        'subtitle': inserted.subtitle,
+        'sku': inserted.sku,
+        'retail_price_kobo': inserted.retailPriceKobo,
+        'bulk_breaker_price_kobo': inserted.bulkBreakerPriceKobo,
+        'distributor_price_kobo': inserted.distributorPriceKobo,
+        'selling_price_kobo': inserted.sellingPriceKobo,
+        'buying_price_kobo': inserted.buyingPriceKobo,
+        'unit': inserted.unit,
+        'icon_code_point': inserted.iconCodePoint,
+        'color_hex': inserted.colorHex,
+        'supplier_id': inserted.supplierId,
+        'manufacturer_id': inserted.manufacturerId,
+        'is_available': inserted.isAvailable,
+        'is_deleted': inserted.isDeleted,
+        'low_stock_threshold': inserted.lowStockThreshold,
+        'manufacturer': inserted.manufacturer,
+        'avg_daily_sales': inserted.avgDailySales,
+        'lead_time_days': inserted.leadTimeDays,
+        'safety_stock_qty': inserted.safetyStockQty,
+        'monthly_target_units': inserted.monthlyTargetUnits,
+        'empty_crate_value_kobo': inserted.emptyCrateValueKobo,
+        'track_empties': inserted.trackEmpties,
+        'image_path': inserted.imagePath,
+        'last_updated_at': inserted.lastUpdatedAt?.toIso8601String(),
+      }),
+    );
+    return id;
+  }
 
   /// Returns all manufacturers from the Manufacturers table.
   Future<List<ManufacturerData>> getAllManufacturers() =>
@@ -40,10 +82,22 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> with _$CatalogDaoMixin {
                 t.name.lower().equals(name.toLowerCase()) & t.isDeleted.not(),
           ))
           .getSingleOrNull();
-  Future<void> softDeleteProduct(int productId) =>
-      (update(products)..where((t) => t.id.equals(productId))).write(
-        const ProductsCompanion(isDeleted: Value(true)),
-      );
+  Future<void> softDeleteProduct(int productId) async {
+    await (update(products)..where((t) => t.id.equals(productId))).write(
+      ProductsCompanion(
+        isDeleted: const Value(true),
+        lastUpdatedAt: Value(DateTime.now()),
+      ),
+    );
+    await db.syncDao.enqueue(
+      'products:update',
+      jsonEncode({
+        'id': productId,
+        'is_deleted': true,
+        'updated_at': DateTime.now().toIso8601String(),
+      }),
+    );
+  }
 
   Future<void> updateProductDetails(
     int productId, {
@@ -421,6 +475,21 @@ class InventoryDao extends DatabaseAccessor<AppDatabase>
           performedBy: staffId ?? 0,
           createdAt: Value(DateTime.now()),
         ),
+      );
+
+      // Queue for Sync
+      final product = await (select(db.products)..where((t) => t.id.equals(productId))).getSingleOrNull();
+      await db.syncDao.enqueue(
+        'stock_adjustments:insert',
+        jsonEncode({
+          'business_id': product?.businessId,
+          'product_id': productId,
+          'warehouse_id': warehouseId,
+          'quantity_diff': delta,
+          'reason': note,
+          'timestamp': DateTime.now().toIso8601String(),
+          'last_updated_at': DateTime.now().toIso8601String(),
+        }),
       );
     });
   }
@@ -841,8 +910,15 @@ class OrdersDao extends DatabaseAccessor<AppDatabase> with _$OrdersDaoMixin {
     return transaction(() async {
       // 1. Generate Order Number
       final orderNo = await generateOrderNumber();
-      final orderWithNo = order.copyWith(
+
+      // Get businessId from staff
+      final staff = await db.warehousesDao.getUserById(staffId);
+      final businessId = staff?.businessId;
+
+      final orderWithSync = order.copyWith(
         orderNumber: Value(orderNo),
+        businessId: Value(businessId),
+        lastUpdatedAt: Value(DateTime.now()),
         // If customerId is -1 (Walk-in), store as null in DB to avoid FK issues
         // and ensure watchAllOrdersWithItems works correctly.
         customerId: (order.customerId.value == -1)
@@ -851,11 +927,64 @@ class OrdersDao extends DatabaseAccessor<AppDatabase> with _$OrdersDaoMixin {
       );
 
       // 2. Insert Order
-      final orderId = await into(orders).insert(orderWithNo);
+      final orderId = await into(orders).insert(orderWithSync);
 
       // 3. Insert Items
       for (final item in items) {
-        await into(orderItems).insert(item.copyWith(orderId: Value(orderId)));
+        await into(orderItems).insert(item.copyWith(
+          orderId: Value(orderId),
+          businessId: Value(businessId),
+          lastUpdatedAt: Value(DateTime.now()),
+        ));
+      }
+
+      // 4. Queue for Sync
+      final insertedOrder = await (select(orders)..where((t) => t.id.equals(orderId))).getSingleOrNull();
+      await db.syncDao.enqueue(
+        'orders:insert',
+        jsonEncode({
+          'id': orderId,
+          'business_id': businessId,
+          'order_number': orderNo,
+          'customer_id': insertedOrder?.customerId,
+          'total_amount_kobo': insertedOrder?.totalAmountKobo,
+          'discount_kobo': insertedOrder?.discountKobo,
+          'net_amount_kobo': insertedOrder?.netAmountKobo,
+          'amount_paid_kobo': insertedOrder?.amountPaidKobo,
+          'payment_type': insertedOrder?.paymentType,
+          'created_at': insertedOrder?.createdAt.toIso8601String(),
+          'status': insertedOrder?.status,
+          'rider_name': insertedOrder?.riderName,
+          'cancellation_reason': insertedOrder?.cancellationReason,
+          'barcode': insertedOrder?.barcode,
+          'staff_id': staffId,
+          'warehouse_id': insertedOrder?.warehouseId,
+          'crate_deposit_paid_kobo': insertedOrder?.crateDepositPaidKobo,
+          'last_updated_at': insertedOrder?.lastUpdatedAt?.toIso8601String(),
+        }),
+      );
+
+      // 5. Queue line items for Sync (cloud `order_items` is a separate table
+      // with FK to orders, so each row needs its own upsert).
+      final insertedItems = await (select(orderItems)
+            ..where((t) => t.orderId.equals(orderId)))
+          .get();
+      for (final it in insertedItems) {
+        await db.syncDao.enqueue(
+          'order_items:insert',
+          jsonEncode({
+            'id': it.id,
+            'business_id': it.businessId,
+            'order_id': it.orderId,
+            'product_id': it.productId,
+            'warehouse_id': it.warehouseId,
+            'quantity': it.quantity,
+            'unit_price_kobo': it.unitPriceKobo,
+            'buying_price_kobo': it.buyingPriceKobo,
+            'total_kobo': it.totalKobo,
+            'last_updated_at': it.lastUpdatedAt?.toIso8601String(),
+          }),
+        );
       }
 
       // Wallet transactions are handled by OrderService._recordWalletTransactions()
@@ -1004,6 +1133,11 @@ class CustomersDao extends DatabaseAccessor<AppDatabase>
   CustomersDao(super.db);
   Stream<List<CustomerData>> watchAllCustomers() =>
       (select(customers)..orderBy([(t) => OrderingTerm.desc(t.id)])).watch();
+  Stream<List<CustomerData>> watchCustomersByWarehouse(int warehouseId) =>
+      (select(customers)
+            ..where((t) => t.warehouseId.equals(warehouseId))
+            ..orderBy([(t) => OrderingTerm.desc(t.id)]))
+          .watch();
   Future<CustomerData?> findById(int id) =>
       (select(customers)..where((t) => t.id.equals(id))).getSingleOrNull();
   Future<CustomerData?> findByPhone(String phone) => (select(
@@ -1033,20 +1167,69 @@ class CustomersDao extends DatabaseAccessor<AppDatabase>
 
   Future<int> addCustomer(CustomersCompanion customer) async {
     return transaction(() async {
-      final customerId = await into(customers).insert(customer);
+      final customerWithSync = customer.copyWith(
+        lastUpdatedAt: Value(DateTime.now()),
+      );
+      final customerId = await into(customers).insert(customerWithSync);
 
-      // Every customer must have a wallet
+      // Every customer must have a wallet. The wallet inherits business_id
+      // from the customer so cloud RLS / FK accept the row.
       final walletId = _generateUuid();
       await into(customerWallets).insert(
         CustomerWalletsCompanion.insert(
           walletId: walletId,
           customerId: customerId,
+          businessId: customer.businessId,
+          lastUpdatedAt: Value(DateTime.now()),
         ),
+      );
+
+      // Queue for Sync
+      final data = await findById(customerId);
+      await db.syncDao.enqueue(
+        'customers:insert',
+        jsonEncode(_customerPayload(data!)),
+      );
+
+      final wallet = await (select(customerWallets)
+            ..where((t) => t.walletId.equals(walletId)))
+          .getSingle();
+      await db.syncDao.enqueue(
+        // wallet_id (TEXT) is the cloud PK — no `id` column exists.
+        'customer_wallets:upsert:wallet_id',
+        jsonEncode({
+          'wallet_id': wallet.walletId,
+          'business_id': wallet.businessId,
+          'customer_id': wallet.customerId,
+          'currency': wallet.currency,
+          'created_at': wallet.createdAt.toIso8601String(),
+          'is_active': wallet.isActive,
+          'is_deleted': wallet.isDeleted,
+          'last_updated_at': wallet.lastUpdatedAt?.toIso8601String(),
+        }),
       );
 
       return customerId;
     });
   }
+
+  /// Shared payload shape for both `customers:insert` and `customers:update`.
+  Map<String, dynamic> _customerPayload(CustomerData data) => {
+        'id': data.id,
+        'business_id': data.businessId,
+        'warehouse_id': data.warehouseId,
+        'name': data.name,
+        'phone': data.phone,
+        'email': data.email,
+        'address': data.address,
+        'google_maps_location': data.googleMapsLocation,
+        'customer_group': data.customerGroup,
+        'created_at': data.createdAt.toIso8601String(),
+        'wallet_balance_kobo': data.walletBalanceKobo,
+        'wallet_limit_kobo': data.walletLimitKobo,
+        'last_updated_at': data.lastUpdatedAt?.toIso8601String(),
+        'is_deleted': data.isDeleted,
+      };
 
   String _generateUuid() {
     final random = DateTime.now().microsecondsSinceEpoch;
@@ -1069,6 +1252,8 @@ class CustomersDao extends DatabaseAccessor<AppDatabase>
 
       if (wallet == null) throw Exception('Customer wallet not found');
 
+      final now = DateTime.now();
+
       // 1. Update the cached balance on the Customers row for quick access
       final customer = await findById(customerId);
       if (customer != null) {
@@ -1076,7 +1261,10 @@ class CustomersDao extends DatabaseAccessor<AppDatabase>
             customer.walletBalanceKobo +
             (type == 'credit' ? amountKobo : -amountKobo);
         await (update(customers)..where((t) => t.id.equals(customerId))).write(
-          CustomersCompanion(walletBalanceKobo: Value(newBalance)),
+          CustomersCompanion(
+            walletBalanceKobo: Value(newBalance),
+            lastUpdatedAt: Value(now),
+          ),
         );
       }
 
@@ -1084,8 +1272,8 @@ class CustomersDao extends DatabaseAccessor<AppDatabase>
       // referenceId encodes type + referenceId to avoid timestamp collisions when
       // two entries are created for the same order (Full Cash, Partial Cash).
       final txnId = referenceId != null
-          ? 'txn-${DateTime.now().microsecondsSinceEpoch}-$type-$referenceId'
-          : 'txn-${DateTime.now().microsecondsSinceEpoch}';
+          ? 'txn-${now.microsecondsSinceEpoch}-$type-$referenceId'
+          : 'txn-${now.microsecondsSinceEpoch}';
 
       await into(walletTransactions).insert(
         WalletTransactionsCompanion.insert(
@@ -1096,9 +1284,42 @@ class CustomersDao extends DatabaseAccessor<AppDatabase>
           referenceType: note ?? referenceType,
           referenceId: Value(referenceId),
           performedBy: staffId,
-          createdAt: Value(DateTime.now()),
+          createdAt: Value(now),
+          businessId: Value(wallet.businessId),
+          lastUpdatedAt: Value(now),
         ),
       );
+
+      // 3. Queue both the new wallet_transactions row and the updated
+      // customers row (cached balance) for Supabase.
+      final txn = await (select(walletTransactions)
+            ..where((t) => t.txnId.equals(txnId)))
+          .getSingle();
+      await db.syncDao.enqueue(
+        // txn_id (TEXT) is the cloud PK — no `id` column exists.
+        'wallet_transactions:upsert:txn_id',
+        jsonEncode({
+          'txn_id': txn.txnId,
+          'business_id': txn.businessId,
+          'wallet_id': txn.walletId,
+          'type': txn.type,
+          'amount_kobo': txn.amountKobo,
+          'reference_type': txn.referenceType,
+          'reference_id': txn.referenceId,
+          'performed_by': txn.performedBy,
+          'customer_verified': txn.customerVerified,
+          'created_at': txn.createdAt.toIso8601String(),
+          'last_updated_at': txn.lastUpdatedAt?.toIso8601String(),
+        }),
+      );
+
+      final updatedCustomer = await findById(customerId);
+      if (updatedCustomer != null) {
+        await db.syncDao.enqueue(
+          'customers:update',
+          jsonEncode(_customerPayload(updatedCustomer)),
+        );
+      }
     });
   }
 
@@ -1142,10 +1363,21 @@ class CustomersDao extends DatabaseAccessor<AppDatabase>
     )..where((t) => t.customerId.equals(customerId))).getSingleOrNull();
   }
 
-  Future<void> updateWalletLimit(int customerId, int limitKobo) {
-    return (update(customers)..where((t) => t.id.equals(customerId))).write(
-      CustomersCompanion(walletLimitKobo: Value(limitKobo)),
+  Future<void> updateWalletLimit(int customerId, int limitKobo) async {
+    final now = DateTime.now();
+    await (update(customers)..where((t) => t.id.equals(customerId))).write(
+      CustomersCompanion(
+        walletLimitKobo: Value(limitKobo),
+        lastUpdatedAt: Value(now),
+      ),
     );
+    final updated = await findById(customerId);
+    if (updated != null) {
+      await db.syncDao.enqueue(
+        'customers:update',
+        jsonEncode(_customerPayload(updated)),
+      );
+    }
   }
 
   Stream<int> watchWalletBalance(int customerId) {
@@ -1159,6 +1391,9 @@ class CustomersDao extends DatabaseAccessor<AppDatabase>
     int crateGroupId,
     int deltaQty,
   ) async {
+    final now = DateTime.now();
+    final customer = await findById(customerId);
+    final businessId = customer?.businessId;
     final existing =
         await (select(customerCrateBalances)..where(
               (t) =>
@@ -1174,16 +1409,23 @@ class CustomersDao extends DatabaseAccessor<AppDatabase>
                 t.customerId.equals(customerId) &
                 t.crateGroupId.equals(crateGroupId),
           ))
-          .write(CustomerCrateBalancesCompanion(balance: Value(newBalance)));
+          .write(CustomerCrateBalancesCompanion(
+            balance: Value(newBalance),
+            lastUpdatedAt: Value(now),
+          ));
     } else {
       await into(customerCrateBalances).insert(
         CustomerCrateBalancesCompanion(
           customerId: Value(customerId),
           crateGroupId: Value(crateGroupId),
           balance: Value(-deltaQty),
+          businessId: Value(businessId),
+          lastUpdatedAt: Value(now),
         ),
       );
     }
+
+    await _enqueueCrateBalance(customerId, crateGroupId, businessId, now);
   }
 
   /// Records returned crates for a customer/group pair.
@@ -1194,6 +1436,9 @@ class CustomersDao extends DatabaseAccessor<AppDatabase>
     int crateGroupId,
     int returnedQty,
   ) async {
+    final now = DateTime.now();
+    final customer = await findById(customerId);
+    final businessId = customer?.businessId;
     final existing =
         await (select(customerCrateBalances)..where(
               (t) =>
@@ -1211,6 +1456,7 @@ class CustomersDao extends DatabaseAccessor<AppDatabase>
           .write(
             CustomerCrateBalancesCompanion(
               balance: Value(existing.balance - returnedQty),
+              lastUpdatedAt: Value(now),
             ),
           );
     } else {
@@ -1219,9 +1465,43 @@ class CustomersDao extends DatabaseAccessor<AppDatabase>
           customerId: Value(customerId),
           crateGroupId: Value(crateGroupId),
           balance: Value(-returnedQty),
+          businessId: Value(businessId),
+          lastUpdatedAt: Value(now),
         ),
       );
     }
+
+    await _enqueueCrateBalance(customerId, crateGroupId, businessId, now);
+  }
+
+  /// Pushes a customer_crate_balances row to Supabase via the sync queue.
+  /// Skips negative `crateGroupId`s — those are sentinels used by
+  /// [recordCrateReturnByManufacturer] and don't satisfy the cloud FK to
+  /// `crate_groups`. Composite-PK upsert needs an explicit conflict target.
+  Future<void> _enqueueCrateBalance(
+    int customerId,
+    int crateGroupId,
+    int? businessId,
+    DateTime now,
+  ) async {
+    if (crateGroupId < 0) return;
+    final row = await (select(customerCrateBalances)
+          ..where((t) =>
+              t.customerId.equals(customerId) &
+              t.crateGroupId.equals(crateGroupId)))
+        .getSingleOrNull();
+    if (row == null) return;
+    await db.syncDao.enqueue(
+      'customer_crate_balances:upsert:customer_id,crate_group_id',
+      jsonEncode({
+        'business_id': row.businessId,
+        'customer_id': row.customerId,
+        'crate_group_id': row.crateGroupId,
+        'balance': row.balance,
+        'last_updated_at': row.lastUpdatedAt?.toIso8601String() ??
+            now.toIso8601String(),
+      }),
+    );
   }
 
   /// Records returned crates keyed by manufacturer (rather than crate group).
@@ -1334,19 +1614,58 @@ class ExpensesDao extends DatabaseAccessor<AppDatabase>
     )..where((t) => t.warehouseId.equals(warehouseId))).watch();
   }
 
-  Future<void> addExpense(ExpensesCompanion companion) =>
-      into(expenses).insert(companion);
+  Future<void> addExpense(ExpensesCompanion companion) async {
+    final withSync = companion.copyWith(
+      lastUpdatedAt: Value(DateTime.now()),
+    );
+    final id = await into(expenses).insert(withSync);
+
+    // Queue for Sync
+    await db.syncDao.enqueue(
+      'expenses:insert',
+      jsonEncode({
+        'id': id,
+        'business_id': companion.businessId.value,
+        'category_id': companion.categoryId.value,
+        'category': companion.category.value,
+        'amount_kobo': companion.amountKobo.value,
+        'description': companion.description.value,
+        'payment_method': companion.paymentMethod.value,
+        'recorded_by': companion.recordedBy.value,
+        'reference': companion.reference.value,
+        'timestamp': (companion.timestamp.present
+                ? companion.timestamp.value
+                : DateTime.now())
+            .toIso8601String(),
+        'warehouse_id': companion.warehouseId.value,
+        'last_updated_at': DateTime.now().toIso8601String(),
+        'is_deleted': false,
+      }),
+    );
+  }
   Stream<double> watchTotalThisMonth() => Stream.value(0.0);
 }
 
 @DriftAccessor(tables: [SyncQueue])
 class SyncDao extends DatabaseAccessor<AppDatabase> with _$SyncDaoMixin {
   SyncDao(super.db);
-  Future<List<SyncQueueData>> getPendingItems({int limit = 50}) =>
-      (select(syncQueue)
-            ..where((t) => t.isSynced.not())
-            ..limit(limit))
-          .get();
+  /// Items eligible for an immediate push attempt: not yet synced, and either
+  /// pending/in_progress, or previously failed but past their backoff window.
+  /// `nextAttemptAt IS NULL` is treated as eligible so legacy `failed` rows
+  /// (written before backoff was wired up) get one fresh chance.
+  Future<List<SyncQueueData>> getPendingItems({int limit = 50}) {
+    final now = DateTime.now();
+    return (select(syncQueue)
+          ..where((t) =>
+              t.isSynced.not() &
+              (t.status.isIn(['pending', 'in_progress']) |
+                  (t.status.equals('failed') &
+                      (t.nextAttemptAt.isNull() |
+                          t.nextAttemptAt.isSmallerOrEqualValue(now)))))
+          ..limit(limit))
+        .get();
+  }
+
   Future<void> markInProgress(int id) =>
       (update(syncQueue)..where((t) => t.id.equals(id))).write(
         const SyncQueueCompanion(status: Value('in_progress')),
@@ -1355,17 +1674,77 @@ class SyncDao extends DatabaseAccessor<AppDatabase> with _$SyncDaoMixin {
       (update(syncQueue)..where((t) => t.id.equals(id))).write(
         const SyncQueueCompanion(status: Value('done'), isSynced: Value(true)),
       );
-  Future<void> markFailed(int id, String error, {bool permanent = false}) =>
-      (update(syncQueue)..where((t) => t.id.equals(id))).write(
-        SyncQueueCompanion(
-          status: const Value('failed'),
-          errorMessage: Value(error),
+
+  /// Records a failure with exponential backoff. Keeps `isSynced=false` so
+  /// the row is preserved for diagnosis, but bumps `nextAttemptAt` so the
+  /// auto-push loop stops hot-retrying a known-broken payload.
+  Future<void> markFailed(int id, String error, {bool permanent = false}) async {
+    final row = await (select(syncQueue)..where((t) => t.id.equals(id)))
+        .getSingleOrNull();
+    final attempts = (row?.attempts ?? 0) + 1;
+    final backoffMinutes = attempts > 6 ? 60 : (1 << (attempts - 1));
+    await (update(syncQueue)..where((t) => t.id.equals(id))).write(
+      SyncQueueCompanion(
+        status: const Value('failed'),
+        errorMessage: Value(error),
+        attempts: Value(attempts),
+        nextAttemptAt:
+            Value(DateTime.now().add(Duration(minutes: backoffMinutes))),
+      ),
+    );
+  }
+
+  /// Same predicate as [getPendingItems] so the sidebar badge reflects
+  /// "items eligible to push," not items wedged forever in `failed`.
+  Stream<int> watchPendingCount() {
+    return select(syncQueue).watch().map((rows) {
+      final now = DateTime.now();
+      return rows.where((e) {
+        if (e.isSynced) return false;
+        if (e.status == 'pending' || e.status == 'in_progress') return true;
+        if (e.status == 'failed') {
+          return e.nextAttemptAt == null || !e.nextAttemptAt!.isAfter(now);
+        }
+        return false;
+      }).length;
+    });
+  }
+
+  /// Recovers items abandoned by a crash mid-sync. Call once at service start.
+  Future<void> resetStuckInProgress() =>
+      (update(syncQueue)..where((t) => t.status.equals('in_progress'))).write(
+        const SyncQueueCompanion(status: Value('pending')),
+      );
+
+  /// Wipes backoff state on `failed` rows so they're immediately eligible
+  /// for re-push. Use after recovering from a global cause of failure
+  /// (e.g. fresh sign-in that grants the missing JWT).
+  Future<void> clearFailureBackoff() =>
+      (update(syncQueue)..where((t) => t.status.equals('failed'))).write(
+        const SyncQueueCompanion(
+          status: Value('pending'),
+          attempts: Value(0),
+          nextAttemptAt: Value(null),
+          errorMessage: Value(null),
         ),
       );
-  Stream<int> watchPendingCount() =>
-      select(syncQueue).watch().map((l) => l.where((e) => !e.isSynced).length);
+
+  /// Diagnostic: rows currently parked in `failed` state. Used by the
+  /// kDebugMode startup log in SupabaseSyncService.
+  Future<List<SyncQueueData>> getFailedItems({int limit = 50}) =>
+      (select(syncQueue)
+            ..where((t) => t.status.equals('failed'))
+            ..limit(limit))
+          .get();
+
   Future<void> purgeOldDoneItems() =>
       (delete(syncQueue)..where((t) => t.isSynced)).go();
+
+  Future<void> enqueue(String actionType, String payload) =>
+      into(syncQueue).insert(SyncQueueCompanion.insert(
+        actionType: actionType,
+        payload: payload,
+      ));
 }
 
 @DriftAccessor(tables: [ActivityLogs])

@@ -326,7 +326,7 @@ class _InventoryHistoryTabState extends ConsumerState<InventoryHistoryTab> {
               children: [
                 if (tx.isAdjustment)
                   Padding(
-                    padding: EdgeInsets.only(right: 2),
+                    padding: const EdgeInsets.only(right: 2),
                     child: Icon(Icons.warning_amber_rounded,
                         color: AppColors.warning, size: context.getRSize(10)),
                   ),

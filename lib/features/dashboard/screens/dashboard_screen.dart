@@ -25,6 +25,7 @@ import 'package:reebaplus_pos/features/inventory/screens/inventory_screen.dart';
 import 'package:reebaplus_pos/features/orders/screens/orders_screen.dart';
 import 'package:reebaplus_pos/shared/widgets/app_button.dart';
 import 'package:reebaplus_pos/shared/widgets/shimmer_loading.dart';
+import 'package:reebaplus_pos/shared/widgets/app_refresh_wrapper.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
@@ -323,27 +324,29 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             SizedBox(width: context.getRSize(8)),
           ],
         ),
-        body: ListView(
-          padding: EdgeInsets.all(context.spacingM),
-          children: [
-            if (_showProTips) ...[
-              _buildQuickStartHero(),
+        body: AppRefreshWrapper(
+          child: ListView(
+            padding: EdgeInsets.all(context.spacingM),
+            children: [
+              if (_showProTips) ...[
+                _buildQuickStartHero(),
+                SizedBox(height: context.spacingL),
+              ],
+              _buildPeriodHeader(),
+              SizedBox(height: context.spacingM),
+              _buildMetricsList(
+                sales: totalSales,
+                pending: pendingOrdersCount,
+                profit: netProfit,
+                credit: totalCredit,
+                debt: totalDebt,
+                expenses: totalExpenses,
+                filteredOrders: filteredOrdersWithItems,
+                staffSalesList: staffSalesList,
+              ),
               SizedBox(height: context.spacingL),
             ],
-            _buildPeriodHeader(),
-            SizedBox(height: context.spacingM),
-            _buildMetricsList(
-              sales: totalSales,
-              pending: pendingOrdersCount,
-              profit: netProfit,
-              credit: totalCredit,
-              debt: totalDebt,
-              expenses: totalExpenses,
-              filteredOrders: filteredOrdersWithItems,
-              staffSalesList: staffSalesList,
-            ),
-            SizedBox(height: context.spacingL),
-          ],
+          ),
         ),
     );
   }

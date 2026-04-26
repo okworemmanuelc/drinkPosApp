@@ -796,7 +796,7 @@ class _StaffFormSheetState extends ConsumerState<_StaffFormSheet> {
         final warehouseName = widget.warehouses
             .firstWhere(
               (w) => w.id == _selectedWarehouseId,
-              orElse: () => const WarehouseData(id: -1, name: 'this warehouse'),
+              orElse: () => const WarehouseData(id: -1, name: 'this warehouse', isDeleted: false),
             )
             .name;
         showDialog(
@@ -845,7 +845,7 @@ class _StaffFormSheetState extends ConsumerState<_StaffFormSheet> {
     final warehouseName = widget.warehouses
         .firstWhere(
           (w) => w.id == _selectedWarehouseId,
-          orElse: () => const WarehouseData(id: -1, name: 'the warehouse'),
+          orElse: () => const WarehouseData(id: -1, name: 'the warehouse', isDeleted: false),
         )
         .name;
 

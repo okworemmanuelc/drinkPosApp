@@ -32,6 +32,7 @@ import 'package:reebaplus_pos/core/utils/product_name.dart';
 import 'package:reebaplus_pos/core/utils/currency_input_formatter.dart';
 import 'package:reebaplus_pos/shared/widgets/shimmer_loading.dart';
 import 'package:reebaplus_pos/shared/services/navigation_service.dart';
+import 'package:reebaplus_pos/shared/widgets/app_refresh_wrapper.dart';
 
 class InventoryScreen extends ConsumerStatefulWidget {
   const InventoryScreen({super.key});
@@ -221,28 +222,30 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen>
           : null,
       body: SafeArea(
         top: false,
-        child: NestedScrollView(
-          headerSliverBuilder: (context, innerBoxIsScrolled) {
-            return [
-              SliverToBoxAdapter(child: _buildSummaryCards(context)),
-              SliverPersistentHeader(
-                pinned: true,
-                delegate: _StickyTabBarDelegate(child: _buildTabBar(context)),
-              ),
-            ];
-          },
-          body: TabBarView(
-            controller: _tabController,
-            children: [
-              _buildProductsTab(context),
-              _buildSuppliersTab(context),
-              _buildCratesTab(context),
-              InventoryHistoryTab(
-                warehouseId: _selectedWarehouseId == 'all'
-                    ? null
-                    : int.tryParse(_selectedWarehouseId),
-              ),
-            ],
+        child: AppRefreshWrapper(
+          child: NestedScrollView(
+            headerSliverBuilder: (context, innerBoxIsScrolled) {
+              return [
+                SliverToBoxAdapter(child: _buildSummaryCards(context)),
+                SliverPersistentHeader(
+                  pinned: true,
+                  delegate: _StickyTabBarDelegate(child: _buildTabBar(context)),
+                ),
+              ];
+            },
+            body: TabBarView(
+              controller: _tabController,
+              children: [
+                _buildProductsTab(context),
+                _buildSuppliersTab(context),
+                _buildCratesTab(context),
+                InventoryHistoryTab(
+                  warehouseId: _selectedWarehouseId == 'all'
+                      ? null
+                      : int.tryParse(_selectedWarehouseId),
+                ),
+              ],
+            ),
           ),
         ),
       ),

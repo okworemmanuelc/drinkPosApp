@@ -531,7 +531,7 @@ class _StockAuditScreenState extends ConsumerState<StockAuditScreen> {
         runningBalances.putIfAbsent(tx.productId, () => 0);
         // Note: since list is DESC, we can't easily compute running balance
         // without pre-processing. Let's flag based on simpler heuristics.
-        final isNegativeBalance = false; // Would need pre-computation
+        const isNegativeBalance = false; // Would need pre-computation
         final isFlagged = tx.isAdjustment || isNegativeBalance;
 
         return _buildTransactionRow(
@@ -633,7 +633,7 @@ class _StockAuditScreenState extends ConsumerState<StockAuditScreen> {
           SizedBox(
             width: context.getRSize(20),
             child: isFlagged
-                ? Icon(Icons.warning_amber_rounded,
+                ? const Icon(Icons.warning_amber_rounded,
                     size: 14, color: AppColors.warning)
                 : const SizedBox.shrink(),
           ),

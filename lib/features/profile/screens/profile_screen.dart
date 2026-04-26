@@ -82,7 +82,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final warehouseName = _warehouses
         .firstWhere(
           (w) => w.id == user.warehouseId,
-          orElse: () => const WarehouseData(id: -1, name: 'Unassigned'),
+          orElse: () => const WarehouseData(id: -1, name: 'Unassigned', isDeleted: false),
         )
         .name;
 

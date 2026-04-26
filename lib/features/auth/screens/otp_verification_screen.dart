@@ -1,15 +1,15 @@
 import 'dart:async';
-import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:reebaplus_pos/core/database/app_database.dart';
 import 'package:reebaplus_pos/core/providers/app_providers.dart';
+import 'package:reebaplus_pos/shared/services/auth_service.dart';
 import 'package:reebaplus_pos/core/utils/notifications.dart';
 import 'package:reebaplus_pos/shared/widgets/app_button.dart';
 import 'package:reebaplus_pos/features/auth/screens/create_pin_screen.dart';
+import 'package:reebaplus_pos/features/auth/screens/existing_account_screen.dart';
 import 'package:reebaplus_pos/features/auth/screens/login_screen.dart';
 import 'package:reebaplus_pos/features/auth/screens/business_type_selection_screen.dart';
 import 'package:reebaplus_pos/features/auth/widgets/auth_background.dart';
@@ -178,8 +178,49 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
     // Mark this session as email-authenticated (triggers second OTP after PIN).
     await ref.read(authProvider).saveAuthMethod('email');
 
+    // Look up the cloud account (if any) and the local user. On a fresh
+    // device with an existing cloud account, we let the user confirm the
+    // business before pulling data and seeding a local row.
+    final auth = ref.read(authProvider);
+    final account = await auth.fetchSupabaseAccount();
+    var localUser = await auth.getUserByEmail(widget.email);
+
+    if (!mounted) return;
+
+    if (account != null && localUser == null) {
+      Navigator.of(context).pushReplacement(
+        PageRouteBuilder(
+          pageBuilder: (context, animation, secondaryAnimation) =>
+              ExistingAccountScreen(email: widget.email, account: account),
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            final curve = CurvedAnimation(
+              parent: animation,
+              curve: Curves.easeInOutCubic,
+            );
+            return FadeTransition(
+              opacity: curve,
+              child: ScaleTransition(
+                scale: Tween<double>(begin: 0.96, end: 1.0).animate(curve),
+                child: child,
+              ),
+            );
+          },
+          transitionDuration: const Duration(milliseconds: 500),
+        ),
+      );
+      return;
+    }
+
+    if (account != null && localUser != null) {
+      // Returning device — sync silently and refresh the local row.
+      await auth.syncOnLogin(account.businessId);
+      await auth.upsertLocalUserFromProfile();
+      localUser = await auth.getUserByEmail(widget.email) ?? localUser;
+      if (!mounted) return;
+    }
+
     // OTP verified — route based on whether the user exists locally.
-    if (widget.user == null) {
+    if (localUser == null) {
       Navigator.of(context).pushReplacement(
         PageRouteBuilder(
           pageBuilder: (context, animation, secondaryAnimation) =>
@@ -201,7 +242,11 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
         ),
       );
     } else {
-      final hasPin = widget.user!.pin.isNotEmpty;
+      final user = localUser;
+      // A row seeded from the cloud profile has the sentinel PIN — the user
+      // needs to set up a PIN on this device before they can sign in.
+      final isSetupRequired = user.pin == AuthService.setupRequiredPin;
+      final hasPin = user.pin.isNotEmpty && !isSetupRequired;
       if (hasPin && !widget.isPinReset) {
         // Existing user on a new device → enter their existing PIN.
         Navigator.of(context).pushReplacement(
@@ -233,7 +278,7 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
         Navigator.of(context).pushReplacement(
           PageRouteBuilder(
             pageBuilder: (context, animation, secondaryAnimation) =>
-                CreatePinScreen(user: widget.user!),
+                CreatePinScreen(user: user),
             transitionsBuilder:
                 (context, animation, secondaryAnimation, child) {
                   final curve = CurvedAnimation(

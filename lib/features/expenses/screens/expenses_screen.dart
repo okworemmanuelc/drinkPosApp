@@ -16,6 +16,7 @@ import 'package:reebaplus_pos/shared/widgets/notification_bell.dart';
 import 'package:reebaplus_pos/shared/widgets/app_dropdown.dart';
 import 'package:reebaplus_pos/core/database/app_database.dart';
 import 'package:reebaplus_pos/core/providers/stream_providers.dart';
+import 'package:reebaplus_pos/shared/widgets/app_refresh_wrapper.dart';
 
 class ExpensesScreen extends ConsumerStatefulWidget {
   final String? initialPeriod;
@@ -340,10 +341,11 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen>
     // Sort categories alphabetically
     final sortedCategories = grouped.keys.toList()..sort();
 
-    return ListView.builder(
-      padding: EdgeInsets.only(bottom: context.getRSize(100)),
-      itemCount: sortedCategories.length,
-      itemBuilder: (context, cIndex) {
+    return AppRefreshWrapper(
+      child: ListView.builder(
+        padding: EdgeInsets.only(bottom: context.getRSize(100)),
+        itemCount: sortedCategories.length,
+        itemBuilder: (context, cIndex) {
         final cat = sortedCategories[cIndex];
         final catList = grouped[cat]!..sort((a, b) => b.date.compareTo(a.date));
         final catSum = catList.fold(0.0, (sum, e) => sum + e.amount);
@@ -385,7 +387,7 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen>
           ],
         );
       },
-    );
+    ));
   }
 
   Widget _buildStatsTab(BuildContext context, List<Expense> periodExpenses) {
@@ -415,14 +417,15 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen>
       const Color(0xFFEC4899), // pink
     ];
 
-    return ListView(
-      padding: EdgeInsets.all(
-        context.getRSize(16),
-      ).copyWith(bottom: context.getRSize(100)),
-      children: [
-        // Annual Projection Card
-        _buildAnnualProjectionCard(context),
-        SizedBox(height: context.getRSize(24)),
+    return AppRefreshWrapper(
+      child: ListView(
+        padding: EdgeInsets.all(
+          context.getRSize(16),
+        ).copyWith(bottom: context.getRSize(100)),
+        children: [
+          // Annual Projection Card
+          _buildAnnualProjectionCard(context),
+          SizedBox(height: context.getRSize(24)),
 
         // Category Breakdown Header
         Text(
@@ -522,7 +525,7 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen>
           ),
         ),
       ],
-    );
+    ));
   }
 
   Widget _buildAnnualProjectionCard(BuildContext context) {

@@ -29,7 +29,7 @@ class CustomerService extends ValueNotifier<List<Customer>> {
     }
   }
 
-  Future<Customer?> addCustomer(Customer customer) async {
+  Future<Customer?> addCustomer(Customer customer, {int? businessId}) async {
     final newId = await _db.customersDao.addCustomer(
       CustomersCompanion.insert(
         name: customer.name,
@@ -38,6 +38,7 @@ class CustomerService extends ValueNotifier<List<Customer>> {
         googleMapsLocation: Value(customer.googleMapsLocation),
         customerGroup: Value(customer.customerGroup.name),
         warehouseId: Value(customer.warehouseId),
+        businessId: Value(businessId),
       ),
     );
 

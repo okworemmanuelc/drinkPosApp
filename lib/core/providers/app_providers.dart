@@ -27,6 +27,7 @@ import 'package:reebaplus_pos/shared/services/notification_service.dart';
 import 'package:reebaplus_pos/shared/services/order_service.dart';
 import 'package:reebaplus_pos/shared/services/printer_service.dart';
 import 'package:reebaplus_pos/shared/services/reorder_alert_service.dart';
+import 'package:reebaplus_pos/core/services/supabase_sync_service.dart';
 
 // ── Database (global — initialised before runApp) ──────────────────────────
 final databaseProvider = Provider<AppDatabase>((_) => database);
@@ -54,6 +55,7 @@ final authProvider = ChangeNotifierProvider<AuthService>((ref) {
     ref.read(databaseProvider),
     ref.read(navigationProvider),
     ref.read(secureStorageProvider),
+    ref.read(supabaseSyncServiceProvider),
   );
 });
 final deviceUserIdProvider =
@@ -136,4 +138,8 @@ final biometricServiceProvider = Provider<BiometricService>((ref) {
 });
 final reorderAlertServiceProvider = Provider<ReorderAlertService>((ref) {
   return ReorderAlertService(ref.read(databaseProvider).stockLedgerDao);
+});
+
+final supabaseSyncServiceProvider = Provider<SupabaseSyncService>((ref) {
+  return SupabaseSyncService(ref.read(databaseProvider));
 });

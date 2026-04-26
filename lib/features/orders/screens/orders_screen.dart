@@ -20,8 +20,8 @@ import 'package:reebaplus_pos/core/providers/stream_providers.dart';
 import 'package:reebaplus_pos/shared/widgets/app_button.dart';
 import 'package:reebaplus_pos/shared/widgets/receipt_widget.dart';
 import 'package:reebaplus_pos/shared/widgets/shared_scaffold.dart';
-import 'package:reebaplus_pos/features/deliveries/data/models/delivery_receipt.dart'
-    as model;
+import 'package:reebaplus_pos/features/deliveries/data/models/delivery_receipt.dart' as model;
+import 'package:reebaplus_pos/shared/widgets/app_refresh_wrapper.dart';
 import 'package:reebaplus_pos/shared/widgets/menu_button.dart';
 import 'package:reebaplus_pos/shared/widgets/app_bar_header.dart';
 import 'package:reebaplus_pos/shared/widgets/notification_bell.dart';
@@ -169,17 +169,19 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
                 }).toList(),
               );
 
-              return NestedScrollView(
-                headerSliverBuilder: (context, innerBoxIsScrolled) => [
-                  SliverToBoxAdapter(child: _buildTabBar(context)),
-                ],
-                body: TabBarView(
-                  controller: _tabController,
-                  children: [
-                    _buildPendingTab(context, pending),
-                    _buildCompletedTab(context, completed),
-                    _buildCancelledTab(context, cancelled),
+              return AppRefreshWrapper(
+                child: NestedScrollView(
+                  headerSliverBuilder: (context, innerBoxIsScrolled) => [
+                    SliverToBoxAdapter(child: _buildTabBar(context)),
                   ],
+                  body: TabBarView(
+                    controller: _tabController,
+                    children: [
+                      _buildPendingTab(context, pending),
+                      _buildCompletedTab(context, completed),
+                      _buildCancelledTab(context, cancelled),
+                    ],
+                  ),
                 ),
               );
             },

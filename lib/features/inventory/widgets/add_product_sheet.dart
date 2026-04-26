@@ -424,8 +424,9 @@ class _AddProductSheetState extends ConsumerState<AddProductSheet> {
         widget.onProductAdded?.call();
       } catch (e) {
         debugPrint('AddProductSheet._save (existing) error: $e');
-        if (mounted)
+        if (mounted) {
           AppNotification.showError(context, 'Could not update product: $e');
+        }
       } finally {
         if (mounted) setState(() => _isSaving = false);
       }
@@ -492,11 +493,12 @@ class _AddProductSheetState extends ConsumerState<AddProductSheet> {
     // Check for duplicate product name
     final existing = await db.catalogDao.findByName(name);
     if (existing != null) {
-      if (mounted)
+      if (mounted) {
         AppNotification.showError(
           context,
           'A product named "$name" already exists.',
         );
+      }
       return;
     }
 
@@ -517,11 +519,12 @@ class _AddProductSheetState extends ConsumerState<AddProductSheet> {
 
       if (_selectedManufacturer == null) {
         setState(() => _isSaving = false);
-        if (mounted)
+        if (mounted) {
           AppNotification.showError(
             context,
             'Manufacturer is required. Please select or create one.',
           );
+        }
         return;
       }
 
@@ -532,6 +535,7 @@ class _AddProductSheetState extends ConsumerState<AddProductSheet> {
       final productId = await db.catalogDao.insertProduct(
         ProductsCompanion.insert(
           name: name,
+          businessId: drift.Value(auth.currentUser?.businessId),
           subtitle: drift.Value(
             _subtitleCtrl.text.trim().isEmpty
                 ? null
@@ -577,8 +581,9 @@ class _AddProductSheetState extends ConsumerState<AddProductSheet> {
       widget.onProductAdded?.call();
     } catch (e) {
       debugPrint('AddProductSheet._save error: $e');
-      if (mounted)
+      if (mounted) {
         AppNotification.showError(context, 'Could not save product: $e');
+      }
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }

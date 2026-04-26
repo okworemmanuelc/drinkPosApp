@@ -72,7 +72,7 @@ class _StaffDetailsScreenState extends ConsumerState<StaffDetailsScreen> {
     final warehouseName = widget.warehouses
         .firstWhere(
           (w) => w.id == widget.user.warehouseId,
-          orElse: () => const WarehouseData(id: -1, name: 'Unassigned'),
+          orElse: () => const WarehouseData(id: -1, name: 'Unassigned', isDeleted: false),
         )
         .name;
 

@@ -161,6 +161,7 @@ class _AddExpenseSheetState extends ConsumerState<AddExpenseSheet> {
         reference: Value(_refCtrl.text),
         timestamp: Value(_selectedDate),
         warehouseId: Value(auth.currentUser?.warehouseId),
+        businessId: Value(auth.currentUser?.businessId),
       ),
     );
 

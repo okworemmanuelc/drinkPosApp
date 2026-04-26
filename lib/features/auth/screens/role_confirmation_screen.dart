@@ -1,4 +1,3 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 
 import 'package:reebaplus_pos/shared/widgets/app_button.dart';
@@ -36,7 +35,7 @@ class RoleConfirmationScreen extends StatelessWidget {
     final isDark = theme.brightness == Brightness.dark;
     final textColor = isDark ? Colors.white : Colors.black;
     final businessName = result.businessName ?? 'Unknown Business';
-    final locationName = 'Main Location';
+    const locationName = 'Main Location';
     final role = result.invite?.role ?? 'Staff';
     final inviterName = result.inviterName ?? 'CEO';
 

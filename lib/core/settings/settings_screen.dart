@@ -39,11 +39,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
         final available =
             await auth.canCheckBiometrics || await auth.isDeviceSupported();
         if (!available) {
-          if (mounted)
+          if (mounted) {
             AppNotification.showError(
               context,
               'Biometrics not supported on this device.',
             );
+          }
           return;
         }
 
@@ -60,8 +61,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
           if (mounted) setState(() => _biometricsEnabled = true);
         }
       } catch (e) {
-        if (mounted)
+        if (mounted) {
           AppNotification.showError(context, 'Failed to enable biometrics.');
+        }
       }
     } else {
       await prefs.setBool('biometrics_enabled', false);
@@ -146,7 +148,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             trailing: Switch(
               value: _biometricsEnabled,
               onChanged: _toggleBiometrics,
-              activeColor: t.colorScheme.primary,
+              activeThumbColor: t.colorScheme.primary,
             ),
             isDark: isDark,
           ),

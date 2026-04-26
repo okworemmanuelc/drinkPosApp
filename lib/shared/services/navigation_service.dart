@@ -37,6 +37,13 @@ class NavigationService {
     null,
   );
 
+  /// One-shot warehouse pre-filter for CustomersScreen. Set by the warehouse
+  /// details "Customers" card before switching to the customers tab. The
+  /// customers screen reads this once on init and clears it.
+  final ValueNotifier<int?> customersInitialWarehouseId = ValueNotifier<int?>(
+    null,
+  );
+
   static final Map<int, String> indexToRoute = {
     0: 'dashboard',
     1: 'pos',

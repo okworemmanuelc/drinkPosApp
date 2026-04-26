@@ -8,6 +8,7 @@ import 'dart:math';
 import 'package:reebaplus_pos/core/database/app_database.dart';
 import 'package:reebaplus_pos/shared/services/navigation_service.dart';
 import 'package:reebaplus_pos/shared/services/secure_storage_service.dart';
+import 'package:reebaplus_pos/core/services/supabase_sync_service.dart';
 
 /// Route to show after login instead of the default MainLayout.
 enum PostLoginRoute { none, successDashboard, accessGranted }
@@ -18,8 +19,9 @@ class AuthService extends ValueNotifier<UserData?> {
   final AppDatabase _db;
   final NavigationService _nav;
   final SecureStorageService _secure;
+  final SupabaseSyncService _sync;
 
-  AuthService(this._db, this._nav, this._secure) : super(null);
+  AuthService(this._db, this._nav, this._secure, this._sync) : super(null);
 
   /// Notifies listeners whenever the device-level user ID changes.
   final ValueNotifier<int?> deviceUserIdNotifier = ValueNotifier<int?>(null);
@@ -80,6 +82,113 @@ class AuthService extends ValueNotifier<UserData?> {
 
   /// Returns the stored auth method, or null if not set.
   Future<String?> getAuthMethod() => _secure.getAuthMethod();
+
+  // ── Supabase Sync ─────────────────────────────────────────────────────────
+
+  /// Sentinel PIN written to a local user row when it's been seeded from a
+  /// cloud profile but the device hasn't set up a PIN yet. The OTP flow
+  /// detects this and routes the user into PIN setup.
+  static const String setupRequiredPin = '__SETUP_REQUIRED__';
+
+  /// Reads the current auth user's cloud profile and the linked business
+  /// metadata. Returns null when no profile / business exists, when no user
+  /// is signed in, or on network error.
+  Future<SupabaseAccountInfo?> fetchSupabaseAccount() async {
+    final authUser = Supabase.instance.client.auth.currentUser;
+    if (authUser == null) return null;
+    try {
+      final profile = await Supabase.instance.client
+          .from('profiles')
+          .select('business_id, role, role_tier')
+          .eq('id', authUser.id)
+          .maybeSingle();
+      final businessId = (profile?['business_id'] as num?)?.toInt();
+      if (profile == null || businessId == null) return null;
+
+      final business = await Supabase.instance.client
+          .from('businesses')
+          .select('name')
+          .eq('id', businessId)
+          .maybeSingle();
+      final businessName = business?['name'] as String?;
+      if (businessName == null) return null;
+
+      return SupabaseAccountInfo(
+        businessId: businessId,
+        businessName: businessName,
+        role: profile['role'] as String? ?? 'Staff',
+        roleTier: (profile['role_tier'] as num?)?.toInt() ?? 1,
+      );
+    } catch (e) {
+      debugPrint('[AuthService] fetchSupabaseAccount error: $e');
+      return null;
+    }
+  }
+
+  Future<void> syncOnLogin(int businessId) async {
+    await _sync.syncAll(businessId);
+    _sync.startRealtimeSync(businessId);
+    _sync.startAutoPush();
+  }
+
+  /// Reads the current user's cloud profile (by `auth.uid()`) and reflects it
+  /// into the local `users` table. On a fresh device this recreates the row
+  /// so the existing PIN-entry / device-session flow can pick up.
+  ///
+  /// Only profile-owned fields (name, role, roleTier, businessId) are written.
+  /// Device-local fields (pin, passwordHash, biometricEnabled, avatarColor,
+  /// warehouseId) are never overwritten on existing rows.
+  ///
+  /// If no local row exists yet, one is inserted with [setupRequiredPin] as a
+  /// placeholder so the caller can route to PIN setup.
+  Future<UserData?> upsertLocalUserFromProfile() async {
+    final authUser = Supabase.instance.client.auth.currentUser;
+    if (authUser == null || authUser.email == null) return null;
+
+    Map<String, dynamic>? profile;
+    try {
+      profile = await Supabase.instance.client
+          .from('profiles')
+          .select('name, role, role_tier, business_id')
+          .eq('id', authUser.id)
+          .maybeSingle();
+    } catch (e) {
+      debugPrint('[AuthService] upsertLocalUserFromProfile fetch error: $e');
+      return null;
+    }
+    if (profile == null) return null;
+
+    final name = profile['name'] as String? ?? '';
+    final role = profile['role'] as String? ?? 'Staff';
+    final roleTier = (profile['role_tier'] as num?)?.toInt() ?? 1;
+    final businessId = (profile['business_id'] as num?)?.toInt();
+    final email = authUser.email!;
+
+    final existing = await getUserByEmail(email);
+    if (existing != null) {
+      await (_db.update(_db.users)..where((u) => u.id.equals(existing.id)))
+          .write(UsersCompanion(
+        name: Value(name),
+        role: Value(role),
+        roleTier: Value(roleTier),
+        businessId: Value(businessId),
+      ));
+      return (_db.select(_db.users)..where((u) => u.id.equals(existing.id)))
+          .getSingle();
+    }
+
+    final id = await _db.into(_db.users).insert(
+          UsersCompanion(
+            name: Value(name),
+            email: Value(email),
+            pin: const Value(setupRequiredPin),
+            role: Value(role),
+            roleTier: Value(roleTier),
+            businessId: Value(businessId),
+          ),
+        );
+    return (_db.select(_db.users)..where((u) => u.id.equals(id))).getSingle();
+  }
 
   // ── Supabase OTP ───────────────────────────────────────────────────────────
 
@@ -156,6 +265,11 @@ class AuthService extends ValueNotifier<UserData?> {
 
       // Set synchronously so VLB listener fires before any route pop cleans up
       value = user;
+
+      if (user.businessId != null) {
+        _sync.startRealtimeSync(user.businessId!);
+        _sync.startAutoPush();
+      }
 
       if (user.roleTier < 5 && user.warehouseId == null) {
         scheduleMicrotask(() => _handleOnboardingAlerts(user));
@@ -559,4 +673,20 @@ class InviteValidationResult {
       inviterName = null;
 
   bool get isSuccess => error == null;
+}
+
+/// Snapshot of the current auth user's cloud profile + linked business,
+/// used by the OTP flow to confirm an existing account on a fresh device.
+class SupabaseAccountInfo {
+  final int businessId;
+  final String businessName;
+  final String role;
+  final int roleTier;
+
+  const SupabaseAccountInfo({
+    required this.businessId,
+    required this.businessName,
+    required this.role,
+    required this.roleTier,
+  });
 }

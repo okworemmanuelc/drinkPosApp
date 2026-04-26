@@ -255,6 +255,22 @@ class _AddCustomerSheetState extends ConsumerState<AddCustomerSheet> {
                         variant: AppButtonVariant.primary,
                         onPressed: () async {
                           if (_formKey.currentState!.validate()) {
+                            // Refuse the save if we don't yet know which business this row
+                            // belongs to — a NULL business_id will fail the cloud RLS check
+                            // (`business_id = get_user_business_id()`) and the row would be
+                            // unsyncable forever.
+                            final businessId =
+                                ref.read(authProvider).currentUser?.businessId;
+                            if (businessId == null) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                      'Cannot save: account not fully loaded yet. Try again in a moment.'),
+                                ),
+                              );
+                              return;
+                            }
+
                             // CEO picks warehouse manually; others use their own warehouseId
                             final warehouseId = _isCeo
                                 ? _selectedWarehouseId
@@ -272,7 +288,10 @@ class _AddCustomerSheetState extends ConsumerState<AddCustomerSheet> {
                               isWalkIn: false,
                               warehouseId: warehouseId,
                             );
-                            final saved = await ref.read(customerServiceProvider).addCustomer(newCustomer);
+                            final saved = await ref.read(customerServiceProvider).addCustomer(
+                              newCustomer,
+                              businessId: businessId,
+                            );
                             if (!context.mounted) return;
                             Navigator.pop(context);
                             if (saved != null) {

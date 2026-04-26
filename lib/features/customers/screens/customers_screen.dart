@@ -15,6 +15,7 @@ import 'package:reebaplus_pos/features/customers/widgets/add_customer_sheet.dart
 import 'package:reebaplus_pos/features/customers/screens/customer_detail_screen.dart';
 import 'package:reebaplus_pos/shared/widgets/app_dropdown.dart';
 import 'package:reebaplus_pos/shared/widgets/shimmer_loading.dart';
+import 'package:reebaplus_pos/shared/widgets/app_refresh_wrapper.dart';
 
 class CustomersScreen extends ConsumerStatefulWidget {
   const CustomersScreen({super.key});
@@ -41,10 +42,18 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
     final user = ref.read(authProvider).currentUser;
     final roleTier = user?.roleTier ?? 0;
 
+    final nav = ref.read(navigationProvider);
+    final oneShot = nav.customersInitialWarehouseId.value;
+
     int? defaultId;
-    if (roleTier >= 5) {
+    if (oneShot != null) {
+      // One-shot pre-filter set by another screen (e.g. warehouse details
+      // "Customers" card). Consume immediately so it only applies once.
+      defaultId = oneShot;
+      nav.customersInitialWarehouseId.value = null;
+    } else if (roleTier >= 5) {
       // CEO: default to the warehouse currently selected on the POS screen
-      defaultId = ref.read(navigationProvider).lockedWarehouseId.value;
+      defaultId = nav.lockedWarehouseId.value;
     } else if (roleTier >= 4) {
       // Manager: default to their own warehouse
       defaultId = user?.warehouseId;
@@ -120,26 +129,37 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
                     }
 
                     if (filtered.isEmpty) {
-                      return const Center(child: Text('No customers found.'));
+                      return const AppRefreshWrapper(
+                        child: CustomScrollView(
+                          slivers: [
+                            SliverFillRemaining(
+                              hasScrollBody: false,
+                              child: Center(child: Text('No customers found.')),
+                            ),
+                          ],
+                        ),
+                      );
                     }
-                    return ListView.separated(
-                      padding: context
-                          .rPadding(16)
-                          .copyWith(bottom: context.getRSize(100)),
-                      itemCount: filtered.length,
-                      separatorBuilder: (context, index) =>
-                          SizedBox(height: context.getRSize(12)),
-                      itemBuilder: (context, index) {
-                        return _buildCustomerCard(
-                          context,
-                          filtered[index],
-                          cardCol,
-                          surfaceCol,
-                          textCol,
-                          subtextCol,
-                          borderCol,
-                        );
-                      },
+                    return AppRefreshWrapper(
+                      child: ListView.separated(
+                        padding: context
+                            .rPadding(16)
+                            .copyWith(bottom: context.getRSize(100)),
+                        itemCount: filtered.length,
+                        separatorBuilder: (context, index) =>
+                            SizedBox(height: context.getRSize(12)),
+                        itemBuilder: (context, index) {
+                          return _buildCustomerCard(
+                            context,
+                            filtered[index],
+                            cardCol,
+                            surfaceCol,
+                            textCol,
+                            subtextCol,
+                            borderCol,
+                          );
+                        },
+                      ),
                     );
                   },
                 ),

@@ -15,19 +15,25 @@ part 'app_database.g.dart';
 @DataClassName('CrateGroupData')
 class CrateGroups extends Table {
   IntColumn get id => integer().autoIncrement()();
+  IntColumn get businessId => integer().nullable().references(Businesses, #id)();
   TextColumn get name => text()();
   IntColumn get size => integer()(); // 12=big, 20=medium, 24=small
   IntColumn get emptyCrateStock => integer().withDefault(const Constant(0))();
   IntColumn get depositAmountKobo => integer().withDefault(const Constant(0))();
+  DateTimeColumn get lastUpdatedAt => dateTime().nullable()();
+  BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
 }
 
 // 1b. Manufacturers — first-class entities that own crate pools
 @DataClassName('ManufacturerData')
 class Manufacturers extends Table {
   IntColumn get id => integer().autoIncrement()();
+  IntColumn get businessId => integer().nullable().references(Businesses, #id)();
   TextColumn get name => text()();
   IntColumn get emptyCrateStock => integer().withDefault(const Constant(0))();
   IntColumn get depositAmountKobo => integer().withDefault(const Constant(0))();
+  DateTimeColumn get lastUpdatedAt => dateTime().nullable()();
+  BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
 }
 
 // 1c. Businesses
@@ -45,8 +51,11 @@ class Businesses extends Table {
 @DataClassName('WarehouseData')
 class Warehouses extends Table {
   IntColumn get id => integer().autoIncrement()();
+  IntColumn get businessId => integer().nullable().references(Businesses, #id)();
   TextColumn get name => text()();
   TextColumn get location => text().nullable()();
+  DateTimeColumn get lastUpdatedAt => dateTime().nullable()();
+  BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
 }
 
 // 3. Users
@@ -69,14 +78,19 @@ class Users extends Table {
       integer().nullable().references(Businesses, #id)();
   DateTimeColumn get createdAt => dateTime().nullable()();
   DateTimeColumn get lastNotificationSentAt => dateTime().nullable()();
+  DateTimeColumn get lastUpdatedAt => dateTime().nullable()();
+  BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
 }
 
 // 4. Categories
 @DataClassName('CategoryData')
 class Categories extends Table {
   IntColumn get id => integer().autoIncrement()();
+  IntColumn get businessId => integer().nullable().references(Businesses, #id)();
   TextColumn get name => text()();
   TextColumn get description => text().nullable()();
+  DateTimeColumn get lastUpdatedAt => dateTime().nullable()();
+  BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
 }
 
 // 5. Products
@@ -88,6 +102,7 @@ class Categories extends Table {
 @DataClassName('ProductData')
 class Products extends Table {
   IntColumn get id => integer().autoIncrement()();
+  IntColumn get businessId => integer().nullable().references(Businesses, #id)();
   IntColumn get categoryId =>
       integer().nullable().references(Categories, #id)();
   IntColumn get crateGroupId =>
@@ -121,21 +136,27 @@ class Products extends Table {
       integer().withDefault(const Constant(0))();
   BoolColumn get trackEmpties => boolean().withDefault(const Constant(false))();
   TextColumn get imagePath => text().nullable()();
+  DateTimeColumn get lastUpdatedAt => dateTime().nullable()();
 }
 
 // 6. Inventory
 @DataClassName('InventoryData')
 class Inventory extends Table {
   IntColumn get id => integer().autoIncrement()();
+  IntColumn get businessId => integer().nullable().references(Businesses, #id)();
   IntColumn get productId => integer().references(Products, #id)();
   IntColumn get warehouseId => integer().references(Warehouses, #id)();
   IntColumn get quantity => integer().withDefault(const Constant(0))();
+  DateTimeColumn get lastUpdatedAt => dateTime().nullable()();
 }
 
 // 7. Customers
 @DataClassName('CustomerData')
 class Customers extends Table {
   IntColumn get id => integer().autoIncrement()();
+  IntColumn get businessId => integer().nullable().references(Businesses, #id)();
+  IntColumn get warehouseId =>
+      integer().nullable().references(Warehouses, #id)();
   TextColumn get name => text()();
   TextColumn get phone => text().nullable()();
   TextColumn get email => text().nullable()();
@@ -146,25 +167,29 @@ class Customers extends Table {
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
   IntColumn get walletBalanceKobo => integer().withDefault(const Constant(0))();
   IntColumn get walletLimitKobo => integer().withDefault(const Constant(0))();
-  IntColumn get warehouseId =>
-      integer().nullable().references(Warehouses, #id)();
+  DateTimeColumn get lastUpdatedAt => dateTime().nullable()();
+  BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
 }
 
 // 8. Suppliers
 @DataClassName('SupplierData')
 class Suppliers extends Table {
   IntColumn get id => integer().autoIncrement()();
+  IntColumn get businessId => integer().nullable().references(Businesses, #id)();
   TextColumn get name => text()();
   TextColumn get phone => text().nullable()();
   TextColumn get email => text().nullable()();
   TextColumn get address => text().nullable()();
   TextColumn get crateGroupName => text().nullable()();
+  DateTimeColumn get lastUpdatedAt => dateTime().nullable()();
+  BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
 }
 
 // 9. Orders
 @DataClassName('OrderData')
 class Orders extends Table {
   IntColumn get id => integer().autoIncrement()();
+  IntColumn get businessId => integer().nullable().references(Businesses, #id)();
   TextColumn get orderNumber => text()();
   IntColumn get customerId => integer().nullable().references(Customers, #id)();
   IntColumn get totalAmountKobo => integer()();
@@ -185,12 +210,14 @@ class Orders extends Table {
       integer().nullable().references(Warehouses, #id)();
   IntColumn get crateDepositPaidKobo =>
       integer().withDefault(const Constant(0))();
+  DateTimeColumn get lastUpdatedAt => dateTime().nullable()();
 }
 
 // 10. Order Items
 @DataClassName('OrderItemData')
 class OrderItems extends Table {
   IntColumn get id => integer().autoIncrement()();
+  IntColumn get businessId => integer().nullable().references(Businesses, #id)();
   IntColumn get orderId => integer().references(Orders, #id)();
   IntColumn get productId => integer().references(Products, #id)();
   IntColumn get warehouseId => integer().references(Warehouses, #id)();
@@ -199,33 +226,39 @@ class OrderItems extends Table {
   IntColumn get buyingPriceKobo => integer().withDefault(const Constant(0))();
   IntColumn get totalKobo => integer()();
   TextColumn get priceSnapshot => text().nullable()();
+  DateTimeColumn get lastUpdatedAt => dateTime().nullable()();
 }
 
 // 11. Purchases
 @DataClassName('DeliveryData')
 class Purchases extends Table {
   IntColumn get id => integer().autoIncrement()();
+  IntColumn get businessId => integer().nullable().references(Businesses, #id)();
   IntColumn get supplierId => integer().references(Suppliers, #id)();
   IntColumn get totalAmountKobo => integer()();
   DateTimeColumn get timestamp => dateTime().withDefault(currentDateAndTime)();
   TextColumn get status => text()();
+  DateTimeColumn get lastUpdatedAt => dateTime().nullable()();
 }
 
 // 12. Purchase Items
 @DataClassName('PurchaseItemData')
 class PurchaseItems extends Table {
   IntColumn get id => integer().autoIncrement()();
+  IntColumn get businessId => integer().nullable().references(Businesses, #id)();
   IntColumn get purchaseId => integer().references(Purchases, #id)();
   IntColumn get productId => integer().references(Products, #id)();
   IntColumn get quantity => integer()();
   IntColumn get unitPriceKobo => integer()();
   IntColumn get totalKobo => integer()();
+  DateTimeColumn get lastUpdatedAt => dateTime().nullable()();
 }
 
 // 13. Expenses
 @DataClassName('ExpenseData')
 class Expenses extends Table {
   IntColumn get id => integer().autoIncrement()();
+  IntColumn get businessId => integer().nullable().references(Businesses, #id)();
   IntColumn get categoryId =>
       integer().nullable().references(ExpenseCategories, #id)();
   TextColumn get category => text().withDefault(const Constant('Others'))();
@@ -237,30 +270,39 @@ class Expenses extends Table {
   DateTimeColumn get timestamp => dateTime().withDefault(currentDateAndTime)();
   IntColumn get warehouseId =>
       integer().nullable().references(Warehouses, #id)();
+  DateTimeColumn get lastUpdatedAt => dateTime().nullable()();
+  BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
 }
 
 // 14. Expense Categories
 @DataClassName('ExpenseCategoryData')
 class ExpenseCategories extends Table {
   IntColumn get id => integer().autoIncrement()();
+  IntColumn get businessId => integer().nullable().references(Businesses, #id)();
   TextColumn get name => text()();
+  DateTimeColumn get lastUpdatedAt => dateTime().nullable()();
+  BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
 }
 
 // 15. Crates (Inventory)
 @DataClassName('CrateData')
 class Crates extends Table {
   IntColumn get id => integer().autoIncrement()();
+  IntColumn get businessId => integer().nullable().references(Businesses, #id)();
   IntColumn get productId => integer().references(Products, #id)();
   IntColumn get totalCrates => integer()();
   IntColumn get emptyReturned => integer().withDefault(const Constant(0))();
   DateTimeColumn get timestamp => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get lastUpdatedAt => dateTime().nullable()();
 }
 
 // 16. Customer Crate Balances
 class CustomerCrateBalances extends Table {
+  IntColumn get businessId => integer().nullable().references(Businesses, #id)();
   IntColumn get customerId => integer().references(Customers, #id)();
   IntColumn get crateGroupId => integer().references(CrateGroups, #id)();
   IntColumn get balance => integer().withDefault(const Constant(0))();
+  DateTimeColumn get lastUpdatedAt => dateTime().nullable()();
 
   @override
   Set<Column> get primaryKey => {customerId, crateGroupId};
@@ -296,47 +338,58 @@ class AppSettings extends Table {
 @DataClassName('DeliveryReceiptData')
 class DeliveryReceipts extends Table {
   IntColumn get id => integer().autoIncrement()();
+  IntColumn get businessId => integer().nullable().references(Businesses, #id)();
   IntColumn get orderId => integer().nullable().references(Orders, #id)();
   IntColumn get driverId => integer().references(Drivers, #id)();
   TextColumn get status => text()();
   DateTimeColumn get deliveredAt => dateTime().nullable()();
+  DateTimeColumn get lastUpdatedAt => dateTime().nullable()();
 }
 
 // 20. Drivers
 @DataClassName('DriverData')
 class Drivers extends Table {
   IntColumn get id => integer().autoIncrement()();
+  IntColumn get businessId => integer().nullable().references(Businesses, #id)();
   TextColumn get name => text()();
   TextColumn get licenseNumber => text().nullable()();
   TextColumn get phone => text().nullable()();
+  DateTimeColumn get lastUpdatedAt => dateTime().nullable()();
+  BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
 }
 
 // 21. Price Lists
 @DataClassName('PriceListData')
 class PriceLists extends Table {
   IntColumn get id => integer().autoIncrement()();
+  IntColumn get businessId => integer().nullable().references(Businesses, #id)();
   TextColumn get name => text()();
   IntColumn get productId => integer().references(Products, #id)();
   IntColumn get priceKobo => integer()();
   DateTimeColumn get effectiveFrom =>
       dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get lastUpdatedAt => dateTime().nullable()();
+  BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
 }
 
 // 22. Payment Transactions
 @DataClassName('PaymentTransactionData')
 class PaymentTransactions extends Table {
   IntColumn get id => integer().autoIncrement()();
+  IntColumn get businessId => integer().nullable().references(Businesses, #id)();
   IntColumn get referenceId => integer()();
   TextColumn get type => text()(); // sale, purchase, expense
   IntColumn get amountKobo => integer()();
   TextColumn get method => text()();
   DateTimeColumn get timestamp => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get lastUpdatedAt => dateTime().nullable()();
 }
 
 // 23. Stock Transfers
 @DataClassName('StockTransferData')
 class StockTransfers extends Table {
   IntColumn get transferId => integer().autoIncrement()();
+  IntColumn get businessId => integer().nullable().references(Businesses, #id)();
   IntColumn get fromLocationId => integer().references(Warehouses, #id)();
   IntColumn get toLocationId => integer().references(Warehouses, #id)();
   IntColumn get productId => integer().references(Products, #id)();
@@ -349,23 +402,27 @@ class StockTransfers extends Table {
   DateTimeColumn get initiatedAt =>
       dateTime().withDefault(currentDateAndTime)();
   DateTimeColumn get receivedAt => dateTime().nullable()();
+  DateTimeColumn get lastUpdatedAt => dateTime().nullable()();
 }
 
 // 24. Stock Adjustments
 @DataClassName('StockAdjustmentData')
 class StockAdjustments extends Table {
   IntColumn get id => integer().autoIncrement()();
+  IntColumn get businessId => integer().nullable().references(Businesses, #id)();
   IntColumn get productId => integer().references(Products, #id)();
   IntColumn get warehouseId => integer().references(Warehouses, #id)();
   IntColumn get quantityDiff => integer()();
   TextColumn get reason => text()();
   DateTimeColumn get timestamp => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get lastUpdatedAt => dateTime().nullable()();
 }
 
 // 25. Activity Logs
 @DataClassName('ActivityLogData')
 class ActivityLogs extends Table {
   IntColumn get id => integer().autoIncrement()();
+  IntColumn get businessId => integer().nullable().references(Businesses, #id)();
   IntColumn get userId => integer().nullable().references(Users, #id)();
   TextColumn get action => text()();
   TextColumn get description => text()();
@@ -379,6 +436,7 @@ class ActivityLogs extends Table {
 @DataClassName('NotificationData')
 class Notifications extends Table {
   IntColumn get id => integer().autoIncrement()();
+  IntColumn get businessId => integer().nullable().references(Businesses, #id)();
   TextColumn get type => text()();
   TextColumn get message => text()();
   DateTimeColumn get timestamp => dateTime().withDefault(currentDateAndTime)();
@@ -390,8 +448,10 @@ class Notifications extends Table {
 @DataClassName('SettingData')
 class Settings extends Table {
   IntColumn get id => integer().autoIncrement()();
+  IntColumn get businessId => integer().nullable().references(Businesses, #id)();
   TextColumn get key => text().unique()();
   TextColumn get value => text()();
+  DateTimeColumn get lastUpdatedAt => dateTime().nullable()();
 }
 
 // 28. Stock Transactions Ledger — source of truth for all stock movements
@@ -399,6 +459,7 @@ class Settings extends Table {
 class StockTransactions extends Table {
   // UUID v4 text PK — caller must set before insert
   TextColumn get transactionId => text()();
+  IntColumn get businessId => integer().nullable().references(Businesses, #id)();
 
   IntColumn get productId => integer().references(Products, #id)();
   IntColumn get locationId => integer().references(Warehouses, #id)();
@@ -416,6 +477,7 @@ class StockTransactions extends Table {
 
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
   DateTimeColumn get syncedAt => dateTime().nullable()();
+  DateTimeColumn get lastUpdatedAt => dateTime().nullable()();
 
   @override
   Set<Column> get primaryKey => {transactionId};
@@ -425,6 +487,7 @@ class StockTransactions extends Table {
 @DataClassName('SessionData')
 class Sessions extends Table {
   IntColumn get id => integer().autoIncrement()();
+  IntColumn get businessId => integer().nullable().references(Businesses, #id)();
   IntColumn get userId => integer().references(Users, #id)();
   TextColumn get token => text().nullable()();
   DateTimeColumn get timestamp => dateTime().withDefault(currentDateAndTime)();
@@ -434,6 +497,7 @@ class Sessions extends Table {
 @DataClassName('CustomerWalletTransactionData')
 class CustomerWalletTransactions extends Table {
   IntColumn get id => integer().autoIncrement()();
+  IntColumn get businessId => integer().nullable().references(Businesses, #id)();
   IntColumn get customerId => integer().references(Customers, #id)();
   IntColumn get amountDeltaKobo => integer()();
   TextColumn get type => text()(); // credit, debit, refund
@@ -441,17 +505,20 @@ class CustomerWalletTransactions extends Table {
   IntColumn get orderId => integer().nullable().references(Orders, #id)();
   TextColumn get note => text().nullable()();
   DateTimeColumn get timestamp => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get lastUpdatedAt => dateTime().nullable()();
 }
 
 // 31. Customer Wallets
 @DataClassName('CustomerWalletData')
 class CustomerWallets extends Table {
   TextColumn get walletId => text()(); // UUID v4
+  IntColumn get businessId => integer().nullable().references(Businesses, #id)();
   IntColumn get customerId => integer().unique().references(Customers, #id)();
   TextColumn get currency => text().withDefault(const Constant('NGN'))();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
   BoolColumn get isActive => boolean().withDefault(const Constant(true))();
   BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
+  DateTimeColumn get lastUpdatedAt => dateTime().nullable()();
 
   @override
   Set<Column> get primaryKey => {walletId};
@@ -461,6 +528,7 @@ class CustomerWallets extends Table {
 @DataClassName('WalletTransactionData')
 class WalletTransactions extends Table {
   TextColumn get txnId => text()(); // UUID v4
+  IntColumn get businessId => integer().nullable().references(Businesses, #id)();
   TextColumn get walletId => text().references(CustomerWallets, #walletId)();
   TextColumn get type => text()(); // credit, debit
   IntColumn get amountKobo => integer()(); // always positive
@@ -472,6 +540,7 @@ class WalletTransactions extends Table {
       boolean().withDefault(const Constant(false))();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
   DateTimeColumn get syncedAt => dateTime().nullable()();
+  DateTimeColumn get lastUpdatedAt => dateTime().nullable()();
 
   @override
   Set<Column> get primaryKey => {txnId};
@@ -481,16 +550,19 @@ class WalletTransactions extends Table {
 @DataClassName('SavedCartData')
 class SavedCarts extends Table {
   IntColumn get id => integer().autoIncrement()();
+  IntColumn get businessId => integer().nullable().references(Businesses, #id)();
   TextColumn get name => text()();
   IntColumn get customerId => integer().nullable().references(Customers, #id)();
   TextColumn get cartData => text()(); // JSON-encoded cart items
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get lastUpdatedAt => dateTime().nullable()();
 }
 
 // 34. Pending Crate Returns — short returns awaiting manager approval
 @DataClassName('PendingCrateReturnData')
 class PendingCrateReturns extends Table {
   IntColumn get id => integer().autoIncrement()();
+  IntColumn get businessId => integer().nullable().references(Businesses, #id)();
   IntColumn get orderId => integer().references(Orders, #id)();
   IntColumn get customerId => integer().references(Customers, #id)();
   IntColumn get staffId => integer().references(Users, #id)();
@@ -500,6 +572,7 @@ class PendingCrateReturns extends Table {
     const Constant('pending'),
   )(); // pending/approved/rejected
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get lastUpdatedAt => dateTime().nullable()();
 }
 
 // 35. Invites
@@ -519,6 +592,7 @@ class Invites extends Table {
   )(); // pending, accepted, expired, revoked
   DateTimeColumn get expiresAt => dateTime()();
   DateTimeColumn get usedAt => dateTime().nullable()();
+  DateTimeColumn get lastUpdatedAt => dateTime().nullable()();
 }
 
 @DriftDatabase(
@@ -581,7 +655,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 32;
+  int get schemaVersion => 33;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -699,6 +773,30 @@ class AppDatabase extends _$AppDatabase {
           try {
             await m.addColumn(products, products.imagePath);
           } catch (_) {}
+        }
+
+        if (from < 33) {
+          // Version 33: Multi-tenancy and Sync Support.
+          // Dynamically add businessId, lastUpdatedAt, and isDeleted to all tables if missing.
+          for (final table in allTables) {
+            final tableInfo = table as TableInfo;
+            final columnsToAdd = {
+              'business_id': tableInfo.columnsByName['business_id'],
+              'last_updated_at': tableInfo.columnsByName['last_updated_at'],
+              'is_deleted': tableInfo.columnsByName['is_deleted'],
+            };
+
+            for (final entry in columnsToAdd.entries) {
+              final col = entry.value;
+              if (col != null) {
+                try {
+                  await m.addColumn(tableInfo, col);
+                } catch (_) {
+                  // Column might already exist if migration partially ran
+                }
+              }
+            }
+          }
         }
 
         await customStatement('PRAGMA foreign_keys = ON');

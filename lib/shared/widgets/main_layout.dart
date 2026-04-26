@@ -50,8 +50,8 @@ class _MainLayoutState extends ConsumerState<MainLayout>
     const ExpensesScreen(), // 6
     const WarehouseScreen(), // 7
     const StaffScreen(), // 8
-    CartScreen(
-      cart: const [],
+    const CartScreen(
+      cart: [],
       crateDeposit: 0.0,
       onCustomerChanged: _voidOnCustomerChanged,
     ), // 9

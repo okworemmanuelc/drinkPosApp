@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -12,6 +11,8 @@ import 'package:reebaplus_pos/features/auth/screens/login_screen.dart';
 import 'package:reebaplus_pos/features/auth/screens/otp_verification_screen.dart';
 import 'package:reebaplus_pos/features/auth/screens/create_pin_screen.dart';
 import 'package:reebaplus_pos/features/auth/screens/business_type_selection_screen.dart';
+import 'package:reebaplus_pos/features/auth/screens/existing_account_screen.dart';
+import 'package:reebaplus_pos/shared/services/auth_service.dart';
 import 'package:reebaplus_pos/features/auth/widgets/auth_background.dart';
 import 'package:reebaplus_pos/core/database/app_database.dart' show UserData;
 import 'package:reebaplus_pos/main.dart' show supabaseReady;
@@ -79,9 +80,40 @@ class _EmailEntryScreenState extends ConsumerState<EmailEntryScreen> {
     // Save auth method as google
     await auth.saveAuthMethod('google');
 
-    // Look up local user by email
-    final localUser = await auth.getUserByEmail(email);
+    // Look up the cloud account (if any) and the local user. Mirrors the
+    // post-OTP flow: on a fresh device with an existing cloud account, the
+    // user confirms the business before we pull data and seed a local row.
+    final account = await auth.fetchSupabaseAccount();
+    var localUser = await auth.getUserByEmail(email);
     if (!mounted) return;
+
+    if (account != null && localUser == null) {
+      setState(() => _loading = false);
+      Navigator.of(context).pushReplacement(
+        PageRouteBuilder(
+          pageBuilder: (_, __, ___) =>
+              ExistingAccountScreen(email: email, account: account),
+          transitionsBuilder: (_, animation, __, child) {
+            final curve = CurvedAnimation(
+              parent: animation,
+              curve: Curves.easeInOutCubic,
+            );
+            return FadeTransition(opacity: curve, child: child);
+          },
+          transitionDuration: const Duration(milliseconds: 500),
+        ),
+      );
+      return;
+    }
+
+    if (account != null && localUser != null) {
+      // Returning device — sync silently and refresh the local row.
+      await auth.syncOnLogin(account.businessId);
+      await auth.upsertLocalUserFromProfile();
+      localUser = await auth.getUserByEmail(email) ?? localUser;
+      if (!mounted) return;
+    }
+
     setState(() => _loading = false);
 
     if (localUser == null) {
@@ -100,11 +132,18 @@ class _EmailEntryScreenState extends ConsumerState<EmailEntryScreen> {
           transitionDuration: const Duration(milliseconds: 500),
         ),
       );
-    } else if (localUser.pin.isNotEmpty) {
-      // Existing user with PIN — save device session, go to PIN screen
-      await auth.saveDeviceUserId(localUser.id);
-      await auth.saveLastLoggedInEmail(email);
-      if (!mounted) return;
+      return;
+    }
+
+    final user = localUser;
+    final isSetupRequired = user.pin == AuthService.setupRequiredPin;
+    final hasPin = user.pin.isNotEmpty && !isSetupRequired;
+
+    await auth.saveDeviceUserId(user.id);
+    await auth.saveLastLoggedInEmail(email);
+    if (!mounted) return;
+
+    if (hasPin) {
       Navigator.of(context).pushReplacement(
         PageRouteBuilder(
           pageBuilder: (_, __, ___) => const LoginScreen(),
@@ -119,13 +158,9 @@ class _EmailEntryScreenState extends ConsumerState<EmailEntryScreen> {
         ),
       );
     } else {
-      // Existing user without PIN — create PIN
-      await auth.saveDeviceUserId(localUser.id);
-      await auth.saveLastLoggedInEmail(email);
-      if (!mounted) return;
       Navigator.of(context).pushReplacement(
         PageRouteBuilder(
-          pageBuilder: (_, __, ___) => CreatePinScreen(user: localUser),
+          pageBuilder: (_, __, ___) => CreatePinScreen(user: user),
           transitionsBuilder: (_, animation, __, child) {
             final curve = CurvedAnimation(
               parent: animation,
@@ -244,6 +279,7 @@ class _EmailEntryScreenState extends ConsumerState<EmailEntryScreen> {
     );
   }
 
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;

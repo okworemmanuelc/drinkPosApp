@@ -1,4 +1,4 @@
-import 'dart:ui';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -52,6 +52,7 @@ class _LocationDetailsScreenState extends ConsumerState<LocationDetailsScreen> {
 
     final db = ref.read(databaseProvider);
     final int warehouseId;
+    final now = DateTime.now();
 
     if (_savedWarehouseId != null) {
       // User went back and re-submitted — update the existing warehouse.
@@ -60,8 +61,10 @@ class _LocationDetailsScreenState extends ConsumerState<LocationDetailsScreen> {
         db.warehouses,
       )..where((w) => w.id.equals(warehouseId))).write(
         WarehousesCompanion(
+          businessId: drift.Value(widget.user.businessId!),
           name: drift.Value(_nameController.text.trim()),
           location: drift.Value(locationCombined),
+          lastUpdatedAt: drift.Value(now),
         ),
       );
     } else {
@@ -70,12 +73,28 @@ class _LocationDetailsScreenState extends ConsumerState<LocationDetailsScreen> {
           .into(db.warehouses)
           .insert(
             WarehousesCompanion.insert(
+              businessId: drift.Value(widget.user.businessId!),
               name: _nameController.text.trim(),
               location: drift.Value(locationCombined),
+              lastUpdatedAt: drift.Value(now),
             ),
           );
       _savedWarehouseId = warehouseId;
     }
+
+    // Push the warehouse to cloud. Customers/products reference warehouse_id
+    // as a FK, so an unsynced warehouse breaks every downstream insert.
+    await db.syncDao.enqueue(
+      'warehouses:upsert',
+      jsonEncode({
+        'id': warehouseId,
+        'business_id': widget.user.businessId,
+        'name': _nameController.text.trim(),
+        'location': locationCombined,
+        'last_updated_at': now.toIso8601String(),
+        'is_deleted': false,
+      }),
+    );
 
     // Keep current user assigned to this warehouse.
     await (db.update(db.users)..where((u) => u.id.equals(widget.user.id)))

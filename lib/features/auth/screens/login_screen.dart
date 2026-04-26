@@ -1,4 +1,3 @@
-import 'dart:ui';
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -143,8 +142,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
       }
 
       final isEnabled = prefs.getBool('biometrics_enabled') ?? false;
-      if (mounted)
+      if (mounted) {
         setState(() => _biometricsAvailable = available && isEnabled);
+      }
     } catch (_) {}
   }
 
@@ -639,7 +639,6 @@ class _PinPad extends StatelessWidget {
   final VoidCallback? onBiometrics;
 
   const _PinPad({
-    super.key,
     required this.pinNotifier,
     required this.emailController,
     required this.checking,

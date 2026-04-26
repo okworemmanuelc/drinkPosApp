@@ -22,6 +22,7 @@ import 'package:reebaplus_pos/features/pos/widgets/quick_sale_modal.dart';
 import 'package:reebaplus_pos/shared/widgets/pin_dialog.dart';
 import 'package:reebaplus_pos/core/utils/notifications.dart';
 import 'package:reebaplus_pos/shared/widgets/shimmer_loading.dart';
+import 'package:reebaplus_pos/shared/widgets/app_refresh_wrapper.dart';
 
 class PosHomeScreen extends ConsumerStatefulWidget {
   const PosHomeScreen({super.key});
@@ -152,15 +153,17 @@ class _PosHomeScreenState extends ConsumerState<PosHomeScreen> {
                       // ...
                       child: _controller!.isLoading
                           ? const ShimmerGrid(count: 6)
-                          : ProductGrid(
-                              products: _controller!.filteredProducts,
-                              onProductTap: (item) =>
-                                  _addToCart(context, item),
-                              cardCol: cardCol,
-                              textCol: textCol,
-                              subtextCol: subtextCol,
-                              borderCol: borderCol,
-                              controller: _controller!,
+                          : AppRefreshWrapper(
+                              child: ProductGrid(
+                                products: _controller!.filteredProducts,
+                                onProductTap: (item) =>
+                                    _addToCart(context, item),
+                                cardCol: cardCol,
+                                textCol: textCol,
+                                subtextCol: subtextCol,
+                                borderCol: borderCol,
+                                controller: _controller!,
+                              ),
                             ),
                     ),
                   ],

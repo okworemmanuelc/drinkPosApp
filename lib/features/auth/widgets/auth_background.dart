@@ -26,7 +26,7 @@ class AuthBackground extends StatelessWidget {
     final overlayOpacity = isDark
         ? 0.45
         : 0.6; // Slightly more wash for light mode
-    final blurSigma = 20.0;
+    const blurSigma = 20.0;
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
