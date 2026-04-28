@@ -9,6 +9,7 @@ import 'package:reebaplus_pos/core/database/app_database.dart';
 import 'package:reebaplus_pos/shared/services/navigation_service.dart';
 import 'package:reebaplus_pos/shared/services/secure_storage_service.dart';
 import 'package:reebaplus_pos/core/services/supabase_sync_service.dart';
+import 'package:reebaplus_pos/shared/services/pin_hasher.dart';
 
 /// Route to show after login instead of the default MainLayout.
 enum PostLoginRoute { none, successDashboard, accessGranted }
@@ -21,7 +22,12 @@ class AuthService extends ValueNotifier<UserData?> {
   final SecureStorageService _secure;
   final SupabaseSyncService _sync;
 
-  AuthService(this._db, this._nav, this._secure, this._sync) : super(null);
+  AuthService(this._db, this._nav, this._secure, this._sync) : super(null) {
+    // Hand the database a thin closure over `value` so DAOs that mix in
+    // BusinessScopedDao always read the current session's businessId
+    // (auto-tracks login/logout through the ValueNotifier).
+    _db.businessIdResolver = () => value?.businessId;
+  }
 
   /// Notifies listeners whenever the device-level user ID changes.
   final ValueNotifier<int?> deviceUserIdNotifier = ValueNotifier<int?>(null);
@@ -33,21 +39,46 @@ class AuthService extends ValueNotifier<UserData?> {
   /// The currently logged-in user, or null if nobody is logged in.
   UserData? get currentUser => value;
 
-  /// Returns every user in the database whose PIN matches [pin].
-  /// There may be more than one match (e.g. two staff share a PIN),
-  /// so we return a list and let the UI ask the user to pick one.
+  /// Returns every user whose stored PBKDF2 hash matches [pin]. Sentinel /
+  /// placeholder rows (no hash yet) never match — they must go through
+  /// [setUserPin] first.
   Future<List<UserData>> getUsersByPin(String pin, {String? email}) async {
+    final query = _db.select(_db.users);
     if (email != null && email.isNotEmpty) {
-      final result = await (_db.select(
-        _db.users,
-      )..where((u) => u.pin.equals(pin) & u.email.equals(email))).get();
-      return result;
+      query.where((u) => u.email.equals(email));
     }
+    final candidates = await query.get();
+    return candidates.where((u) {
+      final hash = u.pinHash;
+      final salt = u.pinSalt;
+      final iterations = u.pinIterations;
+      if (hash == null || salt == null || iterations == null) {
+        return false;
+      }
+      final computed = PinHasher.hashBase64(pin, salt, iterations);
+      return PinHasher.constantTimeEquals(hash, computed);
+    }).toList();
+  }
 
-    final result = await (_db.select(
-      _db.users,
-    )..where((u) => u.pin.equals(pin))).get();
-    return result;
+  /// Hashes [plaintext] with a fresh per-user salt and stores the resulting
+  /// pinHash/pinSalt/pinIterations triple. Overwrites the legacy [Users.pin]
+  /// column with the literal `'__HASHED__'` so the row no longer carries the
+  /// PIN in cleartext. Single canonical PIN write path.
+  Future<void> setUserPin(int userId, String plaintext) async {
+    final salt = PinHasher.generateSaltBase64();
+    final hash = PinHasher.hashBase64(
+      plaintext,
+      salt,
+      PinHasher.defaultIterations,
+    );
+    await (_db.update(_db.users)..where((u) => u.id.equals(userId))).write(
+      UsersCompanion(
+        pin: const Value('__HASHED__'),
+        pinHash: Value(hash),
+        pinSalt: Value(salt),
+        pinIterations: const Value(PinHasher.defaultIterations),
+      ),
+    );
   }
 
   // ── Device persistence (encrypted) ──────────────────────────────────────
@@ -414,7 +445,7 @@ class AuthService extends ValueNotifier<UserData?> {
           UsersCompanion(
             name: Value(name),
             email: Value(email),
-            pin: const Value(''),
+            pin: const Value(setupRequiredPin),
             role: const Value('CEO'),
             roleTier: const Value(5),
             avatarColor: const Value('#8B5CF6'),

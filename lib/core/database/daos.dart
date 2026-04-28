@@ -4,6 +4,7 @@ import 'package:drift/drift.dart';
 import 'package:intl/intl.dart';
 import 'package:rxdart/rxdart.dart';
 import 'package:reebaplus_pos/core/database/app_database.dart';
+import 'package:reebaplus_pos/core/database/business_scoped_dao.dart';
 
 part 'daos.g.dart';
 
@@ -17,48 +18,51 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> with _$CatalogDaoMixin {
   Future<List<SupplierData>> getAllSuppliers() => select(suppliers).get();
   Future<int> insertSupplier(SuppliersCompanion companion) =>
       into(suppliers).insert(companion);
-  Future<int> insertProduct(ProductsCompanion companion) async {
-    final withSync = companion.copyWith(
-      lastUpdatedAt: Value(DateTime.now()),
-    );
-    final id = await into(products).insert(withSync);
-    final inserted = await findById(id);
-    await db.syncDao.enqueue(
-      'products:insert',
-      jsonEncode({
-        'id': inserted!.id,
-        'business_id': inserted.businessId,
-        'category_id': inserted.categoryId,
-        'crate_group_id': inserted.crateGroupId,
-        'size': inserted.size,
-        'name': inserted.name,
-        'subtitle': inserted.subtitle,
-        'sku': inserted.sku,
-        'retail_price_kobo': inserted.retailPriceKobo,
-        'bulk_breaker_price_kobo': inserted.bulkBreakerPriceKobo,
-        'distributor_price_kobo': inserted.distributorPriceKobo,
-        'selling_price_kobo': inserted.sellingPriceKobo,
-        'buying_price_kobo': inserted.buyingPriceKobo,
-        'unit': inserted.unit,
-        'icon_code_point': inserted.iconCodePoint,
-        'color_hex': inserted.colorHex,
-        'supplier_id': inserted.supplierId,
-        'manufacturer_id': inserted.manufacturerId,
-        'is_available': inserted.isAvailable,
-        'is_deleted': inserted.isDeleted,
-        'low_stock_threshold': inserted.lowStockThreshold,
-        'manufacturer': inserted.manufacturer,
-        'avg_daily_sales': inserted.avgDailySales,
-        'lead_time_days': inserted.leadTimeDays,
-        'safety_stock_qty': inserted.safetyStockQty,
-        'monthly_target_units': inserted.monthlyTargetUnits,
-        'empty_crate_value_kobo': inserted.emptyCrateValueKobo,
-        'track_empties': inserted.trackEmpties,
-        'image_path': inserted.imagePath,
-        'last_updated_at': inserted.lastUpdatedAt?.toIso8601String(),
-      }),
-    );
-    return id;
+  Future<int> insertProduct(ProductsCompanion companion) {
+    return transaction(() async {
+      final withSync = companion.copyWith(
+        lastUpdatedAt: Value(DateTime.now()),
+      );
+      final id = await into(products).insert(withSync);
+      final inserted = await findById(id);
+      await db.syncDao.enqueue(
+        'products:insert',
+        jsonEncode({
+          'id': inserted!.id,
+          'business_id': inserted.businessId,
+          'category_id': inserted.categoryId,
+          'crate_group_id': inserted.crateGroupId,
+          'size': inserted.size,
+          'name': inserted.name,
+          'subtitle': inserted.subtitle,
+          'sku': inserted.sku,
+          'retail_price_kobo': inserted.retailPriceKobo,
+          'bulk_breaker_price_kobo': inserted.bulkBreakerPriceKobo,
+          'distributor_price_kobo': inserted.distributorPriceKobo,
+          'selling_price_kobo': inserted.sellingPriceKobo,
+          'buying_price_kobo': inserted.buyingPriceKobo,
+          'unit': inserted.unit,
+          'icon_code_point': inserted.iconCodePoint,
+          'color_hex': inserted.colorHex,
+          'supplier_id': inserted.supplierId,
+          'manufacturer_id': inserted.manufacturerId,
+          'is_available': inserted.isAvailable,
+          'is_deleted': inserted.isDeleted,
+          'low_stock_threshold': inserted.lowStockThreshold,
+          'manufacturer': inserted.manufacturer,
+          'avg_daily_sales': inserted.avgDailySales,
+          'lead_time_days': inserted.leadTimeDays,
+          'safety_stock_qty': inserted.safetyStockQty,
+          'monthly_target_units': inserted.monthlyTargetUnits,
+          'empty_crate_value_kobo': inserted.emptyCrateValueKobo,
+          'track_empties': inserted.trackEmpties,
+          'image_path': inserted.imagePath,
+          'last_updated_at': inserted.lastUpdatedAt?.toIso8601String(),
+        }),
+        businessId: inserted.businessId ?? db.currentBusinessId!,
+      );
+      return id;
+    });
   }
 
   /// Returns all manufacturers from the Manufacturers table.
@@ -83,20 +87,24 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> with _$CatalogDaoMixin {
           ))
           .getSingleOrNull();
   Future<void> softDeleteProduct(int productId) async {
-    await (update(products)..where((t) => t.id.equals(productId))).write(
-      ProductsCompanion(
-        isDeleted: const Value(true),
-        lastUpdatedAt: Value(DateTime.now()),
-      ),
-    );
-    await db.syncDao.enqueue(
-      'products:update',
-      jsonEncode({
-        'id': productId,
-        'is_deleted': true,
-        'updated_at': DateTime.now().toIso8601String(),
-      }),
-    );
+    await transaction(() async {
+      await (update(products)..where((t) => t.id.equals(productId))).write(
+        ProductsCompanion(
+          isDeleted: const Value(true),
+          lastUpdatedAt: Value(DateTime.now()),
+        ),
+      );
+      final product = await findById(productId);
+      await db.syncDao.enqueue(
+        'products:update',
+        jsonEncode({
+          'id': productId,
+          'is_deleted': true,
+          'updated_at': DateTime.now().toIso8601String(),
+        }),
+        businessId: product?.businessId ?? db.currentBusinessId!,
+      );
+    });
   }
 
   Future<void> updateProductDetails(
@@ -187,7 +195,7 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> with _$CatalogDaoMixin {
   ],
 )
 class InventoryDao extends DatabaseAccessor<AppDatabase>
-    with _$InventoryDaoMixin {
+    with _$InventoryDaoMixin, BusinessScopedDao<AppDatabase> {
   InventoryDao(super.db);
 
   // ── Manufacturer CRUD ─────────────────────────────────────────────────────
@@ -227,7 +235,8 @@ class InventoryDao extends DatabaseAccessor<AppDatabase>
               inventory.productId.equalsExp(products.id),
             ),
           ])
-          ..where(products.isDeleted.not())
+          ..where(products.isDeleted.not() &
+              products.businessId.equals(requireBusinessId()))
           ..groupBy([products.id])
           ..orderBy([OrderingTerm.asc(products.name)])
           ..addColumns([qty]);
@@ -261,7 +270,8 @@ class InventoryDao extends DatabaseAccessor<AppDatabase>
               inventory.productId.equalsExp(products.id),
             ),
           ])
-          ..where(products.isDeleted.not())
+          ..where(products.isDeleted.not() &
+              products.businessId.equals(requireBusinessId()))
           ..groupBy([products.id])
           ..addColumns([qty]);
 
@@ -291,7 +301,8 @@ class InventoryDao extends DatabaseAccessor<AppDatabase>
               inventory.productId.equalsExp(products.id),
             ),
           ])
-          ..where(products.isDeleted.not())
+          ..where(products.isDeleted.not() &
+              products.businessId.equals(requireBusinessId()))
           ..where(inventory.warehouseId.equals(warehouseId))
           ..groupBy([products.id])
           ..addColumns([qty]);
@@ -316,7 +327,8 @@ class InventoryDao extends DatabaseAccessor<AppDatabase>
               inventory.productId.equalsExp(products.id),
             ),
           ])
-          ..where(products.isDeleted.not())
+          ..where(products.isDeleted.not() &
+              products.businessId.equals(requireBusinessId()))
           ..groupBy([products.id])
           ..addColumns([qty]);
     return query.watch().map(
@@ -340,7 +352,8 @@ class InventoryDao extends DatabaseAccessor<AppDatabase>
               inventory.productId.equalsExp(products.id),
             ),
           ])
-          ..where(products.isDeleted.not())
+          ..where(products.isDeleted.not() &
+              products.businessId.equals(requireBusinessId()))
           ..groupBy([products.id])
           ..addColumns([qty]);
     return query.watch().map(
@@ -372,7 +385,8 @@ class InventoryDao extends DatabaseAccessor<AppDatabase>
                   inventory.warehouseId.equals(warehouseId),
             ),
           ])
-          ..where(products.isDeleted.not())
+          ..where(products.isDeleted.not() &
+              products.businessId.equals(requireBusinessId()))
           ..groupBy([products.id])
           ..addColumns([qty]);
     return query.watch().map(
@@ -400,7 +414,9 @@ class InventoryDao extends DatabaseAccessor<AppDatabase>
                 inventory.warehouseId.equals(warehouseId),
           ),
         ])
-        ..where(products.categoryId.equals(1) & products.isDeleted.not())
+        ..where(products.categoryId.equals(1) &
+            products.isDeleted.not() &
+            products.businessId.equals(requireBusinessId()))
         ..addColumns([qty]);
       return query.watchSingleOrNull().map((row) => row?.read(qty) ?? 0);
     } else {
@@ -408,7 +424,9 @@ class InventoryDao extends DatabaseAccessor<AppDatabase>
         ..join([
           leftOuterJoin(inventory, inventory.productId.equalsExp(products.id)),
         ])
-        ..where(products.categoryId.equals(1) & products.isDeleted.not())
+        ..where(products.categoryId.equals(1) &
+            products.isDeleted.not() &
+            products.businessId.equals(requireBusinessId()))
         ..addColumns([qty]);
       return query.watchSingleOrNull().map((row) => row?.read(qty) ?? 0);
     }
@@ -490,6 +508,7 @@ class InventoryDao extends DatabaseAccessor<AppDatabase>
           'timestamp': DateTime.now().toIso8601String(),
           'last_updated_at': DateTime.now().toIso8601String(),
         }),
+        businessId: product?.businessId ?? db.currentBusinessId!,
       );
     });
   }
@@ -523,30 +542,34 @@ class InventoryDao extends DatabaseAccessor<AppDatabase>
 
   /// Adds empty crates to a manufacturer's physical stock.
   Future<void> addEmptyCrates(int manufacturerId, int quantity) async {
-    final row = await (select(
-      manufacturers,
-    )..where((t) => t.id.equals(manufacturerId))).getSingleOrNull();
-    if (row != null) {
-      await (update(
+    await transaction(() async {
+      final row = await (select(
         manufacturers,
-      )..where((t) => t.id.equals(manufacturerId))).write(
-        ManufacturersCompanion(
-          emptyCrateStock: Value(row.emptyCrateStock + quantity),
-        ),
-      );
-    }
+      )..where((t) => t.id.equals(manufacturerId))).getSingleOrNull();
+      if (row != null) {
+        await (update(
+          manufacturers,
+        )..where((t) => t.id.equals(manufacturerId))).write(
+          ManufacturersCompanion(
+            emptyCrateStock: Value(row.emptyCrateStock + quantity),
+          ),
+        );
+      }
+    });
   }
 
   /// Deducts empty crates from a manufacturer's physical stock (floors at 0).
   Future<void> deductEmptyCrates(int manufacturerId, int quantity) async {
-    final row = await (select(
-      manufacturers,
-    )..where((t) => t.id.equals(manufacturerId))).getSingleOrNull();
-    if (row != null) {
-      final newStock = (row.emptyCrateStock - quantity).clamp(0, 999999);
-      await (update(manufacturers)..where((t) => t.id.equals(manufacturerId)))
-          .write(ManufacturersCompanion(emptyCrateStock: Value(newStock)));
-    }
+    await transaction(() async {
+      final row = await (select(
+        manufacturers,
+      )..where((t) => t.id.equals(manufacturerId))).getSingleOrNull();
+      if (row != null) {
+        final newStock = (row.emptyCrateStock - quantity).clamp(0, 999999);
+        await (update(manufacturers)..where((t) => t.id.equals(manufacturerId)))
+            .write(ManufacturersCompanion(emptyCrateStock: Value(newStock)));
+      }
+    });
   }
 
   /// Streams total crate bottle inventory per manufacturer for products with crate sizes.
@@ -573,7 +596,8 @@ class InventoryDao extends DatabaseAccessor<AppDatabase>
           ..where(
             products.size.isNotNull() &
                 products.manufacturerId.isNotNull() &
-                products.isDeleted.not(),
+                products.isDeleted.not() &
+                products.businessId.equals(requireBusinessId()),
           )
           ..addColumns([mfrName, qty])
           ..groupBy([mfrName]))
@@ -589,15 +613,18 @@ class InventoryDao extends DatabaseAccessor<AppDatabase>
   }
 
   Stream<Map<String, int>> watchEmptyCratesByManufacturer() {
-    return select(
-      manufacturers,
-    ).watch().map((list) => {for (final m in list) m.name: m.emptyCrateStock});
+    return (select(manufacturers)
+          ..where((t) => t.businessId.equals(requireBusinessId())))
+        .watch()
+        .map((list) => {for (final m in list) m.name: m.emptyCrateStock});
   }
 
   /// Streams the sum of all empty crates across all manufacturers.
   Stream<int> watchTotalManufacturerEmptyCrates() {
     final qty = manufacturers.emptyCrateStock.sum();
-    final query = selectOnly(manufacturers)..addColumns([qty]);
+    final query = selectOnly(manufacturers)
+      ..where(manufacturers.businessId.equals(requireBusinessId()))
+      ..addColumns([qty]);
     return query.watchSingleOrNull().map((row) => row?.read(qty) ?? 0);
   }
 
@@ -621,7 +648,9 @@ class InventoryDao extends DatabaseAccessor<AppDatabase>
                   categories.id.equalsExp(products.categoryId),
                 ),
               ])
-              ..where(products.size.isNotNull() & products.isDeleted.not())
+              ..where(products.size.isNotNull() &
+                  products.isDeleted.not() &
+                  products.businessId.equals(requireBusinessId()))
               ..addColumns([qty]))
             .watchSingleOrNull()
             .map((row) => row?.read(qty) ?? 0);
@@ -648,7 +677,8 @@ class InventoryDao extends DatabaseAccessor<AppDatabase>
               warehouses.id.equalsExp(inventory.warehouseId),
             ),
           ])
-          ..where(products.isDeleted.not())
+          ..where(products.isDeleted.not() &
+              products.businessId.equals(requireBusinessId()))
           ..orderBy([
             OrderingTerm.asc(warehouses.name),
             OrderingTerm.asc(products.name),
@@ -962,6 +992,7 @@ class OrdersDao extends DatabaseAccessor<AppDatabase> with _$OrdersDaoMixin {
           'crate_deposit_paid_kobo': insertedOrder?.crateDepositPaidKobo,
           'last_updated_at': insertedOrder?.lastUpdatedAt?.toIso8601String(),
         }),
+        businessId: businessId ?? db.currentBusinessId!,
       );
 
       // 5. Queue line items for Sync (cloud `order_items` is a separate table
@@ -984,6 +1015,7 @@ class OrdersDao extends DatabaseAccessor<AppDatabase> with _$OrdersDaoMixin {
             'total_kobo': it.totalKobo,
             'last_updated_at': it.lastUpdatedAt?.toIso8601String(),
           }),
+          businessId: it.businessId ?? businessId ?? db.currentBusinessId!,
         );
       }
 
@@ -1189,6 +1221,7 @@ class CustomersDao extends DatabaseAccessor<AppDatabase>
       await db.syncDao.enqueue(
         'customers:insert',
         jsonEncode(_customerPayload(data!)),
+        businessId: data.businessId ?? db.currentBusinessId!,
       );
 
       final wallet = await (select(customerWallets)
@@ -1207,6 +1240,7 @@ class CustomersDao extends DatabaseAccessor<AppDatabase>
           'is_deleted': wallet.isDeleted,
           'last_updated_at': wallet.lastUpdatedAt?.toIso8601String(),
         }),
+        businessId: wallet.businessId ?? db.currentBusinessId!,
       );
 
       return customerId;
@@ -1311,6 +1345,7 @@ class CustomersDao extends DatabaseAccessor<AppDatabase>
           'created_at': txn.createdAt.toIso8601String(),
           'last_updated_at': txn.lastUpdatedAt?.toIso8601String(),
         }),
+        businessId: txn.businessId ?? db.currentBusinessId!,
       );
 
       final updatedCustomer = await findById(customerId);
@@ -1318,6 +1353,7 @@ class CustomersDao extends DatabaseAccessor<AppDatabase>
         await db.syncDao.enqueue(
           'customers:update',
           jsonEncode(_customerPayload(updatedCustomer)),
+          businessId: updatedCustomer.businessId ?? db.currentBusinessId!,
         );
       }
     });
@@ -1364,20 +1400,23 @@ class CustomersDao extends DatabaseAccessor<AppDatabase>
   }
 
   Future<void> updateWalletLimit(int customerId, int limitKobo) async {
-    final now = DateTime.now();
-    await (update(customers)..where((t) => t.id.equals(customerId))).write(
-      CustomersCompanion(
-        walletLimitKobo: Value(limitKobo),
-        lastUpdatedAt: Value(now),
-      ),
-    );
-    final updated = await findById(customerId);
-    if (updated != null) {
-      await db.syncDao.enqueue(
-        'customers:update',
-        jsonEncode(_customerPayload(updated)),
+    await transaction(() async {
+      final now = DateTime.now();
+      await (update(customers)..where((t) => t.id.equals(customerId))).write(
+        CustomersCompanion(
+          walletLimitKobo: Value(limitKobo),
+          lastUpdatedAt: Value(now),
+        ),
       );
-    }
+      final updated = await findById(customerId);
+      if (updated != null) {
+        await db.syncDao.enqueue(
+          'customers:update',
+          jsonEncode(_customerPayload(updated)),
+          businessId: updated.businessId ?? db.currentBusinessId!,
+        );
+      }
+    });
   }
 
   Stream<int> watchWalletBalance(int customerId) {
@@ -1391,41 +1430,43 @@ class CustomersDao extends DatabaseAccessor<AppDatabase>
     int crateGroupId,
     int deltaQty,
   ) async {
-    final now = DateTime.now();
-    final customer = await findById(customerId);
-    final businessId = customer?.businessId;
-    final existing =
-        await (select(customerCrateBalances)..where(
+    await transaction(() async {
+      final now = DateTime.now();
+      final customer = await findById(customerId);
+      final businessId = customer?.businessId;
+      final existing =
+          await (select(customerCrateBalances)..where(
+                (t) =>
+                    t.customerId.equals(customerId) &
+                    t.crateGroupId.equals(crateGroupId),
+              ))
+              .getSingleOrNull();
+
+      if (existing != null) {
+        final newBalance = existing.balance - deltaQty;
+        await (update(customerCrateBalances)..where(
               (t) =>
                   t.customerId.equals(customerId) &
                   t.crateGroupId.equals(crateGroupId),
             ))
-            .getSingleOrNull();
-
-    if (existing != null) {
-      final newBalance = existing.balance - deltaQty;
-      await (update(customerCrateBalances)..where(
-            (t) =>
-                t.customerId.equals(customerId) &
-                t.crateGroupId.equals(crateGroupId),
-          ))
-          .write(CustomerCrateBalancesCompanion(
-            balance: Value(newBalance),
+            .write(CustomerCrateBalancesCompanion(
+              balance: Value(newBalance),
+              lastUpdatedAt: Value(now),
+            ));
+      } else {
+        await into(customerCrateBalances).insert(
+          CustomerCrateBalancesCompanion(
+            customerId: Value(customerId),
+            crateGroupId: Value(crateGroupId),
+            balance: Value(-deltaQty),
+            businessId: Value(businessId),
             lastUpdatedAt: Value(now),
-          ));
-    } else {
-      await into(customerCrateBalances).insert(
-        CustomerCrateBalancesCompanion(
-          customerId: Value(customerId),
-          crateGroupId: Value(crateGroupId),
-          balance: Value(-deltaQty),
-          businessId: Value(businessId),
-          lastUpdatedAt: Value(now),
-        ),
-      );
-    }
+          ),
+        );
+      }
 
-    await _enqueueCrateBalance(customerId, crateGroupId, businessId, now);
+      await _enqueueCrateBalance(customerId, crateGroupId, businessId, now);
+    });
   }
 
   /// Records returned crates for a customer/group pair.
@@ -1436,42 +1477,44 @@ class CustomersDao extends DatabaseAccessor<AppDatabase>
     int crateGroupId,
     int returnedQty,
   ) async {
-    final now = DateTime.now();
-    final customer = await findById(customerId);
-    final businessId = customer?.businessId;
-    final existing =
-        await (select(customerCrateBalances)..where(
+    await transaction(() async {
+      final now = DateTime.now();
+      final customer = await findById(customerId);
+      final businessId = customer?.businessId;
+      final existing =
+          await (select(customerCrateBalances)..where(
+                (t) =>
+                    t.customerId.equals(customerId) &
+                    t.crateGroupId.equals(crateGroupId),
+              ))
+              .getSingleOrNull();
+
+      if (existing != null) {
+        await (update(customerCrateBalances)..where(
               (t) =>
                   t.customerId.equals(customerId) &
                   t.crateGroupId.equals(crateGroupId),
             ))
-            .getSingleOrNull();
+            .write(
+              CustomerCrateBalancesCompanion(
+                balance: Value(existing.balance - returnedQty),
+                lastUpdatedAt: Value(now),
+              ),
+            );
+      } else {
+        await into(customerCrateBalances).insert(
+          CustomerCrateBalancesCompanion(
+            customerId: Value(customerId),
+            crateGroupId: Value(crateGroupId),
+            balance: Value(-returnedQty),
+            businessId: Value(businessId),
+            lastUpdatedAt: Value(now),
+          ),
+        );
+      }
 
-    if (existing != null) {
-      await (update(customerCrateBalances)..where(
-            (t) =>
-                t.customerId.equals(customerId) &
-                t.crateGroupId.equals(crateGroupId),
-          ))
-          .write(
-            CustomerCrateBalancesCompanion(
-              balance: Value(existing.balance - returnedQty),
-              lastUpdatedAt: Value(now),
-            ),
-          );
-    } else {
-      await into(customerCrateBalances).insert(
-        CustomerCrateBalancesCompanion(
-          customerId: Value(customerId),
-          crateGroupId: Value(crateGroupId),
-          balance: Value(-returnedQty),
-          businessId: Value(businessId),
-          lastUpdatedAt: Value(now),
-        ),
-      );
-    }
-
-    await _enqueueCrateBalance(customerId, crateGroupId, businessId, now);
+      await _enqueueCrateBalance(customerId, crateGroupId, businessId, now);
+    });
   }
 
   /// Pushes a customer_crate_balances row to Supabase via the sync queue.
@@ -1501,6 +1544,7 @@ class CustomersDao extends DatabaseAccessor<AppDatabase>
         'last_updated_at': row.lastUpdatedAt?.toIso8601String() ??
             now.toIso8601String(),
       }),
+      businessId: row.businessId ?? businessId ?? db.currentBusinessId!,
     );
   }
 
@@ -1615,33 +1659,36 @@ class ExpensesDao extends DatabaseAccessor<AppDatabase>
   }
 
   Future<void> addExpense(ExpensesCompanion companion) async {
-    final withSync = companion.copyWith(
-      lastUpdatedAt: Value(DateTime.now()),
-    );
-    final id = await into(expenses).insert(withSync);
+    await transaction(() async {
+      final withSync = companion.copyWith(
+        lastUpdatedAt: Value(DateTime.now()),
+      );
+      final id = await into(expenses).insert(withSync);
 
-    // Queue for Sync
-    await db.syncDao.enqueue(
-      'expenses:insert',
-      jsonEncode({
-        'id': id,
-        'business_id': companion.businessId.value,
-        'category_id': companion.categoryId.value,
-        'category': companion.category.value,
-        'amount_kobo': companion.amountKobo.value,
-        'description': companion.description.value,
-        'payment_method': companion.paymentMethod.value,
-        'recorded_by': companion.recordedBy.value,
-        'reference': companion.reference.value,
-        'timestamp': (companion.timestamp.present
-                ? companion.timestamp.value
-                : DateTime.now())
-            .toIso8601String(),
-        'warehouse_id': companion.warehouseId.value,
-        'last_updated_at': DateTime.now().toIso8601String(),
-        'is_deleted': false,
-      }),
-    );
+      // Queue for Sync
+      await db.syncDao.enqueue(
+        'expenses:insert',
+        jsonEncode({
+          'id': id,
+          'business_id': companion.businessId.value,
+          'category_id': companion.categoryId.value,
+          'category': companion.category.value,
+          'amount_kobo': companion.amountKobo.value,
+          'description': companion.description.value,
+          'payment_method': companion.paymentMethod.value,
+          'recorded_by': companion.recordedBy.value,
+          'reference': companion.reference.value,
+          'timestamp': (companion.timestamp.present
+                  ? companion.timestamp.value
+                  : DateTime.now())
+              .toIso8601String(),
+          'warehouse_id': companion.warehouseId.value,
+          'last_updated_at': DateTime.now().toIso8601String(),
+          'is_deleted': false,
+        }),
+        businessId: companion.businessId.value ?? db.currentBusinessId!,
+      );
+    });
   }
   Stream<double> watchTotalThisMonth() => Stream.value(0.0);
 }
@@ -1653,17 +1700,19 @@ class SyncDao extends DatabaseAccessor<AppDatabase> with _$SyncDaoMixin {
   /// pending/in_progress, or previously failed but past their backoff window.
   /// `nextAttemptAt IS NULL` is treated as eligible so legacy `failed` rows
   /// (written before backoff was wired up) get one fresh chance.
-  Future<List<SyncQueueData>> getPendingItems({int limit = 50}) {
+  Future<List<SyncQueueData>> getPendingItems({int limit = 50, int? businessId}) {
     final now = DateTime.now();
-    return (select(syncQueue)
-          ..where((t) =>
-              t.isSynced.not() &
-              (t.status.isIn(['pending', 'in_progress']) |
-                  (t.status.equals('failed') &
-                      (t.nextAttemptAt.isNull() |
-                          t.nextAttemptAt.isSmallerOrEqualValue(now)))))
-          ..limit(limit))
-        .get();
+    final query = select(syncQueue)
+      ..where((t) =>
+          t.isSynced.not() &
+          (t.status.isIn(['pending', 'in_progress']) |
+              (t.status.equals('failed') &
+                  (t.nextAttemptAt.isNull() |
+                      t.nextAttemptAt.isSmallerOrEqualValue(now)))));
+    if (businessId != null) {
+      query.where((t) => t.businessId.equals(businessId));
+    }
+    return (query..limit(limit)).get();
   }
 
   Future<void> markInProgress(int id) =>
@@ -1737,19 +1786,52 @@ class SyncDao extends DatabaseAccessor<AppDatabase> with _$SyncDaoMixin {
             ..limit(limit))
           .get();
 
+  Stream<List<SyncQueueData>> watchFailedItems({int limit = 100}) =>
+      (select(syncQueue)
+            ..where((t) => t.status.equals('failed'))
+            ..orderBy([(t) => OrderingTerm.desc(t.id)])
+            ..limit(limit))
+          .watch();
+
+  Stream<int> watchFailedCount() =>
+      (selectOnly(syncQueue)
+            ..addColumns([syncQueue.id.count()])
+            ..where(syncQueue.status.equals('failed')))
+          .watchSingle()
+          .map((row) => row.read(syncQueue.id.count()) ?? 0);
+
+  /// Resets one failed row to `pending` so the next push tick retries it.
+  Future<void> clearFailureBackoffById(int id) =>
+      (update(syncQueue)..where((t) => t.id.equals(id))).write(
+        const SyncQueueCompanion(
+          status: Value('pending'),
+          attempts: Value(0),
+          nextAttemptAt: Value(null),
+          errorMessage: Value(null),
+        ),
+      );
+
+  Future<void> discardQueueItem(int id) =>
+      (delete(syncQueue)..where((t) => t.id.equals(id))).go();
+
   Future<void> purgeOldDoneItems() =>
       (delete(syncQueue)..where((t) => t.isSynced)).go();
 
-  Future<void> enqueue(String actionType, String payload) =>
+  Future<void> enqueue(
+    String actionType,
+    String payload, {
+    required int businessId,
+  }) =>
       into(syncQueue).insert(SyncQueueCompanion.insert(
         actionType: actionType,
         payload: payload,
+        businessId: Value(businessId),
       ));
 }
 
 @DriftAccessor(tables: [ActivityLogs])
 class ActivityLogDao extends DatabaseAccessor<AppDatabase>
-    with _$ActivityLogDaoMixin {
+    with _$ActivityLogDaoMixin, BusinessScopedDao<AppDatabase> {
   ActivityLogDao(super.db);
   Future<void> log({
     int? staffId,
@@ -1766,19 +1848,25 @@ class ActivityLogDao extends DatabaseAccessor<AppDatabase>
       relatedEntityId: Value(entityId),
       relatedEntityType: Value(entityType),
       warehouseId: Value(warehouseId),
+      businessId: Value(requireBusinessId()),
     ),
   );
   Stream<List<ActivityLogData>> watchRecent({int limit = 100}) =>
       (select(activityLogs)
+            ..where((t) => t.businessId.equals(requireBusinessId()))
             ..orderBy([(t) => OrderingTerm.desc(t.timestamp)])
             ..limit(limit))
           .watch();
   Future<List<ActivityLogData>> getForEntity(String entityId) => (select(
     activityLogs,
-  )..where((t) => t.relatedEntityId.equals(entityId))).get();
+  )..where((t) =>
+      t.relatedEntityId.equals(entityId) &
+      t.businessId.equals(requireBusinessId()))).get();
   Future<List<ActivityLogData>> getStockCountLogs() =>
       (select(activityLogs)
-            ..where((t) => t.action.equals('stock_count'))
+            ..where((t) =>
+                t.action.equals('stock_count') &
+                t.businessId.equals(requireBusinessId()))
             ..orderBy([(t) => OrderingTerm.desc(t.timestamp)]))
           .get();
 }
@@ -1839,7 +1927,7 @@ class NotificationsDao extends DatabaseAccessor<AppDatabase>
 
 @DriftAccessor(tables: [StockTransactions, Products, Users, Warehouses, Inventory])
 class StockLedgerDao extends DatabaseAccessor<AppDatabase>
-    with _$StockLedgerDaoMixin {
+    with _$StockLedgerDaoMixin, BusinessScopedDao<AppDatabase> {
   StockLedgerDao(super.db);
 
   Future<int> getCurrentStock(int productId, int locationId) async {
@@ -1890,6 +1978,8 @@ class StockLedgerDao extends DatabaseAccessor<AppDatabase>
       innerJoin(u, u.id.equalsExp(stockTransactions.performedBy)),
       innerJoin(w, w.id.equalsExp(stockTransactions.locationId)),
     ]);
+
+    query.where(stockTransactions.businessId.equals(requireBusinessId()));
 
     if (warehouseId != null) {
       query.where(stockTransactions.locationId.equals(warehouseId));
@@ -1943,6 +2033,8 @@ class StockLedgerDao extends DatabaseAccessor<AppDatabase>
       innerJoin(u, u.id.equalsExp(stockTransactions.performedBy)),
       innerJoin(w, w.id.equalsExp(stockTransactions.locationId)),
     ]);
+
+    query.where(stockTransactions.businessId.equals(requireBusinessId()));
 
     if (warehouseId != null) {
       query.where(stockTransactions.locationId.equals(warehouseId));

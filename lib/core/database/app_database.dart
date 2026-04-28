@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 import 'package:flutter/foundation.dart';
 import 'package:reebaplus_pos/core/database/daos.dart';
+import 'package:reebaplus_pos/core/diagnostics/schema_audit.dart';
 export 'daos.dart';
 
 part 'app_database.g.dart';
@@ -65,7 +66,14 @@ class Users extends Table {
   TextColumn get name => text()();
   TextColumn get email => text().nullable().unique()();
   TextColumn get passwordHash => text().nullable()();
-  TextColumn get pin => text()(); // 4-digit PIN
+  // Vestigial post-v35: holds the literal '__HASHED__' once the row is
+  // migrated. Real PIN verification reads pinHash/pinSalt/pinIterations.
+  // Sentinels '__SETUP_REQUIRED__' / 'TEMPPIN' / '' may still appear on rows
+  // awaiting the first PIN setup.
+  TextColumn get pin => text()();
+  TextColumn get pinHash => text().nullable()();
+  TextColumn get pinSalt => text().nullable()();
+  IntColumn get pinIterations => integer().nullable()();
   TextColumn get role => text()(); // admin, staff, CEO
   IntColumn get roleTier =>
       integer().withDefault(const Constant(1))(); // 1=Staff, 4=Manager, 5=CEO
@@ -312,6 +320,10 @@ class CustomerCrateBalances extends Table {
 @DataClassName('SyncQueueData')
 class SyncQueue extends Table {
   IntColumn get id => integer().autoIncrement()();
+  // Nullable at the SQL layer to match every other tenant column; the API
+  // (SyncDao.enqueue) requires non-null on insert and the v36 migration
+  // backfills or moves any pre-existing NULL row to SyncQueueOrphans.
+  IntColumn get businessId => integer().nullable().references(Businesses, #id)();
   TextColumn get actionType => text()();
   TextColumn get payload => text()();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
@@ -322,6 +334,19 @@ class SyncQueue extends Table {
   TextColumn get errorMessage => text().nullable()();
   IntColumn get attempts => integer().withDefault(const Constant(0))();
   DateTimeColumn get nextAttemptAt => dateTime().nullable()();
+}
+
+// 17b. Sync Queue Orphans — rows the v36 backfill could not attribute to any
+// tenant. Kept for diagnostics; never re-enters the push pipeline.
+@DataClassName('SyncQueueOrphanData')
+class SyncQueueOrphans extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  IntColumn get originalId => integer()();
+  TextColumn get actionType => text()();
+  TextColumn get payload => text()();
+  TextColumn get reason => text()();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get movedAt => dateTime().withDefault(currentDateAndTime)();
 }
 
 // 18. App Settings
@@ -575,6 +600,18 @@ class PendingCrateReturns extends Table {
   DateTimeColumn get lastUpdatedAt => dateTime().nullable()();
 }
 
+// 36. Migration Events — records non-success outcomes of each migration step
+// so failures stop being silent. Written by MigrationLogger.runStep.
+@DataClassName('MigrationEventData')
+class MigrationEvents extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  IntColumn get version => integer()();
+  TextColumn get step => text()();
+  TextColumn get severity => text()(); // 'warning' | 'error'
+  TextColumn get errorMessage => text().nullable()();
+  DateTimeColumn get occurredAt => dateTime()();
+}
+
 // 35. Invites
 @DataClassName('InviteData')
 class Invites extends Table {
@@ -615,6 +652,7 @@ class Invites extends Table {
     Crates,
     CustomerCrateBalances,
     SyncQueue,
+    SyncQueueOrphans,
     AppSettings,
     DeliveryReceipts,
     Drivers,
@@ -634,6 +672,7 @@ class Invites extends Table {
     PendingCrateReturns,
     Businesses,
     Invites,
+    MigrationEvents,
   ],
   daos: [
     CatalogDao,
@@ -654,8 +693,14 @@ class Invites extends Table {
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
+  /// Set once at login (and cleared on logout) by AuthService. DAOs that
+  /// participate in the multi-tenant filter read through this so they don't
+  /// have to depend on Riverpod or pass businessId explicitly.
+  int? Function() businessIdResolver = () => null;
+  int? get currentBusinessId => businessIdResolver();
+
   @override
-  int get schemaVersion => 33;
+  int get schemaVersion => 1;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -665,151 +710,32 @@ class AppDatabase extends _$AppDatabase {
       debugPrint('[AppDatabase] onCreate: DB setup complete.');
     },
     onUpgrade: (m, from, to) async {
-      debugPrint(
-        '[AppDatabase] onUpgrade: Upgrading from version $from to $to...',
+      // Post-wipe installs (see lib/core/database/db_wipe.dart) always run
+      // onCreate, never onUpgrade. Reaching this branch means the wipe was
+      // bypassed or the marker file was tampered with.
+      throw StateError(
+        'Unexpected schema upgrade from v$from to v$to. '
+        'Post-wipe installs should always run onCreate, never onUpgrade. '
+        'Investigate db_wipe.dart and the cutover marker file.',
       );
-      try {
-        await customStatement('PRAGMA foreign_keys = OFF');
-
-        if (from < 20) {
-          await m.createTable(savedCarts);
-        }
-
-        if (from < 22) {
-          // Migration to 22: Added nullable createdAt and lastNotificationSentAt via raw SQL (User's manual edit)
-          // We try to add them again via Migrator in case v22 failed to align schema metadata
-          try {
-            await m.addColumn(users, users.createdAt);
-          } catch (_) {}
-          try {
-            await m.addColumn(users, users.lastNotificationSentAt);
-          } catch (_) {}
-        }
-
-        if (from < 23) {
-          // Version 23: Rescue migration to ensure column consistency.
-          try {
-            await m.addColumn(users, users.createdAt);
-          } catch (_) {}
-          try {
-            await m.addColumn(users, users.lastNotificationSentAt);
-          } catch (_) {}
-        }
-
-        if (from < 24) {
-          // Version 24: Add warehouseId to Customers for per-warehouse customer isolation.
-          try {
-            await m.addColumn(customers, customers.warehouseId);
-          } catch (_) {}
-        }
-
-        if (from < 25) {
-          // Version 25: Add warehouseId to Orders and Expenses for per-warehouse filtering.
-          try {
-            await m.addColumn(orders, orders.warehouseId);
-          } catch (_) {}
-          try {
-            await m.addColumn(expenses, expenses.warehouseId);
-          } catch (_) {}
-        }
-
-        if (from < 26) {
-          // Version 26: Add crateDepositPaidKobo to Orders for crate deposit tracking.
-          try {
-            await m.addColumn(orders, orders.crateDepositPaidKobo);
-          } catch (_) {}
-        }
-
-        if (from < 27) {
-          // Version 27: Snapshot buying price on OrderItems so profit history is unaffected by future price changes.
-          try {
-            await m.addColumn(orderItems, orderItems.buyingPriceKobo);
-          } catch (_) {}
-        }
-
-        if (from < 28) {
-          // Version 28: Add PendingCrateReturns table for staff short-return approval workflow.
-          await m.createTable(pendingCrateReturns);
-        }
-
-        if (from < 29) {
-          // Version 29: Migrate all 4-digit PINs to 6 digits by appending '00'.
-          // e.g. '0000' → '000000', '1111' → '111100'. Existing users enter old PIN + '00'.
-          try {
-            await customStatement(
-              "UPDATE users SET pin = pin || '00' WHERE LENGTH(pin) = 4",
-            );
-          } catch (e) {
-            debugPrint('[AppDatabase] v29 PIN migration error: $e');
-          }
-        }
-
-        if (from < 30) {
-          // Version 30: Staff Invite Flow
-          await m.createTable(businesses);
-          await m.createTable(invites);
-          try {
-            await m.addColumn(users, users.businessId);
-          } catch (_) {}
-        }
-
-        if (from < 31) {
-          // Version 31: Add trackEmpties flag to Products.
-          // Existing bottle products default to true so behaviour is unchanged.
-          try {
-            await m.addColumn(products, products.trackEmpties);
-          } catch (_) {}
-          try {
-            await customStatement(
-              "UPDATE products SET track_empties = 1 WHERE LOWER(unit) = 'bottle'",
-            );
-          } catch (e) {
-            debugPrint('[AppDatabase] v31 trackEmpties migration error: $e');
-          }
-        }
-
-        if (from < 32) {
-          // Version 32: Add imagePath to Products
-          try {
-            await m.addColumn(products, products.imagePath);
-          } catch (_) {}
-        }
-
-        if (from < 33) {
-          // Version 33: Multi-tenancy and Sync Support.
-          // Dynamically add businessId, lastUpdatedAt, and isDeleted to all tables if missing.
-          for (final table in allTables) {
-            final tableInfo = table as TableInfo;
-            final columnsToAdd = {
-              'business_id': tableInfo.columnsByName['business_id'],
-              'last_updated_at': tableInfo.columnsByName['last_updated_at'],
-              'is_deleted': tableInfo.columnsByName['is_deleted'],
-            };
-
-            for (final entry in columnsToAdd.entries) {
-              final col = entry.value;
-              if (col != null) {
-                try {
-                  await m.addColumn(tableInfo, col);
-                } catch (_) {
-                  // Column might already exist if migration partially ran
-                }
-              }
-            }
-          }
-        }
-
-        await customStatement('PRAGMA foreign_keys = ON');
-      } catch (e) {
-        debugPrint('[AppDatabase] MIGRATION ERROR: $e');
-      }
     },
     beforeOpen: (details) async {
       await customStatement('PRAGMA foreign_keys = ON');
       await customStatement('PRAGMA journal_mode = WAL');
       await customStatement('PRAGMA synchronous = NORMAL');
+
+      // Schema self-heal audit. Compares Drift's declared schema against the
+      // actual SQLite layout and re-runs ALTER TABLE / CREATE TABLE for any
+      // drift.
+      _lastSchemaAudit = await SchemaAudit(
+        this,
+        migratorFactory: () => createMigrator(),
+      ).run(attemptHeal: true);
     },
   );
+
+  SchemaAuditResult? _lastSchemaAudit;
+  SchemaAuditResult? get lastSchemaAudit => _lastSchemaAudit;
 
   Future<void> clearAllData() async {
     await transaction(() async {

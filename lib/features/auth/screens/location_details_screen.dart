@@ -94,6 +94,7 @@ class _LocationDetailsScreenState extends ConsumerState<LocationDetailsScreen> {
         'last_updated_at': now.toIso8601String(),
         'is_deleted': false,
       }),
+      businessId: widget.user.businessId!,
     );
 
     // Keep current user assigned to this warehouse.

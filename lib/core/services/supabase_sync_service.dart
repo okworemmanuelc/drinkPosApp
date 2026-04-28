@@ -6,6 +6,25 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:reebaplus_pos/core/database/app_database.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+/// Result of decoding the current Supabase session's access token.
+/// `businessId` is non-null only when the JWT actually carries a
+/// `business_id` claim (top-level or under `app_metadata` /
+/// `user_metadata`). Used by the Sync Issues screen to confirm whether
+/// JWT-claim-based RLS will see the right tenant.
+class JwtClaimSnapshot {
+  final bool hasSession;
+  final int? businessId;
+  final String? source; // 'top-level' | 'app_metadata' | 'user_metadata'
+  final String? error;
+
+  const JwtClaimSnapshot({
+    required this.hasSession,
+    this.businessId,
+    this.source,
+    this.error,
+  });
+}
+
 class SupabaseSyncService {
   final AppDatabase _db;
   final SupabaseClient _supabase = Supabase.instance.client;
@@ -15,8 +34,71 @@ class SupabaseSyncService {
   StreamSubscription<AuthState>? _authStateSub;
   Timer? _autoPushDebounce;
   bool _pushing = false;
+  bool _loggedJwtClaimsThisSession = false;
 
   SupabaseSyncService(this._db);
+
+  /// Decodes the current access token's payload (no signature check — this is
+  /// purely for local introspection) and reports whether `business_id` is
+  /// present. Returns a snapshot the UI can render directly.
+  static JwtClaimSnapshot inspectJwtClaims() {
+    final session = Supabase.instance.client.auth.currentSession;
+    if (session == null) {
+      return const JwtClaimSnapshot(hasSession: false);
+    }
+    try {
+      final parts = session.accessToken.split('.');
+      if (parts.length != 3) {
+        return const JwtClaimSnapshot(
+            hasSession: true, error: 'malformed JWT');
+      }
+      // base64url-decode the payload segment, padding as needed.
+      var payload = parts[1].replaceAll('-', '+').replaceAll('_', '/');
+      switch (payload.length % 4) {
+        case 2:
+          payload += '==';
+          break;
+        case 3:
+          payload += '=';
+          break;
+      }
+      final json =
+          jsonDecode(utf8.decode(base64.decode(payload))) as Map<String, dynamic>;
+
+      int? toInt(dynamic v) {
+        if (v == null) return null;
+        if (v is int) return v;
+        if (v is num) return v.toInt();
+        if (v is String) return int.tryParse(v);
+        return null;
+      }
+
+      final top = toInt(json['business_id']);
+      if (top != null) {
+        return JwtClaimSnapshot(
+            hasSession: true, businessId: top, source: 'top-level');
+      }
+      final appMeta = json['app_metadata'];
+      if (appMeta is Map) {
+        final v = toInt(appMeta['business_id']);
+        if (v != null) {
+          return JwtClaimSnapshot(
+              hasSession: true, businessId: v, source: 'app_metadata');
+        }
+      }
+      final userMeta = json['user_metadata'];
+      if (userMeta is Map) {
+        final v = toInt(userMeta['business_id']);
+        if (v != null) {
+          return JwtClaimSnapshot(
+              hasSession: true, businessId: v, source: 'user_metadata');
+        }
+      }
+      return const JwtClaimSnapshot(hasSession: true);
+    } catch (e) {
+      return JwtClaimSnapshot(hasSession: true, error: e.toString());
+    }
+  }
 
   /// Cloud tables that have no `updated_at` column. On push, `last_updated_at`
   /// is dropped (not renamed) from the payload. On pull, the incremental
@@ -93,7 +175,38 @@ class SupabaseSyncService {
       return;
     }
 
-    final pendingItems = await _db.syncDao.getPendingItems(limit: 50);
+    if (!_loggedJwtClaimsThisSession) {
+      _loggedJwtClaimsThisSession = true;
+      final claims = inspectJwtClaims();
+      // Informational only. This project's RLS uses auth.uid() → profiles
+      // via get_user_business_id(); JWT claims are not consulted. See
+      // supabase/rls_snapshot.md.
+      if (claims.businessId != null) {
+        debugPrint('[SyncService] JWT business_id=${claims.businessId} '
+            '(via ${claims.source}, informational — RLS uses profiles join).');
+      } else if (claims.error != null) {
+        debugPrint('[SyncService] JWT decode failed: ${claims.error}');
+      } else {
+        debugPrint('[SyncService] JWT has no business_id claim '
+            '(expected — RLS resolves business_id via profiles join).');
+      }
+    }
+
+    // Filter the queue to the current session's tenant. The v36 schema makes
+    // every sync_queue row carry a businessId; the resolver hung off
+    // AppDatabase carries the session's businessId after AuthService wires it
+    // up at login. If still null here we cannot safely push (would risk
+    // pushing another tenant's row), so bail.
+    final sessionBusinessId = _db.currentBusinessId;
+    if (sessionBusinessId == null) {
+      debugPrint('[SyncService] Skipping push: no session businessId.');
+      return;
+    }
+
+    final pendingItems = await _db.syncDao.getPendingItems(
+      limit: 50,
+      businessId: sessionBusinessId,
+    );
     if (pendingItems.isEmpty) return;
 
     // Order by table priority so parent rows (warehouses, businesses, …) are
@@ -120,9 +233,16 @@ class SupabaseSyncService {
         final action = parts[1];
         final conflictTarget = parts.length > 2 ? parts[2] : null;
 
-        if (!rawPayload.containsKey('business_id') || rawPayload['business_id'] == null) {
-          debugPrint('[SyncService] Skipping item ${item.id} (${item.actionType}): missing business_id');
-          await _db.syncDao.markFailed(item.id, 'missing_business_id');
+        // Post-v36 invariant: enqueue() requires a businessId, and the queue
+        // is filtered by sessionBusinessId above. A row reaching this point
+        // with a missing/mismatched tenant marker is a programming error.
+        final payloadBusinessId = rawPayload['business_id'];
+        if (item.businessId != sessionBusinessId ||
+            payloadBusinessId == null ||
+            (payloadBusinessId is num && payloadBusinessId.toInt() != sessionBusinessId)) {
+          debugPrint('[SyncService] Hard-fail item ${item.id} (${item.actionType}): '
+              'tenant mismatch (row=${item.businessId} payload=$payloadBusinessId session=$sessionBusinessId)');
+          await _db.syncDao.markFailed(item.id, 'tenant_mismatch_post_filter');
           continue;
         }
 
@@ -357,8 +477,11 @@ class SupabaseSyncService {
         if (state.event == AuthChangeEvent.signedIn ||
             state.event == AuthChangeEvent.tokenRefreshed ||
             state.event == AuthChangeEvent.initialSession) {
+          _loggedJwtClaimsThisSession = false;
           await _db.syncDao.clearFailureBackoff();
           _scheduleDebouncedPush();
+        } else if (state.event == AuthChangeEvent.signedOut) {
+          _loggedJwtClaimsThisSession = false;
         }
       });
     } finally {
@@ -431,6 +554,7 @@ class SupabaseSyncService {
             'last_updated_at': now.toIso8601String(),
             'is_deleted': w.isDeleted,
           }),
+          businessId: businessId,
         );
         await (_db.update(_db.warehouses)..where((t) => t.id.equals(w.id)))
             .write(WarehousesCompanion(lastUpdatedAt: Value(now)));

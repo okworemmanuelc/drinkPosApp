@@ -59,7 +59,7 @@ class _JoinNameEntryScreenState extends ConsumerState<JoinNameEntryScreen> {
           UsersCompanion.insert(
             name: name,
             email: drift.Value(widget.email),
-            pin: 'TEMPPIN', // temporary
+            pin: AuthService.setupRequiredPin,
             role: invite.role,
             roleTier: const drift.Value(1),
             warehouseId: drift.Value(invite.warehouseId),

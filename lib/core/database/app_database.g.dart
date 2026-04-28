@@ -1856,6 +1856,39 @@ class $UsersTable extends Users with TableInfo<$UsersTable, UserData> {
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _pinHashMeta = const VerificationMeta(
+    'pinHash',
+  );
+  @override
+  late final GeneratedColumn<String> pinHash = GeneratedColumn<String>(
+    'pin_hash',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _pinSaltMeta = const VerificationMeta(
+    'pinSalt',
+  );
+  @override
+  late final GeneratedColumn<String> pinSalt = GeneratedColumn<String>(
+    'pin_salt',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _pinIterationsMeta = const VerificationMeta(
+    'pinIterations',
+  );
+  @override
+  late final GeneratedColumn<int> pinIterations = GeneratedColumn<int>(
+    'pin_iterations',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _roleMeta = const VerificationMeta('role');
   @override
   late final GeneratedColumn<String> role = GeneratedColumn<String>(
@@ -1988,6 +2021,9 @@ class $UsersTable extends Users with TableInfo<$UsersTable, UserData> {
     email,
     passwordHash,
     pin,
+    pinHash,
+    pinSalt,
+    pinIterations,
     role,
     roleTier,
     avatarColor,
@@ -2044,6 +2080,27 @@ class $UsersTable extends Users with TableInfo<$UsersTable, UserData> {
       );
     } else if (isInserting) {
       context.missing(_pinMeta);
+    }
+    if (data.containsKey('pin_hash')) {
+      context.handle(
+        _pinHashMeta,
+        pinHash.isAcceptableOrUnknown(data['pin_hash']!, _pinHashMeta),
+      );
+    }
+    if (data.containsKey('pin_salt')) {
+      context.handle(
+        _pinSaltMeta,
+        pinSalt.isAcceptableOrUnknown(data['pin_salt']!, _pinSaltMeta),
+      );
+    }
+    if (data.containsKey('pin_iterations')) {
+      context.handle(
+        _pinIterationsMeta,
+        pinIterations.isAcceptableOrUnknown(
+          data['pin_iterations']!,
+          _pinIterationsMeta,
+        ),
+      );
     }
     if (data.containsKey('role')) {
       context.handle(
@@ -2151,6 +2208,18 @@ class $UsersTable extends Users with TableInfo<$UsersTable, UserData> {
         DriftSqlType.string,
         data['${effectivePrefix}pin'],
       )!,
+      pinHash: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}pin_hash'],
+      ),
+      pinSalt: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}pin_salt'],
+      ),
+      pinIterations: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}pin_iterations'],
+      ),
       role: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}role'],
@@ -2206,6 +2275,9 @@ class UserData extends DataClass implements Insertable<UserData> {
   final String? email;
   final String? passwordHash;
   final String pin;
+  final String? pinHash;
+  final String? pinSalt;
+  final int? pinIterations;
   final String role;
   final int roleTier;
   final String avatarColor;
@@ -2222,6 +2294,9 @@ class UserData extends DataClass implements Insertable<UserData> {
     this.email,
     this.passwordHash,
     required this.pin,
+    this.pinHash,
+    this.pinSalt,
+    this.pinIterations,
     required this.role,
     required this.roleTier,
     required this.avatarColor,
@@ -2245,6 +2320,15 @@ class UserData extends DataClass implements Insertable<UserData> {
       map['password_hash'] = Variable<String>(passwordHash);
     }
     map['pin'] = Variable<String>(pin);
+    if (!nullToAbsent || pinHash != null) {
+      map['pin_hash'] = Variable<String>(pinHash);
+    }
+    if (!nullToAbsent || pinSalt != null) {
+      map['pin_salt'] = Variable<String>(pinSalt);
+    }
+    if (!nullToAbsent || pinIterations != null) {
+      map['pin_iterations'] = Variable<int>(pinIterations);
+    }
     map['role'] = Variable<String>(role);
     map['role_tier'] = Variable<int>(roleTier);
     map['avatar_color'] = Variable<String>(avatarColor);
@@ -2281,6 +2365,15 @@ class UserData extends DataClass implements Insertable<UserData> {
           ? const Value.absent()
           : Value(passwordHash),
       pin: Value(pin),
+      pinHash: pinHash == null && nullToAbsent
+          ? const Value.absent()
+          : Value(pinHash),
+      pinSalt: pinSalt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(pinSalt),
+      pinIterations: pinIterations == null && nullToAbsent
+          ? const Value.absent()
+          : Value(pinIterations),
       role: Value(role),
       roleTier: Value(roleTier),
       avatarColor: Value(avatarColor),
@@ -2315,6 +2408,9 @@ class UserData extends DataClass implements Insertable<UserData> {
       email: serializer.fromJson<String?>(json['email']),
       passwordHash: serializer.fromJson<String?>(json['passwordHash']),
       pin: serializer.fromJson<String>(json['pin']),
+      pinHash: serializer.fromJson<String?>(json['pinHash']),
+      pinSalt: serializer.fromJson<String?>(json['pinSalt']),
+      pinIterations: serializer.fromJson<int?>(json['pinIterations']),
       role: serializer.fromJson<String>(json['role']),
       roleTier: serializer.fromJson<int>(json['roleTier']),
       avatarColor: serializer.fromJson<String>(json['avatarColor']),
@@ -2338,6 +2434,9 @@ class UserData extends DataClass implements Insertable<UserData> {
       'email': serializer.toJson<String?>(email),
       'passwordHash': serializer.toJson<String?>(passwordHash),
       'pin': serializer.toJson<String>(pin),
+      'pinHash': serializer.toJson<String?>(pinHash),
+      'pinSalt': serializer.toJson<String?>(pinSalt),
+      'pinIterations': serializer.toJson<int?>(pinIterations),
       'role': serializer.toJson<String>(role),
       'roleTier': serializer.toJson<int>(roleTier),
       'avatarColor': serializer.toJson<String>(avatarColor),
@@ -2359,6 +2458,9 @@ class UserData extends DataClass implements Insertable<UserData> {
     Value<String?> email = const Value.absent(),
     Value<String?> passwordHash = const Value.absent(),
     String? pin,
+    Value<String?> pinHash = const Value.absent(),
+    Value<String?> pinSalt = const Value.absent(),
+    Value<int?> pinIterations = const Value.absent(),
     String? role,
     int? roleTier,
     String? avatarColor,
@@ -2375,6 +2477,11 @@ class UserData extends DataClass implements Insertable<UserData> {
     email: email.present ? email.value : this.email,
     passwordHash: passwordHash.present ? passwordHash.value : this.passwordHash,
     pin: pin ?? this.pin,
+    pinHash: pinHash.present ? pinHash.value : this.pinHash,
+    pinSalt: pinSalt.present ? pinSalt.value : this.pinSalt,
+    pinIterations: pinIterations.present
+        ? pinIterations.value
+        : this.pinIterations,
     role: role ?? this.role,
     roleTier: roleTier ?? this.roleTier,
     avatarColor: avatarColor ?? this.avatarColor,
@@ -2399,6 +2506,11 @@ class UserData extends DataClass implements Insertable<UserData> {
           ? data.passwordHash.value
           : this.passwordHash,
       pin: data.pin.present ? data.pin.value : this.pin,
+      pinHash: data.pinHash.present ? data.pinHash.value : this.pinHash,
+      pinSalt: data.pinSalt.present ? data.pinSalt.value : this.pinSalt,
+      pinIterations: data.pinIterations.present
+          ? data.pinIterations.value
+          : this.pinIterations,
       role: data.role.present ? data.role.value : this.role,
       roleTier: data.roleTier.present ? data.roleTier.value : this.roleTier,
       avatarColor: data.avatarColor.present
@@ -2432,6 +2544,9 @@ class UserData extends DataClass implements Insertable<UserData> {
           ..write('email: $email, ')
           ..write('passwordHash: $passwordHash, ')
           ..write('pin: $pin, ')
+          ..write('pinHash: $pinHash, ')
+          ..write('pinSalt: $pinSalt, ')
+          ..write('pinIterations: $pinIterations, ')
           ..write('role: $role, ')
           ..write('roleTier: $roleTier, ')
           ..write('avatarColor: $avatarColor, ')
@@ -2453,6 +2568,9 @@ class UserData extends DataClass implements Insertable<UserData> {
     email,
     passwordHash,
     pin,
+    pinHash,
+    pinSalt,
+    pinIterations,
     role,
     roleTier,
     avatarColor,
@@ -2473,6 +2591,9 @@ class UserData extends DataClass implements Insertable<UserData> {
           other.email == this.email &&
           other.passwordHash == this.passwordHash &&
           other.pin == this.pin &&
+          other.pinHash == this.pinHash &&
+          other.pinSalt == this.pinSalt &&
+          other.pinIterations == this.pinIterations &&
           other.role == this.role &&
           other.roleTier == this.roleTier &&
           other.avatarColor == this.avatarColor &&
@@ -2491,6 +2612,9 @@ class UsersCompanion extends UpdateCompanion<UserData> {
   final Value<String?> email;
   final Value<String?> passwordHash;
   final Value<String> pin;
+  final Value<String?> pinHash;
+  final Value<String?> pinSalt;
+  final Value<int?> pinIterations;
   final Value<String> role;
   final Value<int> roleTier;
   final Value<String> avatarColor;
@@ -2507,6 +2631,9 @@ class UsersCompanion extends UpdateCompanion<UserData> {
     this.email = const Value.absent(),
     this.passwordHash = const Value.absent(),
     this.pin = const Value.absent(),
+    this.pinHash = const Value.absent(),
+    this.pinSalt = const Value.absent(),
+    this.pinIterations = const Value.absent(),
     this.role = const Value.absent(),
     this.roleTier = const Value.absent(),
     this.avatarColor = const Value.absent(),
@@ -2524,6 +2651,9 @@ class UsersCompanion extends UpdateCompanion<UserData> {
     this.email = const Value.absent(),
     this.passwordHash = const Value.absent(),
     required String pin,
+    this.pinHash = const Value.absent(),
+    this.pinSalt = const Value.absent(),
+    this.pinIterations = const Value.absent(),
     required String role,
     this.roleTier = const Value.absent(),
     this.avatarColor = const Value.absent(),
@@ -2543,6 +2673,9 @@ class UsersCompanion extends UpdateCompanion<UserData> {
     Expression<String>? email,
     Expression<String>? passwordHash,
     Expression<String>? pin,
+    Expression<String>? pinHash,
+    Expression<String>? pinSalt,
+    Expression<int>? pinIterations,
     Expression<String>? role,
     Expression<int>? roleTier,
     Expression<String>? avatarColor,
@@ -2560,6 +2693,9 @@ class UsersCompanion extends UpdateCompanion<UserData> {
       if (email != null) 'email': email,
       if (passwordHash != null) 'password_hash': passwordHash,
       if (pin != null) 'pin': pin,
+      if (pinHash != null) 'pin_hash': pinHash,
+      if (pinSalt != null) 'pin_salt': pinSalt,
+      if (pinIterations != null) 'pin_iterations': pinIterations,
       if (role != null) 'role': role,
       if (roleTier != null) 'role_tier': roleTier,
       if (avatarColor != null) 'avatar_color': avatarColor,
@@ -2580,6 +2716,9 @@ class UsersCompanion extends UpdateCompanion<UserData> {
     Value<String?>? email,
     Value<String?>? passwordHash,
     Value<String>? pin,
+    Value<String?>? pinHash,
+    Value<String?>? pinSalt,
+    Value<int?>? pinIterations,
     Value<String>? role,
     Value<int>? roleTier,
     Value<String>? avatarColor,
@@ -2597,6 +2736,9 @@ class UsersCompanion extends UpdateCompanion<UserData> {
       email: email ?? this.email,
       passwordHash: passwordHash ?? this.passwordHash,
       pin: pin ?? this.pin,
+      pinHash: pinHash ?? this.pinHash,
+      pinSalt: pinSalt ?? this.pinSalt,
+      pinIterations: pinIterations ?? this.pinIterations,
       role: role ?? this.role,
       roleTier: roleTier ?? this.roleTier,
       avatarColor: avatarColor ?? this.avatarColor,
@@ -2628,6 +2770,15 @@ class UsersCompanion extends UpdateCompanion<UserData> {
     }
     if (pin.present) {
       map['pin'] = Variable<String>(pin.value);
+    }
+    if (pinHash.present) {
+      map['pin_hash'] = Variable<String>(pinHash.value);
+    }
+    if (pinSalt.present) {
+      map['pin_salt'] = Variable<String>(pinSalt.value);
+    }
+    if (pinIterations.present) {
+      map['pin_iterations'] = Variable<int>(pinIterations.value);
     }
     if (role.present) {
       map['role'] = Variable<String>(role.value);
@@ -2672,6 +2823,9 @@ class UsersCompanion extends UpdateCompanion<UserData> {
           ..write('email: $email, ')
           ..write('passwordHash: $passwordHash, ')
           ..write('pin: $pin, ')
+          ..write('pinHash: $pinHash, ')
+          ..write('pinSalt: $pinSalt, ')
+          ..write('pinIterations: $pinIterations, ')
           ..write('role: $role, ')
           ..write('roleTier: $roleTier, ')
           ..write('avatarColor: $avatarColor, ')
@@ -11518,6 +11672,20 @@ class $SyncQueueTable extends SyncQueue
       'PRIMARY KEY AUTOINCREMENT',
     ),
   );
+  static const VerificationMeta _businessIdMeta = const VerificationMeta(
+    'businessId',
+  );
+  @override
+  late final GeneratedColumn<int> businessId = GeneratedColumn<int>(
+    'business_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES businesses (id)',
+    ),
+  );
   static const VerificationMeta _actionTypeMeta = const VerificationMeta(
     'actionType',
   );
@@ -11615,6 +11783,7 @@ class $SyncQueueTable extends SyncQueue
   @override
   List<GeneratedColumn> get $columns => [
     id,
+    businessId,
     actionType,
     payload,
     createdAt,
@@ -11638,6 +11807,12 @@ class $SyncQueueTable extends SyncQueue
     final data = instance.toColumns(true);
     if (data.containsKey('id')) {
       context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('business_id')) {
+      context.handle(
+        _businessIdMeta,
+        businessId.isAcceptableOrUnknown(data['business_id']!, _businessIdMeta),
+      );
     }
     if (data.containsKey('action_type')) {
       context.handle(
@@ -11710,6 +11885,10 @@ class $SyncQueueTable extends SyncQueue
         DriftSqlType.int,
         data['${effectivePrefix}id'],
       )!,
+      businessId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}business_id'],
+      ),
       actionType: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}action_type'],
@@ -11753,6 +11932,7 @@ class $SyncQueueTable extends SyncQueue
 
 class SyncQueueData extends DataClass implements Insertable<SyncQueueData> {
   final int id;
+  final int? businessId;
   final String actionType;
   final String payload;
   final DateTime createdAt;
@@ -11763,6 +11943,7 @@ class SyncQueueData extends DataClass implements Insertable<SyncQueueData> {
   final DateTime? nextAttemptAt;
   const SyncQueueData({
     required this.id,
+    this.businessId,
     required this.actionType,
     required this.payload,
     required this.createdAt,
@@ -11776,6 +11957,9 @@ class SyncQueueData extends DataClass implements Insertable<SyncQueueData> {
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
     map['id'] = Variable<int>(id);
+    if (!nullToAbsent || businessId != null) {
+      map['business_id'] = Variable<int>(businessId);
+    }
     map['action_type'] = Variable<String>(actionType);
     map['payload'] = Variable<String>(payload);
     map['created_at'] = Variable<DateTime>(createdAt);
@@ -11794,6 +11978,9 @@ class SyncQueueData extends DataClass implements Insertable<SyncQueueData> {
   SyncQueueCompanion toCompanion(bool nullToAbsent) {
     return SyncQueueCompanion(
       id: Value(id),
+      businessId: businessId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(businessId),
       actionType: Value(actionType),
       payload: Value(payload),
       createdAt: Value(createdAt),
@@ -11816,6 +12003,7 @@ class SyncQueueData extends DataClass implements Insertable<SyncQueueData> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return SyncQueueData(
       id: serializer.fromJson<int>(json['id']),
+      businessId: serializer.fromJson<int?>(json['businessId']),
       actionType: serializer.fromJson<String>(json['actionType']),
       payload: serializer.fromJson<String>(json['payload']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
@@ -11831,6 +12019,7 @@ class SyncQueueData extends DataClass implements Insertable<SyncQueueData> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return <String, dynamic>{
       'id': serializer.toJson<int>(id),
+      'businessId': serializer.toJson<int?>(businessId),
       'actionType': serializer.toJson<String>(actionType),
       'payload': serializer.toJson<String>(payload),
       'createdAt': serializer.toJson<DateTime>(createdAt),
@@ -11844,6 +12033,7 @@ class SyncQueueData extends DataClass implements Insertable<SyncQueueData> {
 
   SyncQueueData copyWith({
     int? id,
+    Value<int?> businessId = const Value.absent(),
     String? actionType,
     String? payload,
     DateTime? createdAt,
@@ -11854,6 +12044,7 @@ class SyncQueueData extends DataClass implements Insertable<SyncQueueData> {
     Value<DateTime?> nextAttemptAt = const Value.absent(),
   }) => SyncQueueData(
     id: id ?? this.id,
+    businessId: businessId.present ? businessId.value : this.businessId,
     actionType: actionType ?? this.actionType,
     payload: payload ?? this.payload,
     createdAt: createdAt ?? this.createdAt,
@@ -11868,6 +12059,9 @@ class SyncQueueData extends DataClass implements Insertable<SyncQueueData> {
   SyncQueueData copyWithCompanion(SyncQueueCompanion data) {
     return SyncQueueData(
       id: data.id.present ? data.id.value : this.id,
+      businessId: data.businessId.present
+          ? data.businessId.value
+          : this.businessId,
       actionType: data.actionType.present
           ? data.actionType.value
           : this.actionType,
@@ -11889,6 +12083,7 @@ class SyncQueueData extends DataClass implements Insertable<SyncQueueData> {
   String toString() {
     return (StringBuffer('SyncQueueData(')
           ..write('id: $id, ')
+          ..write('businessId: $businessId, ')
           ..write('actionType: $actionType, ')
           ..write('payload: $payload, ')
           ..write('createdAt: $createdAt, ')
@@ -11904,6 +12099,7 @@ class SyncQueueData extends DataClass implements Insertable<SyncQueueData> {
   @override
   int get hashCode => Object.hash(
     id,
+    businessId,
     actionType,
     payload,
     createdAt,
@@ -11918,6 +12114,7 @@ class SyncQueueData extends DataClass implements Insertable<SyncQueueData> {
       identical(this, other) ||
       (other is SyncQueueData &&
           other.id == this.id &&
+          other.businessId == this.businessId &&
           other.actionType == this.actionType &&
           other.payload == this.payload &&
           other.createdAt == this.createdAt &&
@@ -11930,6 +12127,7 @@ class SyncQueueData extends DataClass implements Insertable<SyncQueueData> {
 
 class SyncQueueCompanion extends UpdateCompanion<SyncQueueData> {
   final Value<int> id;
+  final Value<int?> businessId;
   final Value<String> actionType;
   final Value<String> payload;
   final Value<DateTime> createdAt;
@@ -11940,6 +12138,7 @@ class SyncQueueCompanion extends UpdateCompanion<SyncQueueData> {
   final Value<DateTime?> nextAttemptAt;
   const SyncQueueCompanion({
     this.id = const Value.absent(),
+    this.businessId = const Value.absent(),
     this.actionType = const Value.absent(),
     this.payload = const Value.absent(),
     this.createdAt = const Value.absent(),
@@ -11951,6 +12150,7 @@ class SyncQueueCompanion extends UpdateCompanion<SyncQueueData> {
   });
   SyncQueueCompanion.insert({
     this.id = const Value.absent(),
+    this.businessId = const Value.absent(),
     required String actionType,
     required String payload,
     this.createdAt = const Value.absent(),
@@ -11963,6 +12163,7 @@ class SyncQueueCompanion extends UpdateCompanion<SyncQueueData> {
        payload = Value(payload);
   static Insertable<SyncQueueData> custom({
     Expression<int>? id,
+    Expression<int>? businessId,
     Expression<String>? actionType,
     Expression<String>? payload,
     Expression<DateTime>? createdAt,
@@ -11974,6 +12175,7 @@ class SyncQueueCompanion extends UpdateCompanion<SyncQueueData> {
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
+      if (businessId != null) 'business_id': businessId,
       if (actionType != null) 'action_type': actionType,
       if (payload != null) 'payload': payload,
       if (createdAt != null) 'created_at': createdAt,
@@ -11987,6 +12189,7 @@ class SyncQueueCompanion extends UpdateCompanion<SyncQueueData> {
 
   SyncQueueCompanion copyWith({
     Value<int>? id,
+    Value<int?>? businessId,
     Value<String>? actionType,
     Value<String>? payload,
     Value<DateTime>? createdAt,
@@ -11998,6 +12201,7 @@ class SyncQueueCompanion extends UpdateCompanion<SyncQueueData> {
   }) {
     return SyncQueueCompanion(
       id: id ?? this.id,
+      businessId: businessId ?? this.businessId,
       actionType: actionType ?? this.actionType,
       payload: payload ?? this.payload,
       createdAt: createdAt ?? this.createdAt,
@@ -12014,6 +12218,9 @@ class SyncQueueCompanion extends UpdateCompanion<SyncQueueData> {
     final map = <String, Expression>{};
     if (id.present) {
       map['id'] = Variable<int>(id.value);
+    }
+    if (businessId.present) {
+      map['business_id'] = Variable<int>(businessId.value);
     }
     if (actionType.present) {
       map['action_type'] = Variable<String>(actionType.value);
@@ -12046,6 +12253,7 @@ class SyncQueueCompanion extends UpdateCompanion<SyncQueueData> {
   String toString() {
     return (StringBuffer('SyncQueueCompanion(')
           ..write('id: $id, ')
+          ..write('businessId: $businessId, ')
           ..write('actionType: $actionType, ')
           ..write('payload: $payload, ')
           ..write('createdAt: $createdAt, ')
@@ -12054,6 +12262,459 @@ class SyncQueueCompanion extends UpdateCompanion<SyncQueueData> {
           ..write('errorMessage: $errorMessage, ')
           ..write('attempts: $attempts, ')
           ..write('nextAttemptAt: $nextAttemptAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $SyncQueueOrphansTable extends SyncQueueOrphans
+    with TableInfo<$SyncQueueOrphansTable, SyncQueueOrphanData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $SyncQueueOrphansTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _originalIdMeta = const VerificationMeta(
+    'originalId',
+  );
+  @override
+  late final GeneratedColumn<int> originalId = GeneratedColumn<int>(
+    'original_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _actionTypeMeta = const VerificationMeta(
+    'actionType',
+  );
+  @override
+  late final GeneratedColumn<String> actionType = GeneratedColumn<String>(
+    'action_type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _payloadMeta = const VerificationMeta(
+    'payload',
+  );
+  @override
+  late final GeneratedColumn<String> payload = GeneratedColumn<String>(
+    'payload',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _reasonMeta = const VerificationMeta('reason');
+  @override
+  late final GeneratedColumn<String> reason = GeneratedColumn<String>(
+    'reason',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  static const VerificationMeta _movedAtMeta = const VerificationMeta(
+    'movedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> movedAt = GeneratedColumn<DateTime>(
+    'moved_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    originalId,
+    actionType,
+    payload,
+    reason,
+    createdAt,
+    movedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'sync_queue_orphans';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<SyncQueueOrphanData> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('original_id')) {
+      context.handle(
+        _originalIdMeta,
+        originalId.isAcceptableOrUnknown(data['original_id']!, _originalIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_originalIdMeta);
+    }
+    if (data.containsKey('action_type')) {
+      context.handle(
+        _actionTypeMeta,
+        actionType.isAcceptableOrUnknown(data['action_type']!, _actionTypeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_actionTypeMeta);
+    }
+    if (data.containsKey('payload')) {
+      context.handle(
+        _payloadMeta,
+        payload.isAcceptableOrUnknown(data['payload']!, _payloadMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_payloadMeta);
+    }
+    if (data.containsKey('reason')) {
+      context.handle(
+        _reasonMeta,
+        reason.isAcceptableOrUnknown(data['reason']!, _reasonMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_reasonMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    if (data.containsKey('moved_at')) {
+      context.handle(
+        _movedAtMeta,
+        movedAt.isAcceptableOrUnknown(data['moved_at']!, _movedAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  SyncQueueOrphanData map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return SyncQueueOrphanData(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      originalId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}original_id'],
+      )!,
+      actionType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}action_type'],
+      )!,
+      payload: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}payload'],
+      )!,
+      reason: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}reason'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      movedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}moved_at'],
+      )!,
+    );
+  }
+
+  @override
+  $SyncQueueOrphansTable createAlias(String alias) {
+    return $SyncQueueOrphansTable(attachedDatabase, alias);
+  }
+}
+
+class SyncQueueOrphanData extends DataClass
+    implements Insertable<SyncQueueOrphanData> {
+  final int id;
+  final int originalId;
+  final String actionType;
+  final String payload;
+  final String reason;
+  final DateTime createdAt;
+  final DateTime movedAt;
+  const SyncQueueOrphanData({
+    required this.id,
+    required this.originalId,
+    required this.actionType,
+    required this.payload,
+    required this.reason,
+    required this.createdAt,
+    required this.movedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['original_id'] = Variable<int>(originalId);
+    map['action_type'] = Variable<String>(actionType);
+    map['payload'] = Variable<String>(payload);
+    map['reason'] = Variable<String>(reason);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['moved_at'] = Variable<DateTime>(movedAt);
+    return map;
+  }
+
+  SyncQueueOrphansCompanion toCompanion(bool nullToAbsent) {
+    return SyncQueueOrphansCompanion(
+      id: Value(id),
+      originalId: Value(originalId),
+      actionType: Value(actionType),
+      payload: Value(payload),
+      reason: Value(reason),
+      createdAt: Value(createdAt),
+      movedAt: Value(movedAt),
+    );
+  }
+
+  factory SyncQueueOrphanData.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return SyncQueueOrphanData(
+      id: serializer.fromJson<int>(json['id']),
+      originalId: serializer.fromJson<int>(json['originalId']),
+      actionType: serializer.fromJson<String>(json['actionType']),
+      payload: serializer.fromJson<String>(json['payload']),
+      reason: serializer.fromJson<String>(json['reason']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      movedAt: serializer.fromJson<DateTime>(json['movedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'originalId': serializer.toJson<int>(originalId),
+      'actionType': serializer.toJson<String>(actionType),
+      'payload': serializer.toJson<String>(payload),
+      'reason': serializer.toJson<String>(reason),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'movedAt': serializer.toJson<DateTime>(movedAt),
+    };
+  }
+
+  SyncQueueOrphanData copyWith({
+    int? id,
+    int? originalId,
+    String? actionType,
+    String? payload,
+    String? reason,
+    DateTime? createdAt,
+    DateTime? movedAt,
+  }) => SyncQueueOrphanData(
+    id: id ?? this.id,
+    originalId: originalId ?? this.originalId,
+    actionType: actionType ?? this.actionType,
+    payload: payload ?? this.payload,
+    reason: reason ?? this.reason,
+    createdAt: createdAt ?? this.createdAt,
+    movedAt: movedAt ?? this.movedAt,
+  );
+  SyncQueueOrphanData copyWithCompanion(SyncQueueOrphansCompanion data) {
+    return SyncQueueOrphanData(
+      id: data.id.present ? data.id.value : this.id,
+      originalId: data.originalId.present
+          ? data.originalId.value
+          : this.originalId,
+      actionType: data.actionType.present
+          ? data.actionType.value
+          : this.actionType,
+      payload: data.payload.present ? data.payload.value : this.payload,
+      reason: data.reason.present ? data.reason.value : this.reason,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      movedAt: data.movedAt.present ? data.movedAt.value : this.movedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SyncQueueOrphanData(')
+          ..write('id: $id, ')
+          ..write('originalId: $originalId, ')
+          ..write('actionType: $actionType, ')
+          ..write('payload: $payload, ')
+          ..write('reason: $reason, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('movedAt: $movedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    originalId,
+    actionType,
+    payload,
+    reason,
+    createdAt,
+    movedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is SyncQueueOrphanData &&
+          other.id == this.id &&
+          other.originalId == this.originalId &&
+          other.actionType == this.actionType &&
+          other.payload == this.payload &&
+          other.reason == this.reason &&
+          other.createdAt == this.createdAt &&
+          other.movedAt == this.movedAt);
+}
+
+class SyncQueueOrphansCompanion extends UpdateCompanion<SyncQueueOrphanData> {
+  final Value<int> id;
+  final Value<int> originalId;
+  final Value<String> actionType;
+  final Value<String> payload;
+  final Value<String> reason;
+  final Value<DateTime> createdAt;
+  final Value<DateTime> movedAt;
+  const SyncQueueOrphansCompanion({
+    this.id = const Value.absent(),
+    this.originalId = const Value.absent(),
+    this.actionType = const Value.absent(),
+    this.payload = const Value.absent(),
+    this.reason = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.movedAt = const Value.absent(),
+  });
+  SyncQueueOrphansCompanion.insert({
+    this.id = const Value.absent(),
+    required int originalId,
+    required String actionType,
+    required String payload,
+    required String reason,
+    this.createdAt = const Value.absent(),
+    this.movedAt = const Value.absent(),
+  }) : originalId = Value(originalId),
+       actionType = Value(actionType),
+       payload = Value(payload),
+       reason = Value(reason);
+  static Insertable<SyncQueueOrphanData> custom({
+    Expression<int>? id,
+    Expression<int>? originalId,
+    Expression<String>? actionType,
+    Expression<String>? payload,
+    Expression<String>? reason,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? movedAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (originalId != null) 'original_id': originalId,
+      if (actionType != null) 'action_type': actionType,
+      if (payload != null) 'payload': payload,
+      if (reason != null) 'reason': reason,
+      if (createdAt != null) 'created_at': createdAt,
+      if (movedAt != null) 'moved_at': movedAt,
+    });
+  }
+
+  SyncQueueOrphansCompanion copyWith({
+    Value<int>? id,
+    Value<int>? originalId,
+    Value<String>? actionType,
+    Value<String>? payload,
+    Value<String>? reason,
+    Value<DateTime>? createdAt,
+    Value<DateTime>? movedAt,
+  }) {
+    return SyncQueueOrphansCompanion(
+      id: id ?? this.id,
+      originalId: originalId ?? this.originalId,
+      actionType: actionType ?? this.actionType,
+      payload: payload ?? this.payload,
+      reason: reason ?? this.reason,
+      createdAt: createdAt ?? this.createdAt,
+      movedAt: movedAt ?? this.movedAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (originalId.present) {
+      map['original_id'] = Variable<int>(originalId.value);
+    }
+    if (actionType.present) {
+      map['action_type'] = Variable<String>(actionType.value);
+    }
+    if (payload.present) {
+      map['payload'] = Variable<String>(payload.value);
+    }
+    if (reason.present) {
+      map['reason'] = Variable<String>(reason.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (movedAt.present) {
+      map['moved_at'] = Variable<DateTime>(movedAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SyncQueueOrphansCompanion(')
+          ..write('id: $id, ')
+          ..write('originalId: $originalId, ')
+          ..write('actionType: $actionType, ')
+          ..write('payload: $payload, ')
+          ..write('reason: $reason, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('movedAt: $movedAt')
           ..write(')'))
         .toString();
   }
@@ -21711,6 +22372,413 @@ class InvitesCompanion extends UpdateCompanion<InviteData> {
   }
 }
 
+class $MigrationEventsTable extends MigrationEvents
+    with TableInfo<$MigrationEventsTable, MigrationEventData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $MigrationEventsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _versionMeta = const VerificationMeta(
+    'version',
+  );
+  @override
+  late final GeneratedColumn<int> version = GeneratedColumn<int>(
+    'version',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _stepMeta = const VerificationMeta('step');
+  @override
+  late final GeneratedColumn<String> step = GeneratedColumn<String>(
+    'step',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _severityMeta = const VerificationMeta(
+    'severity',
+  );
+  @override
+  late final GeneratedColumn<String> severity = GeneratedColumn<String>(
+    'severity',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _errorMessageMeta = const VerificationMeta(
+    'errorMessage',
+  );
+  @override
+  late final GeneratedColumn<String> errorMessage = GeneratedColumn<String>(
+    'error_message',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _occurredAtMeta = const VerificationMeta(
+    'occurredAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> occurredAt = GeneratedColumn<DateTime>(
+    'occurred_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    version,
+    step,
+    severity,
+    errorMessage,
+    occurredAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'migration_events';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<MigrationEventData> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('version')) {
+      context.handle(
+        _versionMeta,
+        version.isAcceptableOrUnknown(data['version']!, _versionMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_versionMeta);
+    }
+    if (data.containsKey('step')) {
+      context.handle(
+        _stepMeta,
+        step.isAcceptableOrUnknown(data['step']!, _stepMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_stepMeta);
+    }
+    if (data.containsKey('severity')) {
+      context.handle(
+        _severityMeta,
+        severity.isAcceptableOrUnknown(data['severity']!, _severityMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_severityMeta);
+    }
+    if (data.containsKey('error_message')) {
+      context.handle(
+        _errorMessageMeta,
+        errorMessage.isAcceptableOrUnknown(
+          data['error_message']!,
+          _errorMessageMeta,
+        ),
+      );
+    }
+    if (data.containsKey('occurred_at')) {
+      context.handle(
+        _occurredAtMeta,
+        occurredAt.isAcceptableOrUnknown(data['occurred_at']!, _occurredAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_occurredAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  MigrationEventData map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return MigrationEventData(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      version: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}version'],
+      )!,
+      step: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}step'],
+      )!,
+      severity: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}severity'],
+      )!,
+      errorMessage: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}error_message'],
+      ),
+      occurredAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}occurred_at'],
+      )!,
+    );
+  }
+
+  @override
+  $MigrationEventsTable createAlias(String alias) {
+    return $MigrationEventsTable(attachedDatabase, alias);
+  }
+}
+
+class MigrationEventData extends DataClass
+    implements Insertable<MigrationEventData> {
+  final int id;
+  final int version;
+  final String step;
+  final String severity;
+  final String? errorMessage;
+  final DateTime occurredAt;
+  const MigrationEventData({
+    required this.id,
+    required this.version,
+    required this.step,
+    required this.severity,
+    this.errorMessage,
+    required this.occurredAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['version'] = Variable<int>(version);
+    map['step'] = Variable<String>(step);
+    map['severity'] = Variable<String>(severity);
+    if (!nullToAbsent || errorMessage != null) {
+      map['error_message'] = Variable<String>(errorMessage);
+    }
+    map['occurred_at'] = Variable<DateTime>(occurredAt);
+    return map;
+  }
+
+  MigrationEventsCompanion toCompanion(bool nullToAbsent) {
+    return MigrationEventsCompanion(
+      id: Value(id),
+      version: Value(version),
+      step: Value(step),
+      severity: Value(severity),
+      errorMessage: errorMessage == null && nullToAbsent
+          ? const Value.absent()
+          : Value(errorMessage),
+      occurredAt: Value(occurredAt),
+    );
+  }
+
+  factory MigrationEventData.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return MigrationEventData(
+      id: serializer.fromJson<int>(json['id']),
+      version: serializer.fromJson<int>(json['version']),
+      step: serializer.fromJson<String>(json['step']),
+      severity: serializer.fromJson<String>(json['severity']),
+      errorMessage: serializer.fromJson<String?>(json['errorMessage']),
+      occurredAt: serializer.fromJson<DateTime>(json['occurredAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'version': serializer.toJson<int>(version),
+      'step': serializer.toJson<String>(step),
+      'severity': serializer.toJson<String>(severity),
+      'errorMessage': serializer.toJson<String?>(errorMessage),
+      'occurredAt': serializer.toJson<DateTime>(occurredAt),
+    };
+  }
+
+  MigrationEventData copyWith({
+    int? id,
+    int? version,
+    String? step,
+    String? severity,
+    Value<String?> errorMessage = const Value.absent(),
+    DateTime? occurredAt,
+  }) => MigrationEventData(
+    id: id ?? this.id,
+    version: version ?? this.version,
+    step: step ?? this.step,
+    severity: severity ?? this.severity,
+    errorMessage: errorMessage.present ? errorMessage.value : this.errorMessage,
+    occurredAt: occurredAt ?? this.occurredAt,
+  );
+  MigrationEventData copyWithCompanion(MigrationEventsCompanion data) {
+    return MigrationEventData(
+      id: data.id.present ? data.id.value : this.id,
+      version: data.version.present ? data.version.value : this.version,
+      step: data.step.present ? data.step.value : this.step,
+      severity: data.severity.present ? data.severity.value : this.severity,
+      errorMessage: data.errorMessage.present
+          ? data.errorMessage.value
+          : this.errorMessage,
+      occurredAt: data.occurredAt.present
+          ? data.occurredAt.value
+          : this.occurredAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('MigrationEventData(')
+          ..write('id: $id, ')
+          ..write('version: $version, ')
+          ..write('step: $step, ')
+          ..write('severity: $severity, ')
+          ..write('errorMessage: $errorMessage, ')
+          ..write('occurredAt: $occurredAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(id, version, step, severity, errorMessage, occurredAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is MigrationEventData &&
+          other.id == this.id &&
+          other.version == this.version &&
+          other.step == this.step &&
+          other.severity == this.severity &&
+          other.errorMessage == this.errorMessage &&
+          other.occurredAt == this.occurredAt);
+}
+
+class MigrationEventsCompanion extends UpdateCompanion<MigrationEventData> {
+  final Value<int> id;
+  final Value<int> version;
+  final Value<String> step;
+  final Value<String> severity;
+  final Value<String?> errorMessage;
+  final Value<DateTime> occurredAt;
+  const MigrationEventsCompanion({
+    this.id = const Value.absent(),
+    this.version = const Value.absent(),
+    this.step = const Value.absent(),
+    this.severity = const Value.absent(),
+    this.errorMessage = const Value.absent(),
+    this.occurredAt = const Value.absent(),
+  });
+  MigrationEventsCompanion.insert({
+    this.id = const Value.absent(),
+    required int version,
+    required String step,
+    required String severity,
+    this.errorMessage = const Value.absent(),
+    required DateTime occurredAt,
+  }) : version = Value(version),
+       step = Value(step),
+       severity = Value(severity),
+       occurredAt = Value(occurredAt);
+  static Insertable<MigrationEventData> custom({
+    Expression<int>? id,
+    Expression<int>? version,
+    Expression<String>? step,
+    Expression<String>? severity,
+    Expression<String>? errorMessage,
+    Expression<DateTime>? occurredAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (version != null) 'version': version,
+      if (step != null) 'step': step,
+      if (severity != null) 'severity': severity,
+      if (errorMessage != null) 'error_message': errorMessage,
+      if (occurredAt != null) 'occurred_at': occurredAt,
+    });
+  }
+
+  MigrationEventsCompanion copyWith({
+    Value<int>? id,
+    Value<int>? version,
+    Value<String>? step,
+    Value<String>? severity,
+    Value<String?>? errorMessage,
+    Value<DateTime>? occurredAt,
+  }) {
+    return MigrationEventsCompanion(
+      id: id ?? this.id,
+      version: version ?? this.version,
+      step: step ?? this.step,
+      severity: severity ?? this.severity,
+      errorMessage: errorMessage ?? this.errorMessage,
+      occurredAt: occurredAt ?? this.occurredAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (version.present) {
+      map['version'] = Variable<int>(version.value);
+    }
+    if (step.present) {
+      map['step'] = Variable<String>(step.value);
+    }
+    if (severity.present) {
+      map['severity'] = Variable<String>(severity.value);
+    }
+    if (errorMessage.present) {
+      map['error_message'] = Variable<String>(errorMessage.value);
+    }
+    if (occurredAt.present) {
+      map['occurred_at'] = Variable<DateTime>(occurredAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('MigrationEventsCompanion(')
+          ..write('id: $id, ')
+          ..write('version: $version, ')
+          ..write('step: $step, ')
+          ..write('severity: $severity, ')
+          ..write('errorMessage: $errorMessage, ')
+          ..write('occurredAt: $occurredAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -21735,6 +22803,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $CustomerCrateBalancesTable customerCrateBalances =
       $CustomerCrateBalancesTable(this);
   late final $SyncQueueTable syncQueue = $SyncQueueTable(this);
+  late final $SyncQueueOrphansTable syncQueueOrphans = $SyncQueueOrphansTable(
+    this,
+  );
   late final $AppSettingsTable appSettings = $AppSettingsTable(this);
   late final $DriversTable drivers = $DriversTable(this);
   late final $DeliveryReceiptsTable deliveryReceipts = $DeliveryReceiptsTable(
@@ -21764,6 +22835,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $PendingCrateReturnsTable pendingCrateReturns =
       $PendingCrateReturnsTable(this);
   late final $InvitesTable invites = $InvitesTable(this);
+  late final $MigrationEventsTable migrationEvents = $MigrationEventsTable(
+    this,
+  );
   late final Index idxProductsCategoryId = Index(
     'idx_products_category_id',
     'CREATE INDEX idx_products_category_id ON products (category_id)',
@@ -21818,6 +22892,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     crates,
     customerCrateBalances,
     syncQueue,
+    syncQueueOrphans,
     appSettings,
     drivers,
     deliveryReceipts,
@@ -21836,6 +22911,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     savedCarts,
     pendingCrateReturns,
     invites,
+    migrationEvents,
     idxProductsCategoryId,
     idxProductsName,
   ];
@@ -22193,6 +23269,24 @@ final class $$BusinessesTableReferences
     final cache = $_typedResult.readTableOrNull(
       _customerCrateBalancesRefsTable($_db),
     );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<$SyncQueueTable, List<SyncQueueData>>
+  _syncQueueRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.syncQueue,
+    aliasName: $_aliasNameGenerator(db.businesses.id, db.syncQueue.businessId),
+  );
+
+  $$SyncQueueTableProcessedTableManager get syncQueueRefs {
+    final manager = $$SyncQueueTableTableManager(
+      $_db,
+      $_db.syncQueue,
+    ).filter((f) => f.businessId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_syncQueueRefsTable($_db));
     return ProcessedTableManager(
       manager.$state.copyWith(prefetchedData: cache),
     );
@@ -23039,6 +24133,31 @@ class $$BusinessesTableFilterComposer
                     $removeJoinBuilderFromRootComposer,
               ),
         );
+    return f(composer);
+  }
+
+  Expression<bool> syncQueueRefs(
+    Expression<bool> Function($$SyncQueueTableFilterComposer f) f,
+  ) {
+    final $$SyncQueueTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.syncQueue,
+      getReferencedColumn: (t) => t.businessId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$SyncQueueTableFilterComposer(
+            $db: $db,
+            $table: $db.syncQueue,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
     return f(composer);
   }
 
@@ -23964,6 +25083,31 @@ class $$BusinessesTableAnnotationComposer
     return f(composer);
   }
 
+  Expression<T> syncQueueRefs<T extends Object>(
+    Expression<T> Function($$SyncQueueTableAnnotationComposer a) f,
+  ) {
+    final $$SyncQueueTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.syncQueue,
+      getReferencedColumn: (t) => t.businessId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$SyncQueueTableAnnotationComposer(
+            $db: $db,
+            $table: $db.syncQueue,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
   Expression<T> driversRefs<T extends Object>(
     Expression<T> Function($$DriversTableAnnotationComposer a) f,
   ) {
@@ -24429,6 +25573,7 @@ class $$BusinessesTableTableManager
             bool expensesRefs,
             bool cratesRefs,
             bool customerCrateBalancesRefs,
+            bool syncQueueRefs,
             bool driversRefs,
             bool deliveryReceiptsRefs,
             bool priceListsRefs,
@@ -24518,6 +25663,7 @@ class $$BusinessesTableTableManager
                 expensesRefs = false,
                 cratesRefs = false,
                 customerCrateBalancesRefs = false,
+                syncQueueRefs = false,
                 driversRefs = false,
                 deliveryReceiptsRefs = false,
                 priceListsRefs = false,
@@ -24556,6 +25702,7 @@ class $$BusinessesTableTableManager
                     if (expensesRefs) db.expenses,
                     if (cratesRefs) db.crates,
                     if (customerCrateBalancesRefs) db.customerCrateBalances,
+                    if (syncQueueRefs) db.syncQueue,
                     if (driversRefs) db.drivers,
                     if (deliveryReceiptsRefs) db.deliveryReceipts,
                     if (priceListsRefs) db.priceLists,
@@ -24929,6 +26076,27 @@ class $$BusinessesTableTableManager
                                 table,
                                 p0,
                               ).customerCrateBalancesRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.businessId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                      if (syncQueueRefs)
+                        await $_getPrefetchedData<
+                          BusinessData,
+                          $BusinessesTable,
+                          SyncQueueData
+                        >(
+                          currentTable: table,
+                          referencedTable: $$BusinessesTableReferences
+                              ._syncQueueRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$BusinessesTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).syncQueueRefs,
                           referencedItemsForCurrentItem:
                               (item, referencedItems) => referencedItems.where(
                                 (e) => e.businessId == item.id,
@@ -25330,6 +26498,7 @@ typedef $$BusinessesTableProcessedTableManager =
         bool expensesRefs,
         bool cratesRefs,
         bool customerCrateBalancesRefs,
+        bool syncQueueRefs,
         bool driversRefs,
         bool deliveryReceiptsRefs,
         bool priceListsRefs,
@@ -27601,6 +28770,9 @@ typedef $$UsersTableCreateCompanionBuilder =
       Value<String?> email,
       Value<String?> passwordHash,
       required String pin,
+      Value<String?> pinHash,
+      Value<String?> pinSalt,
+      Value<int?> pinIterations,
       required String role,
       Value<int> roleTier,
       Value<String> avatarColor,
@@ -27619,6 +28791,9 @@ typedef $$UsersTableUpdateCompanionBuilder =
       Value<String?> email,
       Value<String?> passwordHash,
       Value<String> pin,
+      Value<String?> pinHash,
+      Value<String?> pinSalt,
+      Value<int?> pinIterations,
       Value<String> role,
       Value<int> roleTier,
       Value<String> avatarColor,
@@ -27885,6 +29060,21 @@ class $$UsersTableFilterComposer extends Composer<_$AppDatabase, $UsersTable> {
 
   ColumnFilters<String> get pin => $composableBuilder(
     column: $table.pin,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get pinHash => $composableBuilder(
+    column: $table.pinHash,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get pinSalt => $composableBuilder(
+    column: $table.pinSalt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get pinIterations => $composableBuilder(
+    column: $table.pinIterations,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -28211,6 +29401,21 @@ class $$UsersTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get pinHash => $composableBuilder(
+    column: $table.pinHash,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get pinSalt => $composableBuilder(
+    column: $table.pinSalt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get pinIterations => $composableBuilder(
+    column: $table.pinIterations,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get role => $composableBuilder(
     column: $table.role,
     builder: (column) => ColumnOrderings(column),
@@ -28323,6 +29528,17 @@ class $$UsersTableAnnotationComposer
 
   GeneratedColumn<String> get pin =>
       $composableBuilder(column: $table.pin, builder: (column) => column);
+
+  GeneratedColumn<String> get pinHash =>
+      $composableBuilder(column: $table.pinHash, builder: (column) => column);
+
+  GeneratedColumn<String> get pinSalt =>
+      $composableBuilder(column: $table.pinSalt, builder: (column) => column);
+
+  GeneratedColumn<int> get pinIterations => $composableBuilder(
+    column: $table.pinIterations,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<String> get role =>
       $composableBuilder(column: $table.role, builder: (column) => column);
@@ -28654,6 +29870,9 @@ class $$UsersTableTableManager
                 Value<String?> email = const Value.absent(),
                 Value<String?> passwordHash = const Value.absent(),
                 Value<String> pin = const Value.absent(),
+                Value<String?> pinHash = const Value.absent(),
+                Value<String?> pinSalt = const Value.absent(),
+                Value<int?> pinIterations = const Value.absent(),
                 Value<String> role = const Value.absent(),
                 Value<int> roleTier = const Value.absent(),
                 Value<String> avatarColor = const Value.absent(),
@@ -28670,6 +29889,9 @@ class $$UsersTableTableManager
                 email: email,
                 passwordHash: passwordHash,
                 pin: pin,
+                pinHash: pinHash,
+                pinSalt: pinSalt,
+                pinIterations: pinIterations,
                 role: role,
                 roleTier: roleTier,
                 avatarColor: avatarColor,
@@ -28688,6 +29910,9 @@ class $$UsersTableTableManager
                 Value<String?> email = const Value.absent(),
                 Value<String?> passwordHash = const Value.absent(),
                 required String pin,
+                Value<String?> pinHash = const Value.absent(),
+                Value<String?> pinSalt = const Value.absent(),
+                Value<int?> pinIterations = const Value.absent(),
                 required String role,
                 Value<int> roleTier = const Value.absent(),
                 Value<String> avatarColor = const Value.absent(),
@@ -28704,6 +29929,9 @@ class $$UsersTableTableManager
                 email: email,
                 passwordHash: passwordHash,
                 pin: pin,
+                pinHash: pinHash,
+                pinSalt: pinSalt,
+                pinIterations: pinIterations,
                 role: role,
                 roleTier: roleTier,
                 avatarColor: avatarColor,
@@ -38872,6 +40100,7 @@ typedef $$CustomerCrateBalancesTableProcessedTableManager =
 typedef $$SyncQueueTableCreateCompanionBuilder =
     SyncQueueCompanion Function({
       Value<int> id,
+      Value<int?> businessId,
       required String actionType,
       required String payload,
       Value<DateTime> createdAt,
@@ -38884,6 +40113,7 @@ typedef $$SyncQueueTableCreateCompanionBuilder =
 typedef $$SyncQueueTableUpdateCompanionBuilder =
     SyncQueueCompanion Function({
       Value<int> id,
+      Value<int?> businessId,
       Value<String> actionType,
       Value<String> payload,
       Value<DateTime> createdAt,
@@ -38893,6 +40123,30 @@ typedef $$SyncQueueTableUpdateCompanionBuilder =
       Value<int> attempts,
       Value<DateTime?> nextAttemptAt,
     });
+
+final class $$SyncQueueTableReferences
+    extends BaseReferences<_$AppDatabase, $SyncQueueTable, SyncQueueData> {
+  $$SyncQueueTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static $BusinessesTable _businessIdTable(_$AppDatabase db) =>
+      db.businesses.createAlias(
+        $_aliasNameGenerator(db.syncQueue.businessId, db.businesses.id),
+      );
+
+  $$BusinessesTableProcessedTableManager? get businessId {
+    final $_column = $_itemColumn<int>('business_id');
+    if ($_column == null) return null;
+    final manager = $$BusinessesTableTableManager(
+      $_db,
+      $_db.businesses,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_businessIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
 
 class $$SyncQueueTableFilterComposer
     extends Composer<_$AppDatabase, $SyncQueueTable> {
@@ -38947,6 +40201,29 @@ class $$SyncQueueTableFilterComposer
     column: $table.nextAttemptAt,
     builder: (column) => ColumnFilters(column),
   );
+
+  $$BusinessesTableFilterComposer get businessId {
+    final $$BusinessesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.businessId,
+      referencedTable: $db.businesses,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BusinessesTableFilterComposer(
+            $db: $db,
+            $table: $db.businesses,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$SyncQueueTableOrderingComposer
@@ -39002,6 +40279,29 @@ class $$SyncQueueTableOrderingComposer
     column: $table.nextAttemptAt,
     builder: (column) => ColumnOrderings(column),
   );
+
+  $$BusinessesTableOrderingComposer get businessId {
+    final $$BusinessesTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.businessId,
+      referencedTable: $db.businesses,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BusinessesTableOrderingComposer(
+            $db: $db,
+            $table: $db.businesses,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$SyncQueueTableAnnotationComposer
@@ -39045,6 +40345,29 @@ class $$SyncQueueTableAnnotationComposer
     column: $table.nextAttemptAt,
     builder: (column) => column,
   );
+
+  $$BusinessesTableAnnotationComposer get businessId {
+    final $$BusinessesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.businessId,
+      referencedTable: $db.businesses,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BusinessesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.businesses,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$SyncQueueTableTableManager
@@ -39058,12 +40381,9 @@ class $$SyncQueueTableTableManager
           $$SyncQueueTableAnnotationComposer,
           $$SyncQueueTableCreateCompanionBuilder,
           $$SyncQueueTableUpdateCompanionBuilder,
-          (
-            SyncQueueData,
-            BaseReferences<_$AppDatabase, $SyncQueueTable, SyncQueueData>,
-          ),
+          (SyncQueueData, $$SyncQueueTableReferences),
           SyncQueueData,
-          PrefetchHooks Function()
+          PrefetchHooks Function({bool businessId})
         > {
   $$SyncQueueTableTableManager(_$AppDatabase db, $SyncQueueTable table)
     : super(
@@ -39079,6 +40399,7 @@ class $$SyncQueueTableTableManager
           updateCompanionCallback:
               ({
                 Value<int> id = const Value.absent(),
+                Value<int?> businessId = const Value.absent(),
                 Value<String> actionType = const Value.absent(),
                 Value<String> payload = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
@@ -39089,6 +40410,7 @@ class $$SyncQueueTableTableManager
                 Value<DateTime?> nextAttemptAt = const Value.absent(),
               }) => SyncQueueCompanion(
                 id: id,
+                businessId: businessId,
                 actionType: actionType,
                 payload: payload,
                 createdAt: createdAt,
@@ -39101,6 +40423,7 @@ class $$SyncQueueTableTableManager
           createCompanionCallback:
               ({
                 Value<int> id = const Value.absent(),
+                Value<int?> businessId = const Value.absent(),
                 required String actionType,
                 required String payload,
                 Value<DateTime> createdAt = const Value.absent(),
@@ -39111,6 +40434,7 @@ class $$SyncQueueTableTableManager
                 Value<DateTime?> nextAttemptAt = const Value.absent(),
               }) => SyncQueueCompanion.insert(
                 id: id,
+                businessId: businessId,
                 actionType: actionType,
                 payload: payload,
                 createdAt: createdAt,
@@ -39121,9 +40445,54 @@ class $$SyncQueueTableTableManager
                 nextAttemptAt: nextAttemptAt,
               ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$SyncQueueTableReferences(db, table, e),
+                ),
+              )
               .toList(),
-          prefetchHooksCallback: null,
+          prefetchHooksCallback: ({businessId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (businessId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.businessId,
+                                referencedTable: $$SyncQueueTableReferences
+                                    ._businessIdTable(db),
+                                referencedColumn: $$SyncQueueTableReferences
+                                    ._businessIdTable(db)
+                                    .id,
+                              )
+                              as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
         ),
       );
 }
@@ -39138,11 +40507,254 @@ typedef $$SyncQueueTableProcessedTableManager =
       $$SyncQueueTableAnnotationComposer,
       $$SyncQueueTableCreateCompanionBuilder,
       $$SyncQueueTableUpdateCompanionBuilder,
-      (
-        SyncQueueData,
-        BaseReferences<_$AppDatabase, $SyncQueueTable, SyncQueueData>,
-      ),
+      (SyncQueueData, $$SyncQueueTableReferences),
       SyncQueueData,
+      PrefetchHooks Function({bool businessId})
+    >;
+typedef $$SyncQueueOrphansTableCreateCompanionBuilder =
+    SyncQueueOrphansCompanion Function({
+      Value<int> id,
+      required int originalId,
+      required String actionType,
+      required String payload,
+      required String reason,
+      Value<DateTime> createdAt,
+      Value<DateTime> movedAt,
+    });
+typedef $$SyncQueueOrphansTableUpdateCompanionBuilder =
+    SyncQueueOrphansCompanion Function({
+      Value<int> id,
+      Value<int> originalId,
+      Value<String> actionType,
+      Value<String> payload,
+      Value<String> reason,
+      Value<DateTime> createdAt,
+      Value<DateTime> movedAt,
+    });
+
+class $$SyncQueueOrphansTableFilterComposer
+    extends Composer<_$AppDatabase, $SyncQueueOrphansTable> {
+  $$SyncQueueOrphansTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get originalId => $composableBuilder(
+    column: $table.originalId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get actionType => $composableBuilder(
+    column: $table.actionType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get payload => $composableBuilder(
+    column: $table.payload,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get reason => $composableBuilder(
+    column: $table.reason,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get movedAt => $composableBuilder(
+    column: $table.movedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$SyncQueueOrphansTableOrderingComposer
+    extends Composer<_$AppDatabase, $SyncQueueOrphansTable> {
+  $$SyncQueueOrphansTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get originalId => $composableBuilder(
+    column: $table.originalId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get actionType => $composableBuilder(
+    column: $table.actionType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get payload => $composableBuilder(
+    column: $table.payload,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get reason => $composableBuilder(
+    column: $table.reason,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get movedAt => $composableBuilder(
+    column: $table.movedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$SyncQueueOrphansTableAnnotationComposer
+    extends Composer<_$AppDatabase, $SyncQueueOrphansTable> {
+  $$SyncQueueOrphansTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<int> get originalId => $composableBuilder(
+    column: $table.originalId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get actionType => $composableBuilder(
+    column: $table.actionType,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get payload =>
+      $composableBuilder(column: $table.payload, builder: (column) => column);
+
+  GeneratedColumn<String> get reason =>
+      $composableBuilder(column: $table.reason, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get movedAt =>
+      $composableBuilder(column: $table.movedAt, builder: (column) => column);
+}
+
+class $$SyncQueueOrphansTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $SyncQueueOrphansTable,
+          SyncQueueOrphanData,
+          $$SyncQueueOrphansTableFilterComposer,
+          $$SyncQueueOrphansTableOrderingComposer,
+          $$SyncQueueOrphansTableAnnotationComposer,
+          $$SyncQueueOrphansTableCreateCompanionBuilder,
+          $$SyncQueueOrphansTableUpdateCompanionBuilder,
+          (
+            SyncQueueOrphanData,
+            BaseReferences<
+              _$AppDatabase,
+              $SyncQueueOrphansTable,
+              SyncQueueOrphanData
+            >,
+          ),
+          SyncQueueOrphanData,
+          PrefetchHooks Function()
+        > {
+  $$SyncQueueOrphansTableTableManager(
+    _$AppDatabase db,
+    $SyncQueueOrphansTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$SyncQueueOrphansTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$SyncQueueOrphansTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$SyncQueueOrphansTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<int> originalId = const Value.absent(),
+                Value<String> actionType = const Value.absent(),
+                Value<String> payload = const Value.absent(),
+                Value<String> reason = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> movedAt = const Value.absent(),
+              }) => SyncQueueOrphansCompanion(
+                id: id,
+                originalId: originalId,
+                actionType: actionType,
+                payload: payload,
+                reason: reason,
+                createdAt: createdAt,
+                movedAt: movedAt,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required int originalId,
+                required String actionType,
+                required String payload,
+                required String reason,
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> movedAt = const Value.absent(),
+              }) => SyncQueueOrphansCompanion.insert(
+                id: id,
+                originalId: originalId,
+                actionType: actionType,
+                payload: payload,
+                reason: reason,
+                createdAt: createdAt,
+                movedAt: movedAt,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$SyncQueueOrphansTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $SyncQueueOrphansTable,
+      SyncQueueOrphanData,
+      $$SyncQueueOrphansTableFilterComposer,
+      $$SyncQueueOrphansTableOrderingComposer,
+      $$SyncQueueOrphansTableAnnotationComposer,
+      $$SyncQueueOrphansTableCreateCompanionBuilder,
+      $$SyncQueueOrphansTableUpdateCompanionBuilder,
+      (
+        SyncQueueOrphanData,
+        BaseReferences<
+          _$AppDatabase,
+          $SyncQueueOrphansTable,
+          SyncQueueOrphanData
+        >,
+      ),
+      SyncQueueOrphanData,
       PrefetchHooks Function()
     >;
 typedef $$AppSettingsTableCreateCompanionBuilder =
@@ -48736,6 +50348,233 @@ typedef $$InvitesTableProcessedTableManager =
         bool createdBy,
       })
     >;
+typedef $$MigrationEventsTableCreateCompanionBuilder =
+    MigrationEventsCompanion Function({
+      Value<int> id,
+      required int version,
+      required String step,
+      required String severity,
+      Value<String?> errorMessage,
+      required DateTime occurredAt,
+    });
+typedef $$MigrationEventsTableUpdateCompanionBuilder =
+    MigrationEventsCompanion Function({
+      Value<int> id,
+      Value<int> version,
+      Value<String> step,
+      Value<String> severity,
+      Value<String?> errorMessage,
+      Value<DateTime> occurredAt,
+    });
+
+class $$MigrationEventsTableFilterComposer
+    extends Composer<_$AppDatabase, $MigrationEventsTable> {
+  $$MigrationEventsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get version => $composableBuilder(
+    column: $table.version,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get step => $composableBuilder(
+    column: $table.step,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get severity => $composableBuilder(
+    column: $table.severity,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get errorMessage => $composableBuilder(
+    column: $table.errorMessage,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get occurredAt => $composableBuilder(
+    column: $table.occurredAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$MigrationEventsTableOrderingComposer
+    extends Composer<_$AppDatabase, $MigrationEventsTable> {
+  $$MigrationEventsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get version => $composableBuilder(
+    column: $table.version,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get step => $composableBuilder(
+    column: $table.step,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get severity => $composableBuilder(
+    column: $table.severity,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get errorMessage => $composableBuilder(
+    column: $table.errorMessage,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get occurredAt => $composableBuilder(
+    column: $table.occurredAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$MigrationEventsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $MigrationEventsTable> {
+  $$MigrationEventsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<int> get version =>
+      $composableBuilder(column: $table.version, builder: (column) => column);
+
+  GeneratedColumn<String> get step =>
+      $composableBuilder(column: $table.step, builder: (column) => column);
+
+  GeneratedColumn<String> get severity =>
+      $composableBuilder(column: $table.severity, builder: (column) => column);
+
+  GeneratedColumn<String> get errorMessage => $composableBuilder(
+    column: $table.errorMessage,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get occurredAt => $composableBuilder(
+    column: $table.occurredAt,
+    builder: (column) => column,
+  );
+}
+
+class $$MigrationEventsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $MigrationEventsTable,
+          MigrationEventData,
+          $$MigrationEventsTableFilterComposer,
+          $$MigrationEventsTableOrderingComposer,
+          $$MigrationEventsTableAnnotationComposer,
+          $$MigrationEventsTableCreateCompanionBuilder,
+          $$MigrationEventsTableUpdateCompanionBuilder,
+          (
+            MigrationEventData,
+            BaseReferences<
+              _$AppDatabase,
+              $MigrationEventsTable,
+              MigrationEventData
+            >,
+          ),
+          MigrationEventData,
+          PrefetchHooks Function()
+        > {
+  $$MigrationEventsTableTableManager(
+    _$AppDatabase db,
+    $MigrationEventsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$MigrationEventsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$MigrationEventsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$MigrationEventsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<int> version = const Value.absent(),
+                Value<String> step = const Value.absent(),
+                Value<String> severity = const Value.absent(),
+                Value<String?> errorMessage = const Value.absent(),
+                Value<DateTime> occurredAt = const Value.absent(),
+              }) => MigrationEventsCompanion(
+                id: id,
+                version: version,
+                step: step,
+                severity: severity,
+                errorMessage: errorMessage,
+                occurredAt: occurredAt,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required int version,
+                required String step,
+                required String severity,
+                Value<String?> errorMessage = const Value.absent(),
+                required DateTime occurredAt,
+              }) => MigrationEventsCompanion.insert(
+                id: id,
+                version: version,
+                step: step,
+                severity: severity,
+                errorMessage: errorMessage,
+                occurredAt: occurredAt,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$MigrationEventsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $MigrationEventsTable,
+      MigrationEventData,
+      $$MigrationEventsTableFilterComposer,
+      $$MigrationEventsTableOrderingComposer,
+      $$MigrationEventsTableAnnotationComposer,
+      $$MigrationEventsTableCreateCompanionBuilder,
+      $$MigrationEventsTableUpdateCompanionBuilder,
+      (
+        MigrationEventData,
+        BaseReferences<
+          _$AppDatabase,
+          $MigrationEventsTable,
+          MigrationEventData
+        >,
+      ),
+      MigrationEventData,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -48778,6 +50617,8 @@ class $AppDatabaseManager {
       $$CustomerCrateBalancesTableTableManager(_db, _db.customerCrateBalances);
   $$SyncQueueTableTableManager get syncQueue =>
       $$SyncQueueTableTableManager(_db, _db.syncQueue);
+  $$SyncQueueOrphansTableTableManager get syncQueueOrphans =>
+      $$SyncQueueOrphansTableTableManager(_db, _db.syncQueueOrphans);
   $$AppSettingsTableTableManager get appSettings =>
       $$AppSettingsTableTableManager(_db, _db.appSettings);
   $$DriversTableTableManager get drivers =>
@@ -48818,4 +50659,6 @@ class $AppDatabaseManager {
       $$PendingCrateReturnsTableTableManager(_db, _db.pendingCrateReturns);
   $$InvitesTableTableManager get invites =>
       $$InvitesTableTableManager(_db, _db.invites);
+  $$MigrationEventsTableTableManager get migrationEvents =>
+      $$MigrationEventsTableTableManager(_db, _db.migrationEvents);
 }

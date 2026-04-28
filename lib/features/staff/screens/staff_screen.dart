@@ -597,7 +597,10 @@ class _StaffFormSheetState extends ConsumerState<_StaffFormSheet> {
     final u = widget.user;
     _nameCtrl = TextEditingController(text: u?.name ?? '');
     _emailCtrl = TextEditingController(text: u?.email ?? '');
-    _pinCtrl = TextEditingController(text: u?.pin ?? '');
+    // PIN is stored as a PBKDF2 hash post-v35, so pre-filling from u.pin
+    // would surface the literal '__HASHED__' sentinel and fail the 6-digit
+    // validator. Admin must re-enter a fresh 6-digit PIN to change it.
+    _pinCtrl = TextEditingController();
     _selectedRole = u != null
         ? roleFor(u.role)
         : roleOptions[3]; // default Cashier
@@ -954,12 +957,14 @@ class _StaffFormSheetState extends ConsumerState<_StaffFormSheet> {
         UsersCompanion(
           name: Value(name),
           email: Value(email),
-          pin: Value(pin),
           role: Value(role),
           roleTier: Value(tier),
           warehouseId: Value(_selectedWarehouseId),
         ),
       );
+      // PIN goes through the canonical hash-and-write path so it is never
+      // persisted in cleartext.
+      await ref.read(authProvider).setUserPin(widget.user!.id, pin);
     }
 
     if (!mounted) return;

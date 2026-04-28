@@ -27,6 +27,7 @@ import 'package:reebaplus_pos/shared/services/notification_service.dart';
 import 'package:reebaplus_pos/shared/services/order_service.dart';
 import 'package:reebaplus_pos/shared/services/printer_service.dart';
 import 'package:reebaplus_pos/shared/services/reorder_alert_service.dart';
+import 'package:reebaplus_pos/core/diagnostics/sync_diagnostic.dart';
 import 'package:reebaplus_pos/core/services/supabase_sync_service.dart';
 
 // ── Database (global — initialised before runApp) ──────────────────────────
@@ -142,4 +143,18 @@ final reorderAlertServiceProvider = Provider<ReorderAlertService>((ref) {
 
 final supabaseSyncServiceProvider = Provider<SupabaseSyncService>((ref) {
   return SupabaseSyncService(ref.read(databaseProvider));
+});
+
+// ── Sync diagnostics ────────────────────────────────────────────────────────
+final syncDiagnosticProvider = Provider<SyncDiagnostic>((ref) {
+  return SyncDiagnostic(ref.read(databaseProvider));
+});
+final failedQueueItemsProvider = StreamProvider.autoDispose((ref) {
+  return ref.read(databaseProvider).syncDao.watchFailedItems();
+});
+final failedQueueCountProvider = StreamProvider.autoDispose<int>((ref) {
+  return ref.read(databaseProvider).syncDao.watchFailedCount();
+});
+final pendingQueueCountProvider = StreamProvider.autoDispose<int>((ref) {
+  return ref.read(databaseProvider).syncDao.watchPendingCount();
 });

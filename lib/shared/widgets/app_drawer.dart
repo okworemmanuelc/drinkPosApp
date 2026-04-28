@@ -7,6 +7,7 @@ import 'package:reebaplus_pos/core/theme/theme_settings_screen.dart';
 import 'package:reebaplus_pos/core/settings/settings_screen.dart';
 import 'package:reebaplus_pos/core/utils/responsive.dart';
 import 'package:reebaplus_pos/core/providers/app_providers.dart';
+import 'package:reebaplus_pos/features/sync/screens/sync_issues_screen.dart';
 import 'package:reebaplus_pos/shared/widgets/user_tips_modal.dart';
 
 class AppDrawer extends ConsumerWidget {
@@ -74,48 +75,77 @@ class AppDrawer extends ConsumerWidget {
             ),
           ),
           SizedBox(height: context.getRSize(16)),
-          // Sync status indicator
+          // Sync status indicator. Two streams nested so the badge reflects
+          // both pending (in-progress) and failed counts; tap opens Sync Issues.
           StreamBuilder<int>(
             stream: ref.read(databaseProvider).syncDao.watchPendingCount(),
-            builder: (context, snap) {
-              final count = snap.data ?? 0;
-              if (count == 0) return const SizedBox.shrink();
-              return Container(
-                margin: const EdgeInsets.only(bottom: 12),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: Theme.of(
-                    context,
-                  ).colorScheme.onSurface.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    SizedBox(
-                      width: 10,
-                      height: 10,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 1.5,
-                        color: Theme.of(context).colorScheme.primary,
+            builder: (context, pendingSnap) {
+              return StreamBuilder<int>(
+                stream:
+                    ref.read(databaseProvider).syncDao.watchFailedCount(),
+                builder: (context, failedSnap) {
+                  final pending = pendingSnap.data ?? 0;
+                  final failed = failedSnap.data ?? 0;
+                  if (pending == 0 && failed == 0) {
+                    return const SizedBox.shrink();
+                  }
+                  final hasFailures = failed > 0;
+                  final accent = hasFailures
+                      ? Theme.of(context).colorScheme.error
+                      : Theme.of(context).colorScheme.primary;
+                  final label = hasFailures && pending == 0
+                      ? '$failed failed'
+                      : pending > 0 && hasFailures
+                          ? 'Syncing $pending · $failed failed'
+                          : 'Syncing $pending file${pending == 1 ? '' : 's'}…';
+                  return InkWell(
+                    borderRadius: BorderRadius.circular(10),
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                            builder: (_) => const SyncIssuesScreen()),
+                      );
+                    },
+                    child: Container(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: accent.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (!hasFailures)
+                            SizedBox(
+                              width: 10,
+                              height: 10,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 1.5,
+                                color: accent,
+                              ),
+                            )
+                          else
+                            Icon(Icons.error_outline,
+                                size: 12, color: accent),
+                          const SizedBox(width: 8),
+                          Text(
+                            label,
+                            style: TextStyle(
+                              color: accent.withValues(alpha: 0.9),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Syncing $count file${count == 1 ? '' : 's'}…',
-                      style: TextStyle(
-                        color: Theme.of(
-                          context,
-                        ).colorScheme.primary.withValues(alpha: 0.8),
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
+                  );
+                },
               );
             },
           ),
@@ -272,6 +302,18 @@ class AppDrawer extends ConsumerWidget {
             Navigator.of(
               context,
             ).push(MaterialPageRoute(builder: (_) => const SettingsScreen()));
+          },
+        ),
+        _navItem(
+          context,
+          FontAwesomeIcons.cloudArrowUp,
+          'Sync Issues',
+          active: false,
+          onTap: () {
+            Navigator.pop(context);
+            Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const SyncIssuesScreen()),
+            );
           },
         ),
         _navItem(

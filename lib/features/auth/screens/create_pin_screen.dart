@@ -1,4 +1,3 @@
-import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -99,8 +98,7 @@ class _CreatePinScreenState extends ConsumerState<CreatePinScreen> {
     setState(() => _saving = true);
     try {
       final db = ref.read(databaseProvider);
-      await (db.update(db.users)..where((u) => u.id.equals(widget.user.id)))
-          .write(UsersCompanion(pin: Value(_pin)));
+      await ref.read(authProvider).setUserPin(widget.user.id, _pin);
 
       final updatedUser = await db.warehousesDao.getUserById(widget.user.id);
 

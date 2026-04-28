@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:reebaplus_pos/core/theme/app_theme.dart';
 import 'package:reebaplus_pos/core/theme/theme_notifier.dart';
 import 'package:reebaplus_pos/core/database/app_database.dart';
+import 'package:reebaplus_pos/core/database/db_wipe.dart';
 import 'package:reebaplus_pos/core/providers/app_providers.dart';
 import 'package:reebaplus_pos/shared/services/secure_storage_service.dart';
 import 'package:reebaplus_pos/features/auth/screens/login_screen.dart';
@@ -17,12 +18,18 @@ import 'package:reebaplus_pos/shared/widgets/force_update_wrapper.dart';
 import 'package:reebaplus_pos/shared/services/auth_service.dart';
 import 'package:reebaplus_pos/features/auth/screens/success_dashboard_entry_screen.dart';
 import 'package:reebaplus_pos/features/auth/screens/access_granted_screen.dart';
+import 'package:reebaplus_pos/features/diagnostics/screens/schema_error_screen.dart';
 
 /// Shared future — completes when Supabase client is ready for OTP calls.
 late final Future<void> supabaseReady;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Must run before any code touches `database` (the warmup query below is the
+  // first thing that opens the SQLite file via LazyDatabase). See
+  // lib/core/database/db_wipe.dart for the rationale.
+  await wipeLegacyDatabaseIfPresent();
 
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(statusBarColor: Colors.transparent),
@@ -42,6 +49,16 @@ void main() async {
         .timeout(const Duration(seconds: 5));
   } catch (_) {}
   markDbReady();
+
+  // Schema self-heal audit ran inside beforeOpen above. If it found drift it
+  // could not repair (missing column whose ALTER TABLE failed, or a missing
+  // table createTable couldn't restore), refuse to boot so DAO/sync code does
+  // not run against a corrupt schema.
+  final audit = database.lastSchemaAudit;
+  if (audit != null && audit.fatal) {
+    runApp(SchemaErrorScreen(audit: audit));
+    return;
+  }
 
   await themeController.init();
 
