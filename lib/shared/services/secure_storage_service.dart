@@ -17,13 +17,12 @@ class SecureStorageService {
   static const _authMethodKey = 'secure_auth_method'; // "google" | "email"
 
   // ── Device User ID ──────────────────────────────────────────────────────
-  Future<int?> getDeviceUserId() async {
-    final raw = await _storage.read(key: _deviceUserIdKey);
-    return raw == null ? null : int.tryParse(raw);
+  Future<String?> getDeviceUserId() async {
+    return _storage.read(key: _deviceUserIdKey);
   }
 
-  Future<void> saveDeviceUserId(int userId) async {
-    await _storage.write(key: _deviceUserIdKey, value: userId.toString());
+  Future<void> saveDeviceUserId(String userId) async {
+    await _storage.write(key: _deviceUserIdKey, value: userId);
   }
 
   Future<void> clearDeviceUserId() async {

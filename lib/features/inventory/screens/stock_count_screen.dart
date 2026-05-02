@@ -27,7 +27,7 @@ class _DisplayItem {
 class StockCountScreen extends ConsumerStatefulWidget {
   /// If provided, only products in this warehouse are loaded and adjustments
   /// are written to this warehouse. Null means all warehouses (grouped view).
-  final int? warehouseId;
+  final String? warehouseId;
 
   const StockCountScreen({super.key, this.warehouseId});
 
@@ -113,8 +113,7 @@ class _StockCountScreenState extends ConsumerState<StockCountScreen> {
         'stock_count',
         'Stock count: ${item.product.name} adjusted by $sign$diff '
             '(system: ${item.totalStock}, actual: ${item.totalStock + diff})',
-        relatedEntityId: item.product.id.toString(),
-        relatedEntityType: 'product',
+        productId: item.product.id,
       );
 
       adjustedCount++;
@@ -143,7 +142,7 @@ class _StockCountScreenState extends ConsumerState<StockCountScreen> {
     // Group by calendar date (YYYY-MM-DD key for easy sorting)
     final Map<String, List<ActivityLogData>> grouped = {};
     for (final log in logs) {
-      final t = log.timestamp;
+      final t = log.createdAt;
       final key =
           '${t.year}-${t.month.toString().padLeft(2, '0')}-${t.day.toString().padLeft(2, '0')}';
       grouped.putIfAbsent(key, () => []).add(log);
@@ -444,7 +443,7 @@ class _StockCountScreenState extends ConsumerState<StockCountScreen> {
                                 ),
                                 SizedBox(height: context.getRSize(4)),
                                 Text(
-                                  _formatTime(log.timestamp),
+                                  _formatTime(log.createdAt),
                                   style: TextStyle(
                                     color: _subtext,
                                     fontSize: context.getRFontSize(11),

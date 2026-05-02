@@ -10,6 +10,7 @@ import 'package:drift/drift.dart' hide Column;
 import 'package:reebaplus_pos/features/auth/widgets/auth_background.dart';
 import 'package:reebaplus_pos/core/theme/app_decorations.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:reebaplus_pos/shared/widgets/smooth_route.dart';
 
 class BusinessDetailsScreen extends ConsumerStatefulWidget {
   final UserData user;
@@ -75,76 +76,98 @@ class _BusinessDetailsScreenState extends ConsumerState<BusinessDetailsScreen> {
       final phone = _phoneController.text.trim();
       final email = _emailController.text.trim();
 
-      // 1. Push new business to Supabase immediately
       final supabase = Supabase.instance.client;
-      final userId = supabase.auth.currentUser?.id;
-
-      if (userId == null) {
+      final authUserId = supabase.auth.currentUser?.id;
+      if (authUserId == null) {
         throw Exception('Not authenticated with Supabase. Please log in again.');
       }
 
-      // 1. & 2. Create business and link profile atomically via RPC
-      // This bypasses the RLS chicken-and-egg issue when inserting with RETURNING.
-      final response = await supabase.rpc('create_new_business', params: {
-        'p_name': name,
-        'p_type': businessType,
-        'p_phone': phone,
-        'p_email': email,
-        'p_user_name': widget.user.name,
+      // The local placeholder business + user were seeded in createNewOwner
+      // with a client-generated UUIDv7. Reuse that id end-to-end so the local
+      // and remote rows share a primary key.
+      final businessId = widget.user.businessId;
+
+      // 1. Insert the business in Supabase. RLS allows businesses INSERT during
+      //    onboarding (WITH CHECK true).
+      await supabase.from('businesses').insert({
+        'id': businessId,
+        'name': name,
+        'type': businessType,
+        'phone': phone,
+        'email': email,
       });
 
-      final int businessId = response as int;
+      // 2. Link this auth user to the business via profiles. This must come
+      //    after the businesses insert (profiles.business_id is FK to it) and
+      //    before any other tenant-scoped insert (auth.business_id() reads it).
+      await supabase.from('profiles').insert({
+        'id': authUserId,
+        'business_id': businessId,
+        'name': widget.user.name,
+        'role': 'ceo',
+        'role_tier': 5,
+      });
 
-      // 3. Save Business to local database
+      // 3. Overwrite the local placeholder business row with the real fields.
       final db = ref.read(databaseProvider);
-      await db.into(db.businesses).insertOnConflictUpdate(
-        BusinessesCompanion.insert(
-          id: Value(businessId), // Explicitly use the Supabase ID!
-          name: name,
-          type: Value(businessType),
-          phone: Value(phone),
-          email: Value(email),
-        ),
-      );
+      await (db.update(db.businesses)..where((b) => b.id.equals(businessId)))
+          .write(BusinessesCompanion(
+        name: Value(name),
+        type: Value(businessType),
+        phone: Value(phone),
+        email: Value(email),
+      ));
 
-      // 4. Update the local user's business_id
-      await (db.update(db.users)..where((u) => u.id.equals(widget.user.id)))
-          .write(UsersCompanion(businessId: Value(businessId)));
-
-      // 5. Update Local App Settings for immediate display
+      // 4. Mirror business fields into Settings for legacy readers.
+      final now = DateTime.now();
       await db.batch((batch) {
         batch.insert(
-          db.appSettings,
-          AppSettingsCompanion.insert(key: 'business_name', value: name),
+          db.settings,
+          SettingsCompanion.insert(
+            key: 'business_name',
+            value: name,
+            businessId: businessId,
+            lastUpdatedAt: Value(now),
+          ),
           mode: InsertMode.insertOrReplace,
         );
         batch.insert(
-          db.appSettings,
-          AppSettingsCompanion.insert(key: 'business_type', value: businessType),
+          db.settings,
+          SettingsCompanion.insert(
+            key: 'business_type',
+            value: businessType,
+            businessId: businessId,
+            lastUpdatedAt: Value(now),
+          ),
           mode: InsertMode.insertOrReplace,
         );
         batch.insert(
-          db.appSettings,
-          AppSettingsCompanion.insert(key: 'business_phone', value: phone),
+          db.settings,
+          SettingsCompanion.insert(
+            key: 'business_phone',
+            value: phone,
+            businessId: businessId,
+            lastUpdatedAt: Value(now),
+          ),
           mode: InsertMode.insertOrReplace,
         );
         batch.insert(
-          db.appSettings,
-          AppSettingsCompanion.insert(key: 'business_email', value: email),
+          db.settings,
+          SettingsCompanion.insert(
+            key: 'business_email',
+            value: email,
+            businessId: businessId,
+            lastUpdatedAt: Value(now),
+          ),
           mode: InsertMode.insertOrReplace,
         );
       });
-
-      // Refetch the updated user locally
-      final updatedUser = await (db.select(db.users)..where((u) => u.id.equals(widget.user.id))).getSingle();
 
       if (!mounted) return;
       setState(() => _loading = false);
 
       Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => LocationDetailsScreen(user: updatedUser),
-        ),
+        SmoothRoute(page: LocationDetailsScreen(user: widget.user)),
       );
     } catch (e) {
       debugPrint('[BusinessDetailsScreen] Error creating business: $e');

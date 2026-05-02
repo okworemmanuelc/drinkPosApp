@@ -30,7 +30,7 @@ import 'package:reebaplus_pos/features/inventory/widgets/update_product_sheet.da
 class ProductDetailScreen extends ConsumerStatefulWidget {
   final InventoryItem item;
   final VoidCallback onUpdateStock;
-  final int?
+  final String?
   selectedWarehouseId; // null = "All Warehouses" — quantity editing blocked
 
   const ProductDetailScreen({
@@ -59,8 +59,8 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
 
   int _monthlyTarget = 0;
   int? _emptyCrateStock; // original value loaded from DB
-  int? _selectedManufacturerId; // DB id of the linked manufacturer
-  int? _selectedCategoryId;
+  String? _selectedManufacturerId; // DB id of the linked manufacturer
+  String? _selectedCategoryId;
   String? _selectedUnit;
   List<String> _allUnits = [];
   List<CategoryData> _allCategories = [];
@@ -119,8 +119,8 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     // even when local SQLite queries finish near-instantly.
     final minDisplay = Future<void>.delayed(const Duration(milliseconds: 700));
 
-    final productId = int.tryParse(widget.item.id);
-    if (productId == null) {
+    final productId = widget.item.id;
+    if (productId.isEmpty) {
       await minDisplay;
       if (mounted) setState(() => _contentReady = true);
       return;
@@ -206,7 +206,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     }
   }
 
-  Future<void> _loadEmptyCrateStock(int manufacturerId) async {
+  Future<void> _loadEmptyCrateStock(String manufacturerId) async {
     final manufacturers = await ref
         .read(databaseProvider)
         .inventoryDao
@@ -538,10 +538,10 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
               const Color(0xFF6366F1),
               trailing: SizedBox(
                 width: context.getRSize(160),
-                child: AppDropdown<int?>(
+                child: AppDropdown<String?>(
                   value: _selectedManufacturerId,
                   items: [
-                    DropdownMenuItem<int?>(
+                    DropdownMenuItem<String?>(
                       value: null,
                       child: Text(
                         'None',
@@ -552,7 +552,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                       ),
                     ),
                     ..._allManufacturers.map(
-                      (m) => DropdownMenuItem<int?>(
+                      (m) => DropdownMenuItem<String?>(
                         value: m.id,
                         child: Text(m.name, overflow: TextOverflow.ellipsis),
                       ),
@@ -574,12 +574,14 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
               success,
               trailing: SizedBox(
                 width: context.getRSize(150),
-                child: AppDropdown<int?>(
+                child: AppDropdown<String?>(
                   value: _selectedCategoryId,
                   items: [
-                    const DropdownMenuItem(value: null, child: Text("None")),
+                    const DropdownMenuItem<String?>(
+                        value: null, child: Text("None")),
                     ..._allCategories.map(
-                      (c) => DropdownMenuItem(value: c.id, child: Text(c.name)),
+                      (c) => DropdownMenuItem<String?>(
+                          value: c.id, child: Text(c.name)),
                     ),
                   ],
                   onChanged: _canEdit
@@ -1242,15 +1244,14 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
       });
 
       // Update in DB
-      final productId = int.tryParse(widget.item.id);
-      if (productId != null) {
+      final productId = widget.item.id;
+      if (productId.isNotEmpty) {
         await ref
             .read(databaseProvider)
             .catalogDao
             .updateProductDetails(
               productId,
               name: _nameController.text.trim(),
-              manufacturer: _productData?.manufacturer,
               manufacturerId: _selectedManufacturerId,
               buyingPriceKobo:
                   ((parseCurrency(_buyingPriceController.text)) * 100).round(),
@@ -1337,14 +1338,13 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
               await ref
                   .read(databaseProvider)
                   .catalogDao
-                  .softDeleteProduct(int.parse(productId));
+                  .softDeleteProduct(productId);
               await ref
                   .read(activityLogProvider)
                   .logAction(
                     'delete_product',
                     '${ref.read(authProvider).currentUser?.name ?? 'Unknown'} deleted product: $productName',
-                    relatedEntityId: productId,
-                    relatedEntityType: 'product',
+                    productId: productId,
                   );
               ref.read(cartProvider).removeItem(productName);
               if (!context.mounted) return;

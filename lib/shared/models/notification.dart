@@ -19,10 +19,10 @@ class NotificationModel {
 
   factory NotificationModel.fromDb(NotificationData data) {
     return NotificationModel(
-      id: data.id.toString(),
+      id: data.id,
       type: data.type,
       message: data.message,
-      timestamp: data.timestamp,
+      timestamp: data.createdAt,
       isRead: data.isRead,
       linkedRecordId: data.linkedRecordId,
     );

@@ -7,7 +7,7 @@ import 'package:reebaplus_pos/core/providers/app_providers.dart';
 
 class AppRefreshWrapper extends ConsumerWidget {
   final Widget child;
-  
+
   const AppRefreshWrapper({super.key, required this.child});
 
   @override
@@ -16,15 +16,15 @@ class AppRefreshWrapper extends ConsumerWidget {
       onRefresh: () async {
         // Provide haptic feedback for tactile feel
         HapticFeedback.lightImpact();
-        
+
         try {
           final authService = ref.read(authProvider);
           final user = authService.currentUser;
-          
-          if (user != null && user.businessId != null) {
+
+          if (user != null) {
             final syncService = SupabaseSyncService(ref.read(databaseProvider));
-            await syncService.syncAll(user.businessId!);
-            
+            await syncService.syncAll(user.businessId);
+
             if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(

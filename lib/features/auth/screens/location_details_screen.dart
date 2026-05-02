@@ -5,11 +5,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:reebaplus_pos/shared/widgets/app_button.dart';
 import 'package:reebaplus_pos/features/auth/widgets/onboarding_step_indicator.dart';
 import 'package:reebaplus_pos/core/database/app_database.dart';
+import 'package:reebaplus_pos/core/database/uuid_v7.dart';
 import 'package:reebaplus_pos/core/providers/app_providers.dart';
 import 'package:reebaplus_pos/features/auth/screens/business_settings_screen.dart';
 import 'package:drift/drift.dart' as drift;
 import 'package:reebaplus_pos/features/auth/widgets/auth_background.dart';
 import 'package:reebaplus_pos/core/theme/app_decorations.dart';
+import 'package:reebaplus_pos/shared/widgets/smooth_route.dart';
 
 class LocationDetailsScreen extends ConsumerStatefulWidget {
   final UserData user;
@@ -31,7 +33,7 @@ class _LocationDetailsScreenState extends ConsumerState<LocationDetailsScreen> {
 
   /// Set after the first successful submit so a second press updates
   /// the existing warehouse instead of creating a duplicate.
-  int? _savedWarehouseId;
+  String? _savedWarehouseId;
 
   @override
   void dispose() {
@@ -51,29 +53,27 @@ class _LocationDetailsScreenState extends ConsumerState<LocationDetailsScreen> {
         '${_addressController.text.trim()}, ${_cityStateController.text.trim()}, ${_countryController.text.trim()}';
 
     final db = ref.read(databaseProvider);
-    final int warehouseId;
+    final String warehouseId;
     final now = DateTime.now();
 
     if (_savedWarehouseId != null) {
-      // User went back and re-submitted — update the existing warehouse.
       warehouseId = _savedWarehouseId!;
       await (db.update(
         db.warehouses,
       )..where((w) => w.id.equals(warehouseId))).write(
         WarehousesCompanion(
-          businessId: drift.Value(widget.user.businessId!),
+          businessId: drift.Value(widget.user.businessId),
           name: drift.Value(_nameController.text.trim()),
           location: drift.Value(locationCombined),
           lastUpdatedAt: drift.Value(now),
         ),
       );
     } else {
-      // First submission — insert a new warehouse.
-      warehouseId = await db
-          .into(db.warehouses)
-          .insert(
+      warehouseId = UuidV7.generate();
+      await db.into(db.warehouses).insert(
             WarehousesCompanion.insert(
-              businessId: drift.Value(widget.user.businessId!),
+              id: drift.Value(warehouseId),
+              businessId: widget.user.businessId,
               name: _nameController.text.trim(),
               location: drift.Value(locationCombined),
               lastUpdatedAt: drift.Value(now),
@@ -94,7 +94,6 @@ class _LocationDetailsScreenState extends ConsumerState<LocationDetailsScreen> {
         'last_updated_at': now.toIso8601String(),
         'is_deleted': false,
       }),
-      businessId: widget.user.businessId!,
     );
 
     // Keep current user assigned to this warehouse.
@@ -107,9 +106,8 @@ class _LocationDetailsScreenState extends ConsumerState<LocationDetailsScreen> {
     setState(() => _loading = false);
 
     Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) =>
-            BusinessSettingsScreen(user: updatedUser ?? widget.user),
+      SmoothRoute(
+        page: BusinessSettingsScreen(user: updatedUser ?? widget.user),
       ),
     );
   }

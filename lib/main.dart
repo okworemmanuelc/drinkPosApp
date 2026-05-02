@@ -20,11 +20,14 @@ import 'package:reebaplus_pos/features/auth/screens/success_dashboard_entry_scre
 import 'package:reebaplus_pos/features/auth/screens/access_granted_screen.dart';
 import 'package:reebaplus_pos/features/diagnostics/screens/schema_error_screen.dart';
 
+import 'package:timezone/data/latest.dart' as tz;
+
 /// Shared future — completes when Supabase client is ready for OTP calls.
 late final Future<void> supabaseReady;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  tz.initializeTimeZones();
 
   // Must run before any code touches `database` (the warmup query below is the
   // first thing that opens the SQLite file via LazyDatabase). See

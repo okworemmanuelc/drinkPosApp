@@ -193,11 +193,15 @@ class _WarehouseScreenState extends ConsumerState<WarehouseScreen> {
                                 final combinedLocation =
                                     '${addressCtrl.text.trim()}, ${cityStateCtrl.text.trim()}, ${countryCtrl.text.trim()}';
 
+                                final whBusinessId =
+                                    ref.read(authProvider).currentUser?.businessId;
+                                if (whBusinessId == null) return;
                                 await db
                                     .into(db.warehouses)
                                     .insert(
                                       WarehousesCompanion.insert(
                                         name: nameCtrl.text.trim(),
+                                        businessId: whBusinessId,
                                         location: Value(combinedLocation),
                                       ),
                                     );

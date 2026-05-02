@@ -44,7 +44,9 @@ class _PostPinOtpScreenState extends ConsumerState<PostPinOtpScreen> {
     super.initState();
     _checkLockoutStatus();
     _otpController.addListener(() {
-      setState(() => _errorMessage = null);
+      if (_errorMessage != null) {
+        setState(() => _errorMessage = null);
+      }
       if (_otpController.text.trim().length == 6 &&
           !_loading &&
           !_isLockedOut) {

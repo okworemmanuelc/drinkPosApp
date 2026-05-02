@@ -36,10 +36,9 @@ class _AutoLockWrapperState extends ConsumerState<AutoLockWrapper>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) async {
     final prefs = await SharedPreferences.getInstance();
+    final db = ref.read(databaseProvider);
 
     if (state != AppLifecycleState.resumed) {
-      // Record time when app goes to background ONLY if it wasn't recorded yet.
-      // This prevents the 'inactive' state on wakeup from resetting the timer.
       if (!prefs.containsKey(_pausedTimeKey)) {
         await prefs.setInt(
           _pausedTimeKey,
@@ -47,7 +46,6 @@ class _AutoLockWrapperState extends ConsumerState<AutoLockWrapper>
         );
       }
     } else if (state == AppLifecycleState.resumed) {
-      // If a file/image picker was opened, skip the lock check for this resume.
       if (AutoLockWrapper.suppressNextResume) {
         AutoLockWrapper.suppressNextResume = false;
         await prefs.remove(_pausedTimeKey);
@@ -60,15 +58,15 @@ class _AutoLockWrapperState extends ConsumerState<AutoLockWrapper>
         final auth = ref.read(authProvider);
 
         if (difference.inHours >= _shiftExpirationHours) {
-          // Massive idle time, enforce full strict logout
           if (auth.currentUser != null) {
             auth.fullLogout();
           }
         } else {
-          final autoLockSeconds =
-              prefs.getInt('auto_lock_interval_seconds') ?? 300;
+          final intervalStr =
+              await db.settingsDao.get('auto_lock_interval_seconds');
+          final autoLockSeconds = int.tryParse(intervalStr ?? '') ?? 300;
+
           if (autoLockSeconds > 0 && difference.inSeconds >= autoLockSeconds) {
-            // Idle timeout reached, force soft lock
             if (auth.currentUser != null) {
               auth.logout();
             }
@@ -78,6 +76,7 @@ class _AutoLockWrapperState extends ConsumerState<AutoLockWrapper>
       }
     }
   }
+
 
   @override
   Widget build(BuildContext context) {

@@ -20,22 +20,41 @@ class ActivityLogService extends ValueNotifier<List<ActivityLog>> {
   Future<void> logAction(
     String action,
     String description, {
-    String? relatedEntityId,
-    String? relatedEntityType,
+    String? staffId,
     String? warehouseId,
+    String? orderId,
+    String? productId,
+    String? customerId,
+    String? expenseId,
+    String? deliveryId,
+    String? walletTxnId,
   }) async {
     await _db.activityLogDao.log(
-      staffId: _auth.currentUser?.id,
+      staffId: staffId ?? _auth.currentUser?.id,
       action: action,
       description: description,
-      entityId: relatedEntityId,
-      entityType: relatedEntityType,
+      orderId: orderId,
+      productId: productId,
+      customerId: customerId,
+      expenseId: expenseId,
+      deliveryId: deliveryId,
+      walletTxnId: walletTxnId,
       warehouseId: warehouseId,
     );
   }
 
-  Future<List<ActivityLog>> getForEntity(String entityId) async {
-    final data = await _db.activityLogDao.getForEntity(entityId);
+  Future<List<ActivityLog>> getForOrder(String orderId) async {
+    final data = await _db.activityLogDao.getForOrder(orderId);
+    return data.map((d) => ActivityLog.fromDb(d)).toList();
+  }
+
+  Future<List<ActivityLog>> getForProduct(String productId) async {
+    final data = await _db.activityLogDao.getForProduct(productId);
+    return data.map((d) => ActivityLog.fromDb(d)).toList();
+  }
+
+  Future<List<ActivityLog>> getForCustomer(String customerId) async {
+    final data = await _db.activityLogDao.getForCustomer(customerId);
     return data.map((d) => ActivityLog.fromDb(d)).toList();
   }
 }

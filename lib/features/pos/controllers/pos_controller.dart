@@ -13,7 +13,7 @@ class PosController extends ChangeNotifier {
   List<ProductDataWithStock> allProducts = [];
   List<CategoryData> categories = [];
   List<ManufacturerData> manufacturers = [];
-  int? selectedCategoryId;
+  String? selectedCategoryId;
   String selectedManufacturerId = 'All';
   CustomerGroup selectedGroup = CustomerGroup.retailer;
   String searchQuery = '';
@@ -111,7 +111,7 @@ class PosController extends ChangeNotifier {
     }
   }
 
-  void selectCategory(int? categoryId) {
+  void selectCategory(String? categoryId) {
     selectedCategoryId = categoryId;
     _subscribeToProducts();
     notifyListeners();

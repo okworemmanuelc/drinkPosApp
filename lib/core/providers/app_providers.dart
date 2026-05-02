@@ -5,6 +5,7 @@
 /// here with proper dependency injection.
 library;
 
+import 'package:drift/drift.dart' show innerJoin;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -24,11 +25,18 @@ import 'package:reebaplus_pos/shared/services/secure_storage_service.dart';
 import 'package:reebaplus_pos/shared/services/cart_service.dart';
 import 'package:reebaplus_pos/shared/services/navigation_service.dart';
 import 'package:reebaplus_pos/shared/services/notification_service.dart';
+import 'package:reebaplus_pos/shared/services/crate_return_approval_service.dart';
 import 'package:reebaplus_pos/shared/services/order_service.dart';
 import 'package:reebaplus_pos/shared/services/printer_service.dart';
 import 'package:reebaplus_pos/shared/services/reorder_alert_service.dart';
 import 'package:reebaplus_pos/core/diagnostics/sync_diagnostic.dart';
 import 'package:reebaplus_pos/core/services/supabase_sync_service.dart';
+
+// ── Crate Return Approval ──────────────────────────────────────────────────
+final crateReturnApprovalServiceProvider =
+    Provider<CrateReturnApprovalService>((ref) {
+  return CrateReturnApprovalService(ref.read(databaseProvider));
+});
 
 // ── Database (global — initialised before runApp) ──────────────────────────
 final databaseProvider = Provider<AppDatabase>((_) => database);
@@ -41,7 +49,7 @@ final currentIndexProvider = ChangeNotifierProvider<ValueNotifier<int>>((ref) {
   return ref.watch(navigationProvider).currentIndex;
 });
 final lockedWarehouseProvider =
-    ChangeNotifierProvider<ValueNotifier<int?>>((ref) {
+    ChangeNotifierProvider<ValueNotifier<String?>>((ref) {
   return ref.watch(navigationProvider).lockedWarehouseId;
 });
 
@@ -60,7 +68,7 @@ final authProvider = ChangeNotifierProvider<AuthService>((ref) {
   );
 });
 final deviceUserIdProvider =
-    ChangeNotifierProvider<ValueNotifier<int?>>((ref) {
+    ChangeNotifierProvider<ValueNotifier<String?>>((ref) {
   return ref.watch(authProvider).deviceUserIdNotifier;
 });
 
@@ -100,6 +108,14 @@ final customerServiceProvider =
     ChangeNotifierProvider<CustomerService>((ref) {
   return CustomerService(
       ref.read(databaseProvider), ref.read(activityLogProvider));
+});
+
+/// Map of customerId → signed wallet balance (kobo), computed live from the
+/// WalletTransactions ledger. Replaces the cached `customers.wallet_balance_kobo`
+/// column that PR 2a removed.
+final walletBalancesKoboProvider =
+    StreamProvider.autoDispose<Map<String, int>>((ref) {
+  return ref.read(databaseProvider).customersDao.watchAllWalletBalancesKobo();
 });
 
 // ── Supplier ────────────────────────────────────────────────────────────────
@@ -157,4 +173,43 @@ final failedQueueCountProvider = StreamProvider.autoDispose<int>((ref) {
 });
 final pendingQueueCountProvider = StreamProvider.autoDispose<int>((ref) {
   return ref.read(databaseProvider).syncDao.watchPendingCount();
+});
+
+final pendingCrateReturnsProvider =
+    StreamProvider.autoDispose<List<PendingCrateReturnData>>((ref) {
+  final db = ref.read(databaseProvider);
+  return (db.select(db.pendingCrateReturns)
+        ..where((t) => t.status.equals('pending')))
+      .watch();
+});
+
+class PendingReturnWithDetails {
+  final PendingCrateReturnData returnRow;
+  final CustomerData customer;
+  final CrateGroupData crateGroup;
+  PendingReturnWithDetails({
+    required this.returnRow,
+    required this.customer,
+    required this.crateGroup,
+  });
+}
+
+final pendingReturnsWithDetailsProvider =
+    StreamProvider.autoDispose<List<PendingReturnWithDetails>>((ref) {
+  final db = ref.read(databaseProvider);
+  final query = db.select(db.pendingCrateReturns).join([
+    innerJoin(db.customers,
+        db.customers.id.equalsExp(db.pendingCrateReturns.customerId)),
+    innerJoin(db.crateGroups,
+        db.crateGroups.id.equalsExp(db.pendingCrateReturns.crateGroupId)),
+  ])
+    ..where(db.pendingCrateReturns.status.equals('pending'));
+
+  return query.watch().map((rows) => rows
+      .map((r) => PendingReturnWithDetails(
+            returnRow: r.readTable(db.pendingCrateReturns),
+            customer: r.readTable(db.customers),
+            crateGroup: r.readTable(db.crateGroups),
+          ))
+      .toList());
 });

@@ -1,191 +1,113 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:reebaplus_pos/shared/widgets/app_button.dart';
 import 'package:reebaplus_pos/shared/widgets/main_layout.dart';
 import 'package:reebaplus_pos/features/auth/widgets/auth_background.dart';
-import 'package:reebaplus_pos/core/theme/app_decorations.dart';
 import 'package:reebaplus_pos/core/providers/app_providers.dart';
+import 'package:reebaplus_pos/features/inventory/widgets/add_product_sheet.dart';
+import 'package:reebaplus_pos/shared/widgets/smooth_route.dart';
 
-class SuccessDashboardEntryScreen extends ConsumerWidget {
+class SuccessDashboardEntryScreen extends ConsumerStatefulWidget {
   const SuccessDashboardEntryScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SuccessDashboardEntryScreen> createState() =>
+      _SuccessDashboardEntryScreenState();
+}
+
+class _SuccessDashboardEntryScreenState
+    extends ConsumerState<SuccessDashboardEntryScreen> {
+  @override
+  void initState() {
+    super.initState();
+    _startAutoForward();
+  }
+
+  void _startAutoForward() {
+    Future.delayed(const Duration(milliseconds: 1500), () {
+      if (!mounted) return;
+      
+      // Navigate to the Dashboard instantly
+      Navigator.of(context).pushAndRemoveUntil(
+        SmoothRoute(page: const MainLayout()),
+        (route) => false,
+      );
+
+      // Wait a fraction of a second for MainLayout to build, then trigger the Add Product sheet
+      Future.delayed(const Duration(milliseconds: 400), () {
+        if (!mounted) return;
+        final mainContext = ref.read(navigationProvider).mainScaffoldKey.currentContext;
+        if (mainContext != null && mainContext.mounted) {
+          showModalBottomSheet(
+            context: mainContext,
+            isScrollControlled: true,
+            backgroundColor: Colors.transparent,
+            builder: (_) => const AddProductSheet(),
+          );
+        }
+      });
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final textColor = isDark ? Colors.white : Colors.black;
 
     return AuthBackground(
       child: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            return SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  minHeight: constraints.maxHeight - 64,
-                ),
-                child: IntrinsicHeight(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      const Spacer(),
-                      // Success Icon
-                      Center(
-                        child: Container(
-                          padding: const EdgeInsets.all(24),
-                          decoration: BoxDecoration(
-                            color: Colors.greenAccent.withValues(alpha: 0.15),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.check_circle_rounded,
-                            color: Colors.greenAccent,
-                            size: 80,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 32),
-
-                      // Success Text
-                      Center(
-                        child: Text(
-                          'Your business is ready!',
-                          style: TextStyle(
-                            fontSize: 32,
-                            fontWeight: FontWeight.w700,
-                            color: textColor,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Center(
-                        child: Text(
-                          'You have successfully set up your account. Here is a quick checklist of what to do next:',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 15,
-                            color: textColor.withValues(alpha: 0.8),
-                            height: 1.4,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 40),
-
-                      // Next Steps Checklist
-                      _buildChecklistItem(
-                        context,
-                        ref,
-                        Icons.inventory_2_rounded,
-                        'Add your first product',
-                        onTap: () {
-                          ref.read(navigationProvider).setIndex(2); // Inventory
-                          Navigator.of(context).pushAndRemoveUntil(
-                            MaterialPageRoute(
-                              builder: (_) => const MainLayout(),
-                            ),
-                            (route) => false,
-                          );
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      _buildChecklistItem(
-                        context,
-                        ref,
-                        Icons.group_add_rounded,
-                        'Invite your team',
-                        onTap: () {
-                          ref.read(navigationProvider).setIndex(8); // Staff
-                          Navigator.of(context).pushAndRemoveUntil(
-                            MaterialPageRoute(
-                              builder: (_) => const MainLayout(),
-                            ),
-                            (route) => false,
-                          );
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      _buildChecklistItem(
-                        context,
-                        ref,
-                        Icons.point_of_sale_rounded,
-                        'Set up a payment method (Coming Soon)',
-                        enabled: false,
-                      ),
-
-                      const Spacer(),
-                      const SizedBox(height: 32),
-
-                      AppButton(
-                        text: 'Go to Dashboard',
-                        onPressed: () {
-                          Navigator.of(context).pushAndRemoveUntil(
-                            MaterialPageRoute(
-                              builder: (_) => const MainLayout(),
-                            ),
-                            (route) => false,
-                          );
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          },
-        ),
-      ),
-    );
-  }
-
-  Widget _buildChecklistItem(
-    BuildContext context,
-    WidgetRef ref,
-    IconData icon,
-    String text, {
-    VoidCallback? onTap,
-    bool enabled = true,
-  }) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final textColor = isDark ? Colors.white : Colors.black;
-
-    return Opacity(
-      opacity: enabled ? 1.0 : 0.5,
-      child: InkWell(
-        onTap: enabled ? onTap : null,
-        borderRadius: BorderRadius.circular(16),
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: AppDecorations.glassCard(context, radius: 16),
-          child: Row(
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
+              // Success Icon
               Container(
-                padding: const EdgeInsets.all(8),
+                padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(
-                  color: theme.colorScheme.primary.withValues(alpha: 0.1),
+                  color: Colors.greenAccent.withValues(alpha: 0.15),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(icon, color: theme.colorScheme.primary, size: 24),
+                child: const Icon(
+                  Icons.check_circle_rounded,
+                  color: Colors.greenAccent,
+                  size: 80,
+                ),
               ),
-              const SizedBox(width: 16),
-              Expanded(
+              const SizedBox(height: 32),
+
+              // Success Text
+              Text(
+                'Your business is ready!',
+                style: TextStyle(
+                  fontSize: 32,
+                  fontWeight: FontWeight.w700,
+                  color: textColor,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 40),
                 child: Text(
-                  text,
+                  'Preparing your dashboard...',
+                  textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                    color: textColor,
+                    color: textColor.withValues(alpha: 0.7),
+                    height: 1.4,
                   ),
                 ),
               ),
-              if (enabled)
-                Icon(
-                  Icons.arrow_forward_ios_rounded,
-                  color: textColor.withValues(alpha: 0.3),
-                  size: 16,
+              const SizedBox(height: 48),
+              
+              SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.5,
+                  color: theme.colorScheme.primary,
                 ),
+              )
             ],
           ),
         ),

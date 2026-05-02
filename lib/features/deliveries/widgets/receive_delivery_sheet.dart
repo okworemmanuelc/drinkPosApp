@@ -246,8 +246,6 @@ class _ReceiveDeliverySheetState extends ConsumerState<ReceiveDeliverySheet> {
         .logAction(
           "Delivery Received",
           "Delivery from $mainSupplierName to ${_selectedWarehouse!.name} — ${deliveryItems.length} item(s), ${totalQty.toInt()} units added to stock",
-          relatedEntityId: delivery.id,
-          relatedEntityType: "delivery",
         );
 
     if (!mounted) return;

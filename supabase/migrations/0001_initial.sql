@@ -369,7 +369,7 @@ CREATE TABLE public.wallet_transactions (
   amount_kobo        int  NOT NULL CHECK (amount_kobo >= 0),
   signed_amount_kobo int  NOT NULL,  -- credit = +amount, debit = -amount; the sum is the balance
   reference_type     text NOT NULL CHECK (reference_type IN
-                       ('topup_cash','topup_transfer','order_payment','refund','reward','fee','adjustment')),
+                       ('topup_cash','topup_transfer','order_payment','refund','reward','fee','adjustment','void')),
   -- §5.2: typed nullable FK instead of polymorphic (reference_id, type).
   -- FK to orders added below the orders CREATE TABLE (forward reference).
   order_id           uuid,

@@ -13,7 +13,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// JWT-claim-based RLS will see the right tenant.
 class JwtClaimSnapshot {
   final bool hasSession;
-  final int? businessId;
+  final String? businessId;
   final String? source; // 'top-level' | 'app_metadata' | 'user_metadata'
   final String? error;
 
@@ -65,22 +65,19 @@ class SupabaseSyncService {
       final json =
           jsonDecode(utf8.decode(base64.decode(payload))) as Map<String, dynamic>;
 
-      int? toInt(dynamic v) {
+      String? toStringVal(dynamic v) {
         if (v == null) return null;
-        if (v is int) return v;
-        if (v is num) return v.toInt();
-        if (v is String) return int.tryParse(v);
-        return null;
+        return v.toString();
       }
 
-      final top = toInt(json['business_id']);
+      final top = toStringVal(json['business_id']);
       if (top != null) {
         return JwtClaimSnapshot(
             hasSession: true, businessId: top, source: 'top-level');
       }
       final appMeta = json['app_metadata'];
       if (appMeta is Map) {
-        final v = toInt(appMeta['business_id']);
+        final v = toStringVal(appMeta['business_id']);
         if (v != null) {
           return JwtClaimSnapshot(
               hasSession: true, businessId: v, source: 'app_metadata');
@@ -88,7 +85,7 @@ class SupabaseSyncService {
       }
       final userMeta = json['user_metadata'];
       if (userMeta is Map) {
-        final v = toInt(userMeta['business_id']);
+        final v = toStringVal(userMeta['business_id']);
         if (v != null) {
           return JwtClaimSnapshot(
               hasSession: true, businessId: v, source: 'user_metadata');
@@ -119,6 +116,9 @@ class SupabaseSyncService {
     'saved_carts',
     'pending_crate_returns',
     'invites',
+    'crate_ledger',
+    'system_config',
+    'manufacturer_crate_balances',
   };
 
   /// Tables whose rows are referenced by FKs from other tables. They must be
@@ -139,6 +139,9 @@ class SupabaseSyncService {
     'orders': 30,
     'order_items': 31,
     'wallet_transactions': 32,
+    'crate_ledger': 33,
+    'manufacturer_crate_balances': 34,
+    'system_config': 50,
   };
 
   int _priorityFor(String actionType) {
@@ -153,14 +156,20 @@ class SupabaseSyncService {
   Map<String, dynamic> _normalizePayloadForCloud(
       String table, Map<String, dynamic> payload) {
     final out = Map<String, dynamic>.from(payload);
+
+    // Scrub local-only auth fields from profiles/users
+    if (table == 'profiles' || table == 'users') {
+      out.remove('pin');
+      out.remove('password_hash');
+      out.remove('pin_salt');
+      out.remove('pin_iterations');
+    }
+
     if (out.containsKey('last_updated_at')) {
       out['updated_at'] = out.remove('last_updated_at');
     }
     if (_tablesWithoutUpdatedAt.contains(table)) {
       out.remove('updated_at');
-    }
-    if (table == 'products' && out.containsKey('manufacturer')) {
-      out['manufacturer_name'] = out.remove('manufacturer');
     }
     return out;
   }
@@ -205,7 +214,6 @@ class SupabaseSyncService {
 
     final pendingItems = await _db.syncDao.getPendingItems(
       limit: 50,
-      businessId: sessionBusinessId,
     );
     if (pendingItems.isEmpty) return;
 
@@ -239,10 +247,10 @@ class SupabaseSyncService {
         final payloadBusinessId = rawPayload['business_id'];
         if (item.businessId != sessionBusinessId ||
             payloadBusinessId == null ||
-            (payloadBusinessId is num && payloadBusinessId.toInt() != sessionBusinessId)) {
+            (payloadBusinessId is String && payloadBusinessId != sessionBusinessId)) {
           debugPrint('[SyncService] Hard-fail item ${item.id} (${item.actionType}): '
               'tenant mismatch (row=${item.businessId} payload=$payloadBusinessId session=$sessionBusinessId)');
-          await _db.syncDao.markFailed(item.id, 'tenant_mismatch_post_filter');
+          await _db.syncDao.markFailed(item.id, 'missing_business_id', permanent: true);
           continue;
         }
 
@@ -274,7 +282,7 @@ class SupabaseSyncService {
   }
 
   /// Orchestrates a two-way sync: push local changes, then pull cloud updates.
-  Future<void> syncAll(int businessId) async {
+  Future<void> syncAll(String businessId) async {
     debugPrint('[SyncService] Starting two-way sync for business $businessId...');
     try {
       await pushPending();
@@ -298,7 +306,7 @@ class SupabaseSyncService {
 
   /// Pulls data for the current business from Supabase and populates the local DB.
   /// If [since] is provided, performs an incremental pull.
-  Future<void> pullInitialData(int businessId, {DateTime? since}) async {
+  Future<void> pullInitialData(String businessId, {DateTime? since}) async {
     debugPrint('[SyncService] Pulling data for business $businessId (since: ${since?.toIso8601String() ?? "beginning"})...');
 
     // List of tables to sync (order matters for FK constraints).
@@ -316,6 +324,8 @@ class SupabaseSyncService {
       'suppliers',
       'orders',
       'order_items',
+      'purchases',
+      'purchase_items',
       'expenses',
       'expense_categories',
       'customer_crate_balances',
@@ -331,6 +341,13 @@ class SupabaseSyncService {
       'saved_carts',
       'pending_crate_returns',
       'invites',
+      'manufacturer_crate_balances',
+      'crate_ledger',
+      'system_config',
+      'price_lists',
+      'payment_transactions',
+      'sessions',
+      'settings',
     ];
 
     for (final table in syncOrder) {
@@ -365,7 +382,7 @@ class SupabaseSyncService {
   }
 
   /// Subscribes to real-time changes from Supabase for this business.
-  void startRealtimeSync(int businessId) {
+  void startRealtimeSync(String businessId) {
     if (_realtimeChannel != null) return;
 
     debugPrint('[SyncService] Starting real-time sync for business $businessId');
@@ -516,34 +533,10 @@ class SupabaseSyncService {
           .get();
       if (whs.isEmpty) return;
 
-      // Some onboarding paths inserted warehouses before the user's
-      // businessId was hydrated, leaving businessId NULL. Such warehouses
-      // are unsyncable as-is (cloud RLS requires business_id) AND the
-      // customer rows that reference them will FK-fail. Patch them to the
-      // current auth user's businessId before enqueuing.
-      int? fallbackBusinessId;
-      final authEmail = _supabase.auth.currentUser?.email;
-      if (authEmail != null) {
-        final localUser = await (_db.select(_db.users)
-              ..where((u) => u.email.equals(authEmail)))
-            .getSingleOrNull();
-        fallbackBusinessId = localUser?.businessId;
-      }
-
       final now = DateTime.now();
       var enqueued = 0;
-      var skipped = 0;
       for (final w in whs) {
-        var businessId = w.businessId;
-        if (businessId == null) {
-          if (fallbackBusinessId == null) {
-            skipped++;
-            continue;
-          }
-          await (_db.update(_db.warehouses)..where((t) => t.id.equals(w.id)))
-              .write(WarehousesCompanion(businessId: Value(fallbackBusinessId)));
-          businessId = fallbackBusinessId;
-        }
+        final businessId = w.businessId;
         await _db.syncDao.enqueue(
           'warehouses:upsert',
           jsonEncode({
@@ -554,15 +547,14 @@ class SupabaseSyncService {
             'last_updated_at': now.toIso8601String(),
             'is_deleted': w.isDeleted,
           }),
-          businessId: businessId,
         );
         await (_db.update(_db.warehouses)..where((t) => t.id.equals(w.id)))
             .write(WarehousesCompanion(lastUpdatedAt: Value(now)));
         enqueued++;
       }
-      if (enqueued > 0 || skipped > 0) {
-        debugPrint('[SyncService] Warehouse backfill: '
-            'enqueued=$enqueued skipped=$skipped');
+      
+      if (enqueued > 0) {
+        debugPrint('[SyncService] Warehouse backfill: enqueued=$enqueued');
       }
     } catch (e) {
       debugPrint('[SyncService] Warehouse backfill failed: $e');
@@ -668,9 +660,29 @@ class SupabaseSyncService {
             await _db.into(_db.expenseCategories).insertOnConflictUpdate(ExpenseCategoryData.fromJson(r));
           }
           break;
-        case 'crates':
+        case 'manufacturer_crate_balances':
           for (var r in rows) {
-            await _db.into(_db.crates).insertOnConflictUpdate(CrateData.fromJson(r));
+            await _db.into(_db.manufacturerCrateBalances).insertOnConflictUpdate(ManufacturerCrateBalance.fromJson(r));
+          }
+          break;
+        case 'crate_ledger':
+          for (var r in rows) {
+            await _db.into(_db.crateLedger).insertOnConflictUpdate(CrateLedgerData.fromJson(r));
+          }
+          break;
+        case 'system_config':
+          for (var r in rows) {
+            await _db.into(_db.systemConfig).insertOnConflictUpdate(SystemConfigData.fromJson(r));
+          }
+          break;
+        case 'purchases':
+          for (var r in rows) {
+            await _db.into(_db.purchases).insertOnConflictUpdate(DeliveryData.fromJson(r));
+          }
+          break;
+        case 'purchase_items':
+          for (var r in rows) {
+            await _db.into(_db.purchaseItems).insertOnConflictUpdate(PurchaseItemData.fromJson(r));
           }
           break;
         case 'customer_crate_balances':
@@ -726,11 +738,6 @@ class SupabaseSyncService {
         case 'sessions':
           for (var r in rows) {
             await _db.into(_db.sessions).insertOnConflictUpdate(SessionData.fromJson(r));
-          }
-          break;
-        case 'customer_wallet_transactions':
-          for (var r in rows) {
-            await _db.into(_db.customerWalletTransactions).insertOnConflictUpdate(CustomerWalletTransactionData.fromJson(r));
           }
           break;
         case 'stock_transactions':

@@ -6,6 +6,7 @@ import 'package:reebaplus_pos/features/auth/widgets/auth_background.dart';
 import 'package:reebaplus_pos/core/theme/app_decorations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:reebaplus_pos/core/providers/app_providers.dart';
+import 'package:reebaplus_pos/shared/widgets/smooth_route.dart';
 
 class BusinessTypeSelectionScreen extends ConsumerWidget {
   final String email;
@@ -16,18 +17,14 @@ class BusinessTypeSelectionScreen extends ConsumerWidget {
     // Ensure the database is completely empty before starting a new business
     await ref.read(databaseProvider).clearAllData();
     if (!context.mounted) return;
-    Navigator.of(
-      context,
-    ).push(MaterialPageRoute(builder: (_) => NewOwnerNameScreen(email: email)));
+    Navigator.of(context).push(SmoothRoute(page: NewOwnerNameScreen(email: email)));
   }
 
   Future<void> _onJoin(BuildContext context, WidgetRef ref) async {
     // Ensure the database is completely empty before joining a business
     await ref.read(databaseProvider).clearAllData();
     if (!context.mounted) return;
-    Navigator.of(
-      context,
-    ).push(MaterialPageRoute(builder: (_) => InviteCodeScreen(email: email)));
+    Navigator.of(context).push(SmoothRoute(page: InviteCodeScreen(email: email)));
   }
 
   @override

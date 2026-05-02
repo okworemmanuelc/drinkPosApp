@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'dart:math';
 import 'package:reebaplus_pos/core/database/app_database.dart';
+import 'package:reebaplus_pos/core/database/uuid_v7.dart';
 import 'package:reebaplus_pos/shared/services/navigation_service.dart';
 import 'package:reebaplus_pos/shared/services/secure_storage_service.dart';
 import 'package:reebaplus_pos/core/services/supabase_sync_service.dart';
@@ -30,7 +31,11 @@ class AuthService extends ValueNotifier<UserData?> {
   }
 
   /// Notifies listeners whenever the device-level user ID changes.
-  final ValueNotifier<int?> deviceUserIdNotifier = ValueNotifier<int?>(null);
+  final ValueNotifier<String?> deviceUserIdNotifier = ValueNotifier<String?>(null);
+
+  /// Id of the active row in `Sessions` for the currently logged-in user.
+  /// Set by [setCurrentUser] and cleared on logout.
+  String? currentSessionId;
 
   /// Set before calling [setCurrentUser] to route to a special post-login screen.
   PostLoginRoute pendingPostLoginRoute = PostLoginRoute.none;
@@ -64,7 +69,7 @@ class AuthService extends ValueNotifier<UserData?> {
   /// pinHash/pinSalt/pinIterations triple. Overwrites the legacy [Users.pin]
   /// column with the literal `'__HASHED__'` so the row no longer carries the
   /// PIN in cleartext. Single canonical PIN write path.
-  Future<void> setUserPin(int userId, String plaintext) async {
+  Future<void> setUserPin(String userId, String plaintext) async {
     final salt = PinHasher.generateSaltBase64();
     final hash = PinHasher.hashBase64(
       plaintext,
@@ -85,13 +90,13 @@ class AuthService extends ValueNotifier<UserData?> {
 
   /// Returns the locally-persisted user ID, or null if no user has ever
   /// logged in on this device.
-  Future<int?> getDeviceUserId() => _secure.getDeviceUserId();
+  Future<String?> getDeviceUserId() => _secure.getDeviceUserId();
 
   /// Returns the last successfully logged-in email.
   Future<String?> getLastLoggedInEmail() => _secure.getLastLoggedInEmail();
 
   /// Persists [userId] so the next app launch goes straight to PIN screen.
-  Future<void> saveDeviceUserId(int userId) async {
+  Future<void> saveDeviceUserId(String userId) async {
     await _secure.saveDeviceUserId(userId);
     deviceUserIdNotifier.value = userId;
   }
@@ -133,7 +138,7 @@ class AuthService extends ValueNotifier<UserData?> {
           .select('business_id, role, role_tier')
           .eq('id', authUser.id)
           .maybeSingle();
-      final businessId = (profile?['business_id'] as num?)?.toInt();
+      final businessId = profile?['business_id'] as String?;
       if (profile == null || businessId == null) return null;
 
       final business = await Supabase.instance.client
@@ -156,7 +161,7 @@ class AuthService extends ValueNotifier<UserData?> {
     }
   }
 
-  Future<void> syncOnLogin(int businessId) async {
+  Future<void> syncOnLogin(String businessId) async {
     await _sync.syncAll(businessId);
     _sync.startRealtimeSync(businessId);
     _sync.startAutoPush();
@@ -192,9 +197,10 @@ class AuthService extends ValueNotifier<UserData?> {
     final name = profile['name'] as String? ?? '';
     final role = profile['role'] as String? ?? 'Staff';
     final roleTier = (profile['role_tier'] as num?)?.toInt() ?? 1;
-    final businessId = (profile['business_id'] as num?)?.toInt();
+    final businessId = profile['business_id'] as String?;
     final email = authUser.email!;
 
+    if (businessId == null) return null;
     final existing = await getUserByEmail(email);
     if (existing != null) {
       await (_db.update(_db.users)..where((u) => u.id.equals(existing.id)))
@@ -208,17 +214,16 @@ class AuthService extends ValueNotifier<UserData?> {
           .getSingle();
     }
 
-    final id = await _db.into(_db.users).insert(
-          UsersCompanion(
-            name: Value(name),
+    return _db.into(_db.users).insertReturning(
+          UsersCompanion.insert(
+            name: name,
             email: Value(email),
-            pin: const Value(setupRequiredPin),
-            role: Value(role),
+            pin: setupRequiredPin,
+            role: role,
             roleTier: Value(roleTier),
-            businessId: Value(businessId),
+            businessId: businessId,
           ),
         );
-    return (_db.select(_db.users)..where((u) => u.id.equals(id))).getSingle();
   }
 
   // ── Supabase OTP ───────────────────────────────────────────────────────────
@@ -297,14 +302,25 @@ class AuthService extends ValueNotifier<UserData?> {
       // Set synchronously so VLB listener fires before any route pop cleans up
       value = user;
 
-      if (user.businessId != null) {
-        _sync.startRealtimeSync(user.businessId!);
-        _sync.startAutoPush();
-      }
+      _sync.startRealtimeSync(user.businessId);
+      _sync.startAutoPush();
 
       if (user.roleTier < 5 && user.warehouseId == null) {
         scheduleMicrotask(() => _handleOnboardingAlerts(user));
       }
+
+      // Record a session row for this login. Fire-and-forget — local DB write
+      // shouldn't block the post-login UI; failures are logged.
+      scheduleMicrotask(() async {
+        try {
+          currentSessionId = await _db.sessionsDao.createSession(
+            userId: user.id,
+            ttl: const Duration(days: 30),
+          );
+        } catch (e) {
+          debugPrint('[AuthService] createSession error: $e');
+        }
+      });
     } catch (e, stack) {
       debugPrint('[AuthService] CRITICAL ERROR in setCurrentUser: $e\n$stack');
     }
@@ -316,17 +332,9 @@ class AuthService extends ValueNotifier<UserData?> {
       final now = DateTime.now();
       UserData currentUser = user;
 
-      // 1. Initialize createdAt if null
-      if (currentUser.createdAt == null) {
-        await (_db.update(_db.users)..where((u) => u.id.equals(currentUser.id)))
-            .write(UsersCompanion(createdAt: Value(now)));
-        // Refresh local variable (do NOT set value here — avoid extra navigator rebuilds)
-        currentUser = await (_db.select(
-          _db.users,
-        )..where((u) => u.id.equals(currentUser.id))).getSingle();
-      }
 
-      final joinDate = currentUser.createdAt ?? now;
+
+      final joinDate = currentUser.createdAt;
       final hoursSinceJoin = now.difference(joinDate).inHours;
       final deadline = joinDate.add(const Duration(hours: 48));
       final deadlineStr =
@@ -379,6 +387,17 @@ class AuthService extends ValueNotifier<UserData?> {
   /// Clears the active user, removes the warehouse lock, but retains the
   /// device-level session so the next launch shows the personalized PIN screen.
   void logout() {
+    final sid = currentSessionId;
+    if (sid != null) {
+      scheduleMicrotask(() async {
+        try {
+          await _db.sessionsDao.revokeSession(sid);
+        } catch (e) {
+          debugPrint('[AuthService] revokeSession error: $e');
+        }
+      });
+      currentSessionId = null;
+    }
     value = null;
     bypassNextBiometric = true;
     _nav.clearWarehouseLock();
@@ -434,24 +453,36 @@ class AuthService extends ValueNotifier<UserData?> {
     final existing = await getUserByEmail(email);
     if (existing != null) {
       await (_db.update(_db.users)..where((u) => u.id.equals(existing.id)))
-          .write(UsersCompanion(name: Value(name)));
-      return (_db.select(
-        _db.users,
-      )..where((u) => u.id.equals(existing.id))).getSingle();
+          .write(UsersCompanion(
+        name: Value(name),
+        lastUpdatedAt: Value(DateTime.now()),
+      ));
+      return (_db.select(_db.users)..where((u) => u.id.equals(existing.id)))
+          .getSingle();
     }
-    final id = await database
-        .into(_db.users)
-        .insert(
-          UsersCompanion(
-            name: Value(name),
+
+    // Users.businessId is NOT NULL, so seed a Businesses row first using the
+    // owner's name as a placeholder. BusinessDetailsScreen overwrites it with
+    // the real business name in the next step of onboarding.
+    final businessId = UuidV7.generate();
+    final userId = UuidV7.generate();
+    await _db.transaction(() async {
+      await _db.into(_db.businesses).insert(BusinessesCompanion.insert(
+            id: Value(businessId),
+            name: name,
+          ));
+      await _db.into(_db.users).insert(UsersCompanion.insert(
+            id: Value(userId),
+            businessId: businessId,
+            name: name,
             email: Value(email),
-            pin: const Value(setupRequiredPin),
-            role: const Value('CEO'),
+            pin: setupRequiredPin,
+            role: 'ceo',
             roleTier: const Value(5),
-            avatarColor: const Value('#8B5CF6'),
-          ),
-        );
-    return (_db.select(_db.users)..where((u) => u.id.equals(id))).getSingle();
+          ));
+    });
+    return (_db.select(_db.users)..where((u) => u.id.equals(userId)))
+        .getSingle();
   }
 
   // ── Initialisation ──────────────────────────────────────────────────────
@@ -526,7 +557,7 @@ class AuthService extends ValueNotifier<UserData?> {
   Future<UserData?> getQuickAccessUser() async => value;
   Future<void> enableQuickAccess() async {}
   Future<void> disableQuickAccess() async {}
-  Future<bool> verifySupervisorPin(int userId, String pin) async => false;
+  Future<bool> verifySupervisorPin(String userId, String pin) async => false;
 
   // ── Invite lifecycle ───────────────────────────────────────────────────────
 
@@ -542,40 +573,30 @@ class AuthService extends ValueNotifier<UserData?> {
     required String email,
     required String inviteeName,
     required String role,
-    int? warehouseId,
+    String? warehouseId,
   }) async {
-    // 1. Get current business (assuming single-tenant for now, or get from user)
-    // For now, we'll fetch the first business or create a default one if none exists.
-    var biz = await _db.select(_db.businesses).getSingleOrNull();
-    if (biz == null) {
-      final id = await database
-          .into(_db.businesses)
-          .insert(
-            const BusinessesCompanion(
-              name: Value('Reebaplus POS Business'),
-              type: Value('Retail'),
-            ),
-          );
-      biz = await (_db.select(
-        _db.businesses,
-      )..where((t) => t.id.equals(id))).getSingle();
+    final businessId = value?.businessId;
+    final createdBy = value?.id;
+    if (businessId == null || createdBy == null) {
+      throw StateError('Cannot create invite: no active session');
     }
 
     final code = _generateSecureCode();
     final expiresAt = DateTime.now().add(const Duration(hours: 48));
 
-    await database
-        .into(_db.invites)
-        .insert(
+    await _db.into(_db.invites).insert(
           InvitesCompanion.insert(
+            businessId: businessId,
             email: email,
-            code: code,
+            inviteeName: inviteeName,
             role: role,
             warehouseId: Value(warehouseId),
-            businessId: biz.id,
-            createdBy: value?.id ?? 1, // Fallback to system user if needed
-            inviteeName: inviteeName,
+            code: code,
+            status: const Value('pending'),
             expiresAt: expiresAt,
+            createdBy: createdBy,
+            createdAt: Value(DateTime.now()),
+            lastUpdatedAt: Value(DateTime.now()),
           ),
         );
 
@@ -626,7 +647,7 @@ class AuthService extends ValueNotifier<UserData?> {
   }
 
   /// Completes the join process for a user.
-  Future<void> redeemInvite(String code, int userId) async {
+  Future<void> redeemInvite(String code, String userId) async {
     final normalized = code.trim().toUpperCase();
     final invite = await (_db.select(
       _db.invites,
@@ -663,14 +684,14 @@ class AuthService extends ValueNotifier<UserData?> {
   }
 
   /// Cancels an invite.
-  Future<void> revokeInvite(int inviteId) async {
+  Future<void> revokeInvite(String inviteId) async {
     await (_db.update(_db.invites)..where((t) => t.id.equals(inviteId))).write(
       const InvitesCompanion(status: Value('revoked')),
     );
   }
 
   /// Re-issues an invite with a new code and expiry.
-  Future<String> resendInvite(int inviteId) async {
+  Future<String> resendInvite(String inviteId) async {
     final code = _generateSecureCode();
     final expiresAt = DateTime.now().add(const Duration(hours: 48));
 
@@ -709,7 +730,7 @@ class InviteValidationResult {
 /// Snapshot of the current auth user's cloud profile + linked business,
 /// used by the OTP flow to confirm an existing account on a fresh device.
 class SupabaseAccountInfo {
-  final int businessId;
+  final String businessId;
   final String businessName;
   final String role;
   final int roleTier;

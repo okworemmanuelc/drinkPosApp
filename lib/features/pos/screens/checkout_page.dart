@@ -64,7 +64,7 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
   final ScreenshotController _screenshotCtrl = ScreenshotController();
   bool _paymentConfirmed = false;
   bool _isProcessing = false;
-  Map<int, String> _manufacturerNames = {};
+  Map<String, String> _manufacturerNames = {};
   String? _branchName;
   late final Customer? _initialCustomer;
 
@@ -158,10 +158,22 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
 
   double get _cashReceivedValue => parseCurrency(_cashReceivedCtrl.text);
 
+  /// Live wallet balance (Naira) for the current customer, computed from the
+  /// WalletTransactions ledger. Returns 0.0 for walk-ins or if the provider
+  /// is still loading.
+  double _walletBalanceFor(String? customerId) {
+    if (customerId == null) return 0.0;
+    final balances =
+        ref.watch(walletBalancesKoboProvider).valueOrNull ??
+        const <String, int>{};
+    return (balances[customerId] ?? 0) / 100.0;
+  }
+
+  double get _currentCustomerWallet =>
+      _isWalkIn ? 0.0 : _walletBalanceFor(_initialCustomer?.id);
+
   double get _dynamicNewCustomerWallet {
-    final oldCustomerWallet = _isWalkIn
-        ? 0.0
-        : (_initialCustomer?.customerWallet ?? 0.0);
+    final oldCustomerWallet = _currentCustomerWallet;
     double effectiveCash;
     switch (_paymentType) {
       case PaymentType.fullCash:
@@ -290,17 +302,22 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
                       ),
                       if (!_isWalkIn && widget.customer != null) ...[
                         SizedBox(height: context.getRSize(2)),
-                        Text(
-                          'Wallet Balance: ${formatCurrency(widget.customer!.customerWallet)} ${widget.customer!.customerWallet < 0 ? "(debt)" : "(credit)"}',
-                          style: TextStyle(
-                            fontSize: context.getRFontSize(12),
-                            color: widget.customer!.customerWallet < 0
-                                ? danger
-                                : widget.customer!.customerWallet > 0
-                                ? success
-                                : _subtext,
-                            fontWeight: FontWeight.w600,
-                          ),
+                        Builder(
+                          builder: (_) {
+                            final w = _walletBalanceFor(widget.customer!.id);
+                            return Text(
+                              'Wallet Balance: ${formatCurrency(w)} ${w < 0 ? "(debt)" : "(credit)"}',
+                              style: TextStyle(
+                                fontSize: context.getRFontSize(12),
+                                color: w < 0
+                                    ? danger
+                                    : w > 0
+                                    ? success
+                                    : _subtext,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            );
+                          },
                         ),
                       ],
                     ],
@@ -450,8 +467,99 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
     );
   }
 
+  // ── Cart staleness ─────────────────────────────────────────────────────────
+  Future<List<CartStaleItem>> _detectCartStaleness() async {
+    final lines = <CartLineSnapshot>[];
+    for (final item in widget.cart) {
+      final id = item['id'] as String?;
+      if (id == null || id.isEmpty) continue; // Quick-sale: no DB product
+      final version = item['version'] as int?;
+      final unitPriceKobo =
+          (item['unitPriceKobo'] as int?) ??
+          ((item['price'] as num).toDouble() * 100).round();
+      if (version == null) continue; // Pre-versioning entry; skip check.
+      lines.add(
+        CartLineSnapshot(
+          productId: id,
+          cartVersion: version,
+          cartUnitPriceKobo: unitPriceKobo,
+        ),
+      );
+    }
+    if (lines.isEmpty) return const [];
+    return ref.read(orderServiceProvider).checkCartStaleness(lines);
+  }
+
+  Future<bool> _showStalenessDialog(List<CartStaleItem> stale) async {
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: _surface,
+        title: const Text('Prices changed'),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'The following items were updated since you added '
+                'them to the cart:',
+              ),
+              const SizedBox(height: 12),
+              ...stale.map(
+                (s) => Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Text(
+                    '${s.productName}: ${formatCurrency(s.oldPriceKobo / 100.0)} '
+                    '→ ${formatCurrency(s.newPriceKobo / 100.0)}',
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Accept new prices'),
+          ),
+        ],
+      ),
+    );
+    return result == true;
+  }
+
   // ── Confirm payment logic ──────────────────────────────────────────────────
   Future<void> _confirmPayment() async {
+    // Pre-flight: detect price/version drift since items were added to cart.
+    // Cashier accepts new prices or cancels back to the cart.
+    final stale = await _detectCartStaleness();
+    if (!mounted) return;
+    if (stale.isNotEmpty) {
+      final accepted = await _showStalenessDialog(stale);
+      if (!accepted) return;
+      ref.read(cartProvider).acceptStaleness({
+        for (final s in stale)
+          s.productId: (
+            unitPriceKobo: s.newPriceKobo,
+            version: s.currentVersion,
+          ),
+      });
+      // Cart values changed — let the user re-confirm against the new total.
+      if (mounted) {
+        AppNotification.showError(
+          context,
+          'Prices updated. Review the cart and confirm again.',
+        );
+      }
+      return;
+    }
+
     // Walk-in validation
     if (_isWalkIn && _paymentType != PaymentType.fullCash) {
       AppNotification.showError(context, 'Walk-in customers must pay in full');
@@ -460,7 +568,7 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
 
     // Wallet payment validation
     if (_paymentType == PaymentType.fullCash && _isWalletPayment) {
-      final walletBalance = _initialCustomer?.customerWallet ?? 0.0;
+      final walletBalance = _currentCustomerWallet;
       if (walletBalance < widget.total) {
         AppNotification.showError(
           context,
@@ -498,16 +606,22 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
           ? (_cashReceivedValue * 100).round()
           : 0;
       final remainingKobo = totalKobo - amountPaidKobo;
-      final newBalanceKobo = customer.walletBalanceKobo - remainingKobo;
+      final currentBalanceKobo = await ref
+          .read(databaseProvider)
+          .customersDao
+          .getWalletBalanceKobo(customer.id);
+      final newBalanceKobo = currentBalanceKobo - remainingKobo;
 
       if (newBalanceKobo < -limitKobo) {
         final overByKobo = (-newBalanceKobo) - limitKobo;
-        AppNotification.showError(
-          context,
-          'This sale exceeds ${customer.name}\'s debt limit of '
-          '${formatCurrency(limitKobo / 100.0)}. '
-          'Over limit by ${formatCurrency(overByKobo / 100.0)}.',
-        );
+        if (mounted) {
+          AppNotification.showError(
+            context,
+            'This sale exceeds ${customer.name}\'s debt limit of '
+            '${formatCurrency(limitKobo / 100.0)}. '
+            'Over limit by ${formatCurrency(overByKobo / 100.0)}.',
+          );
+        }
         return;
       }
     }
@@ -556,7 +670,7 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
             totalAmountKobo: totalKobo,
             amountPaidKobo: amountPaidKobo,
             paymentType: _paymentLabel,
-            staffId: auth.currentUser?.id ?? 1,
+            staffId: auth.currentUser?.id,
             warehouseId: warehouseId,
             crateDepositPaidKobo: (widget.crateDeposit * 100).round(),
             paymentSubType: _isWalletPayment ? 'wallet' : 'cash',
@@ -844,7 +958,7 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
   // ── Wallet sub-options (shown under Full Cash when customer is named) ───────
 
   Widget _buildWalletSubOptions() {
-    final walletBalance = widget.customer?.customerWallet ?? 0.0;
+    final walletBalance = _walletBalanceFor(widget.customer?.id);
     final sufficient = walletBalance >= widget.total;
 
     return Padding(

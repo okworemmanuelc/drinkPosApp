@@ -24,7 +24,7 @@ class ActivityLogScreen extends ConsumerStatefulWidget {
 class _ActivityLogScreenState extends ConsumerState<ActivityLogScreen> {
   String? _selectedWarehouseId;
   // userId → roleTier map, loaded once on init
-  Map<int, int> _userTiers = {};
+  Map<String, int> _userTiers = {};
   bool _loading = true;
 
   @override
@@ -272,14 +272,19 @@ class _ActivityLogScreenState extends ConsumerState<ActivityLogScreen> {
     if (_selectedWarehouseId == null) return roleFiltered;
 
     return roleFiltered.where((log) {
-      final isInventory =
-          log.relatedEntityType == 'inventory' ||
+      final isWarehouseScoped =
+          log.warehouseId != null ||
+          log.productId != null ||
+          log.deliveryId != null ||
+          log.orderId != null ||
           log.action.toLowerCase().contains('inventory') ||
           log.action.toLowerCase().contains('stock') ||
           log.action.toLowerCase().contains('delivery');
-      if (!isInventory) return true;
+
+      if (!isWarehouseScoped) return true;
       return log.warehouseId == _selectedWarehouseId;
     }).toList();
+
   }
 
   Widget _buildEmptyState(

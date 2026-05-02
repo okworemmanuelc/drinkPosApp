@@ -9,6 +9,7 @@ class OtpBoxRow extends StatefulWidget {
   final bool ignorePointers;
   final bool readOnly;
   final Color textColor;
+  final ValueChanged<String>? onChanged;
 
   const OtpBoxRow({
     super.key,
@@ -17,6 +18,7 @@ class OtpBoxRow extends StatefulWidget {
     this.onSubmit,
     this.ignorePointers = false,
     this.readOnly = false,
+    this.onChanged,
     required this.textColor,
   });
 
@@ -86,6 +88,7 @@ class _OtpBoxRowState extends State<OtpBoxRow> with WidgetsBindingObserver {
                 keyboardType: TextInputType.number,
                 maxLength: 6,
                 textInputAction: TextInputAction.none,
+                onChanged: widget.onChanged,
                 onSubmitted: (_) => widget.onSubmit?.call(),
                 inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                 autofocus: false,

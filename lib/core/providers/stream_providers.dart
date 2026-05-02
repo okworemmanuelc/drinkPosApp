@@ -21,14 +21,25 @@ final allWarehousesProvider = StreamProvider<List<WarehouseData>>((ref) {
 });
 
 // ── Expenses ───────────────────────────────────────────────────────────────
-final allExpensesProvider = StreamProvider<List<ExpenseData>>((ref) {
+final allExpensesProvider = StreamProvider<List<ExpenseWithCategory>>((ref) {
   final db = ref.watch(databaseProvider);
   return db.expensesDao.watchAll();
 });
 
+
+/// Map of expense category id → name. Resolves the category text for display
+/// after the cached `expenses.category` column was removed.
+final expenseCategoryNamesProvider =
+    StreamProvider<Map<String, String>>((ref) {
+  final db = ref.watch(databaseProvider);
+  return db.expensesDao
+      .watchAllCategories()
+      .map((cats) => {for (final c in cats) c.id: c.name});
+});
+
 // ── Products by warehouse ───────────────────────────────────────────────────
 final productsByWarehouseProvider =
-    StreamProvider.family<List<ProductDataWithStock>, int>((ref, warehouseId) {
+    StreamProvider.family<List<ProductDataWithStock>, String>((ref, warehouseId) {
   return ref
       .watch(databaseProvider)
       .inventoryDao

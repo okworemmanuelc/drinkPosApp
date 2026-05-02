@@ -30,7 +30,7 @@ class NavigationService {
   }
 
   final ValueNotifier<bool> warehouseLocked = ValueNotifier<bool>(false);
-  final ValueNotifier<int?> lockedWarehouseId = ValueNotifier<int?>(null);
+  final ValueNotifier<String?> lockedWarehouseId = ValueNotifier<String?>(null);
 
   /// Used by InventoryScreen to react to warehouse changes from other screens.
   final ValueNotifier<String?> selectedWarehouseId = ValueNotifier<String?>(
@@ -40,7 +40,7 @@ class NavigationService {
   /// One-shot warehouse pre-filter for CustomersScreen. Set by the warehouse
   /// details "Customers" card before switching to the customers tab. The
   /// customers screen reads this once on init and clears it.
-  final ValueNotifier<int?> customersInitialWarehouseId = ValueNotifier<int?>(
+  final ValueNotifier<String?> customersInitialWarehouseId = ValueNotifier<String?>(
     null,
   );
 
@@ -154,7 +154,7 @@ class NavigationService {
 
   /// Called right after login. Locks non-CEO users to their assigned warehouse.
   /// [roleTier] and [warehouseId] come from the UserData that just logged in.
-  void applyUserWarehouseLock(int roleTier, int? warehouseId) {
+  void applyUserWarehouseLock(int roleTier, String? warehouseId) {
     if (roleTier >= 5) {
       // CEO — no restrictions, clear any previous lock
       warehouseLocked.value = false;
@@ -181,7 +181,7 @@ class NavigationService {
   }
 
   /// Manually update the warehouse lock (e.g. for CEO switching locations in POS)
-  void setLockedWarehouse(int? id) {
+  void setLockedWarehouse(String? id) {
     lockedWarehouseId.value = id;
   }
 }

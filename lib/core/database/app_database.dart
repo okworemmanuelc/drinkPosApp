@@ -7,134 +7,182 @@ import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 import 'package:flutter/foundation.dart';
 import 'package:reebaplus_pos/core/database/daos.dart';
+import 'package:reebaplus_pos/core/database/uuid_v7.dart';
 import 'package:reebaplus_pos/core/diagnostics/schema_audit.dart';
 export 'daos.dart';
 
 part 'app_database.g.dart';
 
-// 1. Crate Groups
-@DataClassName('CrateGroupData')
-class CrateGroups extends Table {
-  IntColumn get id => integer().autoIncrement()();
-  IntColumn get businessId => integer().nullable().references(Businesses, #id)();
-  TextColumn get name => text()();
-  IntColumn get size => integer()(); // 12=big, 20=medium, 24=small
-  IntColumn get emptyCrateStock => integer().withDefault(const Constant(0))();
-  IntColumn get depositAmountKobo => integer().withDefault(const Constant(0))();
-  DateTimeColumn get lastUpdatedAt => dateTime().nullable()();
-  BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
-}
+// ---------------------------------------------------------------------------
+// Tenant + lookup tables
+// ---------------------------------------------------------------------------
 
-// 1b. Manufacturers — first-class entities that own crate pools
-@DataClassName('ManufacturerData')
-class Manufacturers extends Table {
-  IntColumn get id => integer().autoIncrement()();
-  IntColumn get businessId => integer().nullable().references(Businesses, #id)();
-  TextColumn get name => text()();
-  IntColumn get emptyCrateStock => integer().withDefault(const Constant(0))();
-  IntColumn get depositAmountKobo => integer().withDefault(const Constant(0))();
-  DateTimeColumn get lastUpdatedAt => dateTime().nullable()();
-  BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
-}
-
-// 1c. Businesses
 @DataClassName('BusinessData')
 class Businesses extends Table {
-  IntColumn get id => integer().autoIncrement()();
+  TextColumn get id => text().clientDefault(() => UuidV7.generate())();
   TextColumn get name => text()();
   TextColumn get type => text().nullable()();
   TextColumn get phone => text().nullable()();
   TextColumn get email => text().nullable()();
   TextColumn get logoUrl => text().nullable()();
+  TextColumn get timezone => text().withDefault(const Constant('UTC'))();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get lastUpdatedAt =>
+      dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column> get primaryKey => {id};
 }
 
-// 2. Warehouses
+@DataClassName('CrateGroupData')
+class CrateGroups extends Table {
+  TextColumn get id => text().clientDefault(() => UuidV7.generate())();
+  TextColumn get businessId => text().references(Businesses, #id)();
+  TextColumn get name => text()();
+  IntColumn get size => integer()(); // 12, 20, 24
+  IntColumn get emptyCrateStock => integer().withDefault(const Constant(0))();
+  IntColumn get depositAmountKobo => integer().withDefault(const Constant(0))();
+  BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get lastUpdatedAt =>
+      dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column> get primaryKey => {id};
+
+  @override
+  List<String> get customConstraints => ['CHECK (size IN (12,20,24))'];
+}
+
+@DataClassName('ManufacturerData')
+class Manufacturers extends Table {
+  TextColumn get id => text().clientDefault(() => UuidV7.generate())();
+  TextColumn get businessId => text().references(Businesses, #id)();
+  TextColumn get name => text()();
+  IntColumn get emptyCrateStock => integer().withDefault(const Constant(0))();
+  IntColumn get depositAmountKobo => integer().withDefault(const Constant(0))();
+  BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get lastUpdatedAt =>
+      dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
 @DataClassName('WarehouseData')
 class Warehouses extends Table {
-  IntColumn get id => integer().autoIncrement()();
-  IntColumn get businessId => integer().nullable().references(Businesses, #id)();
+  TextColumn get id => text().clientDefault(() => UuidV7.generate())();
+  TextColumn get businessId => text().references(Businesses, #id)();
   TextColumn get name => text()();
   TextColumn get location => text().nullable()();
-  DateTimeColumn get lastUpdatedAt => dateTime().nullable()();
   BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get lastUpdatedAt =>
+      dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column> get primaryKey => {id};
 }
 
-// 3. Users
 @DataClassName('UserData')
 class Users extends Table {
-  IntColumn get id => integer().autoIncrement()();
+  TextColumn get id => text().clientDefault(() => UuidV7.generate())();
+  TextColumn get businessId => text().references(Businesses, #id)();
+  TextColumn get authUserId => text().nullable()();
   TextColumn get name => text()();
-  TextColumn get email => text().nullable().unique()();
+  TextColumn get email => text().nullable()();
+  // pin / passwordHash / pinSalt / pinIterations are local-only auth fields;
+  // not present in Supabase. Sync layer (PR 3) will exclude them from payloads.
+  // TODO(PR 4g): drop unused passwordHash column or wire when password login lands.
   TextColumn get passwordHash => text().nullable()();
-  // Vestigial post-v35: holds the literal '__HASHED__' once the row is
-  // migrated. Real PIN verification reads pinHash/pinSalt/pinIterations.
-  // Sentinels '__SETUP_REQUIRED__' / 'TEMPPIN' / '' may still appear on rows
-  // awaiting the first PIN setup.
   TextColumn get pin => text()();
   TextColumn get pinHash => text().nullable()();
   TextColumn get pinSalt => text().nullable()();
   IntColumn get pinIterations => integer().nullable()();
-  TextColumn get role => text()(); // admin, staff, CEO
-  IntColumn get roleTier =>
-      integer().withDefault(const Constant(1))(); // 1=Staff, 4=Manager, 5=CEO
+  TextColumn get role => text()();
+  IntColumn get roleTier => integer().withDefault(const Constant(1))();
   TextColumn get avatarColor => text().withDefault(const Constant('#3B82F6'))();
   BoolColumn get biometricEnabled =>
       boolean().withDefault(const Constant(false))();
-  IntColumn get warehouseId =>
-      integer().nullable().references(Warehouses, #id)();
-  IntColumn get businessId =>
-      integer().nullable().references(Businesses, #id)();
-  DateTimeColumn get createdAt => dateTime().nullable()();
+  TextColumn get warehouseId => text().nullable().references(Warehouses, #id)();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
   DateTimeColumn get lastNotificationSentAt => dateTime().nullable()();
-  DateTimeColumn get lastUpdatedAt => dateTime().nullable()();
   BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
+  DateTimeColumn get lastUpdatedAt =>
+      dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column> get primaryKey => {id};
+
+  @override
+  List<String> get customConstraints => [
+    'UNIQUE (business_id, email)',
+    'UNIQUE (auth_user_id)',
+    "CHECK (role IN ('admin','staff','ceo','manager'))",
+    'CHECK (role_tier IN (1,4,5))',
+  ];
 }
 
-// 4. Categories
 @DataClassName('CategoryData')
 class Categories extends Table {
-  IntColumn get id => integer().autoIncrement()();
-  IntColumn get businessId => integer().nullable().references(Businesses, #id)();
+  TextColumn get id => text().clientDefault(() => UuidV7.generate())();
+  TextColumn get businessId => text().references(Businesses, #id)();
   TextColumn get name => text()();
   TextColumn get description => text().nullable()();
-  DateTimeColumn get lastUpdatedAt => dateTime().nullable()();
   BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get lastUpdatedAt =>
+      dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column> get primaryKey => {id};
 }
 
-// 5. Products
-// Indexes speed up filtering by category and searching by name.
-// Think of an index like a book's index — it lets the database jump
-// directly to the right rows instead of reading every single row.
-@TableIndex(name: 'idx_products_category_id', columns: {#categoryId})
-@TableIndex(name: 'idx_products_name', columns: {#name})
+@DataClassName('SupplierData')
+class Suppliers extends Table {
+  TextColumn get id => text().clientDefault(() => UuidV7.generate())();
+  TextColumn get businessId => text().references(Businesses, #id)();
+  TextColumn get name => text()();
+  TextColumn get phone => text().nullable()();
+  TextColumn get email => text().nullable()();
+  TextColumn get address => text().nullable()();
+  TextColumn get crateGroupId =>
+      text().nullable().references(CrateGroups, #id)();
+  BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get lastUpdatedAt =>
+      dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
 @DataClassName('ProductData')
 class Products extends Table {
-  IntColumn get id => integer().autoIncrement()();
-  IntColumn get businessId => integer().nullable().references(Businesses, #id)();
-  IntColumn get categoryId =>
-      integer().nullable().references(Categories, #id)();
-  IntColumn get crateGroupId =>
-      integer().nullable().references(CrateGroups, #id)();
-  TextColumn get size => text().nullable()(); // 'big' | 'medium' | 'small'
+  TextColumn get id => text().clientDefault(() => UuidV7.generate())();
+  TextColumn get businessId => text().references(Businesses, #id)();
+  TextColumn get categoryId => text().nullable().references(Categories, #id)();
+  TextColumn get crateGroupId =>
+      text().nullable().references(CrateGroups, #id)();
+  TextColumn get supplierId => text().nullable().references(Suppliers, #id)();
+  TextColumn get manufacturerId =>
+      text().nullable().references(Manufacturers, #id)();
   TextColumn get name => text()();
   TextColumn get subtitle => text().nullable()();
   TextColumn get sku => text().nullable()();
+  TextColumn get size => text().nullable()();
+  TextColumn get unit => text().withDefault(const Constant('Bottle'))();
   IntColumn get retailPriceKobo => integer().withDefault(const Constant(0))();
   IntColumn get bulkBreakerPriceKobo => integer().nullable()();
   IntColumn get distributorPriceKobo => integer().nullable()();
   IntColumn get sellingPriceKobo => integer().withDefault(const Constant(0))();
   IntColumn get buyingPriceKobo => integer().withDefault(const Constant(0))();
-  TextColumn get unit => text().withDefault(const Constant('Bottle'))();
   IntColumn get iconCodePoint => integer().nullable()();
   TextColumn get colorHex => text().nullable()();
-  IntColumn get supplierId => integer().nullable().references(Suppliers, #id)();
-  IntColumn get manufacturerId =>
-      integer().nullable().references(Manufacturers, #id)();
   BoolColumn get isAvailable => boolean().withDefault(const Constant(true))();
   BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
   IntColumn get lowStockThreshold => integer().withDefault(const Constant(5))();
-  TextColumn get manufacturer =>
-      text().nullable()(); // kept for display; mirrors manufacturerId.name
   RealColumn get avgDailySales => real().withDefault(const Constant(0.0))();
   IntColumn get leadTimeDays => integer().withDefault(const Constant(0))();
   IntColumn get safetyStockQty => integer().withDefault(const Constant(0))();
@@ -144,27 +192,44 @@ class Products extends Table {
       integer().withDefault(const Constant(0))();
   BoolColumn get trackEmpties => boolean().withDefault(const Constant(false))();
   TextColumn get imagePath => text().nullable()();
-  DateTimeColumn get lastUpdatedAt => dateTime().nullable()();
+  IntColumn get version => integer().withDefault(const Constant(1))();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get lastUpdatedAt =>
+      dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column> get primaryKey => {id};
+
+  @override
+  List<String> get customConstraints => [
+    "CHECK (size IS NULL OR size IN ('big','medium','small'))",
+    "CHECK (unit IN ('Bottle','Crate','Pack','Carton','Piece','Bag','Other'))",
+  ];
 }
 
-// 6. Inventory
-@DataClassName('InventoryData')
-class Inventory extends Table {
-  IntColumn get id => integer().autoIncrement()();
-  IntColumn get businessId => integer().nullable().references(Businesses, #id)();
-  IntColumn get productId => integer().references(Products, #id)();
-  IntColumn get warehouseId => integer().references(Warehouses, #id)();
-  IntColumn get quantity => integer().withDefault(const Constant(0))();
-  DateTimeColumn get lastUpdatedAt => dateTime().nullable()();
+@DataClassName('PriceListData')
+class PriceLists extends Table {
+  TextColumn get id => text().clientDefault(() => UuidV7.generate())();
+  TextColumn get businessId => text().references(Businesses, #id)();
+  TextColumn get name => text()();
+  TextColumn get productId => text().references(Products, #id)();
+  IntColumn get priceKobo => integer()();
+  DateTimeColumn get effectiveFrom =>
+      dateTime().withDefault(currentDateAndTime)();
+  BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get lastUpdatedAt =>
+      dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column> get primaryKey => {id};
 }
 
-// 7. Customers
 @DataClassName('CustomerData')
 class Customers extends Table {
-  IntColumn get id => integer().autoIncrement()();
-  IntColumn get businessId => integer().nullable().references(Businesses, #id)();
-  IntColumn get warehouseId =>
-      integer().nullable().references(Warehouses, #id)();
+  TextColumn get id => text().clientDefault(() => UuidV7.generate())();
+  TextColumn get businessId => text().references(Businesses, #id)();
+  TextColumn get warehouseId => text().nullable().references(Warehouses, #id)();
   TextColumn get name => text()();
   TextColumn get phone => text().nullable()();
   TextColumn get email => text().nullable()();
@@ -172,506 +237,765 @@ class Customers extends Table {
   TextColumn get googleMapsLocation => text().nullable()();
   TextColumn get customerGroup =>
       text().withDefault(const Constant('retailer'))();
-  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
-  IntColumn get walletBalanceKobo => integer().withDefault(const Constant(0))();
   IntColumn get walletLimitKobo => integer().withDefault(const Constant(0))();
-  DateTimeColumn get lastUpdatedAt => dateTime().nullable()();
   BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get lastUpdatedAt =>
+      dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column> get primaryKey => {id};
+
+  @override
+  List<String> get customConstraints => [
+    "CHECK (customer_group IN ('retailer','wholesaler','distributor','walk_in'))",
+  ];
 }
 
-// 8. Suppliers
-@DataClassName('SupplierData')
-class Suppliers extends Table {
-  IntColumn get id => integer().autoIncrement()();
-  IntColumn get businessId => integer().nullable().references(Businesses, #id)();
-  TextColumn get name => text()();
-  TextColumn get phone => text().nullable()();
-  TextColumn get email => text().nullable()();
-  TextColumn get address => text().nullable()();
-  TextColumn get crateGroupName => text().nullable()();
-  DateTimeColumn get lastUpdatedAt => dateTime().nullable()();
+@DataClassName('CustomerWalletData')
+class CustomerWallets extends Table {
+  TextColumn get id => text().clientDefault(() => UuidV7.generate())();
+  TextColumn get businessId => text().references(Businesses, #id)();
+  TextColumn get customerId => text().references(Customers, #id)();
+  TextColumn get currency => text().withDefault(const Constant('NGN'))();
+  BoolColumn get isActive => boolean().withDefault(const Constant(true))();
   BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get lastUpdatedAt =>
+      dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column> get primaryKey => {id};
+
+  @override
+  List<String> get customConstraints => ['UNIQUE (business_id, customer_id)'];
 }
 
-// 9. Orders
+// Append-only ledger.
+@DataClassName('WalletTransactionData')
+class WalletTransactions extends Table {
+  TextColumn get id => text().clientDefault(() => UuidV7.generate())();
+  TextColumn get businessId => text().references(Businesses, #id)();
+  TextColumn get walletId => text().references(CustomerWallets, #id)();
+  TextColumn get customerId => text().references(Customers, #id)();
+  TextColumn get type => text()(); // credit | debit
+  IntColumn get amountKobo => integer()();
+  IntColumn get signedAmountKobo => integer()();
+  TextColumn get referenceType => text()();
+  TextColumn get orderId => text().nullable().references(Orders, #id)();
+  TextColumn get performedBy => text().nullable().references(Users, #id)();
+  BoolColumn get customerVerified =>
+      boolean().withDefault(const Constant(false))();
+  DateTimeColumn get voidedAt => dateTime().nullable()();
+  TextColumn get voidedBy => text().nullable().references(Users, #id)();
+  TextColumn get voidReason => text().nullable()();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get lastUpdatedAt =>
+      dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column> get primaryKey => {id};
+
+  @override
+  List<String> get customConstraints => [
+    "CHECK (type IN ('credit','debit'))",
+    'CHECK (amount_kobo >= 0)',
+    "CHECK (reference_type IN ('topup_cash','topup_transfer','order_payment','refund','reward','fee','adjustment','void'))",
+    "CHECK ((type = 'credit' AND signed_amount_kobo >= 0) OR "
+        "(type = 'debit' AND signed_amount_kobo <= 0))",
+  ];
+}
+
+class CustomerCrateBalances extends Table {
+  TextColumn get id => text().clientDefault(() => UuidV7.generate())();
+  TextColumn get businessId => text().references(Businesses, #id)();
+  TextColumn get customerId => text().references(Customers, #id)();
+  TextColumn get crateGroupId => text().references(CrateGroups, #id)();
+  IntColumn get balance => integer().withDefault(const Constant(0))();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get lastUpdatedAt =>
+      dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column> get primaryKey => {id};
+
+  @override
+  List<String> get customConstraints => [
+    'UNIQUE (business_id, customer_id, crate_group_id)',
+  ];
+}
+
+class ManufacturerCrateBalances extends Table {
+  TextColumn get id => text().clientDefault(() => UuidV7.generate())();
+  TextColumn get businessId => text().references(Businesses, #id)();
+  TextColumn get manufacturerId => text().references(Manufacturers, #id)();
+  TextColumn get crateGroupId => text().references(CrateGroups, #id)();
+  IntColumn get balance => integer().withDefault(const Constant(0))();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get lastUpdatedAt =>
+      dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column> get primaryKey => {id};
+
+  @override
+  List<String> get customConstraints => [
+    'UNIQUE (business_id, manufacturer_id, crate_group_id)',
+  ];
+}
+
+// Append-only ledger of crate movements.
+class CrateLedger extends Table {
+  TextColumn get id => text().clientDefault(() => UuidV7.generate())();
+  TextColumn get businessId => text().references(Businesses, #id)();
+  TextColumn get customerId => text().nullable().references(Customers, #id)();
+  TextColumn get manufacturerId =>
+      text().nullable().references(Manufacturers, #id)();
+  TextColumn get crateGroupId => text().references(CrateGroups, #id)();
+  IntColumn get quantityDelta => integer()();
+  TextColumn get movementType => text().withLength(min: 1, max: 32)();
+  TextColumn get referenceOrderId =>
+      text().nullable().references(Orders, #id)();
+  TextColumn get referenceReturnId =>
+      text().nullable().references(PendingCrateReturns, #id)();
+  TextColumn get performedBy => text().nullable().references(Users, #id)();
+  DateTimeColumn get voidedAt => dateTime().nullable()();
+  TextColumn get voidedBy => text().nullable().references(Users, #id)();
+  TextColumn get voidReason => text().nullable()();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get lastUpdatedAt =>
+      dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column> get primaryKey => {id};
+
+  @override
+  List<String> get customConstraints => [
+    "CHECK (movement_type IN ('issued','returned','damaged','adjusted','transferred_in','transferred_out'))",
+    '''CHECK (
+          (CASE WHEN customer_id IS NOT NULL THEN 1 ELSE 0 END) +
+          (CASE WHEN manufacturer_id IS NOT NULL THEN 1 ELSE 0 END) = 1
+        )''',
+  ];
+}
+
+@DataClassName('InventoryData')
+class Inventory extends Table {
+  TextColumn get id => text().clientDefault(() => UuidV7.generate())();
+  TextColumn get businessId => text().references(Businesses, #id)();
+  TextColumn get productId => text().references(Products, #id)();
+  TextColumn get warehouseId => text().references(Warehouses, #id)();
+  IntColumn get quantity => integer().withDefault(const Constant(0))();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get lastUpdatedAt =>
+      dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column> get primaryKey => {id};
+
+  @override
+  List<String> get customConstraints => [
+    'UNIQUE (business_id, product_id, warehouse_id)',
+  ];
+}
+
+@DataClassName('CrateData')
+class Crates extends Table {
+  TextColumn get id => text().clientDefault(() => UuidV7.generate())();
+  TextColumn get businessId => text().references(Businesses, #id)();
+  TextColumn get productId => text().references(Products, #id)();
+  IntColumn get totalCrates => integer()();
+  IntColumn get emptyReturned => integer().withDefault(const Constant(0))();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get lastUpdatedAt =>
+      dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+@DataClassName('StockTransferData')
+class StockTransfers extends Table {
+  TextColumn get id => text().clientDefault(() => UuidV7.generate())();
+  TextColumn get businessId => text().references(Businesses, #id)();
+  TextColumn get fromLocationId => text().references(Warehouses, #id)();
+  TextColumn get toLocationId => text().references(Warehouses, #id)();
+  TextColumn get productId => text().references(Products, #id)();
+  IntColumn get quantity => integer()();
+  TextColumn get status => text().withDefault(const Constant('pending'))();
+  TextColumn get initiatedBy => text().references(Users, #id)();
+  TextColumn get receivedBy => text().nullable().references(Users, #id)();
+  DateTimeColumn get initiatedAt =>
+      dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get receivedAt => dateTime().nullable()();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get lastUpdatedAt =>
+      dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column> get primaryKey => {id};
+
+  @override
+  List<String> get customConstraints => [
+    "CHECK (status IN ('pending','in_transit','received','cancelled'))",
+  ];
+}
+
+@DataClassName('StockAdjustmentData')
+class StockAdjustments extends Table {
+  TextColumn get id => text().clientDefault(() => UuidV7.generate())();
+  TextColumn get businessId => text().references(Businesses, #id)();
+  TextColumn get productId => text().references(Products, #id)();
+  TextColumn get warehouseId => text().references(Warehouses, #id)();
+  IntColumn get quantityDiff => integer()();
+  TextColumn get reason => text()();
+  TextColumn get performedBy => text().nullable().references(Users, #id)();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get lastUpdatedAt =>
+      dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+// Append-only ledger.
+@DataClassName('StockTransactionData')
+class StockTransactions extends Table {
+  TextColumn get id => text().clientDefault(() => UuidV7.generate())();
+  TextColumn get businessId => text().references(Businesses, #id)();
+  TextColumn get productId => text().references(Products, #id)();
+  TextColumn get locationId => text().references(Warehouses, #id)();
+  IntColumn get quantityDelta => integer()();
+  TextColumn get movementType => text()();
+  TextColumn get orderId => text().nullable().references(Orders, #id)();
+  TextColumn get transferId =>
+      text().nullable().references(StockTransfers, #id)();
+  TextColumn get adjustmentId =>
+      text().nullable().references(StockAdjustments, #id)();
+  TextColumn get purchaseId => text().nullable().references(Purchases, #id)();
+  TextColumn get performedBy => text().references(Users, #id)();
+  DateTimeColumn get voidedAt => dateTime().nullable()();
+  TextColumn get voidedBy => text().nullable().references(Users, #id)();
+  TextColumn get voidReason => text().nullable()();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get lastUpdatedAt =>
+      dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column> get primaryKey => {id};
+
+  @override
+  List<String> get customConstraints => [
+    "CHECK (movement_type IN ('sale','return','damage','transfer_out','transfer_in','purchase_received','adjustment'))",
+    '''CHECK (
+          (CASE WHEN order_id IS NOT NULL THEN 1 ELSE 0 END) +
+          (CASE WHEN transfer_id IS NOT NULL THEN 1 ELSE 0 END) +
+          (CASE WHEN adjustment_id IS NOT NULL THEN 1 ELSE 0 END) +
+          (CASE WHEN purchase_id IS NOT NULL THEN 1 ELSE 0 END) = 1
+        )''',
+  ];
+}
+
 @DataClassName('OrderData')
 class Orders extends Table {
-  IntColumn get id => integer().autoIncrement()();
-  IntColumn get businessId => integer().nullable().references(Businesses, #id)();
+  TextColumn get id => text().clientDefault(() => UuidV7.generate())();
+  TextColumn get businessId => text().references(Businesses, #id)();
   TextColumn get orderNumber => text()();
-  IntColumn get customerId => integer().nullable().references(Customers, #id)();
+  TextColumn get customerId => text().nullable().references(Customers, #id)();
   IntColumn get totalAmountKobo => integer()();
   IntColumn get discountKobo => integer().withDefault(const Constant(0))();
   IntColumn get netAmountKobo => integer()();
   IntColumn get amountPaidKobo => integer().withDefault(const Constant(0))();
   TextColumn get paymentType => text()();
-  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
-  DateTimeColumn get completedAt => dateTime().nullable()();
-  DateTimeColumn get cancelledAt => dateTime().nullable()();
-  TextColumn get status => text()(); // pending, completed, cancelled, refunded
+  TextColumn get status => text()();
   TextColumn get riderName =>
       text().withDefault(const Constant('Pick-up Order'))();
   TextColumn get cancellationReason => text().nullable()();
   TextColumn get barcode => text().nullable()();
-  IntColumn get staffId => integer().nullable().references(Users, #id)();
-  IntColumn get warehouseId =>
-      integer().nullable().references(Warehouses, #id)();
+  TextColumn get staffId => text().nullable().references(Users, #id)();
+  TextColumn get warehouseId => text().nullable().references(Warehouses, #id)();
   IntColumn get crateDepositPaidKobo =>
       integer().withDefault(const Constant(0))();
-  DateTimeColumn get lastUpdatedAt => dateTime().nullable()();
+  DateTimeColumn get completedAt => dateTime().nullable()();
+  DateTimeColumn get cancelledAt => dateTime().nullable()();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get lastUpdatedAt =>
+      dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column> get primaryKey => {id};
+
+  @override
+  List<String> get customConstraints => [
+    "CHECK (payment_type IN ('cash','transfer','card','wallet','credit','mixed'))",
+    "CHECK (status IN ('pending','completed','cancelled','refunded'))",
+    'UNIQUE (business_id, order_number)',
+  ];
 }
 
-// 10. Order Items
 @DataClassName('OrderItemData')
 class OrderItems extends Table {
-  IntColumn get id => integer().autoIncrement()();
-  IntColumn get businessId => integer().nullable().references(Businesses, #id)();
-  IntColumn get orderId => integer().references(Orders, #id)();
-  IntColumn get productId => integer().references(Products, #id)();
-  IntColumn get warehouseId => integer().references(Warehouses, #id)();
+  TextColumn get id => text().clientDefault(() => UuidV7.generate())();
+  TextColumn get businessId => text().references(Businesses, #id)();
+  TextColumn get orderId => text().references(Orders, #id)();
+  TextColumn get productId => text().references(Products, #id)();
+  TextColumn get warehouseId => text().references(Warehouses, #id)();
   IntColumn get quantity => integer()();
   IntColumn get unitPriceKobo => integer()();
   IntColumn get buyingPriceKobo => integer().withDefault(const Constant(0))();
   IntColumn get totalKobo => integer()();
   TextColumn get priceSnapshot => text().nullable()();
-  DateTimeColumn get lastUpdatedAt => dateTime().nullable()();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get lastUpdatedAt =>
+      dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column> get primaryKey => {id};
+
+  @override
+  List<String> get customConstraints => [
+    'CHECK (quantity > 0)',
+    "CHECK (price_snapshot IS NULL OR json_valid(price_snapshot))",
+  ];
 }
 
-// 11. Purchases
 @DataClassName('DeliveryData')
 class Purchases extends Table {
-  IntColumn get id => integer().autoIncrement()();
-  IntColumn get businessId => integer().nullable().references(Businesses, #id)();
-  IntColumn get supplierId => integer().references(Suppliers, #id)();
+  TextColumn get id => text().clientDefault(() => UuidV7.generate())();
+  TextColumn get businessId => text().references(Businesses, #id)();
+  TextColumn get supplierId => text().references(Suppliers, #id)();
   IntColumn get totalAmountKobo => integer()();
-  DateTimeColumn get timestamp => dateTime().withDefault(currentDateAndTime)();
   TextColumn get status => text()();
-  DateTimeColumn get lastUpdatedAt => dateTime().nullable()();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get lastUpdatedAt =>
+      dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column> get primaryKey => {id};
+
+  @override
+  List<String> get customConstraints => [
+    "CHECK (status IN ('pending','received','cancelled'))",
+  ];
 }
 
-// 12. Purchase Items
 @DataClassName('PurchaseItemData')
 class PurchaseItems extends Table {
-  IntColumn get id => integer().autoIncrement()();
-  IntColumn get businessId => integer().nullable().references(Businesses, #id)();
-  IntColumn get purchaseId => integer().references(Purchases, #id)();
-  IntColumn get productId => integer().references(Products, #id)();
+  TextColumn get id => text().clientDefault(() => UuidV7.generate())();
+  TextColumn get businessId => text().references(Businesses, #id)();
+  TextColumn get purchaseId => text().references(Purchases, #id)();
+  TextColumn get productId => text().references(Products, #id)();
   IntColumn get quantity => integer()();
   IntColumn get unitPriceKobo => integer()();
   IntColumn get totalKobo => integer()();
-  DateTimeColumn get lastUpdatedAt => dateTime().nullable()();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get lastUpdatedAt =>
+      dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column> get primaryKey => {id};
+
+  @override
+  List<String> get customConstraints => ['CHECK (quantity > 0)'];
 }
 
-// 13. Expenses
+@DataClassName('ExpenseCategoryData')
+class ExpenseCategories extends Table {
+  TextColumn get id => text().clientDefault(() => UuidV7.generate())();
+  TextColumn get businessId => text().references(Businesses, #id)();
+  TextColumn get name => text()();
+  BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get lastUpdatedAt =>
+      dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column> get primaryKey => {id};
+
+  @override
+  List<String> get customConstraints => ['UNIQUE (business_id, name)'];
+}
+
 @DataClassName('ExpenseData')
 class Expenses extends Table {
-  IntColumn get id => integer().autoIncrement()();
-  IntColumn get businessId => integer().nullable().references(Businesses, #id)();
-  IntColumn get categoryId =>
-      integer().nullable().references(ExpenseCategories, #id)();
-  TextColumn get category => text().withDefault(const Constant('Others'))();
+  TextColumn get id => text().clientDefault(() => UuidV7.generate())();
+  TextColumn get businessId => text().references(Businesses, #id)();
+  TextColumn get categoryId =>
+      text().nullable().references(ExpenseCategories, #id)();
   IntColumn get amountKobo => integer()();
   TextColumn get description => text()();
   TextColumn get paymentMethod => text().nullable()();
-  TextColumn get recordedBy => text().nullable()();
+  TextColumn get recordedBy => text().nullable().references(Users, #id)();
   TextColumn get reference => text().nullable()();
-  DateTimeColumn get timestamp => dateTime().withDefault(currentDateAndTime)();
-  IntColumn get warehouseId =>
-      integer().nullable().references(Warehouses, #id)();
-  DateTimeColumn get lastUpdatedAt => dateTime().nullable()();
+  TextColumn get warehouseId => text().nullable().references(Warehouses, #id)();
   BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
-}
-
-// 14. Expense Categories
-@DataClassName('ExpenseCategoryData')
-class ExpenseCategories extends Table {
-  IntColumn get id => integer().autoIncrement()();
-  IntColumn get businessId => integer().nullable().references(Businesses, #id)();
-  TextColumn get name => text()();
-  DateTimeColumn get lastUpdatedAt => dateTime().nullable()();
-  BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
-}
-
-// 15. Crates (Inventory)
-@DataClassName('CrateData')
-class Crates extends Table {
-  IntColumn get id => integer().autoIncrement()();
-  IntColumn get businessId => integer().nullable().references(Businesses, #id)();
-  IntColumn get productId => integer().references(Products, #id)();
-  IntColumn get totalCrates => integer()();
-  IntColumn get emptyReturned => integer().withDefault(const Constant(0))();
-  DateTimeColumn get timestamp => dateTime().withDefault(currentDateAndTime)();
-  DateTimeColumn get lastUpdatedAt => dateTime().nullable()();
-}
-
-// 16. Customer Crate Balances
-class CustomerCrateBalances extends Table {
-  IntColumn get businessId => integer().nullable().references(Businesses, #id)();
-  IntColumn get customerId => integer().references(Customers, #id)();
-  IntColumn get crateGroupId => integer().references(CrateGroups, #id)();
-  IntColumn get balance => integer().withDefault(const Constant(0))();
-  DateTimeColumn get lastUpdatedAt => dateTime().nullable()();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get lastUpdatedAt =>
+      dateTime().withDefault(currentDateAndTime)();
 
   @override
-  Set<Column> get primaryKey => {customerId, crateGroupId};
+  Set<Column> get primaryKey => {id};
+
+  @override
+  List<String> get customConstraints => [
+    'CHECK (amount_kobo > 0)',
+    "CHECK (payment_method IS NULL OR payment_method IN ('cash','transfer','card','pos','other'))",
+  ];
 }
 
-// 17. Sync Queue
-@DataClassName('SyncQueueData')
-class SyncQueue extends Table {
-  IntColumn get id => integer().autoIncrement()();
-  // Nullable at the SQL layer to match every other tenant column; the API
-  // (SyncDao.enqueue) requires non-null on insert and the v36 migration
-  // backfills or moves any pre-existing NULL row to SyncQueueOrphans.
-  IntColumn get businessId => integer().nullable().references(Businesses, #id)();
-  TextColumn get actionType => text()();
-  TextColumn get payload => text()();
+@DataClassName('DriverData')
+class Drivers extends Table {
+  TextColumn get id => text().clientDefault(() => UuidV7.generate())();
+  TextColumn get businessId => text().references(Businesses, #id)();
+  TextColumn get name => text()();
+  TextColumn get licenseNumber => text().nullable()();
+  TextColumn get phone => text().nullable()();
+  BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
-  BoolColumn get isSynced => boolean().withDefault(const Constant(false))();
-  TextColumn get status => text().withDefault(
-    const Constant('pending'),
-  )(); // pending, in_progress, done, failed
-  TextColumn get errorMessage => text().nullable()();
-  IntColumn get attempts => integer().withDefault(const Constant(0))();
-  DateTimeColumn get nextAttemptAt => dateTime().nullable()();
+  DateTimeColumn get lastUpdatedAt =>
+      dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column> get primaryKey => {id};
 }
 
-// 17b. Sync Queue Orphans — rows the v36 backfill could not attribute to any
-// tenant. Kept for diagnostics; never re-enters the push pipeline.
-@DataClassName('SyncQueueOrphanData')
-class SyncQueueOrphans extends Table {
-  IntColumn get id => integer().autoIncrement()();
-  IntColumn get originalId => integer()();
-  TextColumn get actionType => text()();
-  TextColumn get payload => text()();
-  TextColumn get reason => text()();
+@DataClassName('DeliveryReceiptData')
+class DeliveryReceipts extends Table {
+  TextColumn get id => text().clientDefault(() => UuidV7.generate())();
+  TextColumn get businessId => text().references(Businesses, #id)();
+  TextColumn get orderId => text().nullable().references(Orders, #id)();
+  TextColumn get driverId => text().references(Drivers, #id)();
+  TextColumn get status => text()();
+  DateTimeColumn get deliveredAt => dateTime().nullable()();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
-  DateTimeColumn get movedAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get lastUpdatedAt =>
+      dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column> get primaryKey => {id};
+
+  @override
+  List<String> get customConstraints => [
+    "CHECK (status IN ('pending','dispatched','delivered','failed','returned'))",
+  ];
 }
 
-// 18. App Settings
-@DataClassName('AppSettingData')
-class AppSettings extends Table {
+@DataClassName('SavedCartData')
+class SavedCarts extends Table {
+  TextColumn get id => text().clientDefault(() => UuidV7.generate())();
+  TextColumn get businessId => text().references(Businesses, #id)();
+  TextColumn get name => text()();
+  TextColumn get customerId => text().nullable().references(Customers, #id)();
+  TextColumn get cartData => text()();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get lastUpdatedAt =>
+      dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column> get primaryKey => {id};
+
+  @override
+  List<String> get customConstraints => ['CHECK (json_valid(cart_data))'];
+}
+
+@DataClassName('PendingCrateReturnData')
+class PendingCrateReturns extends Table {
+  TextColumn get id => text().clientDefault(() => UuidV7.generate())();
+  TextColumn get businessId => text().references(Businesses, #id)();
+  TextColumn get orderId => text().nullable().references(Orders, #id)();
+  TextColumn get customerId => text().references(Customers, #id)();
+  TextColumn get crateGroupId => text().references(CrateGroups, #id)();
+  IntColumn get quantity => integer()();
+  TextColumn get submittedBy => text().references(Users, #id)();
+  DateTimeColumn get submittedAt =>
+      dateTime().withDefault(currentDateAndTime)();
+  TextColumn get approvedBy => text().nullable().references(Users, #id)();
+  DateTimeColumn get approvedAt => dateTime().nullable()();
+  TextColumn get status => text().withDefault(const Constant('pending'))();
+  TextColumn get rejectionReason => text().nullable()();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get lastUpdatedAt =>
+      dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column> get primaryKey => {id};
+
+  @override
+  List<String> get customConstraints => [
+    'CHECK (quantity > 0)',
+    "CHECK (status IN ('pending','approved','rejected'))",
+  ];
+}
+
+// Append-only ledger.
+@DataClassName('PaymentTransactionData')
+class PaymentTransactions extends Table {
+  TextColumn get id => text().clientDefault(() => UuidV7.generate())();
+  TextColumn get businessId => text().references(Businesses, #id)();
+  IntColumn get amountKobo => integer()();
+  TextColumn get method => text()();
+  TextColumn get type => text()();
+  TextColumn get orderId => text().nullable().references(Orders, #id)();
+  TextColumn get purchaseId => text().nullable().references(Purchases, #id)();
+  TextColumn get expenseId => text().nullable().references(Expenses, #id)();
+  TextColumn get walletTxnId =>
+      text().nullable().references(WalletTransactions, #id)();
+  TextColumn get deliveryId =>
+      text().nullable().references(DeliveryReceipts, #id)();
+  TextColumn get performedBy => text().nullable().references(Users, #id)();
+  DateTimeColumn get voidedAt => dateTime().nullable()();
+  TextColumn get voidedBy => text().nullable().references(Users, #id)();
+  TextColumn get voidReason => text().nullable()();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get lastUpdatedAt =>
+      dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column> get primaryKey => {id};
+
+  @override
+  List<String> get customConstraints => [
+    "CHECK (method IN ('cash','transfer','card','wallet','pos','other'))",
+    "CHECK (type IN ('sale','purchase','expense','refund','wallet_topup'))",
+    '''CHECK (
+          (CASE WHEN order_id IS NOT NULL THEN 1 ELSE 0 END) +
+          (CASE WHEN purchase_id IS NOT NULL THEN 1 ELSE 0 END) +
+          (CASE WHEN expense_id IS NOT NULL THEN 1 ELSE 0 END) +
+          (CASE WHEN wallet_txn_id IS NOT NULL THEN 1 ELSE 0 END) +
+          (CASE WHEN delivery_id IS NOT NULL THEN 1 ELSE 0 END) = 1
+        )''',
+  ];
+}
+
+// Append-only ledger.
+@DataClassName('ActivityLogData')
+class ActivityLogs extends Table {
+  TextColumn get id => text().clientDefault(() => UuidV7.generate())();
+  TextColumn get businessId => text().references(Businesses, #id)();
+  TextColumn get userId => text().nullable().references(Users, #id)();
+  TextColumn get action => text()();
+  TextColumn get description => text()();
+  TextColumn get orderId => text().nullable().references(Orders, #id)();
+  TextColumn get productId => text().nullable().references(Products, #id)();
+  TextColumn get customerId => text().nullable().references(Customers, #id)();
+  TextColumn get expenseId => text().nullable().references(Expenses, #id)();
+  TextColumn get deliveryId =>
+      text().nullable().references(DeliveryReceipts, #id)();
+  TextColumn get walletTxnId =>
+      text().nullable().references(WalletTransactions, #id)();
+  TextColumn get warehouseId => text().nullable().references(Warehouses, #id)();
+  DateTimeColumn get voidedAt => dateTime().nullable()();
+  TextColumn get voidedBy => text().nullable().references(Users, #id)();
+  TextColumn get voidReason => text().nullable()();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get lastUpdatedAt =>
+      dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column> get primaryKey => {id};
+
+  @override
+  List<String> get customConstraints => [
+    '''CHECK (
+          (CASE WHEN order_id IS NOT NULL THEN 1 ELSE 0 END) +
+          (CASE WHEN product_id IS NOT NULL THEN 1 ELSE 0 END) +
+          (CASE WHEN customer_id IS NOT NULL THEN 1 ELSE 0 END) +
+          (CASE WHEN expense_id IS NOT NULL THEN 1 ELSE 0 END) +
+          (CASE WHEN delivery_id IS NOT NULL THEN 1 ELSE 0 END) +
+          (CASE WHEN wallet_txn_id IS NOT NULL THEN 1 ELSE 0 END) <= 1
+        )''',
+  ];
+}
+
+@DataClassName('NotificationData')
+class Notifications extends Table {
+  TextColumn get id => text().clientDefault(() => UuidV7.generate())();
+  TextColumn get businessId => text().references(Businesses, #id)();
+  TextColumn get type => text()();
+  TextColumn get message => text()();
+  BoolColumn get isRead => boolean().withDefault(const Constant(false))();
+  TextColumn get linkedRecordId => text().nullable()();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get lastUpdatedAt =>
+      dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+@DataClassName('SettingData')
+class Settings extends Table {
+  TextColumn get id => text().clientDefault(() => UuidV7.generate())();
+  TextColumn get businessId => text().references(Businesses, #id)();
   TextColumn get key => text()();
   TextColumn get value => text()();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get lastUpdatedAt =>
+      dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column> get primaryKey => {id};
+
+  @override
+  List<String> get customConstraints => ['UNIQUE (business_id, "key")'];
+}
+
+@DataClassName('SessionData')
+class Sessions extends Table {
+  TextColumn get id => text().clientDefault(() => UuidV7.generate())();
+  TextColumn get businessId => text().references(Businesses, #id)();
+  TextColumn get userId => text().references(Users, #id)();
+  TextColumn get token => text().nullable()();
+  DateTimeColumn get expiresAt => dateTime()();
+  DateTimeColumn get revokedAt => dateTime().nullable()();
+  TextColumn get userAgent => text().nullable()();
+  TextColumn get ipAddress => text().nullable()();
+  TextColumn get deviceId => text().nullable()();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get lastUpdatedAt =>
+      dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+@DataClassName('InviteData')
+class Invites extends Table {
+  TextColumn get id => text().clientDefault(() => UuidV7.generate())();
+  TextColumn get businessId => text().references(Businesses, #id)();
+  TextColumn get email => text()();
+  TextColumn get code => text()();
+  TextColumn get role => text()();
+  TextColumn get warehouseId => text().nullable().references(Warehouses, #id)();
+  TextColumn get createdBy => text().references(Users, #id)();
+  TextColumn get inviteeName => text()();
+  TextColumn get status => text().withDefault(const Constant('pending'))();
+  DateTimeColumn get expiresAt => dateTime()();
+  DateTimeColumn get usedAt => dateTime().nullable()();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get lastUpdatedAt =>
+      dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column> get primaryKey => {id};
+
+  @override
+  List<String> get customConstraints => [
+    "CHECK (role IN ('admin','staff','ceo','manager'))",
+    "CHECK (status IN ('pending','accepted','expired','revoked'))",
+  ];
+}
+
+// Global (non-tenant) config — replaces sentinel-business-id pattern.
+class SystemConfig extends Table {
+  TextColumn get key => text()();
+  TextColumn get value => text().nullable()();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get lastUpdatedAt =>
+      dateTime().withDefault(currentDateAndTime)();
 
   @override
   Set<Column> get primaryKey => {key};
 }
 
-// 19. Delivery Receipts
-@DataClassName('DeliveryReceiptData')
-class DeliveryReceipts extends Table {
-  IntColumn get id => integer().autoIncrement()();
-  IntColumn get businessId => integer().nullable().references(Businesses, #id)();
-  IntColumn get orderId => integer().nullable().references(Orders, #id)();
-  IntColumn get driverId => integer().references(Drivers, #id)();
-  TextColumn get status => text()();
-  DateTimeColumn get deliveredAt => dateTime().nullable()();
-  DateTimeColumn get lastUpdatedAt => dateTime().nullable()();
+// ---------------------------------------------------------------------------
+// Local-only tables (not synced to Supabase)
+// ---------------------------------------------------------------------------
+
+@DataClassName('SyncQueueData')
+class SyncQueue extends Table {
+  TextColumn get id => text().clientDefault(() => UuidV7.generate())();
+  TextColumn get businessId => text().references(Businesses, #id)();
+  TextColumn get actionType => text()();
+  TextColumn get payload => text()();
+  BoolColumn get isSynced => boolean().withDefault(const Constant(false))();
+  TextColumn get status => text().withDefault(const Constant('pending'))();
+  TextColumn get errorMessage => text().nullable()();
+  IntColumn get attempts => integer().withDefault(const Constant(0))();
+  DateTimeColumn get nextAttemptAt => dateTime().nullable()();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column> get primaryKey => {id};
+
+  @override
+  List<String> get customConstraints => [
+    "CHECK (status IN ('pending','syncing','completed','failed'))",
+  ];
 }
 
-// 20. Drivers
-@DataClassName('DriverData')
-class Drivers extends Table {
-  IntColumn get id => integer().autoIncrement()();
-  IntColumn get businessId => integer().nullable().references(Businesses, #id)();
-  TextColumn get name => text()();
-  TextColumn get licenseNumber => text().nullable()();
-  TextColumn get phone => text().nullable()();
-  DateTimeColumn get lastUpdatedAt => dateTime().nullable()();
-  BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
-}
-
-// 21. Price Lists
-@DataClassName('PriceListData')
-class PriceLists extends Table {
-  IntColumn get id => integer().autoIncrement()();
-  IntColumn get businessId => integer().nullable().references(Businesses, #id)();
-  TextColumn get name => text()();
-  IntColumn get productId => integer().references(Products, #id)();
-  IntColumn get priceKobo => integer()();
-  DateTimeColumn get effectiveFrom =>
-      dateTime().withDefault(currentDateAndTime)();
-  DateTimeColumn get lastUpdatedAt => dateTime().nullable()();
-  BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
-}
-
-// 22. Payment Transactions
-@DataClassName('PaymentTransactionData')
-class PaymentTransactions extends Table {
-  IntColumn get id => integer().autoIncrement()();
-  IntColumn get businessId => integer().nullable().references(Businesses, #id)();
-  IntColumn get referenceId => integer()();
-  TextColumn get type => text()(); // sale, purchase, expense
-  IntColumn get amountKobo => integer()();
-  TextColumn get method => text()();
-  DateTimeColumn get timestamp => dateTime().withDefault(currentDateAndTime)();
-  DateTimeColumn get lastUpdatedAt => dateTime().nullable()();
-}
-
-// 23. Stock Transfers
-@DataClassName('StockTransferData')
-class StockTransfers extends Table {
-  IntColumn get transferId => integer().autoIncrement()();
-  IntColumn get businessId => integer().nullable().references(Businesses, #id)();
-  IntColumn get fromLocationId => integer().references(Warehouses, #id)();
-  IntColumn get toLocationId => integer().references(Warehouses, #id)();
-  IntColumn get productId => integer().references(Products, #id)();
-  IntColumn get quantity => integer()();
-  TextColumn get status => text().withDefault(
-    const Constant('pending'),
-  )(); // pending, in_transit, received, cancelled
-  IntColumn get initiatedBy => integer().references(Users, #id)();
-  IntColumn get receivedBy => integer().nullable().references(Users, #id)();
-  DateTimeColumn get initiatedAt =>
-      dateTime().withDefault(currentDateAndTime)();
-  DateTimeColumn get receivedAt => dateTime().nullable()();
-  DateTimeColumn get lastUpdatedAt => dateTime().nullable()();
-}
-
-// 24. Stock Adjustments
-@DataClassName('StockAdjustmentData')
-class StockAdjustments extends Table {
-  IntColumn get id => integer().autoIncrement()();
-  IntColumn get businessId => integer().nullable().references(Businesses, #id)();
-  IntColumn get productId => integer().references(Products, #id)();
-  IntColumn get warehouseId => integer().references(Warehouses, #id)();
-  IntColumn get quantityDiff => integer()();
+@DataClassName('SyncQueueOrphanData')
+class SyncQueueOrphans extends Table {
+  TextColumn get id => text().clientDefault(() => UuidV7.generate())();
+  TextColumn get originalId => text()();
+  TextColumn get actionType => text()();
+  TextColumn get payload => text()();
   TextColumn get reason => text()();
-  DateTimeColumn get timestamp => dateTime().withDefault(currentDateAndTime)();
-  DateTimeColumn get lastUpdatedAt => dateTime().nullable()();
-}
-
-// 25. Activity Logs
-@DataClassName('ActivityLogData')
-class ActivityLogs extends Table {
-  IntColumn get id => integer().autoIncrement()();
-  IntColumn get businessId => integer().nullable().references(Businesses, #id)();
-  IntColumn get userId => integer().nullable().references(Users, #id)();
-  TextColumn get action => text()();
-  TextColumn get description => text()();
-  TextColumn get relatedEntityId => text().nullable()();
-  TextColumn get relatedEntityType => text().nullable()();
-  TextColumn get warehouseId => text().nullable()();
-  DateTimeColumn get timestamp => dateTime().withDefault(currentDateAndTime)();
-}
-
-// 26. Notifications
-@DataClassName('NotificationData')
-class Notifications extends Table {
-  IntColumn get id => integer().autoIncrement()();
-  IntColumn get businessId => integer().nullable().references(Businesses, #id)();
-  TextColumn get type => text()();
-  TextColumn get message => text()();
-  DateTimeColumn get timestamp => dateTime().withDefault(currentDateAndTime)();
-  BoolColumn get isRead => boolean().withDefault(const Constant(false))();
-  TextColumn get linkedRecordId => text().nullable()();
-}
-
-// 27. Settings
-@DataClassName('SettingData')
-class Settings extends Table {
-  IntColumn get id => integer().autoIncrement()();
-  IntColumn get businessId => integer().nullable().references(Businesses, #id)();
-  TextColumn get key => text().unique()();
-  TextColumn get value => text()();
-  DateTimeColumn get lastUpdatedAt => dateTime().nullable()();
-}
-
-// 28. Stock Transactions Ledger — source of truth for all stock movements
-@DataClassName('StockTransactionData')
-class StockTransactions extends Table {
-  // UUID v4 text PK — caller must set before insert
-  TextColumn get transactionId => text()();
-  IntColumn get businessId => integer().nullable().references(Businesses, #id)();
-
-  IntColumn get productId => integer().references(Products, #id)();
-  IntColumn get locationId => integer().references(Warehouses, #id)();
-
-  // Negative = outflow (sale, damage, transfer_out)
-  // Positive = inflow  (purchase_received, return, transfer_in, adjustment)
-  IntColumn get quantityDelta => integer()();
-
-  // movement_type: sale | return | damage | transfer_out | transfer_in | purchase_received | adjustment
-  TextColumn get movementType => text()();
-
-  TextColumn get referenceId =>
-      text().nullable()(); // orderId, transferId, etc.
-  IntColumn get performedBy => integer().references(Users, #id)();
-
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
-  DateTimeColumn get syncedAt => dateTime().nullable()();
-  DateTimeColumn get lastUpdatedAt => dateTime().nullable()();
+  DateTimeColumn get movedAt => dateTime().withDefault(currentDateAndTime)();
 
   @override
-  Set<Column> get primaryKey => {transactionId};
+  Set<Column> get primaryKey => {id};
 }
 
-// 29. Sessions
-@DataClassName('SessionData')
-class Sessions extends Table {
-  IntColumn get id => integer().autoIncrement()();
-  IntColumn get businessId => integer().nullable().references(Businesses, #id)();
-  IntColumn get userId => integer().references(Users, #id)();
-  TextColumn get token => text().nullable()();
-  DateTimeColumn get timestamp => dateTime().withDefault(currentDateAndTime)();
-}
-
-// 30. Customer Wallet Transactions
-@DataClassName('CustomerWalletTransactionData')
-class CustomerWalletTransactions extends Table {
-  IntColumn get id => integer().autoIncrement()();
-  IntColumn get businessId => integer().nullable().references(Businesses, #id)();
-  IntColumn get customerId => integer().references(Customers, #id)();
-  IntColumn get amountDeltaKobo => integer()();
-  TextColumn get type => text()(); // credit, debit, refund
-  IntColumn get staffId => integer().references(Users, #id)();
-  IntColumn get orderId => integer().nullable().references(Orders, #id)();
-  TextColumn get note => text().nullable()();
-  DateTimeColumn get timestamp => dateTime().withDefault(currentDateAndTime)();
-  DateTimeColumn get lastUpdatedAt => dateTime().nullable()();
-}
-
-// 31. Customer Wallets
-@DataClassName('CustomerWalletData')
-class CustomerWallets extends Table {
-  TextColumn get walletId => text()(); // UUID v4
-  IntColumn get businessId => integer().nullable().references(Businesses, #id)();
-  IntColumn get customerId => integer().unique().references(Customers, #id)();
-  TextColumn get currency => text().withDefault(const Constant('NGN'))();
-  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
-  BoolColumn get isActive => boolean().withDefault(const Constant(true))();
-  BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
-  DateTimeColumn get lastUpdatedAt => dateTime().nullable()();
-
-  @override
-  Set<Column> get primaryKey => {walletId};
-}
-
-// 32. Wallet Transactions
-@DataClassName('WalletTransactionData')
-class WalletTransactions extends Table {
-  TextColumn get txnId => text()(); // UUID v4
-  IntColumn get businessId => integer().nullable().references(Businesses, #id)();
-  TextColumn get walletId => text().references(CustomerWallets, #walletId)();
-  TextColumn get type => text()(); // credit, debit
-  IntColumn get amountKobo => integer()(); // always positive
-  TextColumn get referenceType =>
-      text()(); // topup_cash, topup_transfer, order_payment, refund, reward, fee
-  TextColumn get referenceId => text().nullable()();
-  IntColumn get performedBy => integer().references(Users, #id)();
-  BoolColumn get customerVerified =>
-      boolean().withDefault(const Constant(false))();
-  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
-  DateTimeColumn get syncedAt => dateTime().nullable()();
-  DateTimeColumn get lastUpdatedAt => dateTime().nullable()();
-
-  @override
-  Set<Column> get primaryKey => {txnId};
-}
-
-// 33. Saved Carts
-@DataClassName('SavedCartData')
-class SavedCarts extends Table {
-  IntColumn get id => integer().autoIncrement()();
-  IntColumn get businessId => integer().nullable().references(Businesses, #id)();
-  TextColumn get name => text()();
-  IntColumn get customerId => integer().nullable().references(Customers, #id)();
-  TextColumn get cartData => text()(); // JSON-encoded cart items
-  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
-  DateTimeColumn get lastUpdatedAt => dateTime().nullable()();
-}
-
-// 34. Pending Crate Returns — short returns awaiting manager approval
-@DataClassName('PendingCrateReturnData')
-class PendingCrateReturns extends Table {
-  IntColumn get id => integer().autoIncrement()();
-  IntColumn get businessId => integer().nullable().references(Businesses, #id)();
-  IntColumn get orderId => integer().references(Orders, #id)();
-  IntColumn get customerId => integer().references(Customers, #id)();
-  IntColumn get staffId => integer().references(Users, #id)();
-  TextColumn get returnDataJson =>
-      text()(); // JSON: [{crateGroupId,crateGroupName,expectedQty,returnedQty}]
-  TextColumn get status => text().withDefault(
-    const Constant('pending'),
-  )(); // pending/approved/rejected
-  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
-  DateTimeColumn get lastUpdatedAt => dateTime().nullable()();
-}
-
-// 36. Migration Events — records non-success outcomes of each migration step
-// so failures stop being silent. Written by MigrationLogger.runStep.
 @DataClassName('MigrationEventData')
 class MigrationEvents extends Table {
-  IntColumn get id => integer().autoIncrement()();
+  TextColumn get id => text().clientDefault(() => UuidV7.generate())();
   IntColumn get version => integer()();
   TextColumn get step => text()();
-  TextColumn get severity => text()(); // 'warning' | 'error'
+  TextColumn get severity => text()();
   TextColumn get errorMessage => text().nullable()();
   DateTimeColumn get occurredAt => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {id};
 }
 
-// 35. Invites
-@DataClassName('InviteData')
-class Invites extends Table {
-  IntColumn get id => integer().autoIncrement()();
-  TextColumn get email => text()();
-  TextColumn get code => text().unique()(); // 8-char, case-insensitive
-  TextColumn get role => text()();
-  IntColumn get warehouseId =>
-      integer().nullable().references(Warehouses, #id)();
-  IntColumn get businessId => integer().references(Businesses, #id)();
-  IntColumn get createdBy => integer().references(Users, #id)();
-  TextColumn get inviteeName => text()();
-  TextColumn get status => text().withDefault(
-    const Constant('pending'),
-  )(); // pending, accepted, expired, revoked
-  DateTimeColumn get expiresAt => dateTime()();
-  DateTimeColumn get usedAt => dateTime().nullable()();
-  DateTimeColumn get lastUpdatedAt => dateTime().nullable()();
-}
+// ---------------------------------------------------------------------------
+// Database
+// ---------------------------------------------------------------------------
 
 @DriftDatabase(
   tables: [
+    Businesses,
     CrateGroups,
     Manufacturers,
     Warehouses,
     Users,
     Categories,
-    Products,
-    Inventory,
-    Customers,
     Suppliers,
+    Products,
+    PriceLists,
+    Customers,
+    CustomerWallets,
+    WalletTransactions,
+    CustomerCrateBalances,
+    ManufacturerCrateBalances,
+    CrateLedger,
+    Inventory,
+    Crates,
+    StockTransfers,
+    StockAdjustments,
+    StockTransactions,
     Orders,
     OrderItems,
     Purchases,
     PurchaseItems,
-    Expenses,
     ExpenseCategories,
-    Crates,
-    CustomerCrateBalances,
-    SyncQueue,
-    SyncQueueOrphans,
-    AppSettings,
-    DeliveryReceipts,
+    Expenses,
     Drivers,
-    PriceLists,
+    DeliveryReceipts,
+    SavedCarts,
+    PendingCrateReturns,
     PaymentTransactions,
-    StockTransfers,
-    StockAdjustments,
     ActivityLogs,
     Notifications,
     Settings,
     Sessions,
-    CustomerWalletTransactions,
-    StockTransactions,
-    CustomerWallets,
-    WalletTransactions,
-    SavedCarts,
-    PendingCrateReturns,
-    Businesses,
     Invites,
+    SystemConfig,
+    SyncQueue,
+    SyncQueueOrphans,
     MigrationEvents,
   ],
   daos: [
@@ -688,45 +1012,55 @@ class Invites extends Table {
     StockLedgerDao,
     StockTransferDao,
     PendingCrateReturnsDao,
+    SessionsDao,
+    WalletTransactionsDao,
+    CustomerWalletsDao,
+    CrateGroupsDao,
+    CustomerCrateBalancesDao,
+    ManufacturerCrateBalancesDao,
+    CrateLedgerDao,
+    SettingsDao,
+    SystemConfigDao,
   ],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
+  /// Test-only constructor: lets unit tests pass an in-memory `NativeDatabase`
+  /// (or any `QueryExecutor`) without touching disk.
+  AppDatabase.forTesting(super.executor);
+
   /// Set once at login (and cleared on logout) by AuthService. DAOs that
   /// participate in the multi-tenant filter read through this so they don't
   /// have to depend on Riverpod or pass businessId explicitly.
-  int? Function() businessIdResolver = () => null;
-  int? get currentBusinessId => businessIdResolver();
+  String? Function() businessIdResolver = () => null;
+  String? get currentBusinessId => businessIdResolver();
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
     onCreate: (m) async {
       debugPrint('[AppDatabase] onCreate: Creating database tables...');
-      await transaction(() => m.createAll());
+      await transaction(() async {
+        await m.createAll();
+        for (final stmt in _postCreateStatements) {
+          await customStatement(stmt);
+        }
+      });
       debugPrint('[AppDatabase] onCreate: DB setup complete.');
     },
     onUpgrade: (m, from, to) async {
-      // Post-wipe installs (see lib/core/database/db_wipe.dart) always run
-      // onCreate, never onUpgrade. Reaching this branch means the wipe was
-      // bypassed or the marker file was tampered with.
-      throw StateError(
-        'Unexpected schema upgrade from v$from to v$to. '
-        'Post-wipe installs should always run onCreate, never onUpgrade. '
-        'Investigate db_wipe.dart and the cutover marker file.',
-      );
+      // No migrations yet — DB was rebuilt clean at v2 (post-wipe).
+      // Future migrations go here, keyed on `from`.
+      debugPrint('[AppDatabase] onUpgrade: v$from → v$to (no-op)');
     },
     beforeOpen: (details) async {
       await customStatement('PRAGMA foreign_keys = ON');
       await customStatement('PRAGMA journal_mode = WAL');
       await customStatement('PRAGMA synchronous = NORMAL');
 
-      // Schema self-heal audit. Compares Drift's declared schema against the
-      // actual SQLite layout and re-runs ALTER TABLE / CREATE TABLE for any
-      // drift.
       _lastSchemaAudit = await SchemaAudit(
         this,
         migratorFactory: () => createMigrator(),
@@ -738,13 +1072,18 @@ class AppDatabase extends _$AppDatabase {
   SchemaAuditResult? get lastSchemaAudit => _lastSchemaAudit;
 
   Future<void> clearAllData() async {
-    await transaction(() async {
-      await customStatement('PRAGMA foreign_keys = OFF');
-      for (final table in allTables) {
-        await delete(table).go();
-      }
+    // PRAGMA foreign_keys cannot be toggled inside a transaction — must run on
+    // the executor before transaction() opens.
+    await customStatement('PRAGMA foreign_keys = OFF');
+    try {
+      await transaction(() async {
+        for (final table in allTables) {
+          await delete(table).go();
+        }
+      });
+    } finally {
       await customStatement('PRAGMA foreign_keys = ON');
-    });
+    }
   }
 
   Future<void> resetDatabase() async {
@@ -755,19 +1094,14 @@ class AppDatabase extends _$AppDatabase {
 final database = AppDatabase();
 
 /// Completer-guarded DB readiness flag.
-/// Completes exactly once — safe to await from multiple screens concurrently.
 final Completer<void> _dbCompleter = Completer<void>();
 
-/// Public future for screens to await. Multiple awaits are safe (Completer
-/// only completes once; subsequent awaits return instantly).
 Future<void> get dbReady => _dbCompleter.future;
 
-/// Call once from main.dart after the warmup query succeeds.
 void markDbReady() {
   if (!_dbCompleter.isCompleted) _dbCompleter.complete();
 }
 
-/// Call from main.dart if the warmup query fails (screens still unblock).
 void markDbReadyWithError([Object? error]) {
   if (!_dbCompleter.isCompleted) {
     _dbCompleter.completeError(error ?? 'DB init failed');
@@ -779,10 +1113,9 @@ LazyDatabase _openConnection() {
     final dbFolder = await getApplicationDocumentsDirectory();
     final file = File(p.join(dbFolder.path, 'reebaplus_pos.sqlite'));
 
-    // Using standard NativeDatabase to avoid Isolate-related hangs on first launch.
     return NativeDatabase(
       file,
-      logStatements: false, // Set to true for deep debugging
+      logStatements: false,
       setup: (db) {
         db.execute('PRAGMA journal_mode = WAL');
         db.execute('PRAGMA synchronous = NORMAL');
@@ -792,4 +1125,259 @@ LazyDatabase _openConnection() {
       },
     );
   });
+}
+
+// ---------------------------------------------------------------------------
+// Indexes + triggers — applied in onCreate after createAll().
+// ---------------------------------------------------------------------------
+
+const List<String> _syncedTenantTables = [
+  'users',
+  'sessions',
+  'invites',
+  'warehouses',
+  'manufacturers',
+  'crate_groups',
+  'categories',
+  'suppliers',
+  'products',
+  'price_lists',
+  'customers',
+  'customer_wallets',
+  'wallet_transactions',
+  'customer_crate_balances',
+  'manufacturer_crate_balances',
+  'crate_ledger',
+  'inventory',
+  'crates',
+  'stock_transfers',
+  'stock_adjustments',
+  'stock_transactions',
+  'orders',
+  'order_items',
+  'purchases',
+  'purchase_items',
+  'drivers',
+  'delivery_receipts',
+  'saved_carts',
+  'pending_crate_returns',
+  'payment_transactions',
+  'expense_categories',
+  'expenses',
+  'activity_logs',
+  'notifications',
+  'settings',
+];
+
+const List<String> _softDeletableTables = [
+  'users',
+  'warehouses',
+  'manufacturers',
+  'crate_groups',
+  'categories',
+  'suppliers',
+  'products',
+  'price_lists',
+  'customers',
+  'customer_wallets',
+  'drivers',
+  'expense_categories',
+  'expenses',
+];
+
+class _LedgerImmutability {
+  final String table;
+  final List<String> immutableColumns;
+  const _LedgerImmutability(this.table, this.immutableColumns);
+}
+
+const List<_LedgerImmutability> _ledgerTables = [
+  _LedgerImmutability('stock_transactions', [
+    'id',
+    'business_id',
+    'product_id',
+    'location_id',
+    'quantity_delta',
+    'movement_type',
+    'order_id',
+    'transfer_id',
+    'adjustment_id',
+    'purchase_id',
+    'performed_by',
+    'created_at',
+  ]),
+  _LedgerImmutability('wallet_transactions', [
+    'id',
+    'business_id',
+    'wallet_id',
+    'customer_id',
+    'type',
+    'amount_kobo',
+    'signed_amount_kobo',
+    'reference_type',
+    'order_id',
+    'performed_by',
+    'customer_verified',
+    'created_at',
+  ]),
+  _LedgerImmutability('payment_transactions', [
+    'id',
+    'business_id',
+    'amount_kobo',
+    'method',
+    'type',
+    'order_id',
+    'purchase_id',
+    'expense_id',
+    'wallet_txn_id',
+    'delivery_id',
+    'performed_by',
+    'created_at',
+  ]),
+  _LedgerImmutability('activity_logs', [
+    'id',
+    'business_id',
+    'user_id',
+    'action',
+    'description',
+    'order_id',
+    'product_id',
+    'customer_id',
+    'expense_id',
+    'delivery_id',
+    'wallet_txn_id',
+    'warehouse_id',
+    'created_at',
+  ]),
+  _LedgerImmutability('crate_ledger', [
+    'id',
+    'business_id',
+    'customer_id',
+    'manufacturer_id',
+    'crate_group_id',
+    'quantity_delta',
+    'movement_type',
+    'reference_order_id',
+    'reference_return_id',
+    'performed_by',
+    'created_at',
+  ]),
+];
+
+List<String> get _postCreateStatements {
+  final stmts = <String>[];
+
+  // -- Sync indexes --
+  stmts.add(
+    'CREATE INDEX idx_businesses_last_updated_at ON businesses (last_updated_at)',
+  );
+  for (final t in _syncedTenantTables) {
+    stmts.add(
+      'CREATE INDEX idx_${t}_business_lua ON $t (business_id, last_updated_at)',
+    );
+  }
+
+  // -- Soft-delete indexes --
+  for (final t in _softDeletableTables) {
+    stmts.add(
+      'CREATE INDEX idx_${t}_business_deleted ON $t (business_id, is_deleted)',
+    );
+  }
+
+  // -- Hot-path indexes (mirror Supabase) --
+  stmts.addAll([
+    'CREATE INDEX idx_sessions_user_active ON sessions (user_id, revoked_at, expires_at)',
+    'CREATE INDEX idx_products_category ON products (category_id)',
+    'CREATE INDEX idx_products_name ON products (business_id, name)',
+    'CREATE INDEX idx_price_lists_product ON price_lists (product_id, effective_from)',
+    'CREATE INDEX idx_customers_business_phone ON customers (business_id, phone)',
+    'CREATE INDEX idx_wallet_txn_business_cust_time ON wallet_transactions (business_id, customer_id, created_at)',
+    'CREATE INDEX idx_crate_ledger_owner_group ON crate_ledger (business_id, customer_id, manufacturer_id, crate_group_id, created_at)',
+    'CREATE INDEX idx_inventory_business_pw ON inventory (business_id, product_id, warehouse_id)',
+    'CREATE INDEX idx_stock_txn_prod_loc_time ON stock_transactions (product_id, location_id, created_at)',
+    'CREATE INDEX idx_orders_business_time ON orders (business_id, created_at)',
+    'CREATE INDEX idx_orders_business_status ON orders (business_id, status)',
+    'CREATE INDEX idx_order_items_order ON order_items (order_id)',
+    'CREATE INDEX idx_order_items_product ON order_items (product_id)',
+    'CREATE INDEX idx_purchase_items_purchase ON purchase_items (purchase_id)',
+    'CREATE INDEX idx_pcr_business_status ON pending_crate_returns (business_id, status)',
+    'CREATE INDEX idx_payment_txn_business_type ON payment_transactions (business_id, type, created_at)',
+    'CREATE INDEX idx_expenses_business_time ON expenses (business_id, created_at)',
+    'CREATE INDEX idx_activity_logs_business_time ON activity_logs (business_id, created_at)',
+  ]);
+
+  // -- Partial unique on invites.code WHERE status='pending' --
+  stmts.add(
+    "CREATE UNIQUE INDEX uq_invites_pending_code ON invites (code) WHERE status = 'pending'",
+  );
+
+  // -- bump_<table>_last_updated_at triggers --
+  // Recursion guard: only bump when last_updated_at wasn't modified by the
+  // caller. SQLite's `IS` is null-safe equality.
+  stmts.add(
+    'CREATE TRIGGER bump_businesses_last_updated_at '
+    'AFTER UPDATE ON businesses '
+    'FOR EACH ROW '
+    'WHEN OLD.last_updated_at IS NEW.last_updated_at '
+    'BEGIN '
+    "UPDATE businesses SET last_updated_at = CAST(strftime('%s', 'now') AS INTEGER) WHERE id = OLD.id; "
+    'END',
+  );
+  for (final t in _syncedTenantTables) {
+    stmts.add(
+      'CREATE TRIGGER bump_${t}_last_updated_at '
+      'AFTER UPDATE ON $t '
+      'FOR EACH ROW '
+      'WHEN OLD.last_updated_at IS NEW.last_updated_at '
+      'BEGIN '
+      "UPDATE $t SET last_updated_at = CAST(strftime('%s', 'now') AS INTEGER) WHERE id = OLD.id; "
+      'END',
+    );
+  }
+  // system_config keys on `key`, not `id`.
+  stmts.add(
+    'CREATE TRIGGER bump_system_config_last_updated_at '
+    'AFTER UPDATE ON system_config '
+    'FOR EACH ROW '
+    'WHEN OLD.last_updated_at IS NEW.last_updated_at '
+    'BEGIN '
+    "UPDATE system_config SET last_updated_at = CAST(strftime('%s', 'now') AS INTEGER) WHERE key = OLD.key; "
+    'END',
+  );
+
+  // -- bump_products_version --
+  stmts.add(
+    'CREATE TRIGGER bump_products_version '
+    'AFTER UPDATE ON products '
+    'FOR EACH ROW '
+    'WHEN OLD.version IS NEW.version '
+    'BEGIN '
+    'UPDATE products SET version = OLD.version + 1 WHERE id = OLD.id; '
+    'END',
+  );
+
+  // -- Append-only enforcement on ledgers --
+  for (final ledger in _ledgerTables) {
+    final whenClause = ledger.immutableColumns
+        .map((c) => 'NEW.$c IS NOT OLD.$c')
+        .join(' OR ');
+    stmts.add(
+      'CREATE TRIGGER ${ledger.table}_immutable '
+      'BEFORE UPDATE ON ${ledger.table} '
+      'FOR EACH ROW '
+      'WHEN $whenClause '
+      'BEGIN '
+      "SELECT RAISE(ABORT, 'append-only: only voided_at/voided_by/void_reason may change'); "
+      'END',
+    );
+    stmts.add(
+      'CREATE TRIGGER ${ledger.table}_no_delete '
+      'BEFORE DELETE ON ${ledger.table} '
+      'BEGIN '
+      "SELECT RAISE(ABORT, 'append-only: deletion not permitted'); "
+      'END',
+    );
+  }
+
+  return stmts;
 }

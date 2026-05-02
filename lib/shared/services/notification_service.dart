@@ -28,10 +28,7 @@ class NotificationService extends ValueNotifier<List<NotificationModel>> {
   }
 
   Future<void> markAsRead(String id) async {
-    final intId = int.tryParse(id);
-    if (intId != null) {
-      await _db.notificationsDao.markRead(intId);
-    }
+    await _db.notificationsDao.markRead(id);
   }
 
   Future<void> markAllAsRead() async {
@@ -39,10 +36,7 @@ class NotificationService extends ValueNotifier<List<NotificationModel>> {
   }
 
   Future<void> deleteNotification(String id) async {
-    final intId = int.tryParse(id);
-    if (intId != null) {
-      await _db.notificationsDao.deleteSingle(intId);
-    }
+    await _db.notificationsDao.deleteSingle(id);
   }
 
   Future<void> clearAll() async {

@@ -38,7 +38,7 @@ class _AddCustomerSheetState extends ConsumerState<AddCustomerSheet> {
 
   // Warehouse selection (CEO only)
   List<WarehouseData> _warehouses = [];
-  int? _selectedWarehouseId;
+  String? _selectedWarehouseId;
   bool get _isCeo => (ref.read(authProvider).currentUser?.roleTier ?? 0) >= 5;
 
   @override
@@ -203,12 +203,12 @@ class _AddCustomerSheetState extends ConsumerState<AddCustomerSheet> {
                           ),
                           _groupDropdown(),
                           if (_isCeo) ...[
-                            AppDropdown<int>(
+                            AppDropdown<String>(
                               labelText: 'Assign to Warehouse',
                               value: _selectedWarehouseId,
                               hintText: 'Select warehouse',
                               items: _warehouses.map((wh) {
-                                return DropdownMenuItem<int>(
+                                return DropdownMenuItem<String>(
                                   value: wh.id,
                                   child: Text(wh.name),
                                 );
@@ -277,7 +277,7 @@ class _AddCustomerSheetState extends ConsumerState<AddCustomerSheet> {
                                 : ref.read(authProvider).currentUser?.warehouseId;
 
                             final newCustomer = Customer(
-                              id: 0, // Database will generate this
+                              id: '', // Database will generate this
                               name: _nameCtrl.text.trim(),
                               addressText: _addressCtrl.text.trim(),
                               googleMapsLocation: _locationCtrl.text.trim(),

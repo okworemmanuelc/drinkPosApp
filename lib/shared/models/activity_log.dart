@@ -5,32 +5,47 @@ class ActivityLog {
   final String action;
   final String description;
   final DateTime timestamp;
-  final String? relatedEntityId;
-  final String? relatedEntityType;
   final String? warehouseId;
-  final int? userId;
+  final String? userId;
+
+  // Typed FKs (PR 4)
+  final String? orderId;
+  final String? productId;
+  final String? customerId;
+  final String? expenseId;
+  final String? deliveryId;
+  final String? walletTxnId;
 
   ActivityLog({
     required this.id,
     required this.action,
     required this.description,
     required this.timestamp,
-    this.relatedEntityId,
-    this.relatedEntityType,
     this.warehouseId,
     this.userId,
+    this.orderId,
+    this.productId,
+    this.customerId,
+    this.expenseId,
+    this.deliveryId,
+    this.walletTxnId,
   });
 
   factory ActivityLog.fromDb(ActivityLogData data) {
     return ActivityLog(
-      id: data.id.toString(),
+      id: data.id,
       action: data.action,
       description: data.description,
-      timestamp: data.timestamp,
-      relatedEntityId: data.relatedEntityId,
-      relatedEntityType: data.relatedEntityType,
+      timestamp: data.createdAt,
       warehouseId: data.warehouseId,
       userId: data.userId,
+      orderId: data.orderId,
+      productId: data.productId,
+      customerId: data.customerId,
+      expenseId: data.expenseId,
+      deliveryId: data.deliveryId,
+      walletTxnId: data.walletTxnId,
     );
   }
 }
+

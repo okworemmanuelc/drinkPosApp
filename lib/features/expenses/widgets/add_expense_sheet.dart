@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:drift/drift.dart' hide Column;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:intl/intl.dart';
@@ -7,10 +6,8 @@ import 'package:intl/intl.dart';
 import 'package:reebaplus_pos/core/providers/app_providers.dart';
 import 'package:reebaplus_pos/core/theme/colors.dart';
 
-import 'package:reebaplus_pos/core/utils/number_format.dart';
 import 'package:reebaplus_pos/core/utils/responsive.dart';
 import 'package:reebaplus_pos/core/utils/currency_input_formatter.dart';
-import 'package:reebaplus_pos/core/database/app_database.dart';
 import 'package:reebaplus_pos/core/utils/constants.dart';
 import 'package:reebaplus_pos/core/utils/notifications.dart';
 import 'package:file_picker/file_picker.dart';
@@ -150,25 +147,17 @@ class _AddExpenseSheetState extends ConsumerState<AddExpenseSheet> {
 
     final db = ref.read(databaseProvider);
     final auth = ref.read(authProvider);
+    final currentUser = auth.currentUser;
+    if (currentUser == null) return;
 
     await db.expensesDao.addExpense(
-      ExpensesCompanion.insert(
-        category: Value(_selectedCategory),
-        amountKobo: amtKobo,
-        description: desc,
-        paymentMethod: Value(_paymentMethod),
-        recordedBy: Value(_recordedByCtrl.text),
-        reference: Value(_refCtrl.text),
-        timestamp: Value(_selectedDate),
-        warehouseId: Value(auth.currentUser?.warehouseId),
-        businessId: Value(auth.currentUser?.businessId),
-      ),
-    );
-
-    await ref.read(activityLogProvider).logAction(
-      'Expense Recorded',
-      'Logged $_selectedCategory expense of ${formatCurrency(amount)} via $_paymentMethod',
-      relatedEntityType: 'expense',
+      categoryName: _selectedCategory,
+      amountKobo: amtKobo,
+      description: desc,
+      paymentMethod: _paymentMethod,
+      reference: _refCtrl.text,
+      warehouseId: currentUser.warehouseId,
+      recordedBy: currentUser.id,
     );
 
     if (mounted) Navigator.pop(context);

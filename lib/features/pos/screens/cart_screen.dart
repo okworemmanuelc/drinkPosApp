@@ -171,6 +171,7 @@ class _CartScreenState extends ConsumerState<CartScreen>
               customerId: drift.Value(_activeCustomer?.id),
               cartData: cartJson,
               createdAt: drift.Value(DateTime.now()),
+              businessId: ref.read(authProvider).currentUser?.businessId ?? '',
             ),
           );
 
@@ -296,7 +297,7 @@ class _CartScreenState extends ConsumerState<CartScreen>
     final isManagerOrAbove = roleTier >= 4;
 
     // Default picker warehouse based on role
-    int? defaultPickerWarehouseId;
+    String? defaultPickerWarehouseId;
     if (roleTier >= 5) {
       defaultPickerWarehouseId = ref
           .read(navigationProvider)
@@ -313,7 +314,7 @@ class _CartScreenState extends ConsumerState<CartScreen>
       backgroundColor: Colors.transparent,
       builder: (modalCtx) {
         String searchQuery = '';
-        int? pickerWarehouseId = defaultPickerWarehouseId;
+        String? pickerWarehouseId = defaultPickerWarehouseId;
         return GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTap: () => Navigator.pop(modalCtx),
@@ -428,10 +429,10 @@ class _CartScreenState extends ConsumerState<CartScreen>
                                   ),
                                   SizedBox(width: modalCtx.getRSize(6)),
                                   Expanded(
-                                    child: AppDropdown<int?>(
+                                    child: AppDropdown<String?>(
                                       value: pickerWarehouseId,
                                       items: [
-                                        DropdownMenuItem<int?>(
+                                        DropdownMenuItem<String?>(
                                           value: null,
                                           child: Text(
                                             'All Warehouses',
@@ -447,7 +448,7 @@ class _CartScreenState extends ConsumerState<CartScreen>
                                           ),
                                         ),
                                         ..._warehouses.map(
-                                          (w) => DropdownMenuItem<int?>(
+                                          (w) => DropdownMenuItem<String?>(
                                             value: w.id,
                                             child: Text(
                                               w.name,
@@ -546,7 +547,10 @@ class _CartScreenState extends ConsumerState<CartScreen>
   Widget _buildCustomerTile(Customer? customer, BuildContext modalCtx) {
     final bool isSelected = _activeCustomer?.id == customer?.id;
     final name = customer?.name ?? 'Walk-in Customer';
-    final customerWallet = customer?.customerWallet ?? 0.0;
+    final balanceKobo = customer == null
+        ? 0
+        : (ref.watch(walletBalancesKoboProvider).valueOrNull?[customer.id] ?? 0);
+    final customerWallet = balanceKobo / 100.0;
     final isOwe = customerWallet < 0;
 
     return InkWell(
@@ -847,15 +851,15 @@ class _CartScreenState extends ConsumerState<CartScreen>
     // Required deposit = emptyCrateValueKobo × qty for each bottle item.
     double computedDeposit = 0;
     final List<_CrateDepositLine> depositLines = [];
-    final Map<int, double> mfrAmounts = {};
-    final Map<int, double> mfrQtys = {};
-    final Map<int, String> mfrNames = {};
+    final Map<String, double> mfrAmounts = {};
+    final Map<String, double> mfrQtys = {};
+    final Map<String, String> mfrNames = {};
     // Tracks items with no manufacturerId, keyed by product name
     final Map<String, double> ungroupedAmounts = {};
     final Map<String, double> ungroupedQtys = {};
 
     for (final item in bottleItems) {
-      final mfrId = item['manufacturerId'] as int?;
+      final mfrId = item['manufacturerId'] as String?;
       final qty = (item['qty'] as num).toDouble();
       final int crateValueKobo = (item['emptyCrateValueKobo'] as int?) ?? 0;
 
@@ -882,7 +886,7 @@ class _CartScreenState extends ConsumerState<CartScreen>
       depositLines.add(
         _CrateDepositLine(
           label: mfrNames[mfrId]!,
-          color: _cgColors[mfrId % _cgColors.length],
+          color: _cgColors[mfrId.hashCode.abs() % _cgColors.length],
           qty: mfrQtys[mfrId]!,
           amount: mfrAmounts[mfrId]!,
         ),
@@ -921,7 +925,13 @@ class _CartScreenState extends ConsumerState<CartScreen>
     final tot = sub + _crateDeposit - customerCrateCredit;
 
     final customerName = _activeCustomer?.name ?? 'Walk-in Customer';
-    final customerWallet = _activeCustomer?.customerWallet ?? 0.0;
+    final activeBalanceKobo = _activeCustomer == null
+        ? 0
+        : (ref
+                .watch(walletBalancesKoboProvider)
+                .valueOrNull?[_activeCustomer!.id] ??
+            0);
+    final customerWallet = activeBalanceKobo / 100.0;
     final isOwe = customerWallet < 0;
 
     return SharedScaffold(

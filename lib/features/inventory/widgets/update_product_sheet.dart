@@ -20,7 +20,7 @@ import 'package:reebaplus_pos/shared/widgets/app_input.dart';
 class UpdateProductSheet extends ConsumerStatefulWidget {
   final ProductData product;
   final int totalStock;
-  final int? currentWarehouseId;
+  final String? currentWarehouseId;
   final VoidCallback? onProductUpdated;
 
   const UpdateProductSheet({
@@ -101,7 +101,8 @@ class _UpdateProductSheetState extends ConsumerState<UpdateProductSheet> {
     _lowStockCtrl = TextEditingController(text: p.lowStockThreshold.toString());
     _qtyToAddCtrl = TextEditingController(text: '0');
     _supplierCtrl = TextEditingController();
-    _manufacturerCtrl = TextEditingController(text: p.manufacturer ?? '');
+    // Manufacturer name is populated in _loadData() via FK lookup.
+    _manufacturerCtrl = TextEditingController();
     _imagePath = p.imagePath;
 
     _unit = p.unit;
@@ -242,13 +243,15 @@ class _UpdateProductSheetState extends ConsumerState<UpdateProductSheet> {
 
   Future<ManufacturerData?> _getOrCreateManufacturer(String name) async {
     final db = ref.read(databaseProvider);
+    final businessId = ref.read(authProvider).currentUser?.businessId;
+    if (businessId == null) return null;
     final existing = await db.inventoryDao.getAllManufacturers();
     final match = existing
         .where((m) => m.name.toLowerCase() == name.toLowerCase())
         .firstOrNull;
     if (match != null) return match;
     final id = await db.inventoryDao.insertManufacturer(
-      ManufacturersCompanion.insert(name: name),
+      ManufacturersCompanion.insert(name: name, businessId: businessId),
     );
     final manufacturers = await db.inventoryDao.getAllManufacturers();
     return manufacturers.firstWhere((m) => m.id == id);
@@ -256,13 +259,15 @@ class _UpdateProductSheetState extends ConsumerState<UpdateProductSheet> {
 
   Future<SupplierData?> _getOrCreateSupplier(String name) async {
     final db = ref.read(databaseProvider);
+    final businessId = ref.read(authProvider).currentUser?.businessId;
+    if (businessId == null) return null;
     final existing = await db.catalogDao.getAllSuppliers();
     final match = existing
         .where((s) => s.name.toLowerCase() == name.toLowerCase())
         .firstOrNull;
     if (match != null) return match;
     final id = await db.catalogDao.insertSupplier(
-      SuppliersCompanion.insert(name: name),
+      SuppliersCompanion.insert(name: name, businessId: businessId),
     );
     final suppliers = await db.catalogDao.getAllSuppliers();
     return suppliers.firstWhere((s) => s.id == id);
@@ -357,7 +362,6 @@ class _UpdateProductSheetState extends ConsumerState<UpdateProductSheet> {
       await db.catalogDao.updateProductDetails(
         widget.product.id,
         name: name,
-        manufacturer: _selectedManufacturer?.name,
         manufacturerId: _selectedManufacturer?.id,
         buyingPriceKobo: buyingKobo,
         retailPriceKobo: retailKobo,
@@ -402,8 +406,7 @@ class _UpdateProductSheetState extends ConsumerState<UpdateProductSheet> {
             'update_product',
             '${auth.currentUser?.name ?? 'Unknown'} updated product: $name'
                 '${qtyToAdd > 0 ? ', added $qtyToAdd units' : ''}',
-            relatedEntityId: widget.product.id.toString(),
-            relatedEntityType: 'product',
+            productId: widget.product.id,
           );
 
       if (mounted) {

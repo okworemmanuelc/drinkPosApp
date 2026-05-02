@@ -6,12 +6,13 @@ import 'package:intl/intl.dart';
 import 'package:reebaplus_pos/core/database/daos.dart';
 import 'package:reebaplus_pos/core/providers/app_providers.dart';
 import 'package:reebaplus_pos/core/theme/design_tokens.dart';
+import 'package:reebaplus_pos/core/utils/business_time.dart';
 import 'package:reebaplus_pos/core/utils/number_format.dart';
 import 'package:reebaplus_pos/core/utils/responsive.dart';
 import 'package:reebaplus_pos/shared/widgets/shimmer_loading.dart';
 
 class InventoryHistoryTab extends ConsumerStatefulWidget {
-  final int? warehouseId;
+  final String? warehouseId;
 
   const InventoryHistoryTab({super.key, this.warehouseId});
 
@@ -25,13 +26,26 @@ class _InventoryHistoryTabState extends ConsumerState<InventoryHistoryTab> {
   StreamSubscription? _sub;
   bool _loading = true;
   String _selectedPeriod = 'Today';
+  String _businessTz = 'UTC';
 
   static const _periods = ['Today', '7 Days', '30 Days', 'All'];
 
   @override
   void initState() {
     super.initState();
+    _loadTimezone();
     _subscribe();
+  }
+
+  Future<void> _loadTimezone() async {
+    final db = ref.read(databaseProvider);
+    final businessId = db.currentBusinessId;
+    if (businessId == null) return;
+    final tz = await getBusinessTimezone(db, businessId);
+    if (mounted && tz != _businessTz) {
+      setState(() => _businessTz = tz);
+      _subscribe();
+    }
   }
 
   @override
@@ -56,8 +70,8 @@ class _InventoryHistoryTabState extends ConsumerState<InventoryHistoryTab> {
     final dates = _getDateRange(_selectedPeriod);
     final wId =
         widget.warehouseId is String && widget.warehouseId.toString() == 'all'
-            ? null
-            : widget.warehouseId;
+        ? null
+        : widget.warehouseId;
 
     _sub = db.stockLedgerDao
         .watchAllTransactionsFiltered(
@@ -66,20 +80,20 @@ class _InventoryHistoryTabState extends ConsumerState<InventoryHistoryTab> {
           endDate: dates.$2,
         )
         .listen((data) {
-      if (mounted) {
-        setState(() {
-          _transactions = data;
-          _loading = false;
+          if (mounted) {
+            setState(() {
+              _transactions = data;
+              _loading = false;
+            });
+          }
         });
-      }
-    });
   }
 
   (DateTime?, DateTime?) _getDateRange(String period) {
     final now = DateTime.now();
     switch (period) {
       case 'Today':
-        return (DateTime(now.year, now.month, now.day), null);
+        return (localDayStartUtc(now, _businessTz), null);
       case '7 Days':
         return (now.subtract(const Duration(days: 7)), null);
       case '30 Days':
@@ -130,7 +144,11 @@ class _InventoryHistoryTabState extends ConsumerState<InventoryHistoryTab> {
             padding: EdgeInsets.symmetric(horizontal: context.spacingM),
             itemCount: _transactions.length,
             itemBuilder: (context, index) => _buildTransactionRow(
-                context, colorScheme, _transactions[index], index),
+              context,
+              colorScheme,
+              _transactions[index],
+              index,
+            ),
           ),
         ),
       ],
@@ -187,20 +205,37 @@ class _InventoryHistoryTabState extends ConsumerState<InventoryHistoryTab> {
       padding: EdgeInsets.symmetric(horizontal: context.spacingM),
       child: Row(
         children: [
-          Expanded(child: _summaryCard(context, 'Stock In',
-              '+${fmtNumber(totalIn)} units', AppColors.success,
-              Icons.arrow_downward_rounded)),
+          Expanded(
+            child: _summaryCard(
+              context,
+              'Stock In',
+              '+${fmtNumber(totalIn)} units',
+              AppColors.success,
+              Icons.arrow_downward_rounded,
+            ),
+          ),
           SizedBox(width: context.spacingS),
-          Expanded(child: _summaryCard(context, 'Stock Out',
-              '-${fmtNumber(totalOut)} units', AppColors.danger,
-              Icons.arrow_upward_rounded)),
+          Expanded(
+            child: _summaryCard(
+              context,
+              'Stock Out',
+              '-${fmtNumber(totalOut)} units',
+              AppColors.danger,
+              Icons.arrow_upward_rounded,
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _summaryCard(BuildContext context, String label, String value,
-      Color color, IconData icon) {
+  Widget _summaryCard(
+    BuildContext context,
+    String label,
+    String value,
+    Color color,
+    IconData icon,
+  ) {
     return Container(
       padding: EdgeInsets.all(context.spacingS),
       decoration: BoxDecoration(
@@ -216,9 +251,13 @@ class _InventoryHistoryTabState extends ConsumerState<InventoryHistoryTab> {
               Icon(icon, color: color, size: context.getRSize(14)),
               SizedBox(width: context.spacingXs),
               Flexible(
-                child: Text(label,
-                    style: context.bodySmall.copyWith(
-                        color: color, fontSize: context.getRFontSize(11))),
+                child: Text(
+                  label,
+                  style: context.bodySmall.copyWith(
+                    color: color,
+                    fontSize: context.getRFontSize(11),
+                  ),
+                ),
               ),
             ],
           ),
@@ -259,8 +298,7 @@ class _InventoryHistoryTabState extends ConsumerState<InventoryHistoryTab> {
           top: Radius.circular(context.radiusM),
         ),
         border: Border(
-          bottom:
-              BorderSide(color: colorScheme.outline.withValues(alpha: 0.2)),
+          bottom: BorderSide(color: colorScheme.outline.withValues(alpha: 0.2)),
         ),
       ),
       child: Row(
@@ -268,14 +306,14 @@ class _InventoryHistoryTabState extends ConsumerState<InventoryHistoryTab> {
           Expanded(flex: 4, child: Text('PRODUCT', style: headerStyle)),
           Expanded(flex: 3, child: Text('TYPE', style: headerStyle)),
           Expanded(
-              flex: 2,
-              child: Text('QTY', textAlign: TextAlign.center,
-                  style: headerStyle)),
+            flex: 2,
+            child: Text('QTY', textAlign: TextAlign.center, style: headerStyle),
+          ),
           Expanded(flex: 3, child: Text('USER', style: headerStyle)),
           Expanded(
-              flex: 2,
-              child: Text('DATE', textAlign: TextAlign.end,
-                  style: headerStyle)),
+            flex: 2,
+            child: Text('DATE', textAlign: TextAlign.end, style: headerStyle),
+          ),
         ],
       ),
     );
@@ -327,8 +365,11 @@ class _InventoryHistoryTabState extends ConsumerState<InventoryHistoryTab> {
                 if (tx.isAdjustment)
                   Padding(
                     padding: const EdgeInsets.only(right: 2),
-                    child: Icon(Icons.warning_amber_rounded,
-                        color: AppColors.warning, size: context.getRSize(10)),
+                    child: Icon(
+                      Icons.warning_amber_rounded,
+                      color: AppColors.warning,
+                      size: context.getRSize(10),
+                    ),
                   ),
                 Flexible(
                   child: Container(

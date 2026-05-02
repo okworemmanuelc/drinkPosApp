@@ -1,24 +1,21 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:intl/intl.dart';
 
-import 'package:reebaplus_pos/core/database/app_database.dart';
 import 'package:reebaplus_pos/core/providers/app_providers.dart';
 import 'package:reebaplus_pos/core/utils/responsive.dart';
 import 'package:reebaplus_pos/core/utils/notifications.dart';
-import 'package:reebaplus_pos/shared/widgets/app_button.dart';
+import 'package:reebaplus_pos/shared/widgets/app_refresh_wrapper.dart';
 
 class CrateReturnApprovalScreen extends ConsumerStatefulWidget {
-  final int pendingReturnId;
-  final int notificationId;
+  final String? pendingReturnId;
+  final String? notificationId;
 
   const CrateReturnApprovalScreen({
     super.key,
-    required this.pendingReturnId,
-    required this.notificationId,
+    this.pendingReturnId,
+    this.notificationId,
   });
 
   @override
@@ -28,142 +25,84 @@ class CrateReturnApprovalScreen extends ConsumerStatefulWidget {
 
 class _CrateReturnApprovalScreenState
     extends ConsumerState<CrateReturnApprovalScreen> {
-  PendingCrateReturnData? _record;
-  CustomerData? _customer;
-  UserData? _staff;
-  OrderData? _order;
-  List<Map<String, dynamic>> _returnData = [];
-  bool _contentReady = false;
-  bool _saving = false;
+  bool _processing = false;
 
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
-  }
+  Future<void> _approve(String id) async {
+    if (_processing) return;
+    setState(() => _processing = true);
+    try {
+      final user = ref.read(authProvider).currentUser;
+      if (user == null) throw Exception('Not authenticated');
 
-  Future<void> _load() async {
-    final db = ref.read(databaseProvider);
-    final record =
-        await db.pendingCrateReturnsDao.getById(widget.pendingReturnId);
-    if (record == null) {
-      if (mounted) Navigator.pop(context);
-      return;
-    }
-
-    final customer =
-        await db.customersDao.findById(record.customerId);
-    final staff =
-        await db.warehousesDao.getUserById(record.staffId);
-    final order = await db.ordersDao.findById(record.orderId);
-
-    final List<dynamic> raw = jsonDecode(record.returnDataJson);
-    final returnData = raw.cast<Map<String, dynamic>>();
-
-    if (mounted) {
-      setState(() {
-        _record = record;
-        _customer = customer;
-        _staff = staff;
-        _order = order;
-        _returnData = returnData;
-        _contentReady = true;
-      });
+      await ref.read(crateReturnApprovalServiceProvider).approve(id, user.id);
+      if (mounted) AppNotification.showSuccess(context, 'Return approved');
+    } catch (e) {
+      if (mounted) AppNotification.showError(context, e.toString());
+    } finally {
+      if (mounted) setState(() => _processing = false);
     }
   }
 
-  Future<void> _approve() async {
-    if (_saving || _record == null) return;
-    setState(() => _saving = true);
+  Future<void> _reject(String id) async {
+    if (_processing) return;
+    final reason = await _showRejectionDialog();
+    if (reason == null) return;
 
-    final db = ref.read(databaseProvider);
+    setState(() => _processing = true);
+    try {
+      final user = ref.read(authProvider).currentUser;
+      if (user == null) throw Exception('Not authenticated');
 
-    for (final row in _returnData) {
-      final manufacturerId = row['manufacturerId'] as int? ?? 0;
-      final returnedQty = row['returnedQty'] as int;
-      final expectedQty = row['expectedQty'] as int;
-
-      // 1. Add to physical crate stock on the Manufacturers table
-      if (manufacturerId != 0) {
-        await db.inventoryDao.addEmptyCrates(manufacturerId, returnedQty);
-      }
-
-      // 2. Distribute returned qty across crate groups proportionally for customer balance
-      final cgBreakdownRaw = row['cgBreakdown'] as Map<String, dynamic>? ?? {};
-      if (cgBreakdownRaw.isNotEmpty && expectedQty > 0) {
-        final entries = cgBreakdownRaw.entries.toList();
-        int remaining = returnedQty;
-        for (int i = 0; i < entries.length; i++) {
-          final cgId = int.tryParse(entries[i].key) ?? 0;
-          final cgExpected = entries[i].value as int;
-          final cgReturned = i == entries.length - 1
-              ? remaining
-              : (returnedQty * cgExpected / expectedQty).round();
-          remaining -= cgReturned;
-          if (cgId != 0) {
-            await db.customersDao.recordCrateReturn(
-                _record!.customerId, cgId, cgReturned);
-          }
-        }
-      }
+      await ref
+          .read(crateReturnApprovalServiceProvider)
+          .reject(id, user.id, reason);
+      if (mounted) AppNotification.showSuccess(context, 'Return rejected');
+    } catch (e) {
+      if (mounted) AppNotification.showError(context, e.toString());
+    } finally {
+      if (mounted) setState(() => _processing = false);
     }
+  }
 
-    await db.pendingCrateReturnsDao.updateStatus(_record!.id, 'approved');
-    await db.notificationsDao.markRead(widget.notificationId);
-    await db.notificationsDao.create(
-      'crate_return_approved',
-      'Your crate return for Order #${_record!.orderId} has been approved.',
-      linkedRecordId: _record!.id.toString(),
+  Future<String?> _showRejectionDialog() async {
+    final controller = TextEditingController();
+    return showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Reject Crate Return'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(
+            labelText: 'Reason for rejection',
+            hintText: 'e.g. Incorrect quantity',
+          ),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, controller.text),
+            child: const Text('Reject'),
+          ),
+        ],
+      ),
     );
-
-    if (mounted) {
-      Navigator.pop(context);
-      AppNotification.showSuccess(context, 'Crate return approved.');
-    }
-  }
-
-  Future<void> _reject() async {
-    if (_saving || _record == null) return;
-    setState(() => _saving = true);
-
-    final db = ref.read(databaseProvider);
-    await db.pendingCrateReturnsDao.updateStatus(_record!.id, 'rejected');
-    await db.notificationsDao.markRead(widget.notificationId);
-    await db.notificationsDao.create(
-      'crate_return_rejected',
-      'Your crate return for Order #${_record!.orderId} was rejected by manager.',
-      linkedRecordId: _record!.id.toString(),
-    );
-
-    if (mounted) {
-      Navigator.pop(context);
-      AppNotification.showSuccess(context, 'Crate return rejected.');
-    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final pendingAsync = ref.watch(pendingReturnsWithDetailsProvider);
     final surface = Theme.of(context).colorScheme.surface;
     final text = Theme.of(context).colorScheme.onSurface;
-    final subtext = Theme.of(context).textTheme.bodySmall?.color ??
-        Theme.of(context).iconTheme.color!;
-    final card = Theme.of(context).cardColor;
-    final border = Theme.of(context).dividerColor;
-    final primary = Theme.of(context).colorScheme.primary;
-    const amber = Color(0xFFF5A623);
-    // danger and success unused after AppButton migration
-    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
 
     return Scaffold(
       backgroundColor: surface,
       appBar: AppBar(
         backgroundColor: surface,
         elevation: 0,
-        leading: IconButton(
-          icon: Icon(FontAwesomeIcons.arrowLeft,
-              size: context.getRSize(16), color: text),
-          onPressed: () => Navigator.pop(context),
-        ),
         title: Text(
           'Crate Return Approval',
           style: TextStyle(
@@ -173,317 +112,186 @@ class _CrateReturnApprovalScreenState
           ),
         ),
       ),
-      body: _contentReady
-          ? Column(
+      body: AppRefreshWrapper(
+        child: pendingAsync.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (e, s) => Center(child: Text('Error: $e')),
+          data: (returns) {
+            if (returns.isEmpty) {
+              return Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(FontAwesomeIcons.circleCheck,
+                        color: Colors.green.withValues(alpha: 0.5),
+                        size: context.getRSize(48)),
+                    const SizedBox(height: 16),
+                    Text(
+                      'No pending returns',
+                      style: TextStyle(
+                        color: text,
+                        fontWeight: FontWeight.bold,
+                        fontSize: context.getRFontSize(15),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }
+
+            // Group by submission (customerId + approximate submittedAt)
+            final Map<String, List<PendingReturnWithDetails>> groups = {};
+            for (final r in returns) {
+              final timeKey =
+                  DateFormat('yyyy-MM-dd HH:mm').format(r.returnRow.submittedAt);
+              final key = '${r.returnRow.customerId}_$timeKey';
+              groups.putIfAbsent(key, () => []);
+              groups[key]!.add(r);
+            }
+
+            final sortedKeys = groups.keys.toList()
+              ..sort((a, b) {
+                final aTime = groups[a]!.first.returnRow.submittedAt;
+                final bTime = groups[b]!.first.returnRow.submittedAt;
+                return bTime.compareTo(aTime); // Latest first
+              });
+
+            return ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: sortedKeys.length,
+              itemBuilder: (context, index) {
+                final group = groups[sortedKeys[index]]!;
+                return _SubmissionBatchTile(
+                  batch: group,
+                  onApprove: _approve,
+                  onReject: _reject,
+                  processing: _processing,
+                );
+              },
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _SubmissionBatchTile extends StatelessWidget {
+  final List<PendingReturnWithDetails> batch;
+  final Function(String) onApprove;
+  final Function(String) onReject;
+  final bool processing;
+
+  const _SubmissionBatchTile({
+    required this.batch,
+    required this.onApprove,
+    required this.onReject,
+    required this.processing,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final first = batch.first;
+    final text = Theme.of(context).colorScheme.onSurface;
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 16),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding: EdgeInsets.all(context.getRSize(20)),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Info card
-                        _InfoCard(
-                          customer: _customer,
-                          order: _order,
-                          staff: _staff,
-                          record: _record!,
-                          card: card,
-                          border: border,
-                          text: text,
-                          subtext: subtext,
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        first.customer.name,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
                         ),
-                        SizedBox(height: context.getRSize(24)),
-                        Text(
-                          'Return Details',
-                          style: TextStyle(
-                            color: text,
-                            fontWeight: FontWeight.bold,
-                            fontSize: context.getRFontSize(15),
-                          ),
-                        ),
-                        SizedBox(height: context.getRSize(12)),
-                        ..._returnData.map((row) => _CrateGroupRow(
-                              row: row,
-                              card: card,
-                              border: border,
-                              text: text,
-                              subtext: subtext,
-                              amber: amber,
-                            )),
-                        SizedBox(height: context.getRSize(16)),
-                        _ShortageSummary(
-                          returnData: _returnData,
-                          card: card,
-                          border: border,
-                          text: text,
-                          subtext: subtext,
-                          amber: amber,
-                        ),
-                        SizedBox(height: context.getRSize(12)),
-                      ],
+                      ),
+                    ),
+                    Text(
+                      DateFormat('MMM d, h:mm a').format(first.returnRow.submittedAt),
+                      style: TextStyle(
+                        color: text.withValues(alpha: 0.6),
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+                if (first.returnRow.orderId != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      'Order: ${first.returnRow.orderId!.substring(0, 8)}...',
+                      style: TextStyle(
+                        color: text.withValues(alpha: 0.5),
+                        fontSize: 12,
+                      ),
                     ),
                   ),
-                ),
-                // Bottom action buttons
-                Container(
-                  padding: EdgeInsets.fromLTRB(
-                    context.getRSize(20),
-                    context.getRSize(12),
-                    context.getRSize(20),
-                    context.getRSize(20) + bottomInset,
-                  ),
-                  decoration: BoxDecoration(
-                    color: card,
-                    border: Border(top: BorderSide(color: border)),
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: AppButton(
-                          text: 'Reject',
-                          icon: FontAwesomeIcons.xmark,
-                          variant: AppButtonVariant.danger,
-                          isLoading: _saving,
-                          onPressed: _saving ? null : _reject,
-                        ),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          ...batch.map((item) => Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
                       ),
-                      SizedBox(width: context.getRSize(12)),
-                      Expanded(
-                        child: AppButton(
-                          text: _saving ? 'Saving...' : 'Approve',
-                          icon: FontAwesomeIcons.check,
-                          isLoading: _saving,
-                          onPressed: _saving ? null : _approve,
-                        ),
+                      child: const Icon(FontAwesomeIcons.box,
+                          size: 14, color: Colors.orange),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            item.crateGroup.name,
+                            style: const TextStyle(fontWeight: FontWeight.w500),
+                          ),
+                          Text(
+                            'Quantity: ${item.returnRow.quantity}',
+                            style: TextStyle(
+                              color: text.withValues(alpha: 0.6),
+                              fontSize: 13,
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
+                    ),
+                    const SizedBox(width: 8),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: const Icon(FontAwesomeIcons.xmark,
+                              color: Colors.red, size: 18),
+                          onPressed: processing ? null : () => onReject(item.returnRow.id),
+                        ),
+                        IconButton(
+                          icon: const Icon(FontAwesomeIcons.check,
+                              color: Colors.green, size: 18),
+                          onPressed: processing ? null : () => onApprove(item.returnRow.id),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
-              ],
-            )
-          : Center(
-              child: CircularProgressIndicator(color: primary),
-            ),
-    );
-  }
-}
-
-class _InfoCard extends StatelessWidget {
-  final CustomerData? customer;
-  final OrderData? order;
-  final UserData? staff;
-  final PendingCrateReturnData record;
-  final Color card, border, text, subtext;
-
-  const _InfoCard({
-    required this.customer,
-    required this.order,
-    required this.staff,
-    required this.record,
-    required this.card,
-    required this.border,
-    required this.text,
-    required this.subtext,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final dateStr = DateFormat('MMM d, yyyy – h:mm a').format(record.createdAt);
-    return Container(
-      decoration: BoxDecoration(
-        color: card,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: border),
-      ),
-      padding: EdgeInsets.all(context.getRSize(16)),
-      child: Column(
-        children: [
-          _row(context, 'Customer', customer?.name ?? 'Unknown'),
-          _row(context, 'Order #', order?.id.toString() ?? record.orderId.toString()),
-          _row(context, 'Submitted by', staff?.name ?? 'Unknown'),
-          _row(context, 'Date', dateStr, isLast: true),
-        ],
-      ),
-    );
-  }
-
-  Widget _row(BuildContext context, String label, String value,
-      {bool isLast = false}) {
-    return Column(
-      children: [
-        Padding(
-          padding: EdgeInsets.symmetric(vertical: context.getRSize(8)),
-          child: Row(
-            children: [
-              Text(label,
-                  style: TextStyle(
-                      color: subtext, fontSize: context.getRFontSize(13))),
-              const Spacer(),
-              Text(value,
-                  style: TextStyle(
-                      color: text,
-                      fontWeight: FontWeight.w600,
-                      fontSize: context.getRFontSize(13))),
-            ],
-          ),
-        ),
-        if (!isLast) Divider(height: 1, color: border),
-      ],
-    );
-  }
-}
-
-class _CrateGroupRow extends StatelessWidget {
-  final Map<String, dynamic> row;
-  final Color card, border, text, subtext, amber;
-
-  const _CrateGroupRow({
-    required this.row,
-    required this.card,
-    required this.border,
-    required this.text,
-    required this.subtext,
-    required this.amber,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final expected = row['expectedQty'] as int;
-    final returned = row['returnedQty'] as int;
-    final isShort = returned < expected;
-
-    return Container(
-      margin: EdgeInsets.only(bottom: context.getRSize(10)),
-      decoration: BoxDecoration(
-        color: card,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-            color: isShort ? amber.withValues(alpha: 0.4) : border),
-      ),
-      padding: EdgeInsets.symmetric(
-          horizontal: context.getRSize(16), vertical: context.getRSize(12)),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  (row['manufacturerName'] ?? row['crateGroupName'] ?? 'Unknown') as String,
-                  style: TextStyle(
-                    color: text,
-                    fontWeight: FontWeight.bold,
-                    fontSize: context.getRFontSize(14),
-                  ),
-                ),
-                SizedBox(height: context.getRSize(4)),
-                Text(
-                  'Expected: $expected',
-                  style: TextStyle(
-                      color: subtext, fontSize: context.getRFontSize(12)),
-                ),
-              ],
-            ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                '$returned',
-                style: TextStyle(
-                  color: isShort ? amber : const Color(0xFF22C55E),
-                  fontWeight: FontWeight.bold,
-                  fontSize: context.getRFontSize(22),
-                ),
-              ),
-              Text(
-                'returned',
-                style: TextStyle(
-                    color: subtext, fontSize: context.getRFontSize(11)),
-              ),
-            ],
-          ),
-          if (isShort) ...[
-            SizedBox(width: context.getRSize(8)),
-            Icon(FontAwesomeIcons.triangleExclamation,
-                color: amber, size: context.getRSize(16)),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _ShortageSummary extends StatelessWidget {
-  final List<Map<String, dynamic>> returnData;
-  final Color card, border, text, subtext, amber;
-
-  const _ShortageSummary({
-    required this.returnData,
-    required this.card,
-    required this.border,
-    required this.text,
-    required this.subtext,
-    required this.amber,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    int totalExpected = 0;
-    int totalReturned = 0;
-    int shortGroups = 0;
-
-    for (final row in returnData) {
-      final expected = row['expectedQty'] as int;
-      final returned = row['returnedQty'] as int;
-      totalExpected += expected;
-      totalReturned += returned;
-      if (returned < expected) shortGroups++;
-    }
-
-    final shortage = totalExpected - totalReturned;
-
-    return Container(
-      decoration: BoxDecoration(
-        color: amber.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: amber.withValues(alpha: 0.3)),
-      ),
-      padding: EdgeInsets.all(context.getRSize(16)),
-      child: Row(
-        children: [
-          Container(
-            padding: EdgeInsets.all(context.getRSize(10)),
-            decoration: BoxDecoration(
-              color: amber.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(FontAwesomeIcons.boxOpen,
-                color: amber, size: context.getRSize(18)),
-          ),
-          SizedBox(width: context.getRSize(12)),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Shortage Summary',
-                  style: TextStyle(
-                    color: text,
-                    fontWeight: FontWeight.bold,
-                    fontSize: context.getRFontSize(14),
-                  ),
-                ),
-                SizedBox(height: context.getRSize(4)),
-                Text(
-                  '$shortage crate${shortage == 1 ? '' : 's'} short across $shortGroups group${shortGroups == 1 ? '' : 's'}',
-                  style: TextStyle(
-                      color: subtext, fontSize: context.getRFontSize(12)),
-                ),
-              ],
-            ),
-          ),
+              )),
         ],
       ),
     );

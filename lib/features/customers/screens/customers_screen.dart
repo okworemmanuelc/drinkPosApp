@@ -28,7 +28,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
   bool _isFirstLoad = true;
   List<WarehouseData> _warehouses = [];
   // null = "All Warehouses"
-  int? _selectedWarehouseId;
+  String? _selectedWarehouseId;
 
   @override
   void initState() {
@@ -45,7 +45,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
     final nav = ref.read(navigationProvider);
     final oneShot = nav.customersInitialWarehouseId.value;
 
-    int? defaultId;
+    String? defaultId;
     if (oneShot != null) {
       // One-shot pre-filter set by another screen (e.g. warehouse details
       // "Customers" card). Consume immediately so it only applies once.
@@ -107,6 +107,10 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
                 child: Builder(
                   builder: (context) {
                     final customers = ref.watch(customerServiceProvider).value;
+                    final balances = ref
+                            .watch(walletBalancesKoboProvider)
+                            .valueOrNull ??
+                        const <String, int>{};
                     if (_isFirstLoad) {
                       return const ShimmerList(count: 8);
                     }
@@ -149,9 +153,11 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
                         separatorBuilder: (context, index) =>
                             SizedBox(height: context.getRSize(12)),
                         itemBuilder: (context, index) {
+                          final c = filtered[index];
                           return _buildCustomerCard(
                             context,
-                            filtered[index],
+                            c,
+                            balances[c.id] ?? 0,
                             cardCol,
                             surfaceCol,
                             textCol,
@@ -207,10 +213,10 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
           ),
           SizedBox(width: context.getRSize(8)),
           Expanded(
-            child: AppDropdown<int?>(
+            child: AppDropdown<String?>(
               value: _selectedWarehouseId,
               items: [
-                const DropdownMenuItem<int?>(
+                const DropdownMenuItem<String?>(
                   value: null,
                   child: Text(
                     'All Warehouses',
@@ -218,7 +224,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
                   ),
                 ),
                 ..._warehouses.map(
-                  (w) => DropdownMenuItem<int?>(
+                  (w) => DropdownMenuItem<String?>(
                     value: w.id,
                     child: Text(w.name, overflow: TextOverflow.ellipsis),
                   ),
@@ -350,13 +356,13 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
   Widget _buildCustomerCard(
     BuildContext context,
     Customer customer,
+    int balanceKobo,
     Color cardCol,
     Color surfaceCol,
     Color textCol,
     Color subtextCol,
     Color borderCol,
   ) {
-    final balanceKobo = customer.walletBalanceKobo;
     final isNegative = balanceKobo < 0;
     final balanceColor = isNegative ? danger : success;
     final formattedBalance = formatCurrency(balanceKobo / 100.0);

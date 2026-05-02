@@ -39,7 +39,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   final List<String> _periods = ['Day', 'Week', 'Month', 'Year', 'To Date'];
 
   // Warehouse filter (null = All)
-  int? _selectedWarehouseId;
+  String? _selectedWarehouseId;
   List<WarehouseData> _warehouses = [];
   StreamSubscription? _warehousesSub;
 
@@ -52,7 +52,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   // DB-backed data
   List<OrderWithItems> _allOrdersWithItems = [];
-  List<ExpenseData> _allExpenses = [];
+  List<ExpenseWithCategory> _allExpenses = [];
   List<Customer> _customers = [];
   double _totalStockValue = 0;
   List<UserData> _staffList = [];
@@ -153,7 +153,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   }
 
   /// Re-subscribable inventory stream — call on warehouse change.
-  void _subscribeInventory(int? warehouseId) {
+  void _subscribeInventory(String? warehouseId) {
     _inventorySub?.cancel();
     if (mounted) setState(() => _inventoryLoading = true);
     final db = ref.read(databaseProvider);
@@ -175,7 +175,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   }
 
   /// Re-subscribable expenses stream — call on warehouse change.
-  void _subscribeExpenses(int? warehouseId) {
+  void _subscribeExpenses(String? warehouseId) {
     _expensesSub?.cancel();
     if (mounted) setState(() => _expensesLoading = true);
     final db = ref.read(databaseProvider);
@@ -234,8 +234,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     // Warehouse filtering is handled at the SQL level by _subscribeExpenses;
     // here we only need the period filter.
     final filteredExpenses = _allExpenses
-        .where((e) => _isDateInPeriod(e.timestamp, _selectedPeriod))
+        .where((e) => _isDateInPeriod(e.expense.createdAt, _selectedPeriod))
         .toList();
+
 
     // Filter customers by warehouse for credit/debt metrics
     final filteredCustomers = _selectedWarehouseId == null
@@ -251,8 +252,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     );
     final totalExpenses = filteredExpenses.fold<double>(
       0,
-      (sum, e) => sum + e.amountKobo / 100.0,
+      (sum, e) => sum + e.expense.amountKobo / 100.0,
     );
+
 
     // Profit — only for items that had a buying price at the time of sale.
     // Uses the snapshotted buyingPriceKobo on the order item, not the current product price.
@@ -283,20 +285,19 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         )
         .length;
 
-    final totalCredit = filteredCustomers.fold<double>(
-      0,
-      (sum, c) =>
-          sum + (c.walletBalanceKobo > 0 ? c.walletBalanceKobo / 100.0 : 0),
-    );
-    final totalDebt = filteredCustomers.fold<double>(
-      0,
-      (sum, c) =>
-          sum +
-          (c.walletBalanceKobo < 0 ? c.walletBalanceKobo.abs() / 100.0 : 0),
-    );
+    final balances =
+        ref.watch(walletBalancesKoboProvider).valueOrNull ?? const <int, int>{};
+    final totalCredit = filteredCustomers.fold<double>(0, (sum, c) {
+      final b = balances[c.id] ?? 0;
+      return sum + (b > 0 ? b / 100.0 : 0);
+    });
+    final totalDebt = filteredCustomers.fold<double>(0, (sum, c) {
+      final b = balances[c.id] ?? 0;
+      return sum + (b < 0 ? b.abs() / 100.0 : 0);
+    });
 
     // Per-staff sales breakdown (from already-filtered orders)
-    final staffSalesMap = <int, double>{};
+    final staffSalesMap = <String, double>{};
     for (final o in filteredOrdersWithItems) {
       final sid = o.order.staffId;
       if (sid != null) {
@@ -566,15 +567,16 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   Widget _buildWarehouseDropdown() {
     return SizedBox(
       width: context.getRSize(160),
-      child: AppDropdown<int?>(
+      child: AppDropdown<String?>(
         value: _selectedWarehouseId,
         items: [
-          const DropdownMenuItem<int?>(
+          const DropdownMenuItem<String?>(
             value: null,
             child: Text('All Warehouses'),
           ),
           ..._warehouses.map(
-            (wh) => DropdownMenuItem(value: wh.id, child: Text(wh.name)),
+            (wh) => DropdownMenuItem<String?>(
+                value: wh.id, child: Text(wh.name)),
           ),
         ],
         onChanged: (v) {
@@ -619,7 +621,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     required double debt,
     required double expenses,
     required List<OrderWithItems> filteredOrders,
-    required List<MapEntry<int, double>> staffSalesList,
+    required List<MapEntry<String, double>> staffSalesList,
   }) {
     final userTier = ref.read(authProvider).currentUser?.roleTier ?? 1;
     final canDrill = userTier >= 4;
@@ -764,7 +766,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     );
   }
 
-  Widget _buildStaffSalesSection(List<MapEntry<int, double>> staffSalesList) {
+  Widget _buildStaffSalesSection(List<MapEntry<String, double>> staffSalesList) {
     if (_ordersLoading) {
       return Padding(
         padding: EdgeInsets.only(top: context.spacingL),
@@ -818,8 +820,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   }
 
   Widget _buildStaffRow(
-    MapEntry<int, double> entry,
-    Map<int, UserData> nameMap,
+    MapEntry<String, double> entry,
+    Map<String, UserData> nameMap,
   ) {
     final user = nameMap[entry.key];
     final name = user?.name ?? 'Unknown Staff';

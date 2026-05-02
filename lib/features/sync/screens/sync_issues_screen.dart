@@ -18,7 +18,7 @@ import 'package:reebaplus_pos/core/theme/app_decorations.dart';
 class _ProfileProbe {
   final bool fetched;
   final bool found;
-  final int? businessId;
+  final String? businessId;
   final String? error;
   const _ProfileProbe.loading()
       : fetched = false,
@@ -30,7 +30,7 @@ class _ProfileProbe {
         found = false,
         businessId = null,
         error = null;
-  const _ProfileProbe.ok(int? bid)
+  const _ProfileProbe.ok(String? bid)
       : fetched = true,
         found = true,
         businessId = bid,
@@ -120,9 +120,7 @@ class _SyncIssuesScreenState extends ConsumerState<SyncIssuesScreen> {
         return;
       }
       final raw = (list.first as Map)['business_id'];
-      final bid = raw == null
-          ? null
-          : (raw is int ? raw : (raw as num).toInt());
+      final bid = raw?.toString();
       if (mounted) setState(() => _profile = _ProfileProbe.ok(bid));
     } catch (e) {
       if (mounted) setState(() => _profile = _ProfileProbe.failed(e.toString()));
@@ -227,7 +225,7 @@ class _SyncIssuesScreenState extends ConsumerState<SyncIssuesScreen> {
 
   Widget _healthCard(
     ThemeData t, {
-    required int? businessId,
+    required String? businessId,
     required JwtClaimSnapshot claims,
     required _ProfileProbe profile,
     required int pending,

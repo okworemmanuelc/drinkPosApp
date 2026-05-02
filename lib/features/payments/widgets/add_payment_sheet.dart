@@ -161,8 +161,6 @@ class _AddPaymentSheetState extends ConsumerState<AddPaymentSheet> {
     await ref.read(activityLogProvider).logAction(
       'Supplier Payment Recorded',
       'Payment of ${formatCurrency(amount)} to ${finalSupplier.name} via $_paymentMethod',
-      relatedEntityId: payment.id,
-      relatedEntityType: 'payment',
     );
 
     if (mounted) Navigator.pop(context);

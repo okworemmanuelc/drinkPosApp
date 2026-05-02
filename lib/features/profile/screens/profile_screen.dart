@@ -80,11 +80,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final avatarColor =
         parseHexColor(user.avatarColor) ?? Theme.of(context).colorScheme.primary;
     final warehouseName = _warehouses
-        .firstWhere(
-          (w) => w.id == user.warehouseId,
-          orElse: () => const WarehouseData(id: -1, name: 'Unassigned', isDeleted: false),
-        )
-        .name;
+            .where((w) => w.id == user.warehouseId)
+            .firstOrNull
+            ?.name ??
+        'Unassigned';
 
     if (!_contentReady) {
       return SharedScaffold(
@@ -377,12 +376,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             user.biometricEnabled ? 'Enabled' : 'Disabled',
             FontAwesomeIcons.fingerprint,
           ),
-          if (user.createdAt != null)
-            _infoRow(
-              'Member Since',
-              '${user.createdAt!.day}/${user.createdAt!.month}/${user.createdAt!.year}',
-              FontAwesomeIcons.calendarDay,
-            ),
+          _infoRow(
+            'Member Since',
+            '${user.createdAt.day}/${user.createdAt.month}/${user.createdAt.year}',
+            FontAwesomeIcons.calendarDay,
+          ),
         ],
       ),
     );

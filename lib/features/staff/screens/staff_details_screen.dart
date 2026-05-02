@@ -70,11 +70,10 @@ class _StaffDetailsScreenState extends ConsumerState<StaffDetailsScreen> {
         _parseColor(widget.user.avatarColor) ??
         Theme.of(context).colorScheme.primary;
     final warehouseName = widget.warehouses
-        .firstWhere(
-          (w) => w.id == widget.user.warehouseId,
-          orElse: () => const WarehouseData(id: -1, name: 'Unassigned', isDeleted: false),
-        )
-        .name;
+            .where((w) => w.id == widget.user.warehouseId)
+            .firstOrNull
+            ?.name ??
+        'Unassigned';
 
     if (!_contentReady) {
       return SharedScaffold(

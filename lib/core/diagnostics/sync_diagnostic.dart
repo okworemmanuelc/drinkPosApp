@@ -66,7 +66,7 @@ class SyncDiagnostic {
   ];
 
   Future<List<TableDiagnosticRow>> run(
-    int businessId, {
+    String businessId, {
     String? serviceRoleKey,
     String? projectUrl,
   }) async {
@@ -90,7 +90,7 @@ class SyncDiagnostic {
 
   Future<TableDiagnosticRow> _runOne(
     String table,
-    int businessId,
+    String businessId,
     SupabaseClient? serviceClient,
   ) async {
     int? local;
@@ -127,10 +127,10 @@ class SyncDiagnostic {
     );
   }
 
-  Future<int> _localCount(String table, int businessId) async {
+  Future<int> _localCount(String table, String businessId) async {
     final row = await _db.customSelect(
       'SELECT COUNT(*) AS c FROM $table WHERE business_id = ?',
-      variables: [Variable.withInt(businessId)],
+      variables: [Variable.withString(businessId)],
     ).getSingle();
     return row.read<int>('c');
   }
@@ -138,7 +138,7 @@ class SyncDiagnostic {
   Future<int> _remoteCount(
     SupabaseClient client,
     String table,
-    int businessId,
+    String businessId,
   ) async {
     // .select('id') is light enough — we count length client-side. Using
     // a HEAD-only count via .count(CountOption.exact) would be cheaper but

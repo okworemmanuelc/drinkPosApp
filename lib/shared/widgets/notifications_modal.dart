@@ -425,9 +425,9 @@ class _NotificationCard extends ConsumerWidget {
 
   void _openCrateReturnApproval(
       BuildContext context, NotificationModel notification, WidgetRef ref) {
-    final pendingReturnId = int.tryParse(notification.linkedRecordId ?? '');
-    final notifId = int.tryParse(notification.id);
-    if (pendingReturnId == null || notifId == null) return;
+    final pendingReturnId = notification.linkedRecordId;
+    final notifId = notification.id;
+    if (pendingReturnId == null || pendingReturnId.isEmpty) return;
     ref.read(notificationProvider).markAsRead(notification.id);
     Navigator.pop(context);
     Navigator.of(context).push(

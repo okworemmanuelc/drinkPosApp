@@ -1,12 +1,14 @@
 import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:reebaplus_pos/core/database/app_database.dart';
+import 'package:reebaplus_pos/core/providers/app_providers.dart';
 import 'package:reebaplus_pos/core/utils/number_format.dart';
 import 'package:reebaplus_pos/core/utils/responsive.dart';
 
-class ProductPreviewModal extends StatefulWidget {
+class ProductPreviewModal extends ConsumerStatefulWidget {
   final ProductData product;
   final int totalStock;
   final Color cardCol;
@@ -23,11 +25,13 @@ class ProductPreviewModal extends StatefulWidget {
   });
 
   @override
-  State<ProductPreviewModal> createState() => _ProductPreviewModalState();
+  ConsumerState<ProductPreviewModal> createState() =>
+      _ProductPreviewModalState();
 }
 
-class _ProductPreviewModalState extends State<ProductPreviewModal>
+class _ProductPreviewModalState extends ConsumerState<ProductPreviewModal>
     with SingleTickerProviderStateMixin {
+  String? _manufacturerName;
   late AnimationController _animationController;
   late Animation<double> _scaleAnimation;
   late Animation<double> _opacityAnimation;
@@ -51,6 +55,19 @@ class _ProductPreviewModalState extends State<ProductPreviewModal>
     );
 
     _animationController.forward();
+    _resolveManufacturerName();
+  }
+
+  Future<void> _resolveManufacturerName() async {
+    final id = widget.product.manufacturerId;
+    if (id == null) return;
+    final mfrs =
+        await ref.read(databaseProvider).inventoryDao.getAllManufacturers();
+    if (!mounted) return;
+    setState(() {
+      _manufacturerName =
+          mfrs.where((m) => m.id == id).map((m) => m.name).firstOrNull;
+    });
   }
 
   @override
@@ -196,7 +213,7 @@ class _ProductPreviewModalState extends State<ProductPreviewModal>
                     context,
                     FontAwesomeIcons.industry,
                     'Manufacturer',
-                    product.manufacturer ?? 'N/A',
+                    _manufacturerName ?? 'N/A',
                     const Color(0xFF8B5CF6),
                   ),
                   _buildDetailRow(

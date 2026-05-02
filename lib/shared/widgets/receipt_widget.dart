@@ -25,7 +25,7 @@ class ReceiptWidget extends StatelessWidget {
   final double? refundAmount;
 
   /// manufacturerId → name — used to label crate deposit rows by manufacturer.
-  final Map<int, String>? manufacturerNames;
+  final Map<String, String>? manufacturerNames;
 
   /// Name of the warehouse / branch that processed this sale.
   final String? branchName;
@@ -288,10 +288,10 @@ class ReceiptWidget extends StatelessWidget {
             if (manufacturerNames != null && manufacturerNames!.isNotEmpty) ...[
               () {
                 // Group crate cart items by manufacturerId
-                final Map<int, double> mfrQty = {};
+                final Map<String, double> mfrQty = {};
                 for (final item in cart) {
                   final mid = item['manufacturerId'];
-                  if (mid is int &&
+                  if (mid is String &&
                       (item['crateGroupId'] != null ||
                           ((item['emptyCrateValueKobo'] ?? 0) as num) > 0)) {
                     mfrQty[mid] =

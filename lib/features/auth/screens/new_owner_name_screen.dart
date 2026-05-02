@@ -8,6 +8,7 @@ import 'package:reebaplus_pos/core/theme/app_decorations.dart';
 import 'package:reebaplus_pos/features/auth/widgets/onboarding_step_indicator.dart';
 import 'package:reebaplus_pos/shared/widgets/app_button.dart';
 import 'package:reebaplus_pos/features/auth/screens/business_details_screen.dart';
+import 'package:reebaplus_pos/shared/widgets/smooth_route.dart';
 
 /// Shown after OTP verification for a brand-new owner.
 /// Collects their name, creates a CEO account in the local DB,
@@ -48,7 +49,7 @@ class _NewOwnerNameScreenState extends ConsumerState<NewOwnerNameScreen> {
     setState(() => _loading = false);
 
     Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => BusinessDetailsScreen(user: newUser)),
+      SmoothRoute(page: BusinessDetailsScreen(user: newUser)),
     );
   }
 

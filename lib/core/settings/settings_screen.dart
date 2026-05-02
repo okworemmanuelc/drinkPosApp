@@ -1,21 +1,22 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-
 import 'package:local_auth/local_auth.dart';
+import 'package:reebaplus_pos/core/providers/app_providers.dart';
 import 'package:reebaplus_pos/core/utils/notifications.dart';
 import 'package:reebaplus_pos/core/theme/app_decorations.dart';
 
-class SettingsScreen extends StatefulWidget {
+class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
 
   @override
-  State<SettingsScreen> createState() => _SettingsScreenState();
+  ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
 }
 
-class _SettingsScreenState extends State<SettingsScreen> {
+class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   int _autoLockSeconds = 300; // default 5m
   bool _biometricsEnabled = false;
+  bool _isLoading = true;
 
   @override
   void initState() {
@@ -24,15 +25,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _loadSettings() async {
-    final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _autoLockSeconds = prefs.getInt('auto_lock_interval_seconds') ?? 300;
-      _biometricsEnabled = prefs.getBool('biometrics_enabled') ?? false;
-    });
+    final dao = ref.read(databaseProvider).settingsDao;
+    final intervalStr = await dao.get('auto_lock_interval_seconds');
+    final bioStr = await dao.get('biometrics_enabled');
+
+    if (mounted) {
+      setState(() {
+        _autoLockSeconds = int.tryParse(intervalStr ?? '') ?? 300;
+        _biometricsEnabled = bioStr == 'true';
+        _isLoading = false;
+      });
+    }
   }
 
   Future<void> _toggleBiometrics(bool enable) async {
-    final prefs = await SharedPreferences.getInstance();
+    final dao = ref.read(databaseProvider).settingsDao;
     if (enable) {
       final auth = LocalAuthentication();
       try {
@@ -57,7 +64,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         );
 
         if (authenticated) {
-          await prefs.setBool('biometrics_enabled', true);
+          await dao.set('biometrics_enabled', 'true');
           if (mounted) setState(() => _biometricsEnabled = true);
         }
       } catch (e) {
@@ -66,23 +73,37 @@ class _SettingsScreenState extends State<SettingsScreen> {
         }
       }
     } else {
-      await prefs.setBool('biometrics_enabled', false);
+      await dao.set('biometrics_enabled', 'false');
       if (mounted) setState(() => _biometricsEnabled = false);
     }
   }
 
   Future<void> _saveAutoLock(int seconds) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt('auto_lock_interval_seconds', seconds);
-    setState(() {
-      _autoLockSeconds = seconds;
-    });
+    final dao = ref.read(databaseProvider).settingsDao;
+    await dao.set('auto_lock_interval_seconds', seconds.toString());
+    if (mounted) {
+      setState(() {
+        _autoLockSeconds = seconds;
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final t = Theme.of(context);
     final isDark = t.brightness == Brightness.dark;
+
+    if (_isLoading) {
+      return Scaffold(
+        backgroundColor: t.scaffoldBackgroundColor,
+        appBar: AppBar(
+          title: const Text('Settings'),
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+        ),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
 
     return Scaffold(
       backgroundColor: t.scaffoldBackgroundColor,
@@ -156,6 +177,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
     );
   }
+
 
   Widget _buildSettingCard({
     required BuildContext context,

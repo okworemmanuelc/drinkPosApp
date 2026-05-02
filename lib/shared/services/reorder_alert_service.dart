@@ -1,7 +1,7 @@
 import 'package:reebaplus_pos/core/database/app_database.dart';
 
 class ReorderAlert {
-  final int productId;
+  final String productId;
   final String productName;
   final int currentStock;
   final double rop;
@@ -20,7 +20,7 @@ class ReorderAlertService {
   ReorderAlertService(this._stockLedgerDao);
 
   /// Checks for products below ROP and returns a list of alerts.
-  Future<List<ReorderAlert>> checkAndNotify(int locationId) async {
+  Future<List<ReorderAlert>> checkAndNotify(String locationId) async {
     final productsBelowROP = await _stockLedgerDao.getProductsBelowROP(locationId);
     
     return productsBelowROP.map((p) => ReorderAlert(

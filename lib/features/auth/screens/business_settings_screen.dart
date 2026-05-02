@@ -9,6 +9,7 @@ import 'package:reebaplus_pos/features/auth/screens/create_pin_screen.dart';
 import 'package:drift/drift.dart' hide Column;
 import 'package:reebaplus_pos/features/auth/widgets/auth_background.dart';
 import 'package:reebaplus_pos/core/theme/app_decorations.dart';
+import 'package:reebaplus_pos/shared/widgets/smooth_route.dart';
 
 class BusinessSettingsScreen extends ConsumerStatefulWidget {
   final UserData user;
@@ -68,26 +69,37 @@ class _BusinessSettingsScreenState
     setState(() => _loading = true);
 
     final db = ref.read(databaseProvider);
+    final now = DateTime.now();
+    final businessId = widget.user.businessId;
     await db.batch((batch) {
       batch.insert(
-        db.appSettings,
-        AppSettingsCompanion.insert(
+        db.settings,
+        SettingsCompanion.insert(
           key: 'default_currency',
           value: _selectedCurrency,
+          businessId: businessId,
+          lastUpdatedAt: Value(now),
         ),
         mode: InsertMode.insertOrReplace,
       );
       batch.insert(
-        db.appSettings,
-        AppSettingsCompanion.insert(key: 'timezone', value: _selectedTimezone),
+        db.settings,
+        SettingsCompanion.insert(
+          key: 'timezone',
+          value: _selectedTimezone,
+          businessId: businessId,
+          lastUpdatedAt: Value(now),
+        ),
         mode: InsertMode.insertOrReplace,
       );
       if (_taxController.text.trim().isNotEmpty) {
         batch.insert(
-          db.appSettings,
-          AppSettingsCompanion.insert(
+          db.settings,
+          SettingsCompanion.insert(
             key: 'tax_registration_number',
             value: _taxController.text.trim(),
+            businessId: businessId,
+            lastUpdatedAt: Value(now),
           ),
           mode: InsertMode.insertOrReplace,
         );
@@ -98,8 +110,8 @@ class _BusinessSettingsScreenState
     setState(() => _loading = false);
 
     Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => CreatePinScreen(
+      SmoothRoute(
+        page: CreatePinScreen(
           user: widget.user,
           isNewBusinessSetup: widget.isNewBusinessSetup,
         ),

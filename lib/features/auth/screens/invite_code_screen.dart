@@ -24,6 +24,20 @@ class _InviteCodeScreenState extends ConsumerState<InviteCodeScreen> {
   String? _errorMessage;
 
   @override
+  void initState() {
+    super.initState();
+    _codeController.addListener(() {
+      if (_errorMessage != null) {
+        setState(() => _errorMessage = null);
+      }
+      // Auto-submit if the code looks like a full 8-character secure code
+      if (_codeController.text.trim().length == 8 && !_loading) {
+        _submit();
+      }
+    });
+  }
+
+  @override
   void dispose() {
     _codeController.dispose();
     super.dispose();

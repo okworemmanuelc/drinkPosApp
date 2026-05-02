@@ -35,17 +35,16 @@ class _AccessGrantedScreenState extends ConsumerState<AccessGrantedScreen> {
       'inviterName': '...',
     };
 
-    if (widget.user.businessId != null) {
-      final biz = await (db.select(
-        db.businesses,
-      )..where((t) => t.id.equals(widget.user.businessId!))).getSingleOrNull();
-      if (biz != null) res['businessName'] = biz.name;
-    }
+    final biz = await (db.select(
+      db.businesses,
+    )..where((t) => t.id.equals(widget.user.businessId))).getSingleOrNull();
+    if (biz != null) res['businessName'] = biz.name;
 
-    if (widget.user.warehouseId != null) {
+    final warehouseId = widget.user.warehouseId;
+    if (warehouseId != null) {
       final wh = await (db.select(
         db.warehouses,
-      )..where((t) => t.id.equals(widget.user.warehouseId!))).getSingleOrNull();
+      )..where((t) => t.id.equals(warehouseId))).getSingleOrNull();
       if (wh != null) res['locationName'] = wh.name;
     }
 

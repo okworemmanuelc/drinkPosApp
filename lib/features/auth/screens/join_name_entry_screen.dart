@@ -53,9 +53,7 @@ class _JoinNameEntryScreenState extends ConsumerState<JoinNameEntryScreen> {
     final db = ref.read(databaseProvider);
     final auth = ref.read(authProvider);
     final invite = widget.result.invite!;
-    final newId = await db
-        .into(db.users)
-        .insert(
+    await db.into(db.users).insert(
           UsersCompanion.insert(
             name: name,
             email: drift.Value(widget.email),
@@ -63,15 +61,16 @@ class _JoinNameEntryScreenState extends ConsumerState<JoinNameEntryScreen> {
             role: invite.role,
             roleTier: const drift.Value(1),
             warehouseId: drift.Value(invite.warehouseId),
-            businessId: drift.Value(invite.businessId),
+            businessId: invite.businessId,
             biometricEnabled: const drift.Value(false),
           ),
         );
-
-    // Redeem the invite to finalize role & business linkages
+    final newUser = await db.warehousesDao.getUserByEmail(widget.email);
+    if (newUser == null) {
+      throw StateError('User not found after insert (email=${widget.email})');
+    }
+    final newId = newUser.id;
     await auth.redeemInvite(invite.code, newId);
-
-    final newUser = await db.warehousesDao.getUserById(newId);
 
     if (!mounted) return;
     _submitted = true;
@@ -79,7 +78,7 @@ class _JoinNameEntryScreenState extends ConsumerState<JoinNameEntryScreen> {
 
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => CreatePinScreen(user: newUser!, isJoinFlow: true),
+        builder: (_) => CreatePinScreen(user: newUser, isJoinFlow: true),
       ),
     );
   }

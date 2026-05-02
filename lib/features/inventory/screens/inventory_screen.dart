@@ -52,7 +52,7 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen>
   List<ProductDataWithStock> _dbProducts = [];
   List<ManufacturerData> _dbManufacturers = [];
   List<CategoryData> _dbCategories = [];
-  int? _selectedCategoryId;
+  String? _selectedCategoryId;
   Map<String, int> _fullCratesByMfr = {};
   Map<String, int> _emptyCratesByMfr = {};
   int _totalCrateAssetsSum = 0;
@@ -179,9 +179,8 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen>
     _productsSub?.cancel();
     _emptyCratesSumSub?.cancel();
 
-    final warehouseId = _selectedWarehouseId == 'all'
-        ? null
-        : int.tryParse(_selectedWarehouseId);
+    final warehouseId =
+        _selectedWarehouseId == 'all' ? null : _selectedWarehouseId;
 
     final db = ref.read(databaseProvider);
     final productStream = warehouseId != null
@@ -242,7 +241,7 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen>
                 InventoryHistoryTab(
                   warehouseId: _selectedWarehouseId == 'all'
                       ? null
-                      : int.tryParse(_selectedWarehouseId),
+                      : _selectedWarehouseId,
                 ),
               ],
             ),
@@ -494,9 +493,11 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen>
     }
 
     if (_selectedManufacturer != 'all') {
-      list = list
-          .where((p) => p.product.manufacturer == _selectedManufacturer)
-          .toList();
+      final mfrId = _dbManufacturers
+          .where((m) => m.name == _selectedManufacturer)
+          .map((m) => m.id)
+          .firstOrNull;
+      list = list.where((p) => p.product.manufacturerId == mfrId).toList();
     }
     if (_selectedCategoryId != null) {
       list = list
@@ -840,7 +841,10 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen>
               : null,
           buyingPrice: product.buyingPriceKobo / 100.0,
           category: product.categoryId?.toString(),
-          manufacturer: product.manufacturer,
+          manufacturer: _dbManufacturers
+              .where((m) => m.id == product.manufacturerId)
+              .map((m) => m.name)
+              .firstOrNull,
           size: product.size,
           unit: product.unit,
         );
@@ -855,7 +859,7 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen>
                   onUpdateStock: () => setState(() {}),
                   selectedWarehouseId: _selectedWarehouseId == 'all'
                       ? null
-                      : int.tryParse(_selectedWarehouseId),
+                      : _selectedWarehouseId,
                 ),
             transitionsBuilder:
                 (context, animation, secondaryAnimation, child) {
@@ -1415,12 +1419,16 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen>
                 onPressed: () async {
                   if (nameCtrl.text.trim().isEmpty) return;
                   final mfrName = nameCtrl.text.trim();
+                  final mfrBusinessId =
+                      ref.read(authProvider).currentUser?.businessId;
+                  if (mfrBusinessId == null) return;
                   await ref
                       .read(databaseProvider)
                       .inventoryDao
                       .insertManufacturer(
                         ManufacturersCompanion.insert(
                           name: mfrName,
+                          businessId: mfrBusinessId,
                           emptyCrateStock: Value(
                             int.tryParse(stockCtrl.text.trim()) ?? 0,
                           ),
@@ -1434,7 +1442,6 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen>
                       .logAction(
                         'add_manufacturer',
                         '${ref.read(authProvider).currentUser?.name ?? 'Unknown'} added manufacturer: $mfrName',
-                        relatedEntityType: 'manufacturer',
                       );
                   if (context.mounted) Navigator.pop(ctx);
                 },
@@ -1704,7 +1711,6 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen>
                         .logAction(
                           'update_manufacturer',
                           '${ref.read(authProvider).currentUser?.name ?? 'Unknown'} updated crate stock/deposit for ${mfr.name}',
-                          relatedEntityType: 'manufacturer',
                         );
                     if (context.mounted) Navigator.pop(ctx);
                   },
@@ -1928,7 +1934,6 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen>
                       .logAction(
                         'crate_group_update',
                         '${ref.read(authProvider).currentUser?.name ?? 'Unknown'} set ${grp.name} crate stock to $newStock',
-                        relatedEntityType: 'crate_group',
                       );
                   if (context.mounted) Navigator.pop(ctx);
                 },
@@ -2014,7 +2019,7 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen>
               AppButton(
                 text: 'Add Supplier',
                 variant: AppButtonVariant.primary,
-                onPressed: () {
+                onPressed: () async {
                   if (nameCtrl.text.trim().isEmpty) return;
                   final newSupplier = Supplier(
                     id: 's${DateTime.now().millisecondsSinceEpoch}',
@@ -2026,17 +2031,15 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen>
                     supplierWallet: 0.0,
                   );
                   ref.read(supplierServiceProvider).addSupplier(newSupplier);
-                  ref
-                      .read(databaseProvider)
-                      .activityLogDao
-                      .log(
-                        action: 'New Supplier',
-                        description: 'Supplier added: ${newSupplier.name}',
-                        entityId: newSupplier.id,
-                        entityType: 'Supplier',
+                  await ref
+                      .read(activityLogProvider)
+                      .logAction(
+                        'new_supplier',
+                        'Supplier added: ${newSupplier.name}',
                       );
-                  Navigator.pop(ctx);
+                  if (ctx.mounted) Navigator.pop(ctx);
                 },
+
               ),
             ],
           ),

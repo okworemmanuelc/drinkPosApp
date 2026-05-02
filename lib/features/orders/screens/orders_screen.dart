@@ -88,7 +88,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
   }
 
   /// Resolves a warehouseId to its branch name.
-  Future<String?> _resolveBranchName(int? warehouseId) async {
+  Future<String?> _resolveBranchName(String? warehouseId) async {
     if (warehouseId == null) return null;
     final db = ref.read(databaseProvider);
     final warehouses = await db.select(db.warehouses).get();
@@ -634,7 +634,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
 
     await ref
         .read(orderServiceProvider)
-        .markAsCompleted(order.id, ref.read(authProvider).currentUser?.id ?? 1);
+        .markAsCompleted(order.id, ref.read(authProvider).currentUser?.id ?? '');
 
     final receipt = model.DeliveryReceipt(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
@@ -686,7 +686,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
                 Navigator.pop(ctx);
                 ref
                     .read(orderServiceProvider)
-                    .markAsCancelled(order.id, 'Cancelled by staff', 1);
+                    .markAsCancelled(order.id, 'Cancelled by staff', '');
               },
             ),
           ],
@@ -812,7 +812,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
     );
   }
 
-  void _showRiderSelection(BuildContext context, int orderId) {
+  void _showRiderSelection(BuildContext context, String orderId) {
     showModalBottomSheet(
       context: context,
       useSafeArea: true,
@@ -1123,6 +1123,14 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
       final finalBranchName =
           branchName ?? await _resolveBranchName(order.warehouseId);
 
+      final walletBalance = richOrder.customer == null
+          ? null
+          : (await ref
+                  .read(databaseProvider)
+                  .customersDao
+                  .getWalletBalanceKobo(richOrder.customer!.id)) /
+              100.0;
+
       final bytes = await ThermalReceiptService.buildReceipt(
         orderId: order.orderNumber,
         cart: receiptMapping,
@@ -1135,7 +1143,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
         cashReceived: order.paymentType == 'Wallet Payment'
             ? order.netAmountKobo / 100.0
             : order.amountPaidKobo / 100.0,
-        walletBalance: richOrder.customer?.customerWallet,
+        walletBalance: walletBalance,
         reprintDate: DateTime.now(),
         riderName: order.riderName,
         deliveryRef: deliveryReceipt?.referenceNumber,
@@ -1252,8 +1260,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
         .logAction(
           'Receipt Reprinted',
           'Receipt for order #$orderId was reprinted',
-          relatedEntityId: orderId,
-          relatedEntityType: 'order',
+          orderId: orderId,
         );
   }
 }
@@ -1347,12 +1354,12 @@ class _SummaryStrip extends StatelessWidget {
 
 // ═══════════════════════════ ORDER CARD ═════════════════════════════════════
 
-class _OrderCard extends StatelessWidget {
+class _OrderCard extends ConsumerWidget {
   final OrderWithItems orderWithItems;
   final String status;
   final VoidCallback? onMarkAsDelivered;
   final VoidCallback? onCancel;
-  final Function(int)? onAssignRider;
+  final Function(String)? onAssignRider;
   final VoidCallback? onRefund;
   final VoidCallback onViewReceipt;
 
@@ -1398,7 +1405,7 @@ class _OrderCard extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final textCol = Theme.of(context).colorScheme.onSurface;
     final subtextCol =
         Theme.of(context).textTheme.bodySmall?.color ??
@@ -1428,8 +1435,11 @@ class _OrderCard extends StatelessWidget {
     final hasOutstanding = outstanding > 0 && !isWalletPayment;
     final hasDiscount = order.discountKobo > 0;
 
-    // Wallet badge — only for named customers with a negative balance (debt)
-    final walletBalanceKobo = customer?.walletBalanceKobo ?? 0;
+    // Wallet badge — only for named customers with a negative balance (debt).
+    // Balance comes from the live ledger via walletBalancesKoboProvider.
+    final balances =
+        ref.watch(walletBalancesKoboProvider).valueOrNull ?? const <int, int>{};
+    final walletBalanceKobo = customer == null ? 0 : (balances[customer.id] ?? 0);
     final showWalletDebt = customer != null && walletBalanceKobo < 0;
 
     // Timestamp

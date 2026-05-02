@@ -68,14 +68,17 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen>
     }
   }
 
-  Expense _toExpense(ExpenseData d) => Expense(
-        id: d.id.toString(),
-        category: d.category,
+  Expense _toExpense(ExpenseData d, Map<String, String> categoryNames) =>
+      Expense(
+        id: d.id,
+        category: d.categoryId != null
+            ? (categoryNames[d.categoryId!] ?? 'Uncategorized')
+            : 'Uncategorized',
         amount: d.amountKobo / 100.0,
         paymentMethod: d.paymentMethod ?? 'Cash',
         description: d.description.isNotEmpty ? d.description : null,
-        date: d.timestamp,
-        createdAt: d.timestamp,
+        date: d.createdAt,
+        createdAt: d.createdAt,
         recordedBy: d.recordedBy ?? '',
         reference: d.reference,
       );
@@ -90,10 +93,14 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen>
             builder: (context) {
               final expensesAsync = ref.watch(allExpensesProvider);
               final allExpenses = expensesAsync.valueOrNull ?? [];
+              final categoryNames =
+                  ref.watch(expenseCategoryNamesProvider).valueOrNull ??
+                      const <String, String>{};
               final periodExpenses = allExpenses
-                  .where((e) => _isInPeriod(e.timestamp, _periodFilter))
-                  .map(_toExpense)
+                  .where((e) => _isInPeriod(e.expense.createdAt, _periodFilter))
+                  .map((d) => _toExpense(d.expense, categoryNames))
                   .toList();
+
               final totalForPeriod = periodExpenses.fold(
                 0.0,
                 (sum, e) => sum + e.amount,
@@ -531,8 +538,9 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen>
   Widget _buildAnnualProjectionCard(BuildContext context) {
     final now = DateTime.now();
     final allExpenses = ref.watch(allExpensesProvider).valueOrNull ?? [];
-    final currentYearExpenses = allExpenses.where((e) => e.timestamp.year == now.year);
-    final totalThisYear = currentYearExpenses.fold<double>(0, (s, e) => s + e.amountKobo / 100.0);
+    final currentYearExpenses = allExpenses.where((e) => e.expense.createdAt.year == now.year);
+    final totalThisYear = currentYearExpenses.fold<double>(0, (s, e) => s + e.expense.amountKobo / 100.0);
+
     final projection = currentYearExpenses.isEmpty ? 0.0 : (totalThisYear / now.month) * 12;
     return Container(
       padding: EdgeInsets.all(context.getRSize(20)),

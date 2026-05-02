@@ -12,6 +12,7 @@ import 'package:reebaplus_pos/features/auth/screens/create_pin_screen.dart';
 import 'package:reebaplus_pos/features/auth/screens/existing_account_screen.dart';
 import 'package:reebaplus_pos/features/auth/screens/login_screen.dart';
 import 'package:reebaplus_pos/features/auth/screens/business_type_selection_screen.dart';
+import 'package:reebaplus_pos/shared/widgets/smooth_route.dart';
 import 'package:reebaplus_pos/features/auth/widgets/auth_background.dart';
 import 'package:reebaplus_pos/features/auth/widgets/shake_widget.dart';
 import 'package:reebaplus_pos/features/auth/widgets/otp_input.dart';
@@ -55,7 +56,9 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
     super.initState();
     _checkLockoutStatus();
     _otpController.addListener(() {
-      setState(() => _errorMessage = null);
+      if (_errorMessage != null) {
+        setState(() => _errorMessage = null);
+      }
       if (_otpController.text.trim().length == 6 &&
           !_loading &&
           !_isLockedOut) {
@@ -189,24 +192,7 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
 
     if (account != null && localUser == null) {
       Navigator.of(context).pushReplacement(
-        PageRouteBuilder(
-          pageBuilder: (context, animation, secondaryAnimation) =>
-              ExistingAccountScreen(email: widget.email, account: account),
-          transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            final curve = CurvedAnimation(
-              parent: animation,
-              curve: Curves.easeInOutCubic,
-            );
-            return FadeTransition(
-              opacity: curve,
-              child: ScaleTransition(
-                scale: Tween<double>(begin: 0.96, end: 1.0).animate(curve),
-                child: child,
-              ),
-            );
-          },
-          transitionDuration: const Duration(milliseconds: 500),
-        ),
+        SmoothRoute(page: ExistingAccountScreen(email: widget.email, account: account)),
       );
       return;
     }
@@ -222,24 +208,7 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
     // OTP verified — route based on whether the user exists locally.
     if (localUser == null) {
       Navigator.of(context).pushReplacement(
-        PageRouteBuilder(
-          pageBuilder: (context, animation, secondaryAnimation) =>
-              BusinessTypeSelectionScreen(email: widget.email),
-          transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            final curve = CurvedAnimation(
-              parent: animation,
-              curve: Curves.easeInOutCubic,
-            );
-            return FadeTransition(
-              opacity: curve,
-              child: ScaleTransition(
-                scale: Tween<double>(begin: 0.96, end: 1.0).animate(curve),
-                child: child,
-              ),
-            );
-          },
-          transitionDuration: const Duration(milliseconds: 500),
-        ),
+        SmoothRoute(page: BusinessTypeSelectionScreen(email: widget.email)),
       );
     } else {
       final user = localUser;
@@ -250,54 +219,12 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
       if (hasPin && !widget.isPinReset) {
         // Existing user on a new device → enter their existing PIN.
         Navigator.of(context).pushReplacement(
-          PageRouteBuilder(
-            pageBuilder: (context, animation, secondaryAnimation) =>
-                const LoginScreen(),
-            transitionsBuilder:
-                (context, animation, secondaryAnimation, child) {
-                  final curve = CurvedAnimation(
-                    parent: animation,
-                    curve: Curves.easeInOutCubic,
-                  );
-                  return FadeTransition(
-                    opacity: curve,
-                    child: ScaleTransition(
-                      scale: Tween<double>(
-                        begin: 0.96,
-                        end: 1.0,
-                      ).animate(curve),
-                      child: child,
-                    ),
-                  );
-                },
-            transitionDuration: const Duration(milliseconds: 500),
-          ),
+          SmoothRoute(page: const LoginScreen()),
         );
       } else {
         // New staff OR resetting PIN — create their PIN for the first time.
         Navigator.of(context).pushReplacement(
-          PageRouteBuilder(
-            pageBuilder: (context, animation, secondaryAnimation) =>
-                CreatePinScreen(user: user),
-            transitionsBuilder:
-                (context, animation, secondaryAnimation, child) {
-                  final curve = CurvedAnimation(
-                    parent: animation,
-                    curve: Curves.easeInOutCubic,
-                  );
-                  return FadeTransition(
-                    opacity: curve,
-                    child: ScaleTransition(
-                      scale: Tween<double>(
-                        begin: 0.96,
-                        end: 1.0,
-                      ).animate(curve),
-                      child: child,
-                    ),
-                  );
-                },
-            transitionDuration: const Duration(milliseconds: 500),
-          ),
+          SmoothRoute(page: CreatePinScreen(user: user)),
         );
       }
     }

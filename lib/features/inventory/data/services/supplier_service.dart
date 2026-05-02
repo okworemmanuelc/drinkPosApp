@@ -5,30 +5,45 @@ import 'package:reebaplus_pos/core/database/app_database.dart';
 
 class SupplierService extends ValueNotifier<List<Supplier>> {
   final AppDatabase _db;
+  Map<String, CrateGroupData> _crateGroupsById = const {};
+  List<SupplierData> _lastSuppliers = const [];
 
   SupplierService(this._db) : super([]) {
     _init();
   }
 
   void _init() {
+    _db.inventoryDao.watchAllCrateGroups().listen((groups) {
+      _crateGroupsById = {for (final g in groups) g.id: g};
+      value = _lastSuppliers.map(_fromDb).toList();
+    });
     _db.catalogDao.watchAllSupplierDatas().listen((dataList) {
+      _lastSuppliers = dataList;
       value = dataList.map(_fromDb).toList();
     });
   }
 
-  static Supplier _fromDb(SupplierData d) {
-    final crateGroup = CrateGroup.values.firstWhere(
-      (cg) => cg.label == d.crateGroupName,
-      orElse: () => CrateGroup.nbPlc,
-    );
+  Supplier _fromDb(SupplierData d) {
+    final cgName = d.crateGroupId == null
+        ? null
+        : _crateGroupsById[d.crateGroupId!]?.name;
     return Supplier(
-      id: d.id.toString(),
+      id: d.id,
       name: d.name,
-      crateGroup: crateGroup,
+      crateGroup: _matchCrateGroupEnum(cgName),
       contactDetails: [d.phone, d.email, d.address]
           .where((s) => s != null && s.isNotEmpty)
           .join(', '),
     );
+  }
+
+  static CrateGroup _matchCrateGroupEnum(String? name) {
+    if (name == null) return CrateGroup.nbPlc;
+    final lower = name.toLowerCase();
+    for (final g in CrateGroup.values) {
+      if (g.label.toLowerCase() == lower) return g;
+    }
+    return CrateGroup.nbPlc;
   }
 
   List<Supplier> getAll() => List.unmodifiable(value);

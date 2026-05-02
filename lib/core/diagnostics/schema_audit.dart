@@ -93,8 +93,8 @@ class SchemaAuditResult {
   final String? reportPath;
 
   /// Telemetry identifiers (best-effort; null when not yet known).
-  final int? deviceUserId;
-  final int? businessId;
+  final String? deviceUserId;
+  final String? businessId;
 
   const SchemaAuditResult({
     required this.schemaVersion,
@@ -345,9 +345,9 @@ class SchemaAudit {
 
   /// Best-effort: reads device user from secure storage and business_id from
   /// the users table. Either may be null on first-run / pre-login devices.
-  Future<(int?, int?)> _collectTelemetry() async {
-    int? deviceUserId;
-    int? businessId;
+  Future<(String?, String?)> _collectTelemetry() async {
+    String? deviceUserId;
+    String? businessId;
     try {
       deviceUserId = await SecureStorageService().getDeviceUserId();
     } catch (_) {}
@@ -356,10 +356,10 @@ class SchemaAudit {
         final row = await db
             .customSelect(
               'SELECT business_id FROM users WHERE id = ? LIMIT 1',
-              variables: [Variable.withInt(deviceUserId)],
+              variables: [Variable.withString(deviceUserId)],
             )
             .getSingleOrNull();
-        businessId = row?.data['business_id'] as int?;
+        businessId = row?.data['business_id'] as String?;
       } catch (_) {
         // users table may itself be missing business_id — that's exactly the
         // kind of corruption this audit is designed to catch. Swallow.
@@ -374,8 +374,8 @@ class SchemaAudit {
     required List<SchemaTableIssue> missingTables,
     required List<MigrationEventSummary> recentMigrationEvents,
     required bool fatal,
-    required int? deviceUserId,
-    required int? businessId,
+    required String? deviceUserId,
+    required String? businessId,
   }) async {
     if (missingColumns.isEmpty &&
         missingTables.isEmpty &&

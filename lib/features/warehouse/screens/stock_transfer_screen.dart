@@ -126,8 +126,7 @@ class _StockTransferScreenState extends ConsumerState<StockTransferScreen> {
     await ref.read(activityLogProvider).logAction(
       "Stock Transfer (Out)",
       "Transferred ${qty.toInt()} ${_selectedProduct!.productName} OUT to ${_destinationWarehouse!.name}",
-      relatedEntityId: _selectedProduct!.id,
-      relatedEntityType: "inventory",
+      productId: _selectedProduct!.id,
       warehouseId: _sourceWarehouse!.id,
     );
 
@@ -135,8 +134,7 @@ class _StockTransferScreenState extends ConsumerState<StockTransferScreen> {
     await ref.read(activityLogProvider).logAction(
       "Stock Transfer (In)",
       "Transferred ${qty.toInt()} ${_selectedProduct!.productName} IN from ${_sourceWarehouse!.name}",
-      relatedEntityId: _selectedProduct!.id,
-      relatedEntityType: "inventory",
+      productId: _selectedProduct!.id,
       warehouseId: _destinationWarehouse!.id,
     );
 

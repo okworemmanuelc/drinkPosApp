@@ -5,7 +5,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 const _legacyDbFilename = 'reebaplus_pos.sqlite';
-const _cutoverMarkerFilename = '.uuid_cutover_complete';
+const _cutoverMarkerFilename = '.uuid_cutover_complete_v2';
 
 /// One-time wipe of the legacy SQLite database.
 ///

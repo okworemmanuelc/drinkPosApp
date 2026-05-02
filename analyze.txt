@@ -1,25 +1,2 @@
-Analyzing drink_pos_app...                                      
-
-  error - Target of URI doesn't exist: 'payment.dart' - lib\features\payments\data\services\payment_service.dart:3:8 - uri_does_not_exist
-  error - The name 'Payment' isn't a type, so it can't be used as a type argument - lib\features\payments\data\services\payment_service.dart:5:49 - non_type_as_type_argument
-  error - The name 'Payment' isn't a type, so it can't be used as a type argument - lib\features\payments\data\services\payment_service.dart:8:21 - non_type_as_type_argument
-  error - The name 'Payment' isn't a type, so it can't be used as a type argument - lib\features\payments\data\services\payment_service.dart:10:8 - non_type_as_type_argument
-  error - The name 'Payment' isn't a type, so it can't be used as a type argument - lib\features\payments\data\services\payment_service.dart:12:8 - non_type_as_type_argument
-  error - The property 'date' can't be unconditionally accessed because the receiver can be 'null' - lib\features\payments\data\services\payment_service.dart:17:37 - unchecked_use_of_nullable_value
-  error - The property 'date' can't be unconditionally accessed because the receiver can be 'null' - lib\features\payments\data\services\payment_service.dart:19:49 - unchecked_use_of_nullable_value
-  error - The name 'Payment' isn't a type, so it can't be used as a type argument - lib\features\payments\data\services\payment_service.dart:29:8 - non_type_as_type_argument
-  error - The property 'supplierName' can't be unconditionally accessed because the receiver can be 'null' - lib\features\payments\data\services\payment_service.dart:30:33 - unchecked_use_of_nullable_value
-  error - The property 'amount' can't be unconditionally accessed because the receiver can be 'null' - lib\features\payments\data\services\payment_service.dart:35:51 - unchecked_use_of_nullable_value
-  error - Undefined class 'Payment' - lib\features\payments\data\services\payment_service.dart:38:19 - undefined_class
-  error - The property 'id' can't be unconditionally accessed because the receiver can be 'null' - lib\features\payments\data\services\payment_service.dart:43:34 - unchecked_use_of_nullable_value
-warning - The declaration '_cardBg' isn't referenced - lib\features\payments\screens\payments_screen.dart:31:13 - unused_element
-  error - The property 'supplierName' can't be unconditionally accessed because the receiver can be 'null' - lib\features\payments\screens\payments_screen.dart:58:26 - unchecked_use_of_nullable_value
-  error - The property 'date' can't be unconditionally accessed because the receiver can be 'null' - lib\features\payments\screens\payments_screen.dart:61:49 - unchecked_use_of_nullable_value
-  error - The property 'date' can't be unconditionally accessed because the receiver can be 'null' - lib\features\payments\screens\payments_screen.dart:61:66 - unchecked_use_of_nullable_value
-  error - The property 'amount' can't be unconditionally accessed because the receiver can be 'null' - lib\features\payments\screens\payments_screen.dart:65:37 - unchecked_use_of_nullable_value
-warning - Unused import: '../../deliveries/data/models/delivery.dart' - lib\features\payments\widgets\add_payment_sheet.dart:11:8 - unused_import
-  error - The named parameter 'addressText' is required, but there's no corresponding argument - lib\features\payments\widgets\add_payment_sheet.dart:130:25 - missing_required_argument
-  error - The named parameter 'googleMapsLocation' is required, but there's no corresponding argument - lib\features\payments\widgets\add_payment_sheet.dart:130:25 - missing_required_argument
-   info - 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre - lib\features\payments\widgets\add_payment_sheet.dart:377:25 - deprecated_member_use
-   info - 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre - lib\features\payments\widgets\add_payment_sheet.dart:429:25 - deprecated_member_use
-
+Analyzing drinkPosApp...                                        
+No issues found! (ran in 5.9s)

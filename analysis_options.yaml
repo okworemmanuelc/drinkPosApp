@@ -30,5 +30,9 @@ linter:
   # 2. Use AppDropdown for all dropdown selections.
   # 3. Use AppNotification for all success/error messages.
 
+  # CUSTOM LINTS (Enforced via tool/lint_tenant_queries.dart)
+  # 1. All tenant table queries must include a businessId filter.
+  #    Use whereBusiness(t) helper in DAOs.
+
 # Additional information about this file can be found at
 # https://dart.dev/guides/language/analysis-options

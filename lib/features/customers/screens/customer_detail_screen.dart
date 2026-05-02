@@ -12,6 +12,7 @@ import 'package:reebaplus_pos/core/database/app_database.dart';
 import 'package:reebaplus_pos/core/providers/app_providers.dart';
 import 'package:reebaplus_pos/core/theme/app_decorations.dart';
 import 'package:reebaplus_pos/core/theme/colors.dart';
+import 'package:reebaplus_pos/core/utils/business_time.dart';
 import 'package:reebaplus_pos/core/utils/notifications.dart';
 import 'package:reebaplus_pos/core/utils/currency_input_formatter.dart';
 import 'package:reebaplus_pos/core/utils/number_format.dart';
@@ -45,6 +46,7 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
   int _walletBalance = 0;
   List<WalletTransactionData> _walletHistory = [];
   String _selectedPeriod = 'All Time';
+  String _businessTz = 'UTC';
   List<OrderData> _orders = [];
   List<CrateBalanceEntry> _crateBalances = [];
 
@@ -57,21 +59,25 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
   @override
   void initState() {
     super.initState();
-    if (widget.customer != null) {
-      _walletBalance = widget.customer!.walletBalanceKobo;
-    }
+    // Initial balance comes from the watchWalletBalance stream below.
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadData());
   }
 
   void _loadData() {
     if (!mounted) return;
     final id = widget.customer?.id;
-    if (id == null || id < 0) {
+    if (id == null || id.isEmpty || id == Customer.walkInId) {
       setState(() => _contentReady = true);
       return;
     }
 
     final db = ref.read(databaseProvider);
+    final businessId = db.currentBusinessId;
+    if (businessId != null) {
+      getBusinessTimezone(db, businessId).then((tz) {
+        if (mounted) setState(() => _businessTz = tz);
+      });
+    }
 
     _customerSub = db.customersDao.watchCustomerById(id).listen((data) {
       if (mounted) setState(() => _customerData = data);
@@ -125,7 +131,7 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
       _customerData?.createdAt ?? widget.customer?.createdAt ?? DateTime.now();
   int get _limitKobo =>
       _customerData?.walletLimitKobo ?? widget.customer?.walletLimitKobo ?? 0;
-  int? get _customerId => widget.customer?.id;
+  String? get _customerId => widget.customer?.id;
 
   List<WalletTransactionData> get _filteredHistory {
     if (_selectedPeriod == 'All Time') return _walletHistory;
@@ -133,23 +139,28 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
     late final DateTime from;
     switch (_selectedPeriod) {
       case 'Today':
-        from = DateTime(now.year, now.month, now.day);
+        from = localDayStartUtc(now, _businessTz);
         break;
       case 'This Week':
         final weekStart = now.subtract(Duration(days: now.weekday - 1));
-        from = DateTime(weekStart.year, weekStart.month, weekStart.day);
+        from = localDateUtc(
+          weekStart.year,
+          weekStart.month,
+          weekStart.day,
+          _businessTz,
+        );
         break;
       case 'This Month':
-        from = DateTime(now.year, now.month, 1);
+        from = localDateUtc(now.year, now.month, 1, _businessTz);
         break;
       case 'This Year':
-        from = DateTime(now.year, 1, 1);
+        from = localDateUtc(now.year, 1, 1, _businessTz);
         break;
       default:
         return _walletHistory;
     }
     return _walletHistory
-        .where((txn) => !txn.createdAt.isBefore(from))
+        .where((txn) => !txn.createdAt.toUtc().isBefore(from))
         .toList();
   }
 

@@ -98,10 +98,13 @@ class _AddProductSheetState extends ConsumerState<AddProductSheet> {
         'Wines',
         'Spirits',
       ];
-      for (final name in defaultCats) {
-        await db
-            .into(db.categories)
-            .insert(CategoriesCompanion.insert(name: name));
+      final businessId = ref.read(authProvider).currentUser?.businessId;
+      if (businessId != null) {
+        for (final name in defaultCats) {
+          await db.into(db.categories).insert(
+                CategoriesCompanion.insert(name: name, businessId: businessId),
+              );
+        }
       }
       cats = await db.select(db.categories).get();
     }
@@ -265,8 +268,10 @@ class _AddProductSheetState extends ConsumerState<AddProductSheet> {
 
   Future<void> _createNewManufacturer(String name) async {
     final db = ref.read(databaseProvider);
+    final businessId = ref.read(authProvider).currentUser?.businessId;
+    if (businessId == null) return;
     final id = await db.inventoryDao.insertManufacturer(
-      ManufacturersCompanion.insert(name: name),
+      ManufacturersCompanion.insert(name: name, businessId: businessId),
     );
     final manufacturers = await db.inventoryDao.getAllManufacturers();
     final newM = manufacturers.firstWhere((m) => m.id == id);
@@ -278,8 +283,10 @@ class _AddProductSheetState extends ConsumerState<AddProductSheet> {
 
   Future<void> _createNewSupplier(String name) async {
     final db = ref.read(databaseProvider);
+    final businessId = ref.read(authProvider).currentUser?.businessId;
+    if (businessId == null) return;
     final id = await db.catalogDao.insertSupplier(
-      SuppliersCompanion.insert(name: name),
+      SuppliersCompanion.insert(name: name, businessId: businessId),
     );
     final suppliers = await db.catalogDao.getAllSuppliers();
     final newS = suppliers.firstWhere((s) => s.id == id);
@@ -291,6 +298,8 @@ class _AddProductSheetState extends ConsumerState<AddProductSheet> {
 
   Future<ManufacturerData?> _getOrCreateManufacturer(String name) async {
     final db = ref.read(databaseProvider);
+    final businessId = ref.read(authProvider).currentUser?.businessId;
+    if (businessId == null) return null;
     final existing = await db.inventoryDao.getAllManufacturers();
     final match = existing
         .where((m) => m.name.toLowerCase() == name.toLowerCase())
@@ -298,7 +307,7 @@ class _AddProductSheetState extends ConsumerState<AddProductSheet> {
     if (match != null) return match;
 
     final id = await db.inventoryDao.insertManufacturer(
-      ManufacturersCompanion.insert(name: name),
+      ManufacturersCompanion.insert(name: name, businessId: businessId),
     );
     final manufacturers = await db.inventoryDao.getAllManufacturers();
     return manufacturers.firstWhere((m) => m.id == id);
@@ -306,6 +315,8 @@ class _AddProductSheetState extends ConsumerState<AddProductSheet> {
 
   Future<SupplierData?> _getOrCreateSupplier(String name) async {
     final db = ref.read(databaseProvider);
+    final businessId = ref.read(authProvider).currentUser?.businessId;
+    if (businessId == null) return null;
     final existing = await db.catalogDao.getAllSuppliers();
     final match = existing
         .where((s) => s.name.toLowerCase() == name.toLowerCase())
@@ -313,7 +324,7 @@ class _AddProductSheetState extends ConsumerState<AddProductSheet> {
     if (match != null) return match;
 
     final id = await db.catalogDao.insertSupplier(
-      SuppliersCompanion.insert(name: name),
+      SuppliersCompanion.insert(name: name, businessId: businessId),
     );
     final suppliers = await db.catalogDao.getAllSuppliers();
     return suppliers.firstWhere((s) => s.id == id);
@@ -379,7 +390,6 @@ class _AddProductSheetState extends ConsumerState<AddProductSheet> {
         await db.catalogDao.updateProductDetails(
           productId,
           name: existingName,
-          manufacturer: _selectedManufacturer?.name,
           manufacturerId: _selectedManufacturer?.id,
           buyingPriceKobo: buyingKobo,
           retailPriceKobo: retailKobo,
@@ -417,8 +427,7 @@ class _AddProductSheetState extends ConsumerState<AddProductSheet> {
             .logAction(
               'stock_update',
               '${auth.currentUser?.name ?? 'Unknown'} updated $existingName and added $qty units',
-              relatedEntityId: productId.toString(),
-              relatedEntityType: 'product',
+              productId: productId,
             );
         if (mounted) Navigator.pop(context);
         widget.onProductAdded?.call();
@@ -528,6 +537,15 @@ class _AddProductSheetState extends ConsumerState<AddProductSheet> {
         return;
       }
 
+      final productBusinessId = auth.currentUser?.businessId;
+      if (productBusinessId == null) {
+        setState(() => _isSaving = false);
+        if (mounted) {
+          AppNotification.showError(context, 'Account not loaded yet.');
+        }
+        return;
+      }
+
       final retailKobo = (retailPrice * 100).round();
       final buyingKobo = (buyingPrice * 100).round();
       final lowStock = int.tryParse(_lowStockCtrl.text) ?? 5;
@@ -535,7 +553,7 @@ class _AddProductSheetState extends ConsumerState<AddProductSheet> {
       final productId = await db.catalogDao.insertProduct(
         ProductsCompanion.insert(
           name: name,
-          businessId: drift.Value(auth.currentUser?.businessId),
+          businessId: productBusinessId,
           subtitle: drift.Value(
             _subtitleCtrl.text.trim().isEmpty
                 ? null
@@ -549,9 +567,7 @@ class _AddProductSheetState extends ConsumerState<AddProductSheet> {
           colorHex: drift.Value(_colorHex),
           size: drift.Value(_size),
           lowStockThreshold: drift.Value(lowStock),
-          // Store both the FK id and the display name so existing text queries work
           manufacturerId: drift.Value(_selectedManufacturer?.id),
-          manufacturer: drift.Value(_selectedManufacturer?.name),
           supplierId: drift.Value(_selectedSupplier?.id),
           categoryId: drift.Value(_selectedCategory?.id),
         ),
@@ -573,8 +589,7 @@ class _AddProductSheetState extends ConsumerState<AddProductSheet> {
             'new_product',
             '${auth.currentUser?.name ?? 'Unknown'} added product: $name'
                 '${initialStock > 0 ? ' with initial stock $initialStock' : ''}',
-            relatedEntityId: productId.toString(),
-            relatedEntityType: 'product',
+            productId: productId,
           );
 
       if (mounted) Navigator.pop(context);

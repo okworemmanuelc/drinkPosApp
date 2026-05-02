@@ -9,6 +9,7 @@ import 'package:reebaplus_pos/features/auth/widgets/onboarding_step_indicator.da
 import 'package:reebaplus_pos/features/auth/widgets/auth_background.dart';
 import 'package:reebaplus_pos/core/theme/app_decorations.dart';
 import 'package:flutter/services.dart';
+import 'package:reebaplus_pos/shared/widgets/smooth_route.dart';
 
 /// Shown to new staff (pin == '') after their email OTP is verified.
 /// Two-phase flow: enter PIN → confirm PIN → save to DB → auto-login.
@@ -119,8 +120,8 @@ class _CreatePinScreenState extends ConsumerState<CreatePinScreen> {
       // Transition to biometric setup screen, passing updatedUser
       if (mounted) {
         Navigator.of(context).pushReplacement(
-          MaterialPageRoute(
-            builder: (_) => BiometricSetupScreen(
+          SmoothRoute(
+            page: BiometricSetupScreen(
               user: updatedUser,
               isNewBusinessSetup: widget.isNewBusinessSetup,
               isJoinFlow: widget.isJoinFlow,

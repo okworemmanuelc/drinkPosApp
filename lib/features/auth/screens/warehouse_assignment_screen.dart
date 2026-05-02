@@ -27,7 +27,7 @@ class _WarehouseAssignmentScreenState
   @override
   void initState() {
     super.initState();
-    _expiry = (widget.user.createdAt ?? DateTime.now()).add(
+    _expiry = widget.user.createdAt.add(
       const Duration(hours: 48),
     );
     _calculateTimeLeft();

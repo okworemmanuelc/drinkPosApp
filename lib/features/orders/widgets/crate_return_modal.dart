@@ -1,4 +1,3 @@
-import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -76,7 +75,6 @@ class _CrateReturnModalState extends ConsumerState<CrateReturnModal> {
   List<_ManufacturerRow> _rows = [];
   bool _loading = true;
   bool _saving = false;
-  bool _sentToManager = false;
 
   Color get _text => Theme.of(context).colorScheme.onSurface;
   Color get _subtext =>
@@ -95,27 +93,38 @@ class _CrateReturnModalState extends ConsumerState<CrateReturnModal> {
   Future<void> _buildRows() async {
     // Accumulate: manufacturerId → {name, total qty}
     // Bottles (unit == 'Bottle') are the only items that generate crate returns.
-    final Map<int, _ManufacturerAccum> accum = {};
+    final Map<String, _ManufacturerAccum> accum = {};
+
+    final mfrs =
+        await ref.read(databaseProvider).inventoryDao.getAllManufacturers();
+    final mfrNames = {for (final m in mfrs) m.id: m.name};
 
     for (final ri in widget.orderWithItems.items) {
       final product = ri.product;
       if (product.unit.toLowerCase() != 'bottle') continue;
       if (!product.trackEmpties) continue;
 
-      final mfId = product.manufacturerId ?? 0;
-      final mfName =
-          product.manufacturer ??
-          (mfId == 0 ? 'Unknown Manufacturer' : 'Manufacturer $mfId');
-      final qty = ri.item.quantity;
+      final mfId = product.manufacturerId ?? '';
+      final mfName = mfrNames[mfId] ??
+          (mfId.isEmpty ? 'Unknown Manufacturer' : 'Manufacturer $mfId');
+      final cgId = product.crateGroupId ?? '';
+      if (cgId.isEmpty) continue; // Skip if no crate group linked
 
-      accum.putIfAbsent(mfId, () => _ManufacturerAccum(id: mfId, name: mfName));
-      accum[mfId]!.totalQty += qty;
+      final qty = ri.item.quantity;
+      final key = '$mfId:$cgId';
+
+      accum.putIfAbsent(
+        key,
+        () => _ManufacturerAccum(id: mfId, name: mfName, crateGroupId: cgId),
+      );
+      accum[key]!.totalQty += qty;
     }
 
     final rows = accum.values
         .map(
           (a) => _ManufacturerRow(
             manufacturerId: a.id,
+            crateGroupId: a.crateGroupId,
             name: a.name,
             expectedQty: a.totalQty,
             controller: TextEditingController(text: a.totalQty.toString()),
@@ -140,7 +149,7 @@ class _CrateReturnModalState extends ConsumerState<CrateReturnModal> {
   }
 
   Future<void> _confirm() async {
-    if (_saving || _sentToManager) return;
+    if (_saving) return;
     setState(() => _saving = true);
 
     final customer = widget.orderWithItems.customer;
@@ -177,7 +186,7 @@ class _CrateReturnModalState extends ConsumerState<CrateReturnModal> {
       // Update physical crate stock for walk-in
       for (final row in _rows) {
         final returned = int.tryParse(row.controller.text) ?? row.expectedQty;
-        if (row.manufacturerId != 0) {
+        if (row.manufacturerId.isNotEmpty) {
           await db.inventoryDao.addEmptyCrates(
             row.manufacturerId,
             returned,
@@ -189,64 +198,56 @@ class _CrateReturnModalState extends ConsumerState<CrateReturnModal> {
     }
 
     if (hasShortReturn && myTier < 4) {
-      // Staff: save to pending queue and notify manager
-      final returnData = _rows.map((row) {
-        final entered = int.tryParse(row.controller.text) ?? row.expectedQty;
-        return {
-          'manufacturerId': row.manufacturerId,
-          'manufacturerName': row.name,
-          'expectedQty': row.expectedQty,
-          'returnedQty': entered,
-        };
-      }).toList();
-
-      final pendingId = await db.pendingCrateReturnsDao
-          .createPendingReturn(
+      // Record pending returns for manager approval
+      for (final row in _rows) {
+        final returned = int.tryParse(row.controller.text) ?? row.expectedQty;
+        if (returned < row.expectedQty) {
+          await db.pendingCrateReturnsDao.createPendingReturn(
             orderId: order.id,
             customerId: customer.id,
-            staffId: auth.currentUser!.id,
-            returnDataJson: jsonEncode(returnData),
+            submittedBy: auth.currentUser?.id ?? '',
+            crateGroupId: row.crateGroupId,
+            quantity: row.expectedQty - returned, // Quantity to be "returned" (the shortfall)
           );
-
-      await db.notificationsDao.create(
-        'crate_short_return',
-        'Short crate return on Order #${order.id} by ${auth.currentUser?.name ?? 'staff'} — awaiting your approval.',
-        linkedRecordId: pendingId.toString(),
-      );
-
+        }
+        // Even with a shortfall, the physical crates that WERE returned should
+        // still update stock.
+        if (returned > 0 && row.manufacturerId.isNotEmpty) {
+          await db.inventoryDao.addEmptyCrates(row.manufacturerId, returned);
+        }
+      }
       if (mounted) {
-        setState(() {
-          _saving = false;
-          _sentToManager = true;
-        });
-        await Future.delayed(const Duration(milliseconds: 1200));
-        if (mounted) Navigator.pop(context, true);
+        AppNotification.showSuccess(
+          context,
+          'Short return recorded and sent for manager approval.',
+        );
+        Navigator.pop(context, true);
       }
       return;
     }
-    // Manager/CEO or no short return — save directly
 
-    for (final row in _rows) {
-      final returned = int.tryParse(row.controller.text) ?? row.expectedQty;
-      // 1. Update physical crate stock on the Manufacturers table
-      if (row.manufacturerId != 0) {
-        await db.inventoryDao.addEmptyCrates(
-          row.manufacturerId,
-          returned,
-        );
+    // Manager/CEO or no short return — save directly to ledger
+    await db.transaction(() async {
+      for (final row in _rows) {
+        final returned = int.tryParse(row.controller.text) ?? row.expectedQty;
+
+        // 1. Update physical crate stock on the Manufacturers table
+        if (returned > 0 && row.manufacturerId.isNotEmpty) {
+          await db.inventoryDao.addEmptyCrates(row.manufacturerId, returned);
+        }
+
+        // 2. Record in ledger and update customer cache
+        if (returned > 0 && row.crateGroupId.isNotEmpty) {
+          await db.crateLedgerDao.recordCrateReturnByCustomer(
+            customerId: customer.id,
+            crateGroupId: row.crateGroupId,
+            quantity: returned,
+            performedBy: auth.currentUser?.id ?? '',
+            orderId: order.id,
+          );
+        }
       }
-      // 2. Record customer crate balance keyed by manufacturer.
-      if (row.manufacturerId != 0) {
-        await ref
-            .read(databaseProvider)
-            .customersDao
-            .recordCrateReturnByManufacturer(
-              customer.id,
-              row.manufacturerId,
-              returned,
-            );
-      }
-    }
+    });
 
     if (mounted) Navigator.pop(context, true);
   }
@@ -350,7 +351,7 @@ class _CrateReturnModalState extends ConsumerState<CrateReturnModal> {
                       child: AppButton(
                         text: 'Skip',
                         variant: AppButtonVariant.ghost,
-                        onPressed: (_saving || _sentToManager)
+                        onPressed: _saving
                             ? null
                             : () => Navigator.pop(context, false),
                       ),
@@ -359,19 +360,11 @@ class _CrateReturnModalState extends ConsumerState<CrateReturnModal> {
                     Expanded(
                       flex: 2,
                       child: AppButton(
-                        text: _sentToManager
-                            ? 'Sent to Manager'
-                            : (_saving ? 'Saving...' : 'Confirm'),
-                        icon: _sentToManager
-                            ? FontAwesomeIcons.clockRotateLeft
-                            : FontAwesomeIcons.check,
-                        variant: _sentToManager
-                            ? AppButtonVariant.secondary
-                            : AppButtonVariant.primary,
+                        text: _saving ? 'Saving...' : 'Confirm',
+                        icon: FontAwesomeIcons.check,
+                        variant: AppButtonVariant.primary,
                         isLoading: _saving,
-                        onPressed: (_saving || _sentToManager)
-                            ? null
-                            : _confirm,
+                        onPressed: _saving ? null : _confirm,
                       ),
                     ),
                   ],
@@ -477,13 +470,15 @@ class _ManufacturerReturnTile extends StatelessWidget {
 // ── Data classes ───────────────────────────────────────────────────────────
 
 class _ManufacturerRow {
-  final int manufacturerId;
+  final String manufacturerId;
+  final String crateGroupId;
   final String name;
   final int expectedQty;
   final TextEditingController controller;
 
   _ManufacturerRow({
     required this.manufacturerId,
+    required this.crateGroupId,
     required this.name,
     required this.expectedQty,
     required this.controller,
@@ -491,9 +486,14 @@ class _ManufacturerRow {
 }
 
 class _ManufacturerAccum {
-  final int id;
+  final String id;
   final String name;
+  final String crateGroupId;
   int totalQty = 0;
 
-  _ManufacturerAccum({required this.id, required this.name});
+  _ManufacturerAccum({
+    required this.id,
+    required this.name,
+    required this.crateGroupId,
+  });
 }

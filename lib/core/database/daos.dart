@@ -1,165 +1,173 @@
-import 'dart:convert';
-import 'dart:math';
 import 'package:drift/drift.dart';
-import 'package:intl/intl.dart';
+import 'package:flutter/foundation.dart';
 import 'package:rxdart/rxdart.dart';
+import 'package:timezone/timezone.dart' as tz;
 import 'package:reebaplus_pos/core/database/app_database.dart';
 import 'package:reebaplus_pos/core/database/business_scoped_dao.dart';
+import 'package:reebaplus_pos/core/database/uuid_v7.dart';
 
 part 'daos.g.dart';
+
+// ---------------------------------------------------------------------------
+// PR 2b stub layer.
+//
+// The schema rewrite (UUID v7 ids, typed FKs, append-only ledgers, reshaped
+// tables) breaks every DAO body that references removed columns or assumes
+// integer ids. Per the PR 2b plan, signatures are flipped (int → String for
+// ids) and bodies are stubbed with UnimplementedError. PR 4 walks each
+// breadcrumb and writes the real implementations against the new shape.
+// ---------------------------------------------------------------------------
+
+Never _stub() => throw UnimplementedError(
+  'PR 2b stub: schema migrated to UUID; rewrite against new shape in PR 4',
+);
 
 @DriftAccessor(
   tables: [Suppliers, Products, Categories, Warehouses, Manufacturers],
 )
-class CatalogDao extends DatabaseAccessor<AppDatabase> with _$CatalogDaoMixin {
+class CatalogDao extends DatabaseAccessor<AppDatabase>
+    with _$CatalogDaoMixin, BusinessScopedDao<AppDatabase> {
   CatalogDao(super.db);
-  Stream<List<SupplierData>> watchAllSupplierDatas() =>
-      select(suppliers).watch();
-  Future<List<SupplierData>> getAllSuppliers() => select(suppliers).get();
-  Future<int> insertSupplier(SuppliersCompanion companion) =>
-      into(suppliers).insert(companion);
-  Future<int> insertProduct(ProductsCompanion companion) {
-    return transaction(() async {
-      final withSync = companion.copyWith(
-        lastUpdatedAt: Value(DateTime.now()),
-      );
-      final id = await into(products).insert(withSync);
-      final inserted = await findById(id);
-      await db.syncDao.enqueue(
-        'products:insert',
-        jsonEncode({
-          'id': inserted!.id,
-          'business_id': inserted.businessId,
-          'category_id': inserted.categoryId,
-          'crate_group_id': inserted.crateGroupId,
-          'size': inserted.size,
-          'name': inserted.name,
-          'subtitle': inserted.subtitle,
-          'sku': inserted.sku,
-          'retail_price_kobo': inserted.retailPriceKobo,
-          'bulk_breaker_price_kobo': inserted.bulkBreakerPriceKobo,
-          'distributor_price_kobo': inserted.distributorPriceKobo,
-          'selling_price_kobo': inserted.sellingPriceKobo,
-          'buying_price_kobo': inserted.buyingPriceKobo,
-          'unit': inserted.unit,
-          'icon_code_point': inserted.iconCodePoint,
-          'color_hex': inserted.colorHex,
-          'supplier_id': inserted.supplierId,
-          'manufacturer_id': inserted.manufacturerId,
-          'is_available': inserted.isAvailable,
-          'is_deleted': inserted.isDeleted,
-          'low_stock_threshold': inserted.lowStockThreshold,
-          'manufacturer': inserted.manufacturer,
-          'avg_daily_sales': inserted.avgDailySales,
-          'lead_time_days': inserted.leadTimeDays,
-          'safety_stock_qty': inserted.safetyStockQty,
-          'monthly_target_units': inserted.monthlyTargetUnits,
-          'empty_crate_value_kobo': inserted.emptyCrateValueKobo,
-          'track_empties': inserted.trackEmpties,
-          'image_path': inserted.imagePath,
-          'last_updated_at': inserted.lastUpdatedAt?.toIso8601String(),
-        }),
-        businessId: inserted.businessId ?? db.currentBusinessId!,
-      );
-      return id;
-    });
+
+  Stream<List<SupplierData>> watchAllSupplierDatas() {
+    return (select(suppliers)
+          ..where((t) => whereBusiness(t) & t.isDeleted.not())
+          ..orderBy([(t) => OrderingTerm(expression: t.name)]))
+        .watch();
   }
 
-  /// Returns all manufacturers from the Manufacturers table.
-  Future<List<ManufacturerData>> getAllManufacturers() =>
-      select(manufacturers).get();
+  Future<List<SupplierData>> getAllSuppliers() {
+    return (select(suppliers)
+          ..where((t) => whereBusiness(t) & t.isDeleted.not())
+          ..orderBy([(t) => OrderingTerm(expression: t.name)]))
+        .get();
+  }
 
-  Stream<List<ProductData>> watchAvailableProductDatas({int? categoryId}) {
+  Future<String> insertSupplier(SuppliersCompanion companion) async {
+    final id = UuidV7.generate();
+    await into(suppliers).insert(companion.copyWith(id: Value(id)));
+    return id;
+  }
+
+  Future<String> insertProduct(ProductsCompanion companion) async {
+    final id = UuidV7.generate();
+    await into(products).insert(companion.copyWith(id: Value(id)));
+    return id;
+  }
+
+  Future<List<ManufacturerData>> getAllManufacturers() {
+    return (select(manufacturers)
+          ..where((t) => whereBusiness(t) & t.isDeleted.not())
+          ..orderBy([(t) => OrderingTerm(expression: t.name)]))
+        .get();
+  }
+
+  Stream<List<ProductData>> watchAvailableProductDatas({String? categoryId}) {
+    final query = select(products)
+      ..where(
+        (t) =>
+            whereBusiness(t) &
+            t.isDeleted.not() &
+            t.isAvailable.equals(true),
+      )
+      ..orderBy([(t) => OrderingTerm(expression: t.name)]);
     if (categoryId != null) {
-      return (select(products)
-            ..where((t) => t.isDeleted.not() & t.categoryId.equals(categoryId)))
-          .watch();
+      query.where((t) => t.categoryId.equals(categoryId));
     }
-    return (select(products)..where((t) => t.isDeleted.not())).watch();
+    return query.watch();
   }
 
-  Future<ProductData?> findById(int id) =>
-      (select(products)..where((t) => t.id.equals(id))).getSingleOrNull();
-  Future<ProductData?> findByName(String name) =>
-      (select(products)..where(
+  Future<ProductData?> findById(String id) {
+    return (select(products)
+          ..where((t) => t.id.equals(id) & whereBusiness(t)))
+        .getSingleOrNull();
+  }
+
+  Future<ProductData?> findByName(String name) {
+    return (select(products)
+          ..where(
             (t) =>
-                t.name.lower().equals(name.toLowerCase()) & t.isDeleted.not(),
-          ))
-          .getSingleOrNull();
-  Future<void> softDeleteProduct(int productId) async {
-    await transaction(() async {
-      await (update(products)..where((t) => t.id.equals(productId))).write(
-        ProductsCompanion(
-          isDeleted: const Value(true),
-          lastUpdatedAt: Value(DateTime.now()),
-        ),
-      );
-      final product = await findById(productId);
-      await db.syncDao.enqueue(
-        'products:update',
-        jsonEncode({
-          'id': productId,
-          'is_deleted': true,
-          'updated_at': DateTime.now().toIso8601String(),
-        }),
-        businessId: product?.businessId ?? db.currentBusinessId!,
-      );
-    });
+                t.name.equals(name) &
+                whereBusiness(t) &
+                t.isDeleted.not(),
+          )
+          ..limit(1))
+        .getSingleOrNull();
+  }
+
+  Future<void> softDeleteProduct(String productId) async {
+    await (update(products)
+          ..where((t) => t.id.equals(productId) & whereBusiness(t)))
+        .write(
+      ProductsCompanion(
+        isDeleted: const Value(true),
+        lastUpdatedAt: Value(DateTime.now()),
+      ),
+    );
   }
 
   Future<void> updateProductDetails(
-    int productId, {
+    String productId, {
     required String name,
-    String? manufacturer,
-    int? manufacturerId,
+    String? manufacturerId,
     required int buyingPriceKobo,
     required int retailPriceKobo,
     int? bulkBreakerPriceKobo,
     int? distributorPriceKobo,
     int? emptyCrateValueKobo,
-    int? categoryId,
+    String? categoryId,
     String? unit,
     bool? trackEmpties,
     int? lowStockThreshold,
     String? imagePath,
-  }) => (update(products)..where((t) => t.id.equals(productId))).write(
-    ProductsCompanion(
-      name: Value(name),
-      manufacturer: Value(manufacturer),
-      manufacturerId: Value(manufacturerId),
-      sellingPriceKobo: Value(retailPriceKobo),
-      buyingPriceKobo: Value(buyingPriceKobo),
-      retailPriceKobo: Value(retailPriceKobo),
-      bulkBreakerPriceKobo: Value(bulkBreakerPriceKobo),
-      distributorPriceKobo: Value(distributorPriceKobo),
-      emptyCrateValueKobo: Value(emptyCrateValueKobo ?? 0),
-      categoryId: categoryId != null ? Value(categoryId) : const Value.absent(),
-      unit: unit != null ? Value(unit) : const Value.absent(),
-      trackEmpties: trackEmpties != null
-          ? Value(trackEmpties)
-          : const Value.absent(),
-      lowStockThreshold: lowStockThreshold != null
-          ? Value(lowStockThreshold)
-          : const Value.absent(),
-      imagePath: imagePath != null ? Value(imagePath) : const Value.absent(),
-    ),
-  );
-
-  /// Returns unique unit values found in the products table.
-  Future<List<String>> getUniqueProductUnits() async {
-    final query = selectOnly(products, distinct: true)
-      ..addColumns([products.unit]);
-    final rows = await query.get();
-    return rows
-        .map((row) => row.read(products.unit))
-        .whereType<String>()
-        .toList();
+  }) async {
+    await (update(products)
+          ..where((t) => t.id.equals(productId) & whereBusiness(t)))
+        .write(
+      ProductsCompanion(
+        name: Value(name),
+        manufacturerId: Value(manufacturerId),
+        buyingPriceKobo: Value(buyingPriceKobo),
+        retailPriceKobo: Value(retailPriceKobo),
+        bulkBreakerPriceKobo: Value(bulkBreakerPriceKobo),
+        distributorPriceKobo: Value(distributorPriceKobo),
+        emptyCrateValueKobo: emptyCrateValueKobo == null
+            ? const Value.absent()
+            : Value(emptyCrateValueKobo),
+        categoryId: Value(categoryId),
+        unit: unit == null ? const Value.absent() : Value(unit),
+        trackEmpties: trackEmpties == null
+            ? const Value.absent()
+            : Value(trackEmpties),
+        lowStockThreshold: lowStockThreshold == null
+            ? const Value.absent()
+            : Value(lowStockThreshold),
+        imagePath: Value(imagePath),
+        lastUpdatedAt: Value(DateTime.now()),
+      ),
+    );
   }
 
-  Future<void> updateMonthlyTarget(int productId, int targetUnits) =>
-      (update(products)..where((t) => t.id.equals(productId))).write(
-        ProductsCompanion(monthlyTargetUnits: Value(targetUnits)),
+  Future<List<String>> getUniqueProductUnits() async {
+    final query = selectOnly(products, distinct: true)
+      ..addColumns([products.unit])
+      ..where(
+        whereBusiness(products) & products.isDeleted.not(),
       );
+    final rows = await query.get();
+    return rows.map((r) => r.read(products.unit)!).toList();
+  }
+
+  Future<void> updateMonthlyTarget(String productId, int targetUnits) async {
+    await (update(products)
+          ..where((t) => t.id.equals(productId) & whereBusiness(t)))
+        .write(
+      ProductsCompanion(
+        monthlyTargetUnits: Value(targetUnits),
+        lastUpdatedAt: Value(DateTime.now()),
+      ),
+    );
+  }
 
   int getPriceForCustomerGroup(ProductData product, String group) {
     switch (group) {
@@ -170,18 +178,30 @@ class CatalogDao extends DatabaseAccessor<AppDatabase> with _$CatalogDaoMixin {
     }
   }
 
-  /// Bulk updates the empty crate value for all products of a manufacturer.
   Future<void> updateManufacturerEmptyCrateValue(
-    int manufacturerId,
+    String manufacturerId,
     int valueKobo,
-  ) => (update(products)..where((t) => t.manufacturerId.equals(manufacturerId)))
-      .write(ProductsCompanion(emptyCrateValueKobo: Value(valueKobo)));
+  ) async {
+    await (update(manufacturers)
+          ..where((t) => t.id.equals(manufacturerId) & whereBusiness(t)))
+        .write(
+      ManufacturersCompanion(
+        depositAmountKobo: Value(valueKobo),
+        lastUpdatedAt: Value(DateTime.now()),
+      ),
+    );
+  }
 
-  /// Toggles empty-crate tracking for a single product.
-  Future<void> updateTrackEmpties(int productId, bool value) =>
-      (update(products)..where((t) => t.id.equals(productId))).write(
-        ProductsCompanion(trackEmpties: Value(value)),
-      );
+  Future<void> updateTrackEmpties(String productId, bool value) async {
+    await (update(products)
+          ..where((t) => t.id.equals(productId) & whereBusiness(t)))
+        .write(
+      ProductsCompanion(
+        trackEmpties: Value(value),
+        lastUpdatedAt: Value(DateTime.now()),
+      ),
+    );
+  }
 }
 
 @DriftAccessor(
@@ -198,505 +218,203 @@ class InventoryDao extends DatabaseAccessor<AppDatabase>
     with _$InventoryDaoMixin, BusinessScopedDao<AppDatabase> {
   InventoryDao(super.db);
 
-  // ── Manufacturer CRUD ─────────────────────────────────────────────────────
+  Stream<List<ManufacturerData>> watchAllManufacturers() {
+    return (select(manufacturers)
+          ..where((t) => whereBusiness(t) & t.isDeleted.not())
+          ..orderBy([(t) => OrderingTerm(expression: t.name)]))
+        .watch();
+  }
 
-  Stream<List<ManufacturerData>> watchAllManufacturers() => (select(
-    manufacturers,
-  )..orderBy([(t) => OrderingTerm.asc(t.name)])).watch();
+  Future<List<ManufacturerData>> getAllManufacturers() {
+    return (select(manufacturers)
+          ..where((t) => whereBusiness(t) & t.isDeleted.not())
+          ..orderBy([(t) => OrderingTerm(expression: t.name)]))
+        .get();
+  }
 
-  Future<List<ManufacturerData>> getAllManufacturers() =>
-      (select(manufacturers)..orderBy([(t) => OrderingTerm.asc(t.name)])).get();
+  Future<String> insertManufacturer(ManufacturersCompanion companion) async {
+    final id = UuidV7.generate();
+    await into(manufacturers).insert(companion.copyWith(id: Value(id)));
+    return id;
+  }
 
-  Future<int> insertManufacturer(ManufacturersCompanion companion) =>
-      into(manufacturers).insert(companion);
+  Future<void> updateManufacturerStock(String id, int newStock) => _stub();
+  Future<void> updateManufacturerDeposit(String id, int depositKobo) => _stub();
 
-  Future<void> updateManufacturerStock(int id, int newStock) =>
-      (update(manufacturers)..where((t) => t.id.equals(id))).write(
-        ManufacturersCompanion(emptyCrateStock: Value(newStock)),
-      );
-
-  Future<void> updateManufacturerDeposit(int id, int depositKobo) =>
-      (update(manufacturers)..where((t) => t.id.equals(id))).write(
-        ManufacturersCompanion(depositAmountKobo: Value(depositKobo)),
-      );
-
-  /// One-time snapshot of all products with their stock totals.
-  /// Pass [warehouseId] to limit counts to a single warehouse (used by
-  /// the warehouse-lock feature). Returns a plain [Future] — not a stream —
-  /// so the data does not change while staff are entering count values.
   Future<List<ProductDataWithStock>> getProductsWithStock({
-    int? warehouseId,
+    String? warehouseId,
   }) async {
-    final qty = inventory.quantity.sum();
-    final query =
-        select(products).join([
-            leftOuterJoin(
-              inventory,
-              inventory.productId.equalsExp(products.id),
-            ),
-          ])
-          ..where(products.isDeleted.not() &
-              products.businessId.equals(requireBusinessId()))
-          ..groupBy([products.id])
-          ..orderBy([OrderingTerm.asc(products.name)])
-          ..addColumns([qty]);
-
+    final ps =
+        await (select(products)
+              ..where(
+                (t) => whereBusiness(t) & t.isDeleted.not(),
+              )
+              ..orderBy([(t) => OrderingTerm(expression: t.name)]))
+            .get();
+    final invQuery = select(inventory)
+      ..where((t) => whereBusiness(t));
     if (warehouseId != null) {
-      query.where(inventory.warehouseId.equals(warehouseId));
+      invQuery.where((t) => t.warehouseId.equals(warehouseId));
     }
-
-    final rows = await query.get();
-    return rows
+    final invs = await invQuery.get();
+    final totals = <String, int>{};
+    for (final i in invs) {
+      totals[i.productId] = (totals[i.productId] ?? 0) + i.quantity;
+    }
+    return ps
         .map(
-          (row) => ProductDataWithStock(
-            product: row.readTable(products),
-            totalStock: row.read(qty) ?? 0,
-          ),
+          (p) =>
+              ProductDataWithStock(product: p, totalStock: totals[p.id] ?? 0),
         )
         .toList();
   }
 
-  // Returns a live stream of products filtered by category.
-  // If categoryId is null, returns all categories (same as watchAllProductDatasWithStock).
-  // The filtering happens inside the SQL query — only the matching rows
-  // are sent to the app, which is much faster than loading everything
-  // and filtering in Dart code.
-  Stream<List<ProductDataWithStock>> watchProductsByCategory(int? categoryId) {
-    final qty = inventory.quantity.sum();
-    final query =
-        select(products).join([
-            leftOuterJoin(
-              inventory,
-              inventory.productId.equalsExp(products.id),
-            ),
-          ])
-          ..where(products.isDeleted.not() &
-              products.businessId.equals(requireBusinessId()))
-          ..groupBy([products.id])
-          ..addColumns([qty]);
-
+  Stream<List<ProductDataWithStock>> _watchProductsWithStock({
+    String? categoryId,
+    String? warehouseId,
+    bool lowStockOnly = false,
+  }) {
+    final productsQuery = select(products)
+      ..where((t) => whereBusiness(t) & t.isDeleted.not())
+      ..orderBy([(t) => OrderingTerm(expression: t.name)]);
     if (categoryId != null) {
-      query.where(products.categoryId.equals(categoryId));
+      productsQuery.where((t) => t.categoryId.equals(categoryId));
     }
-
-    return query.watch().map(
-      (rows) => rows
+    final invQuery = select(inventory)
+      ..where((t) => whereBusiness(t));
+    if (warehouseId != null) {
+      invQuery.where((t) => t.warehouseId.equals(warehouseId));
+    }
+    return Rx.combineLatest2<
+      List<ProductData>,
+      List<InventoryData>,
+      List<ProductDataWithStock>
+    >(productsQuery.watch(), invQuery.watch(), (ps, invs) {
+      final totals = <String, int>{};
+      for (final i in invs) {
+        totals[i.productId] = (totals[i.productId] ?? 0) + i.quantity;
+      }
+      final out = ps
           .map(
-            (row) => ProductDataWithStock(
-              product: row.readTable(products),
-              totalStock: row.read(qty) ?? 0,
-            ),
-          )
-          .toList(),
-    );
-  }
-
-  /// Live stream of products with stock totals for a single warehouse.
-  Stream<List<ProductDataWithStock>> watchProductsByWarehouse(int warehouseId) {
-    final qty = inventory.quantity.sum();
-    final query =
-        select(products).join([
-            leftOuterJoin(
-              inventory,
-              inventory.productId.equalsExp(products.id),
-            ),
-          ])
-          ..where(products.isDeleted.not() &
-              products.businessId.equals(requireBusinessId()))
-          ..where(inventory.warehouseId.equals(warehouseId))
-          ..groupBy([products.id])
-          ..addColumns([qty]);
-    return query.watch().map(
-      (rows) => rows
-          .map(
-            (row) => ProductDataWithStock(
-              product: row.readTable(products),
-              totalStock: row.read(qty) ?? 0,
-            ),
-          )
-          .toList(),
-    );
-  }
-
-  Stream<List<ProductDataWithStock>> watchAllProductDatasWithStock() {
-    final qty = inventory.quantity.sum();
-    final query =
-        select(products).join([
-            leftOuterJoin(
-              inventory,
-              inventory.productId.equalsExp(products.id),
-            ),
-          ])
-          ..where(products.isDeleted.not() &
-              products.businessId.equals(requireBusinessId()))
-          ..groupBy([products.id])
-          ..addColumns([qty]);
-    return query.watch().map(
-      (rows) => rows
-          .map(
-            (row) => ProductDataWithStock(
-              product: row.readTable(products),
-              totalStock: row.read(qty) ?? 0,
-            ),
-          )
-          .toList(),
-    );
-  }
-
-  Stream<List<ProductDataWithStock>> watchLowStockProductDatas() {
-    final qty = inventory.quantity.sum();
-    final query =
-        select(products).join([
-            leftOuterJoin(
-              inventory,
-              inventory.productId.equalsExp(products.id),
-            ),
-          ])
-          ..where(products.isDeleted.not() &
-              products.businessId.equals(requireBusinessId()))
-          ..groupBy([products.id])
-          ..addColumns([qty]);
-    return query.watch().map(
-      (rows) => rows
-          .map(
-            (row) => ProductDataWithStock(
-              product: row.readTable(products),
-              totalStock: row.read(qty) ?? 0,
-            ),
-          )
-          .where(
             (p) =>
-                p.totalStock > 0 && p.totalStock <= p.product.lowStockThreshold,
+                ProductDataWithStock(product: p, totalStock: totals[p.id] ?? 0),
           )
-          .toList(),
-    );
+          .toList();
+      if (lowStockOnly) {
+        return out
+            .where((e) => e.totalStock <= e.product.lowStockThreshold)
+            .toList();
+      }
+      return out;
+    });
   }
+
+  Stream<List<ProductDataWithStock>> watchProductsByCategory(
+    String? categoryId,
+  ) => _watchProductsWithStock(categoryId: categoryId);
+
+  Stream<List<ProductDataWithStock>> watchProductsByWarehouse(
+    String warehouseId,
+  ) => _watchProductsWithStock(warehouseId: warehouseId);
+
+  Stream<List<ProductDataWithStock>> watchAllProductDatasWithStock() =>
+      _watchProductsWithStock();
+
+  Stream<List<ProductDataWithStock>> watchLowStockProductDatas() =>
+      _watchProductsWithStock(lowStockOnly: true);
 
   Stream<List<ProductDataWithStock>> watchProductDatasWithStockByWarehouse(
-    int warehouseId,
-  ) {
-    final qty = inventory.quantity.sum();
-    // innerJoin ensures only products that have an inventory record in this warehouse are returned.
-    final query =
-        select(products).join([
-            innerJoin(
-              inventory,
-              inventory.productId.equalsExp(products.id) &
-                  inventory.warehouseId.equals(warehouseId),
-            ),
-          ])
-          ..where(products.isDeleted.not() &
-              products.businessId.equals(requireBusinessId()))
-          ..groupBy([products.id])
-          ..addColumns([qty]);
-    return query.watch().map(
-      (rows) => rows
-          .map(
-            (row) => ProductDataWithStock(
-              product: row.readTable(products),
-              totalStock: row.read(qty) ?? 0,
-            ),
-          )
-          .toList(),
-    );
-  }
+    String warehouseId,
+  ) => _watchProductsWithStock(warehouseId: warehouseId);
 
-  /// Streams the total quantity of empty-crate products (categoryId == 1) in a given warehouse.
-  /// Pass null to sum across all warehouses.
-  Stream<int> watchTotalEmptyCratesByWarehouse(int? warehouseId) {
-    final qty = inventory.quantity.sum();
-    if (warehouseId != null) {
-      final query = selectOnly(products)
-        ..join([
-          innerJoin(
-            inventory,
-            inventory.productId.equalsExp(products.id) &
-                inventory.warehouseId.equals(warehouseId),
-          ),
-        ])
-        ..where(products.categoryId.equals(1) &
-            products.isDeleted.not() &
-            products.businessId.equals(requireBusinessId()))
-        ..addColumns([qty]);
-      return query.watchSingleOrNull().map((row) => row?.read(qty) ?? 0);
-    } else {
-      final query = selectOnly(products)
-        ..join([
-          leftOuterJoin(inventory, inventory.productId.equalsExp(products.id)),
-        ])
-        ..where(products.categoryId.equals(1) &
-            products.isDeleted.not() &
-            products.businessId.equals(requireBusinessId()))
-        ..addColumns([qty]);
-      return query.watchSingleOrNull().map((row) => row?.read(qty) ?? 0);
-    }
-  }
+  // No callers as of PR 4a; empty crates aren't tracked per-warehouse in the
+  // current schema (manufacturer- and crate-group-scoped only). Returns 0 so
+  // any future caller renders cleanly until PR 4c rewires crate aggregates.
+  Stream<int> watchTotalEmptyCratesByWarehouse(String? warehouseId) =>
+      Stream<int>.value(0);
 
-  Future<void> deductStock(int productId, int warehouseId, int qty) async {
-    await transaction(() async {
-      final row =
-          await (select(inventory)..where(
-                (t) =>
-                    t.productId.equals(productId) &
-                    t.warehouseId.equals(warehouseId),
-              ))
-              .getSingleOrNull();
-      if (row != null) {
-        final newQty = (row.quantity - qty).clamp(0, 999999);
-        await (update(inventory)..where((t) => t.id.equals(row.id))).write(
-          InventoryCompanion(quantity: Value(newQty)),
-        );
-      }
-    });
-  }
-
+  Future<void> deductStock(String productId, String warehouseId, int qty) =>
+      _stub();
+  Future<void> addStock(String productId, String warehouseId, int qty) =>
+      _stub();
   Future<void> adjustStock(
-    int productId,
-    int warehouseId,
+    String productId,
+    String warehouseId,
     int delta,
     String note,
-    int? staffId,
-  ) async {
-    await transaction(() async {
-      final existing =
-          await (select(inventory)..where(
-                (t) =>
-                    t.productId.equals(productId) &
-                    t.warehouseId.equals(warehouseId),
-              ))
-              .getSingleOrNull();
-      if (existing != null) {
-        final newQty = (existing.quantity + delta).clamp(0, 999999);
-        await (update(inventory)..where((t) => t.id.equals(existing.id))).write(
-          InventoryCompanion(quantity: Value(newQty)),
-        );
-      } else if (delta > 0) {
-        await into(inventory).insert(
-          InventoryCompanion.insert(
-            productId: productId,
-            warehouseId: warehouseId,
-            quantity: Value(delta),
-          ),
-        );
-      }
+    String? staffId,
+  ) => _stub();
 
-      // Record in stock ledger for audit trail
-      await db.stockLedgerDao.insertTransaction(
-        StockTransactionsCompanion.insert(
-          transactionId:
-              '${DateTime.now().microsecondsSinceEpoch}-${Random().nextInt(10000)}',
-          productId: productId,
-          locationId: warehouseId,
-          quantityDelta: delta,
-          movementType: 'adjustment',
-          referenceId: Value(note),
-          performedBy: staffId ?? 0,
-          createdAt: Value(DateTime.now()),
-        ),
-      );
-
-      // Queue for Sync
-      final product = await (select(db.products)..where((t) => t.id.equals(productId))).getSingleOrNull();
-      await db.syncDao.enqueue(
-        'stock_adjustments:insert',
-        jsonEncode({
-          'business_id': product?.businessId,
-          'product_id': productId,
-          'warehouse_id': warehouseId,
-          'quantity_diff': delta,
-          'reason': note,
-          'timestamp': DateTime.now().toIso8601String(),
-          'last_updated_at': DateTime.now().toIso8601String(),
-        }),
-        businessId: product?.businessId ?? db.currentBusinessId!,
-      );
-    });
+  Stream<List<CategoryData>> watchAllCategories() {
+    return (select(categories)
+          ..where((t) => whereBusiness(t) & t.isDeleted.not())
+          ..orderBy([(t) => OrderingTerm(expression: t.name)]))
+        .watch();
   }
 
-  Stream<List<CategoryData>> watchAllCategories() =>
-      (select(categories)..orderBy([(t) => OrderingTerm.asc(t.name)])).watch();
+  Stream<List<CrateGroupData>> watchAllCrateGroups() {
+    return (select(crateGroups)
+          ..where((t) => whereBusiness(t) & t.isDeleted.not())
+          ..orderBy([(t) => OrderingTerm(expression: t.name)]))
+        .watch();
+  }
 
-  Stream<List<CrateGroupData>> watchAllCrateGroups() =>
-      select(crateGroups).watch();
-  Future<List<CrateGroupData>> getAllCrateGroups() => select(crateGroups).get();
+  Future<List<CrateGroupData>> getAllCrateGroups() {
+    return (select(crateGroups)
+          ..where((t) => whereBusiness(t) & t.isDeleted.not())
+          ..orderBy([(t) => OrderingTerm(expression: t.name)]))
+        .get();
+  }
 
   Future<void> assignCrateGroup(
-    int productId,
-    int? crateGroupId,
+    String productId,
+    String? crateGroupId,
     String? size,
-  ) async {
-    await (update(products)..where((t) => t.id.equals(productId))).write(
-      ProductsCompanion(crateGroupId: Value(crateGroupId), size: Value(size)),
-    );
-  }
+  ) => _stub();
+  Future<void> updateCrateGroupStock(String groupId, int newStock) => _stub();
+  Future<void> updateCrateGroupDeposit(String groupId, int depositKobo) =>
+      _stub();
+  Future<void> addEmptyCrates(String manufacturerId, int quantity) => _stub();
+  Future<void> deductEmptyCrates(String manufacturerId, int quantity) =>
+      _stub();
+  Stream<Map<String, int>> watchFullCratesByManufacturer() => _stub();
+  Stream<Map<String, int>> watchEmptyCratesByManufacturer() => _stub();
+  Stream<int> watchTotalManufacturerEmptyCrates() => _stub();
+  Stream<int> watchTotalCrateAssets() => _stub();
 
-  Future<void> updateCrateGroupStock(int groupId, int newStock) =>
-      (update(crateGroups)..where((t) => t.id.equals(groupId))).write(
-        CrateGroupsCompanion(emptyCrateStock: Value(newStock)),
-      );
-
-  Future<void> updateCrateGroupDeposit(int groupId, int depositKobo) =>
-      (update(crateGroups)..where((t) => t.id.equals(groupId))).write(
-        CrateGroupsCompanion(depositAmountKobo: Value(depositKobo)),
-      );
-
-  /// Adds empty crates to a manufacturer's physical stock.
-  Future<void> addEmptyCrates(int manufacturerId, int quantity) async {
-    await transaction(() async {
-      final row = await (select(
-        manufacturers,
-      )..where((t) => t.id.equals(manufacturerId))).getSingleOrNull();
-      if (row != null) {
-        await (update(
-          manufacturers,
-        )..where((t) => t.id.equals(manufacturerId))).write(
-          ManufacturersCompanion(
-            emptyCrateStock: Value(row.emptyCrateStock + quantity),
-          ),
-        );
-      }
-    });
-  }
-
-  /// Deducts empty crates from a manufacturer's physical stock (floors at 0).
-  Future<void> deductEmptyCrates(int manufacturerId, int quantity) async {
-    await transaction(() async {
-      final row = await (select(
-        manufacturers,
-      )..where((t) => t.id.equals(manufacturerId))).getSingleOrNull();
-      if (row != null) {
-        final newStock = (row.emptyCrateStock - quantity).clamp(0, 999999);
-        await (update(manufacturers)..where((t) => t.id.equals(manufacturerId)))
-            .write(ManufacturersCompanion(emptyCrateStock: Value(newStock)));
-      }
-    });
-  }
-
-  /// Streams total crate bottle inventory per manufacturer for products with crate sizes.
-  /// Groups by manufacturer name for display in the 'Full Crates' column.
-  Stream<Map<String, int>> watchFullCratesByManufacturer() {
-    final qty = inventory.quantity.sum();
-    final mfrName = manufacturers.name;
-
-    return (selectOnly(products)
-          ..join([
-            leftOuterJoin(
-              inventory,
-              inventory.productId.equalsExp(products.id),
-            ),
-            leftOuterJoin(
-              manufacturers,
-              manufacturers.id.equalsExp(products.manufacturerId),
-            ),
-            leftOuterJoin(
-              categories,
-              categories.id.equalsExp(products.categoryId),
-            ),
-          ])
-          ..where(
-            products.size.isNotNull() &
-                products.manufacturerId.isNotNull() &
-                products.isDeleted.not() &
-                products.businessId.equals(requireBusinessId()),
-          )
-          ..addColumns([mfrName, qty])
-          ..groupBy([mfrName]))
-        .watch()
-        .map((rows) {
-          final result = <String, int>{};
-          for (final row in rows) {
-            final m = row.read(mfrName);
-            if (m != null) result[m] = row.read(qty) ?? 0;
-          }
-          return result;
-        });
-  }
-
-  Stream<Map<String, int>> watchEmptyCratesByManufacturer() {
-    return (select(manufacturers)
-          ..where((t) => t.businessId.equals(requireBusinessId())))
-        .watch()
-        .map((list) => {for (final m in list) m.name: m.emptyCrateStock});
-  }
-
-  /// Streams the sum of all empty crates across all manufacturers.
-  Stream<int> watchTotalManufacturerEmptyCrates() {
-    final qty = manufacturers.emptyCrateStock.sum();
-    final query = selectOnly(manufacturers)
-      ..where(manufacturers.businessId.equals(requireBusinessId()))
-      ..addColumns([qty]);
-    return query.watchSingleOrNull().map((row) => row?.read(qty) ?? 0);
-  }
-
-  /// Streams the combined total of full crates (products with size in inventory)
-  /// and empty crates (physical stock in manufacturers table).
-  Stream<int> watchTotalCrateAssets() {
-    // 1. Watch total empty crates
-    final emptyCratesStream = watchTotalManufacturerEmptyCrates();
-
-    // 2. Watch total full crates (products with sizes)
-    final qty = inventory.quantity.sum();
-    final fullCratesStream =
-        (selectOnly(products)
-              ..join([
-                leftOuterJoin(
-                  inventory,
-                  inventory.productId.equalsExp(products.id),
-                ),
-                leftOuterJoin(
-                  categories,
-                  categories.id.equalsExp(products.categoryId),
-                ),
-              ])
-              ..where(products.size.isNotNull() &
-                  products.isDeleted.not() &
-                  products.businessId.equals(requireBusinessId()))
-              ..addColumns([qty]))
-            .watchSingleOrNull()
-            .map((row) => row?.read(qty) ?? 0);
-
-    // Combine streams
-    return Rx.combineLatest2<int, int, int>(
-      emptyCratesStream,
-      fullCratesStream,
-      (a, b) => a + b,
-    );
-  }
-
-  /// One-time snapshot: every (product, warehouse) pair sorted by warehouse
-  /// name then product name. Suitable for the warehouse-grouped stock count UI.
-  /// Pass [warehouseId] to restrict to a single warehouse.
   Future<List<ProductStockWithWarehouse>> getProductsStockPerWarehouse({
-    int? warehouseId,
+    String? warehouseId,
   }) async {
-    final query =
-        select(products).join([
-            innerJoin(inventory, inventory.productId.equalsExp(products.id)),
-            innerJoin(
-              warehouses,
-              warehouses.id.equalsExp(inventory.warehouseId),
-            ),
-          ])
-          ..where(products.isDeleted.not() &
-              products.businessId.equals(requireBusinessId()))
-          ..orderBy([
-            OrderingTerm.asc(warehouses.name),
-            OrderingTerm.asc(products.name),
-          ]);
+    final ps = await (select(
+      products,
+    )..where((t) => whereBusiness(t) & t.isDeleted.not())).get();
+    final whs = await (select(
+      warehouses,
+    )..where((t) => whereBusiness(t) & t.isDeleted.not())).get();
+    final invQuery = select(inventory)
+      ..where((t) => whereBusiness(t));
     if (warehouseId != null) {
-      query.where(inventory.warehouseId.equals(warehouseId));
+      invQuery.where((t) => t.warehouseId.equals(warehouseId));
     }
-    final rows = await query.get();
-    return rows
-        .map(
-          (row) => ProductStockWithWarehouse(
-            warehouseId: row.readTable(warehouses).id,
-            warehouseName: row.readTable(warehouses).name,
-            product: row.readTable(products),
-            totalStock: row.readTable(inventory).quantity,
-          ),
-        )
-        .toList();
+    final invs = await invQuery.get();
+    final productById = {for (final p in ps) p.id: p};
+    final warehouseById = {for (final w in whs) w.id: w};
+    final out = <ProductStockWithWarehouse>[];
+    for (final i in invs) {
+      final p = productById[i.productId];
+      final w = warehouseById[i.warehouseId];
+      if (p == null || w == null) continue;
+      out.add(
+        ProductStockWithWarehouse(
+          warehouseId: w.id,
+          warehouseName: w.name,
+          product: p,
+          totalStock: i.quantity,
+        ),
+      );
+    }
+    out.sort((a, b) => a.product.name.compareTo(b.product.name));
+    return out;
   }
 }
 
@@ -706,9 +424,8 @@ class ProductDataWithStock {
   ProductDataWithStock({required this.product, required this.totalStock});
 }
 
-/// One (product, warehouse) row used by the warehouse-sorted stock count.
 class ProductStockWithWarehouse {
-  final int warehouseId;
+  final String warehouseId;
   final String warehouseName;
   final ProductData product;
   final int totalStock;
@@ -722,10 +439,9 @@ class ProductStockWithWarehouse {
 
 class ManufacturerCrateStats {
   final String manufacturer;
-  final int totalBottles; // sum of inventory for big-crate products
-  final int
-  emptyCrates; // sum of physical empty crates from linked crate groups
-  final int totalValueKobo; // total monetary value of all crates (full & empty)
+  final int totalBottles;
+  final int emptyCrates;
+  final int totalValueKobo;
 
   ManufacturerCrateStats({
     required this.manufacturer,
@@ -734,321 +450,432 @@ class ManufacturerCrateStats {
     required this.totalValueKobo,
   });
 
-  // Raw bottle count — no longer dividing by 12.
   int get fullCratesEquiv => totalBottles;
   int get totalCrateAssets => totalBottles + emptyCrates;
 }
 
 @DriftAccessor(
-  tables: [Orders, OrderItems, Products, Customers, SavedCarts, Categories],
+  tables: [
+    Orders,
+    OrderItems,
+    Products,
+    Customers,
+    SavedCarts,
+    Categories,
+    Inventory,
+    StockTransactions,
+    PaymentTransactions,
+    WalletTransactions,
+    CustomerWallets,
+    Businesses,
+  ],
 )
-class OrdersDao extends DatabaseAccessor<AppDatabase> with _$OrdersDaoMixin {
+class OrdersDao extends DatabaseAccessor<AppDatabase>
+    with _$OrdersDaoMixin, BusinessScopedDao<AppDatabase> {
   OrdersDao(super.db);
-  Future<OrderData?> findById(int id) =>
-      (select(orders)..where((t) => t.id.equals(id))).getSingleOrNull();
-  Stream<List<OrderData>> watchPendingOrders() =>
-      (select(orders)
-            ..where((t) => t.status.equals('pending'))
-            ..orderBy([(t) => OrderingTerm.desc(t.createdAt)]))
-          .watch();
-  Stream<List<OrderData>> watchAllOrders() => (select(
-    orders,
-  )..orderBy([(t) => OrderingTerm.desc(t.createdAt)])).watch();
-  Stream<List<OrderData>> watchOrdersByWarehouse(int? warehouseId) {
-    if (warehouseId == null) {
-      return (select(
-        orders,
-      )..orderBy([(t) => OrderingTerm.desc(t.createdAt)])).watch();
-    }
+
+  // ── Reads ──────────────────────────────────────────────────────────────────
+
+  Future<OrderData?> findById(String id) {
     return (select(orders)
-          ..where((t) => t.warehouseId.equals(warehouseId))
-          ..orderBy([(t) => OrderingTerm.desc(t.createdAt)]))
+          ..where((o) => o.id.equals(id) & whereBusiness(o))
+          ..limit(1))
+        .getSingleOrNull();
+  }
+
+  Stream<List<OrderData>> watchPendingOrders() {
+    return (select(orders)
+          ..where(
+            (o) => whereBusiness(o) & o.status.equals('pending'),
+          )
+          ..orderBy([(o) => OrderingTerm.desc(o.createdAt)]))
         .watch();
   }
 
-  Stream<List<OrderWithItems>> watchAllOrdersWithItems({int? warehouseId}) {
-    final query = select(orders)
-      ..orderBy([(t) => OrderingTerm.desc(t.createdAt)]);
+  Stream<List<OrderData>> watchAllOrders() {
+    return (select(orders)
+          ..where((o) => whereBusiness(o))
+          ..orderBy([(o) => OrderingTerm.desc(o.createdAt)]))
+        .watch();
+  }
+
+  Stream<List<OrderData>> watchOrdersByWarehouse(String? warehouseId) {
+    return (select(orders)
+          ..where((o) {
+            final expr = whereBusiness(o);
+            if (warehouseId != null) {
+              return expr & o.warehouseId.equals(warehouseId);
+            }
+            return expr;
+          })
+          ..orderBy([(o) => OrderingTerm.desc(o.createdAt)]))
+        .watch();
+  }
+
+  Stream<List<OrderData>> watchCompletedOrders() {
+    return (select(orders)
+          ..where(
+            (o) => whereBusiness(o) & o.status.equals('completed'),
+          )
+          ..orderBy([(o) => OrderingTerm.desc(o.createdAt)]))
+        .watch();
+  }
+
+  Stream<List<OrderData>> watchCancelledOrders() {
+    return (select(orders)
+          ..where(
+            (o) => whereBusiness(o) & o.status.equals('cancelled'),
+          )
+          ..orderBy([(o) => OrderingTerm.desc(o.createdAt)]))
+        .watch();
+  }
+
+  Stream<List<OrderData>> watchOrdersByCustomer(String customerId) {
+    return (select(orders)
+          ..where(
+            (o) => whereBusiness(o) & o.customerId.equals(customerId),
+          )
+          ..orderBy([(o) => OrderingTerm.desc(o.createdAt)]))
+        .watch();
+  }
+
+  // ── N+1 fix: single joined query + fold ────────────────────────────────────
+
+  Stream<List<OrderWithItems>> watchAllOrdersWithItems({String? warehouseId}) {
+    final query = select(orders).join([
+      leftOuterJoin(orderItems, orderItems.orderId.equalsExp(orders.id)),
+      leftOuterJoin(customers, customers.id.equalsExp(orders.customerId)),
+      leftOuterJoin(products, products.id.equalsExp(orderItems.productId)),
+    ]);
+    query.where(whereBusiness(orders));
     if (warehouseId != null) {
-      query.where((t) => t.warehouseId.equals(warehouseId));
+      query.where(orders.warehouseId.equals(warehouseId));
     }
-    return query.watch().asyncMap((orderList) async {
-      final result = <OrderWithItems>[];
-      for (final order in orderList) {
-        final itemRows = await (select(orderItems).join([
-          innerJoin(products, products.id.equalsExp(orderItems.productId)),
-        ])..where(orderItems.orderId.equals(order.id))).get();
+    query.orderBy([OrderingTerm.desc(orders.createdAt)]);
 
-        final itemsWithProducts = itemRows
-            .map(
-              (row) => OrderItemDataWithProductData(
-                row.readTable(orderItems),
-                row.readTable(products),
-              ),
-            )
-            .toList();
+    return query.watch().map((rows) {
+      // Fold flat join rows into structured OrderWithItems
+      final Map<String, OrderWithItems> result = {};
+      for (final row in rows) {
+        final order = row.readTable(orders);
+        final item = row.readTableOrNull(orderItems);
+        final customer = row.readTableOrNull(customers);
+        final product = row.readTableOrNull(products);
 
-        CustomerData? customer;
-        if (order.customerId != null) {
-          customer = await (select(
-            customers,
-          )..where((t) => t.id.equals(order.customerId!))).getSingleOrNull();
+        result.putIfAbsent(order.id, () => OrderWithItems(order, [], customer));
+
+        if (item != null && product != null) {
+          result[order.id]!.items.add(
+            OrderItemDataWithProductData(item, product),
+          );
         }
-
-        result.add(OrderWithItems(order, itemsWithProducts, customer));
       }
-      return result;
+      return result.values.toList();
     });
   }
 
-  Stream<List<OrderData>> watchCompletedOrders() =>
-      (select(orders)
-            ..where((t) => t.status.equals('completed'))
-            ..orderBy([(t) => OrderingTerm.desc(t.createdAt)]))
-          .watch();
-  Stream<List<OrderData>> watchCancelledOrders() =>
-      (select(orders)
-            ..where((t) => t.status.equals('cancelled'))
-            ..orderBy([(t) => OrderingTerm.desc(t.createdAt)]))
-          .watch();
-  Stream<List<OrderData>> watchOrdersByCustomer(int customerId) =>
-      (select(orders)
-            ..where((t) => t.customerId.equals(customerId))
-            ..orderBy([(t) => OrderingTerm.desc(t.createdAt)]))
-          .watch();
-  Future<void> markCompleted(int orderId, int staffId) async {
-    await transaction(() async {
-      // 1. Move order to completed
-      await (update(orders)..where((t) => t.id.equals(orderId))).write(
-        OrdersCompanion(
-          status: const Value('completed'),
-          completedAt: Value(DateTime.now()),
+  // ── Writes ─────────────────────────────────────────────────────────────────
+
+  Future<void> assignRider(String orderId, String riderName) {
+    return (update(
+          orders,
+        )..where((o) => o.id.equals(orderId) & whereBusiness(o)))
+        .write(
+          OrdersCompanion(
+            riderName: Value(riderName),
+            lastUpdatedAt: Value(DateTime.now()),
+          ),
+        );
+  }
+
+  /// Atomic order + items + inventory + ledger + payment + wallet in a single txn.
+  /// Returns the new order ID.
+  ///
+  /// [walletDebitKobo] is the amount to debit from the customer's wallet. Used
+  /// for wallet payments (full balance), partial payments (the remainder put on
+  /// account), and credit sales (the full total). Requires [customerId].
+  Future<String> createOrder({
+    required OrdersCompanion order,
+    required List<OrderItemsCompanion> items,
+    String? customerId,
+    required int amountPaidKobo,
+    required int totalAmountKobo,
+    required String staffId,
+    String? warehouseId,
+    int walletDebitKobo = 0,
+    String paymentMethod = 'cash',
+  }) {
+    return db.transaction(() async {
+      final orderId = order.id.present ? order.id.value : UuidV7.generate();
+
+      // 1. Insert Order
+      await into(orders).insert(order.copyWith(id: Value(orderId)));
+
+      // 2. Insert OrderItems
+      for (final item in items) {
+        await into(orderItems).insert(item.copyWith(orderId: Value(orderId)));
+      }
+
+      // 3. Deduct Inventory — atomic guard (Issue #8)
+      for (final item in items) {
+        final qty = item.quantity.value;
+        final productId = item.productId.value;
+        final whId = item.warehouseId.value;
+
+        final rowsAffected = await customUpdate(
+          'UPDATE inventory SET quantity = quantity - ? '
+          'WHERE business_id = ? AND product_id = ? '
+          'AND warehouse_id = ? AND quantity >= ?',
+          variables: [
+            Variable(qty),
+            Variable(requireBusinessId()),
+            Variable(productId),
+            Variable(whId),
+            Variable(qty),
+          ],
+          updates: {inventory},
+        );
+        if (rowsAffected == 0) {
+          throw InsufficientStockException(
+            productId: productId,
+            requested: qty,
+          );
+        }
+      }
+
+      // 4. Insert StockTransactions ledger rows
+      for (final item in items) {
+        await into(stockTransactions).insert(
+          StockTransactionsCompanion.insert(
+            businessId: requireBusinessId(),
+            productId: item.productId.value,
+            locationId: warehouseId ?? item.warehouseId.value,
+            quantityDelta: -item.quantity.value,
+            movementType: 'sale',
+            orderId: Value(orderId),
+            performedBy: staffId,
+          ),
+        );
+      }
+
+      // 5. Insert PaymentTransactions only when cash actually changed hands.
+      // Wallet/credit sales are recorded by the wallet ledger, not as a
+      // 0-kobo payment row.
+      if (amountPaidKobo > 0) {
+        await into(paymentTransactions).insert(
+          PaymentTransactionsCompanion.insert(
+            businessId: requireBusinessId(),
+            amountKobo: amountPaidKobo,
+            method: paymentMethod,
+            type: 'sale',
+            orderId: Value(orderId),
+            performedBy: Value(staffId),
+          ),
+        );
+      }
+
+      // 6. Insert WalletTransactions debit when the customer carries part or
+      // all of the bill on their wallet (partial cash, full wallet, credit).
+      if (walletDebitKobo > 0) {
+        if (customerId == null) {
+          throw ArgumentError(
+            'walletDebitKobo > 0 requires a non-null customerId',
+          );
+        }
+        final wallet =
+            await (select(customerWallets)
+                  ..where(
+                    (w) =>
+                        whereBusiness(w) &
+                        w.customerId.equals(customerId) &
+                        w.isDeleted.not(),
+                  )
+                  ..limit(1))
+                .getSingleOrNull();
+        if (wallet == null) {
+          throw StateError('Customer $customerId has no wallet — cannot debit');
+        }
+        await into(walletTransactions).insert(
+          WalletTransactionsCompanion.insert(
+            businessId: requireBusinessId(),
+            walletId: wallet.id,
+            customerId: customerId,
+            type: 'debit',
+            amountKobo: walletDebitKobo,
+            signedAmountKobo: -walletDebitKobo,
+            referenceType: 'order_payment',
+            orderId: Value(orderId),
+            performedBy: Value(staffId),
+          ),
+        );
+      }
+
+      return orderId;
+    });
+  }
+
+  Future<void> markCompleted(String orderId, [String? staffId]) {
+    return db.transaction(() async {
+      await (update(orders)..where(
+            (o) => o.id.equals(orderId) & whereBusiness(o),
+          ))
+          .write(
+            OrdersCompanion(
+              status: const Value('completed'),
+              staffId: staffId != null ? Value(staffId) : const Value.absent(),
+              completedAt: Value(DateTime.now().toUtc()),
+              lastUpdatedAt: Value(DateTime.now()),
+            ),
+          );
+    });
+  }
+
+  /// Cancel an order: append compensating stock rows + void payments.
+  Future<void> markCancelled(String orderId, String reason, String staffId) {
+    return db.transaction(() async {
+      // Update order status
+      await (update(orders)..where(
+            (o) => o.id.equals(orderId) & whereBusiness(o),
+          ))
+          .write(
+            OrdersCompanion(
+              status: const Value('cancelled'),
+              cancellationReason: Value(reason),
+              cancelledAt: Value(DateTime.now().toUtc()),
+              lastUpdatedAt: Value(DateTime.now()),
+            ),
+          );
+
+      // Stock: append COMPENSATING rows (ledger is append-only)
+      final saleRows =
+          await (select(stockTransactions)..where(
+                (s) =>
+                    s.orderId.equals(orderId) &
+                    s.movementType.equals('sale') &
+                    s.voidedAt.isNull(),
+              ))
+              .get();
+      for (final row in saleRows) {
+        await into(stockTransactions).insert(
+          StockTransactionsCompanion.insert(
+            businessId: requireBusinessId(),
+            productId: row.productId,
+            locationId: row.locationId,
+            quantityDelta: -row.quantityDelta, // positive (return)
+            movementType: 'return',
+            orderId: Value(orderId),
+            performedBy: staffId,
+          ),
+        );
+        // Restore inventory
+        await customUpdate(
+          'UPDATE inventory SET quantity = quantity + ? '
+          'WHERE business_id = ? AND product_id = ? AND warehouse_id = ?',
+          variables: [
+            Variable(-row.quantityDelta),
+            Variable(requireBusinessId()),
+            Variable(row.productId),
+            Variable(row.locationId),
+          ],
+          updates: {inventory},
+        );
+      }
+
+      // Payment: void metadata ONLY (never append a new payment row)
+      await (update(
+        paymentTransactions,
+      )..where((p) => p.orderId.equals(orderId) & p.voidedAt.isNull())).write(
+        PaymentTransactionsCompanion(
+          voidedAt: Value(DateTime.now().toUtc()),
+          voidedBy: Value(staffId),
+          voidReason: Value('order_cancelled: $reason'),
         ),
       );
 
-      // 2. Deduct stock for every item in the order.
-      // Empty-crate accounting is handled by `CrateReturnModal._confirm()`
-      // before this method is called, so we no longer add empty crates here
-      // (doing so would double-count).
-      final items = await (select(
-        orderItems,
-      )..where((t) => t.orderId.equals(orderId))).get();
-      final now = DateTime.now();
-      for (final item in items) {
-        await db.inventoryDao.deductStock(
-          item.productId,
-          item.warehouseId,
-          item.quantity,
-        );
+      // Wallet: Refund any debit associated with the order (ledger is append-only)
+      final originalDebit = await (select(walletTransactions)
+            ..where(
+              (t) =>
+                  whereBusiness(t) &
+                  t.orderId.equals(orderId) &
+                  t.type.equals('debit'),
+            )
+            ..limit(1))
+          .getSingleOrNull();
 
-        // Record sale in stock ledger for audit trail
-        await db.stockLedgerDao.insertTransaction(
-          StockTransactionsCompanion.insert(
-            transactionId:
-                '${now.microsecondsSinceEpoch}-${Random().nextInt(10000)}-${item.productId}',
-            productId: item.productId,
-            locationId: item.warehouseId,
-            quantityDelta: -item.quantity,
-            movementType: 'sale',
-            referenceId: Value(orderId.toString()),
-            performedBy: staffId,
-            createdAt: Value(now),
+      if (originalDebit != null) {
+        await into(walletTransactions).insert(
+          WalletTransactionsCompanion.insert(
+            businessId: requireBusinessId(),
+            walletId: originalDebit.walletId,
+            customerId: originalDebit.customerId,
+            type: 'credit',
+            amountKobo: originalDebit.amountKobo,
+            signedAmountKobo: originalDebit.amountKobo,
+            referenceType: 'refund',
+            orderId: Value(orderId),
+            performedBy: Value(staffId),
           ),
         );
       }
     });
   }
 
-  Future<void> markCancelled(int orderId, String reason, int staffId) async {
-    await transaction(() async {
-      // Check if the order was completed (stock already deducted)
-      final order = await (select(orders)
-            ..where((t) => t.id.equals(orderId)))
-          .getSingleOrNull();
-
-      await (update(orders)..where((t) => t.id.equals(orderId))).write(
-        OrdersCompanion(
-          status: const Value('cancelled'),
-          cancelledAt: Value(DateTime.now()),
-          cancellationReason: Value(reason),
-        ),
-      );
-
-      // If order was completed, reverse stock deductions and record returns
-      if (order != null && order.status == 'completed') {
-        final items = await (select(orderItems)
-              ..where((t) => t.orderId.equals(orderId)))
-            .get();
-        final now = DateTime.now();
-        for (final item in items) {
-          // Add stock back (direct inventory update — not adjustStock, to
-          // avoid generating a duplicate 'adjustment' ledger entry)
-          final existing = await (select(db.inventory)
-                ..where((t) =>
-                    t.productId.equals(item.productId) &
-                    t.warehouseId.equals(item.warehouseId)))
-              .getSingleOrNull();
-          if (existing != null) {
-            final newQty =
-                (existing.quantity + item.quantity).clamp(0, 999999);
-            await (update(db.inventory)
-                  ..where((t) => t.id.equals(existing.id)))
-                .write(InventoryCompanion(quantity: Value(newQty)));
-          } else {
-            await into(db.inventory).insert(
-              InventoryCompanion.insert(
-                productId: item.productId,
-                warehouseId: item.warehouseId,
-                quantity: Value(item.quantity),
-              ),
-            );
-          }
-
-          // Record return in stock ledger
-          await db.stockLedgerDao.insertTransaction(
-            StockTransactionsCompanion.insert(
-              transactionId:
-                  '${now.microsecondsSinceEpoch}-${Random().nextInt(10000)}-ret-${item.productId}',
-              productId: item.productId,
-              locationId: item.warehouseId,
-              quantityDelta: item.quantity,
-              movementType: 'return',
-              referenceId: Value(orderId.toString()),
-              performedBy: staffId,
-              createdAt: Value(now),
-            ),
-          );
-        }
-      }
-    });
-  }
-
-  Future<void> assignRider(int orderId, String riderName) async {
-    await (update(orders)..where((t) => t.id.equals(orderId))).write(
-      OrdersCompanion(riderName: Value(riderName)),
-    );
-  }
-
-  Future<String> createOrder({
-    required OrdersCompanion order,
-    required List<OrderItemsCompanion> items,
-    int? customerId,
-    required int amountPaidKobo,
-    required int totalAmountKobo,
-    required int staffId,
-  }) async {
-    return transaction(() async {
-      // 1. Generate Order Number
-      final orderNo = await generateOrderNumber();
-
-      // Get businessId from staff
-      final staff = await db.warehousesDao.getUserById(staffId);
-      final businessId = staff?.businessId;
-
-      final orderWithSync = order.copyWith(
-        orderNumber: Value(orderNo),
-        businessId: Value(businessId),
-        lastUpdatedAt: Value(DateTime.now()),
-        // If customerId is -1 (Walk-in), store as null in DB to avoid FK issues
-        // and ensure watchAllOrdersWithItems works correctly.
-        customerId: (order.customerId.value == -1)
-            ? const Value(null)
-            : order.customerId,
-      );
-
-      // 2. Insert Order
-      final orderId = await into(orders).insert(orderWithSync);
-
-      // 3. Insert Items
-      for (final item in items) {
-        await into(orderItems).insert(item.copyWith(
-          orderId: Value(orderId),
-          businessId: Value(businessId),
-          lastUpdatedAt: Value(DateTime.now()),
-        ));
-      }
-
-      // 4. Queue for Sync
-      final insertedOrder = await (select(orders)..where((t) => t.id.equals(orderId))).getSingleOrNull();
-      await db.syncDao.enqueue(
-        'orders:insert',
-        jsonEncode({
-          'id': orderId,
-          'business_id': businessId,
-          'order_number': orderNo,
-          'customer_id': insertedOrder?.customerId,
-          'total_amount_kobo': insertedOrder?.totalAmountKobo,
-          'discount_kobo': insertedOrder?.discountKobo,
-          'net_amount_kobo': insertedOrder?.netAmountKobo,
-          'amount_paid_kobo': insertedOrder?.amountPaidKobo,
-          'payment_type': insertedOrder?.paymentType,
-          'created_at': insertedOrder?.createdAt.toIso8601String(),
-          'status': insertedOrder?.status,
-          'rider_name': insertedOrder?.riderName,
-          'cancellation_reason': insertedOrder?.cancellationReason,
-          'barcode': insertedOrder?.barcode,
-          'staff_id': staffId,
-          'warehouse_id': insertedOrder?.warehouseId,
-          'crate_deposit_paid_kobo': insertedOrder?.crateDepositPaidKobo,
-          'last_updated_at': insertedOrder?.lastUpdatedAt?.toIso8601String(),
-        }),
-        businessId: businessId ?? db.currentBusinessId!,
-      );
-
-      // 5. Queue line items for Sync (cloud `order_items` is a separate table
-      // with FK to orders, so each row needs its own upsert).
-      final insertedItems = await (select(orderItems)
-            ..where((t) => t.orderId.equals(orderId)))
-          .get();
-      for (final it in insertedItems) {
-        await db.syncDao.enqueue(
-          'order_items:insert',
-          jsonEncode({
-            'id': it.id,
-            'business_id': it.businessId,
-            'order_id': it.orderId,
-            'product_id': it.productId,
-            'warehouse_id': it.warehouseId,
-            'quantity': it.quantity,
-            'unit_price_kobo': it.unitPriceKobo,
-            'buying_price_kobo': it.buyingPriceKobo,
-            'total_kobo': it.totalKobo,
-            'last_updated_at': it.lastUpdatedAt?.toIso8601String(),
-          }),
-          businessId: it.businessId ?? businessId ?? db.currentBusinessId!,
-        );
-      }
-
-      // Wallet transactions are handled by OrderService._recordWalletTransactions()
-
-      return orderNo;
-    });
-  }
-
   Future<String> generateOrderNumber() async {
-    final now = DateTime.now();
-    final datePart = DateFormat('yyMMddHHmmss').format(now); // 12 digits
-    final randomPart = (Random().nextInt(9000) + 1000)
-        .toString(); // 4 digits (ensuring 4 digits)
-    return '$datePart$randomPart';
+    final count =
+        await (selectOnly(orders)
+              ..where(whereBusiness(orders))
+              ..addColumns([orders.id.count()]))
+            .map((row) => row.read(orders.id.count()) ?? 0)
+            .getSingle();
+    return 'ORD-${(count + 1).toString().padLeft(6, '0')}';
   }
 
-  /// Returns units sold and revenue for this product today, this week, this month.
-  Future<ProductSalesSummary> getSalesSummaryForProduct(int productId) async {
+  // ── Timezone-aware analytics ───────────────────────────────────────────────
+
+  Future<ProductSalesSummary> getSalesSummaryForProduct(
+    String productId,
+  ) async {
+
+    final business = await (select(
+      businesses,
+    )..where((b) => whereBusiness(b))).getSingleOrNull();
+    final tzName = business?.timezone ?? 'UTC';
+
+    tz.Location location;
+    try {
+      location = tz.getLocation(tzName);
+    } on tz.LocationNotFoundException {
+      debugPrint('[OrdersDao] Invalid timezone "$tzName", falling back to UTC');
+      location = tz.UTC;
+    }
+
+    final now = tz.TZDateTime.now(location);
+    final todayStart = tz.TZDateTime(
+      location,
+      now.year,
+      now.month,
+      now.day,
+    ).toUtc();
+    final weekStart = tz.TZDateTime(
+      location,
+      now.year,
+      now.month,
+      now.day - 6,
+    ).toUtc();
+    final monthStart = tz.TZDateTime(location, now.year, now.month, 1).toUtc();
+
+
     final query =
         select(orderItems).join([
           innerJoin(orders, orders.id.equalsExp(orderItems.orderId)),
         ])..where(
           orderItems.productId.equals(productId) &
-              orders.status.equals('completed'),
+              orders.status.equals('completed') &
+              whereBusiness(orders),
         );
 
     final rows = await query.get();
-
-    final now = DateTime.now();
-    final todayStart = DateTime(now.year, now.month, now.day);
-    final weekStart = todayStart.subtract(const Duration(days: 6));
-    final monthStart = DateTime(now.year, now.month, 1);
 
     int todayUnits = 0, todayRevKobo = 0;
     int weekUnits = 0, weekRevKobo = 0;
@@ -1057,7 +884,7 @@ class OrdersDao extends DatabaseAccessor<AppDatabase> with _$OrdersDaoMixin {
     for (final row in rows) {
       final item = row.readTable(orderItems);
       final order = row.readTable(orders);
-      final date = order.createdAt;
+      final date = order.createdAt.toUtc();
 
       if (!date.isBefore(monthStart)) {
         monthUnits += item.quantity;
@@ -1083,20 +910,73 @@ class OrdersDao extends DatabaseAccessor<AppDatabase> with _$OrdersDaoMixin {
     );
   }
 
-  // ── Saved Carts ─────────────────────────────────────────────────────────
+  // ── Cart staleness ─────────────────────────────────────────────────────────
 
-  Stream<List<SavedCartData>> watchSavedCarts() => (select(
-    savedCarts,
-  )..orderBy([(t) => OrderingTerm.desc(t.createdAt)])).watch();
+  /// Compare each cart line's snapshot (productId, version, unitPriceKobo)
+  /// against the live product row. Returns one [CartStaleItem] per drift —
+  /// either the version was bumped (price/details changed since the line was
+  /// added) or the resolved selling price differs.
+  ///
+  /// Single SELECT for the whole list (no N+1).
+  Future<List<CartStaleItem>> checkCartStaleness(
+    List<CartLineSnapshot> lines,
+  ) async {
+    if (lines.isEmpty) return const [];
+    final ids = lines.map((l) => l.productId).toList();
+    final rows = await (select(products)
+          ..where((p) => p.id.isIn(ids) & p.isDeleted.not() & whereBusiness(p)))
+        .get();
+    final byId = {for (final p in rows) p.id: p};
 
-  Future<int> saveCart(SavedCartsCompanion companion) =>
-      into(savedCarts).insert(companion);
+    final stale = <CartStaleItem>[];
+    for (final line in lines) {
+      final p = byId[line.productId];
+      if (p == null) continue; // product gone; UI handles separately
+      final currentPriceKobo = p.sellingPriceKobo > 0
+          ? p.sellingPriceKobo
+          : p.retailPriceKobo;
+      if (p.version != line.cartVersion ||
+          currentPriceKobo != line.cartUnitPriceKobo) {
+        stale.add(
+          CartStaleItem(
+            productId: p.id,
+            productName: p.name,
+            cartVersion: line.cartVersion,
+            currentVersion: p.version,
+            oldPriceKobo: line.cartUnitPriceKobo,
+            newPriceKobo: currentPriceKobo,
+          ),
+        );
+      }
+    }
+    return stale;
+  }
 
-  Future<void> deleteSavedCart(int id) =>
-      (delete(savedCarts)..where((t) => t.id.equals(id))).go();
+  // ── Saved Carts ────────────────────────────────────────────────────────────
 
-  Future<SavedCartData?> getSavedCart(int id) =>
-      (select(savedCarts)..where((t) => t.id.equals(id))).getSingleOrNull();
+  Stream<List<SavedCartData>> watchSavedCarts() {
+    return (select(savedCarts)
+          ..where((c) => whereBusiness(c))
+          ..orderBy([(c) => OrderingTerm.desc(c.createdAt)]))
+        .watch();
+  }
+
+  Future<String> saveCart(SavedCartsCompanion companion) async {
+    final id = companion.id.present ? companion.id.value : UuidV7.generate();
+    await into(savedCarts).insert(companion.copyWith(id: Value(id)));
+    return id;
+  }
+
+  Future<void> deleteSavedCart(String id) {
+    return (delete(savedCarts)..where((c) => c.id.equals(id))).go();
+  }
+
+  Future<SavedCartData?> getSavedCart(String id) {
+    return (select(savedCarts)
+          ..where((c) => c.id.equals(id))
+          ..limit(1))
+        .getSingleOrNull();
+  }
 }
 
 class ProductSalesSummary {
@@ -1139,8 +1019,48 @@ class OrderItemDataWithProductData {
   OrderItemDataWithProductData(this.item, this.product);
 }
 
+class InsufficientStockException implements Exception {
+  final String productId;
+  final int requested;
+  const InsufficientStockException({
+    required this.productId,
+    required this.requested,
+  });
+  @override
+  String toString() =>
+      'InsufficientStockException: product $productId, requested $requested';
+}
+
+class CartStaleItem {
+  final String productId;
+  final String productName;
+  final int cartVersion;
+  final int currentVersion;
+  final int oldPriceKobo;
+  final int newPriceKobo;
+  const CartStaleItem({
+    required this.productId,
+    required this.productName,
+    required this.cartVersion,
+    required this.currentVersion,
+    required this.oldPriceKobo,
+    required this.newPriceKobo,
+  });
+}
+
+class CartLineSnapshot {
+  final String productId;
+  final int cartVersion;
+  final int cartUnitPriceKobo;
+  const CartLineSnapshot({
+    required this.productId,
+    required this.cartVersion,
+    required this.cartUnitPriceKobo,
+  });
+}
+
 class CrateBalanceEntry {
-  final int crateGroupId;
+  final String crateGroupId;
   final String groupName;
   final int balance;
   CrateBalanceEntry({
@@ -1153,7 +1073,6 @@ class CrateBalanceEntry {
 @DriftAccessor(
   tables: [
     Customers,
-    CustomerWalletTransactions,
     CustomerCrateBalances,
     CustomerWallets,
     WalletTransactions,
@@ -1161,476 +1080,197 @@ class CrateBalanceEntry {
   ],
 )
 class CustomersDao extends DatabaseAccessor<AppDatabase>
-    with _$CustomersDaoMixin {
+    with _$CustomersDaoMixin, BusinessScopedDao<AppDatabase> {
   CustomersDao(super.db);
-  Stream<List<CustomerData>> watchAllCustomers() =>
-      (select(customers)..orderBy([(t) => OrderingTerm.desc(t.id)])).watch();
-  Stream<List<CustomerData>> watchCustomersByWarehouse(int warehouseId) =>
-      (select(customers)
-            ..where((t) => t.warehouseId.equals(warehouseId))
-            ..orderBy([(t) => OrderingTerm.desc(t.id)]))
-          .watch();
-  Future<CustomerData?> findById(int id) =>
-      (select(customers)..where((t) => t.id.equals(id))).getSingleOrNull();
-  Future<CustomerData?> findByPhone(String phone) => (select(
-    customers,
-  )..where((t) => t.phone.equals(phone))).getSingleOrNull();
-  Stream<CustomerData?> watchCustomerById(int id) =>
-      (select(customers)..where((t) => t.id.equals(id))).watchSingleOrNull();
-  Stream<List<CrateBalanceEntry>> watchCrateBalancesWithGroups(int customerId) {
-    final query = select(customerCrateBalances).join([
-      innerJoin(
-        crateGroups,
-        crateGroups.id.equalsExp(customerCrateBalances.crateGroupId),
-      ),
-    ])..where(customerCrateBalances.customerId.equals(customerId));
-    return query.watch().map(
-      (rows) => rows.map((row) {
-        final b = row.readTable(customerCrateBalances);
-        final g = row.readTable(crateGroups);
-        return CrateBalanceEntry(
-          crateGroupId: g.id,
-          groupName: g.name,
-          balance: b.balance,
+
+  Stream<List<CustomerData>> watchAllCustomers() {
+    return (select(customers)
+          ..where((t) => whereBusiness(t) & t.isDeleted.not())
+          ..orderBy([(t) => OrderingTerm(expression: t.name)]))
+        .watch();
+  }
+
+  Stream<List<CustomerData>> watchCustomersByWarehouse(String warehouseId) {
+    return (select(customers)
+          ..where(
+            (t) => whereBusiness(t) &
+                t.warehouseId.equals(warehouseId) &
+                t.isDeleted.not(),
+          )
+          ..orderBy([(t) => OrderingTerm(expression: t.name)]))
+        .watch();
+  }
+
+  Future<CustomerData?> findById(String id) {
+    return (select(customers)
+          ..where(
+            (t) =>
+                t.id.equals(id) &
+                whereBusiness(t) &
+                t.isDeleted.not(),
+          )
+          ..limit(1))
+        .getSingleOrNull();
+  }
+
+  Future<CustomerData?> findByPhone(String phone) {
+    return (select(customers)
+          ..where(
+            (t) =>
+                t.phone.equals(phone) &
+                whereBusiness(t) &
+                t.isDeleted.not(),
+          )
+          ..limit(1))
+        .getSingleOrNull();
+  }
+
+  Stream<CustomerData?> watchCustomerById(String id) {
+    return (select(customers)
+          ..where(
+            (t) =>
+                t.id.equals(id) &
+                whereBusiness(t) &
+                t.isDeleted.not(),
+          )
+          ..limit(1))
+        .watchSingleOrNull();
+  }
+
+  Stream<List<CrateBalanceEntry>> watchCrateBalancesWithGroups(
+    String customerId,
+  ) {
+    final query =
+        select(customerCrateBalances).join([
+          innerJoin(
+            crateGroups,
+            crateGroups.id.equalsExp(customerCrateBalances.crateGroupId),
+          ),
+        ])..where(
+          whereBusiness(customerCrateBalances) &
+              customerCrateBalances.customerId.equals(customerId),
         );
-      }).toList(),
+    return query.watch().map(
+      (rows) => rows
+          .map(
+            (r) => CrateBalanceEntry(
+              crateGroupId: r.readTable(customerCrateBalances).crateGroupId,
+              groupName: r.readTable(crateGroups).name,
+              balance: r.readTable(customerCrateBalances).balance,
+            ),
+          )
+          .toList(),
     );
   }
 
-  Future<int> addCustomer(CustomersCompanion customer) async {
-    return transaction(() async {
-      final customerWithSync = customer.copyWith(
-        lastUpdatedAt: Value(DateTime.now()),
+  Future<String> addCustomer(CustomersCompanion customer) async {
+    final customerId = UuidV7.generate();
+    final walletId = UuidV7.generate();
+    await transaction(() async {
+      await into(customers).insert(
+        customer.copyWith(id: Value(customerId), businessId: Value(requireBusinessId())),
       );
-      final customerId = await into(customers).insert(customerWithSync);
-
-      // Every customer must have a wallet. The wallet inherits business_id
-      // from the customer so cloud RLS / FK accept the row.
-      final walletId = _generateUuid();
       await into(customerWallets).insert(
         CustomerWalletsCompanion.insert(
-          walletId: walletId,
+          id: Value(walletId),
+          businessId: requireBusinessId(),
           customerId: customerId,
-          businessId: customer.businessId,
-          lastUpdatedAt: Value(DateTime.now()),
         ),
       );
-
-      // Queue for Sync
-      final data = await findById(customerId);
-      await db.syncDao.enqueue(
-        'customers:insert',
-        jsonEncode(_customerPayload(data!)),
-        businessId: data.businessId ?? db.currentBusinessId!,
-      );
-
-      final wallet = await (select(customerWallets)
-            ..where((t) => t.walletId.equals(walletId)))
-          .getSingle();
-      await db.syncDao.enqueue(
-        // wallet_id (TEXT) is the cloud PK — no `id` column exists.
-        'customer_wallets:upsert:wallet_id',
-        jsonEncode({
-          'wallet_id': wallet.walletId,
-          'business_id': wallet.businessId,
-          'customer_id': wallet.customerId,
-          'currency': wallet.currency,
-          'created_at': wallet.createdAt.toIso8601String(),
-          'is_active': wallet.isActive,
-          'is_deleted': wallet.isDeleted,
-          'last_updated_at': wallet.lastUpdatedAt?.toIso8601String(),
-        }),
-        businessId: wallet.businessId ?? db.currentBusinessId!,
-      );
-
-      return customerId;
     });
-  }
-
-  /// Shared payload shape for both `customers:insert` and `customers:update`.
-  Map<String, dynamic> _customerPayload(CustomerData data) => {
-        'id': data.id,
-        'business_id': data.businessId,
-        'warehouse_id': data.warehouseId,
-        'name': data.name,
-        'phone': data.phone,
-        'email': data.email,
-        'address': data.address,
-        'google_maps_location': data.googleMapsLocation,
-        'customer_group': data.customerGroup,
-        'created_at': data.createdAt.toIso8601String(),
-        'wallet_balance_kobo': data.walletBalanceKobo,
-        'wallet_limit_kobo': data.walletLimitKobo,
-        'last_updated_at': data.lastUpdatedAt?.toIso8601String(),
-        'is_deleted': data.isDeleted,
-      };
-
-  String _generateUuid() {
-    final random = DateTime.now().microsecondsSinceEpoch;
-    return 'wlt-$random'; // Simple unique wallet ID
-  }
-
-  Future<void> updateWalletBalance({
-    required int customerId,
-    required int amountKobo,
-    required String type, // credit or debit
-    required String referenceType,
-    String? referenceId,
-    required int staffId,
-    String? note,
-  }) async {
-    return transaction(() async {
-      final wallet = await (select(
-        customerWallets,
-      )..where((t) => t.customerId.equals(customerId))).getSingleOrNull();
-
-      if (wallet == null) throw Exception('Customer wallet not found');
-
-      final now = DateTime.now();
-
-      // 1. Update the cached balance on the Customers row for quick access
-      final customer = await findById(customerId);
-      if (customer != null) {
-        final newBalance =
-            customer.walletBalanceKobo +
-            (type == 'credit' ? amountKobo : -amountKobo);
-        await (update(customers)..where((t) => t.id.equals(customerId))).write(
-          CustomersCompanion(
-            walletBalanceKobo: Value(newBalance),
-            lastUpdatedAt: Value(now),
-          ),
-        );
-      }
-
-      // 2. Insert into WalletTransactions for audit trail
-      // referenceId encodes type + referenceId to avoid timestamp collisions when
-      // two entries are created for the same order (Full Cash, Partial Cash).
-      final txnId = referenceId != null
-          ? 'txn-${now.microsecondsSinceEpoch}-$type-$referenceId'
-          : 'txn-${now.microsecondsSinceEpoch}';
-
-      await into(walletTransactions).insert(
-        WalletTransactionsCompanion.insert(
-          txnId: txnId,
-          walletId: wallet.walletId,
-          type: type,
-          amountKobo: amountKobo.abs(),
-          referenceType: note ?? referenceType,
-          referenceId: Value(referenceId),
-          performedBy: staffId,
-          createdAt: Value(now),
-          businessId: Value(wallet.businessId),
-          lastUpdatedAt: Value(now),
-        ),
-      );
-
-      // 3. Queue both the new wallet_transactions row and the updated
-      // customers row (cached balance) for Supabase.
-      final txn = await (select(walletTransactions)
-            ..where((t) => t.txnId.equals(txnId)))
-          .getSingle();
-      await db.syncDao.enqueue(
-        // txn_id (TEXT) is the cloud PK — no `id` column exists.
-        'wallet_transactions:upsert:txn_id',
-        jsonEncode({
-          'txn_id': txn.txnId,
-          'business_id': txn.businessId,
-          'wallet_id': txn.walletId,
-          'type': txn.type,
-          'amount_kobo': txn.amountKobo,
-          'reference_type': txn.referenceType,
-          'reference_id': txn.referenceId,
-          'performed_by': txn.performedBy,
-          'customer_verified': txn.customerVerified,
-          'created_at': txn.createdAt.toIso8601String(),
-          'last_updated_at': txn.lastUpdatedAt?.toIso8601String(),
-        }),
-        businessId: txn.businessId ?? db.currentBusinessId!,
-      );
-
-      final updatedCustomer = await findById(customerId);
-      if (updatedCustomer != null) {
-        await db.syncDao.enqueue(
-          'customers:update',
-          jsonEncode(_customerPayload(updatedCustomer)),
-          businessId: updatedCustomer.businessId ?? db.currentBusinessId!,
-        );
-      }
-    });
-  }
-
-  /// Alias for updateWalletBalance to maintain compatibility with OrderService
-  Future<void> recordWalletTransaction({
-    required int customerId,
-    required int amountKobo,
-    required String type,
-    required String referenceId,
-    required int staffId,
-    String note = 'order_payment',
-  }) => updateWalletBalance(
-    customerId: customerId,
-    amountKobo: amountKobo,
-    type: type,
-    referenceType: note,
-    referenceId: referenceId,
-    staffId: staffId,
-    note: note,
-  );
-
-  Stream<List<WalletTransactionData>> watchWalletHistory(int customerId) {
-    final query =
-        select(walletTransactions).join([
-            leftOuterJoin(
-              customerWallets,
-              customerWallets.walletId.equalsExp(walletTransactions.walletId),
-            ),
-          ])
-          ..where(customerWallets.customerId.equals(customerId))
-          ..orderBy([OrderingTerm.desc(walletTransactions.createdAt)]);
-
-    return query.watch().map(
-      (rows) => rows.map((r) => r.readTable(walletTransactions)).toList(),
-    );
-  }
-
-  Future<CustomerWalletData?> getWalletInfo(int customerId) {
-    return (select(
-      customerWallets,
-    )..where((t) => t.customerId.equals(customerId))).getSingleOrNull();
-  }
-
-  Future<void> updateWalletLimit(int customerId, int limitKobo) async {
-    await transaction(() async {
-      final now = DateTime.now();
-      await (update(customers)..where((t) => t.id.equals(customerId))).write(
-        CustomersCompanion(
-          walletLimitKobo: Value(limitKobo),
-          lastUpdatedAt: Value(now),
-        ),
-      );
-      final updated = await findById(customerId);
-      if (updated != null) {
-        await db.syncDao.enqueue(
-          'customers:update',
-          jsonEncode(_customerPayload(updated)),
-          businessId: updated.businessId ?? db.currentBusinessId!,
-        );
-      }
-    });
-  }
-
-  Stream<int> watchWalletBalance(int customerId) {
-    return (select(customers)..where((t) => t.id.equals(customerId)))
-        .watchSingleOrNull()
-        .map((c) => c?.walletBalanceKobo ?? 0);
+    return customerId;
   }
 
   Future<void> updateCrateBalance(
-    int customerId,
-    int crateGroupId,
+    String customerId,
+    String crateGroupId,
     int deltaQty,
-  ) async {
-    await transaction(() async {
-      final now = DateTime.now();
-      final customer = await findById(customerId);
-      final businessId = customer?.businessId;
-      final existing =
-          await (select(customerCrateBalances)..where(
-                (t) =>
-                    t.customerId.equals(customerId) &
-                    t.crateGroupId.equals(crateGroupId),
-              ))
-              .getSingleOrNull();
-
-      if (existing != null) {
-        final newBalance = existing.balance - deltaQty;
-        await (update(customerCrateBalances)..where(
-              (t) =>
-                  t.customerId.equals(customerId) &
-                  t.crateGroupId.equals(crateGroupId),
-            ))
-            .write(CustomerCrateBalancesCompanion(
-              balance: Value(newBalance),
-              lastUpdatedAt: Value(now),
-            ));
-      } else {
-        await into(customerCrateBalances).insert(
-          CustomerCrateBalancesCompanion(
-            customerId: Value(customerId),
-            crateGroupId: Value(crateGroupId),
-            balance: Value(-deltaQty),
-            businessId: Value(businessId),
-            lastUpdatedAt: Value(now),
-          ),
-        );
-      }
-
-      await _enqueueCrateBalance(customerId, crateGroupId, businessId, now);
-    });
-  }
-
-  /// Records returned crates for a customer/group pair.
-  /// A negative balance means the customer has returned more than they owe (credit).
-  /// Each call reduces the outstanding by [returnedQty].
+  ) => _stub();
   Future<void> recordCrateReturn(
-    int customerId,
-    int crateGroupId,
+    String customerId,
+    String crateGroupId,
     int returnedQty,
-  ) async {
-    await transaction(() async {
-      final now = DateTime.now();
-      final customer = await findById(customerId);
-      final businessId = customer?.businessId;
-      final existing =
-          await (select(customerCrateBalances)..where(
-                (t) =>
-                    t.customerId.equals(customerId) &
-                    t.crateGroupId.equals(crateGroupId),
-              ))
-              .getSingleOrNull();
-
-      if (existing != null) {
-        await (update(customerCrateBalances)..where(
-              (t) =>
-                  t.customerId.equals(customerId) &
-                  t.crateGroupId.equals(crateGroupId),
-            ))
-            .write(
-              CustomerCrateBalancesCompanion(
-                balance: Value(existing.balance - returnedQty),
-                lastUpdatedAt: Value(now),
-              ),
-            );
-      } else {
-        await into(customerCrateBalances).insert(
-          CustomerCrateBalancesCompanion(
-            customerId: Value(customerId),
-            crateGroupId: Value(crateGroupId),
-            balance: Value(-returnedQty),
-            businessId: Value(businessId),
-            lastUpdatedAt: Value(now),
-          ),
-        );
-      }
-
-      await _enqueueCrateBalance(customerId, crateGroupId, businessId, now);
-    });
-  }
-
-  /// Pushes a customer_crate_balances row to Supabase via the sync queue.
-  /// Skips negative `crateGroupId`s — those are sentinels used by
-  /// [recordCrateReturnByManufacturer] and don't satisfy the cloud FK to
-  /// `crate_groups`. Composite-PK upsert needs an explicit conflict target.
-  Future<void> _enqueueCrateBalance(
-    int customerId,
-    int crateGroupId,
-    int? businessId,
-    DateTime now,
-  ) async {
-    if (crateGroupId < 0) return;
-    final row = await (select(customerCrateBalances)
-          ..where((t) =>
-              t.customerId.equals(customerId) &
-              t.crateGroupId.equals(crateGroupId)))
-        .getSingleOrNull();
-    if (row == null) return;
-    await db.syncDao.enqueue(
-      'customer_crate_balances:upsert:customer_id,crate_group_id',
-      jsonEncode({
-        'business_id': row.businessId,
-        'customer_id': row.customerId,
-        'crate_group_id': row.crateGroupId,
-        'balance': row.balance,
-        'last_updated_at': row.lastUpdatedAt?.toIso8601String() ??
-            now.toIso8601String(),
-      }),
-      businessId: row.businessId ?? businessId ?? db.currentBusinessId!,
-    );
-  }
-
-  /// Records returned crates keyed by manufacturer (rather than crate group).
-  /// Internally uses the existing CustomerCrateBalances table with a sentinel
-  /// `crateGroupId = -manufacturerId` (negative ids never collide with real
-  /// CrateGroup primary keys, which are positive auto-increments).
-  /// A negative balance means the customer has returned more than they owe.
+  ) => _stub();
   Future<void> recordCrateReturnByManufacturer(
-    int customerId,
-    int manufacturerId,
+    String customerId,
+    String manufacturerId,
     int returnedQty,
-  ) async {
-    final sentinel = -manufacturerId;
-    // Sentinel IDs are negative and don't exist in CrateGroups, so we
-    // temporarily disable FK enforcement for this upsert only.
-    await customStatement('PRAGMA foreign_keys = OFF');
-    try {
-      await recordCrateReturn(customerId, sentinel, returnedQty);
-    } finally {
-      await customStatement('PRAGMA foreign_keys = ON');
-    }
+  ) => _stub();
+  Stream<Map<String, int>> watchCrateBalance(String customerId) => _stub();
+
+  // ── Wallet forwarders ────────────────────────────────────────────────────
+  // Balance is derived from the WalletTransactions ledger; the legacy
+  // `customers.wallet_balance_kobo` cache column is gone. These forwarders
+  // keep the customer-screen API surface stable while routing through the
+  // ledger DAO.
+
+  Future<int> getWalletBalanceKobo(String customerId) {
+    return attachedDatabase.walletTransactionsDao.getBalanceKobo(customerId);
   }
 
-  Stream<Map<String, int>> watchCrateBalance(int customerId) =>
-      Stream.value({});
+  Stream<int> watchWalletBalance(String customerId) {
+    return attachedDatabase.walletTransactionsDao.watchBalanceKobo(customerId);
+  }
 
-  Future<int> getWalletBalance(String walletId) async {
-    final credits = walletTransactions.amountKobo.sum(
-      filter: walletTransactions.type.equals('credit'),
+  Stream<List<WalletTransactionData>> watchWalletHistory(String customerId) {
+    return attachedDatabase.walletTransactionsDao.watchHistory(customerId);
+  }
+
+  Stream<Map<String, int>> watchAllWalletBalancesKobo() {
+    return attachedDatabase.walletTransactionsDao.watchAllBalancesKobo();
+  }
+
+  Future<void> updateWalletLimit(String customerId, int limitKobo) {
+    return attachedDatabase.customerWalletsDao
+        .updateWalletLimit(customerId, limitKobo);
+  }
+
+  /// Append a wallet ledger entry. Used by legacy topup/refund flows in
+  /// `CustomerService`. Pass an empty [staffId] when no auth context exists
+  /// — it's stored as NULL.
+  Future<void> updateWalletBalance({
+    required String customerId,
+    required int amountKobo,
+    required String type,
+    required String referenceType,
+    String? note,
+    String staffId = '',
+  }) async {
+    final wallet = await attachedDatabase.customerWalletsDao
+        .getByCustomerId(customerId);
+    if (wallet == null) {
+      throw StateError('Customer $customerId has no wallet');
+    }
+    final signed = type == 'credit' ? amountKobo.abs() : -amountKobo.abs();
+    await into(walletTransactions).insert(
+      WalletTransactionsCompanion.insert(
+        businessId: requireBusinessId(),
+        walletId: wallet.id,
+        customerId: customerId,
+        type: type,
+        amountKobo: amountKobo.abs(),
+        signedAmountKobo: signed,
+        referenceType: referenceType,
+        performedBy: Value(staffId.isEmpty ? null : staffId),
+      ),
     );
-    final debits = walletTransactions.amountKobo.sum(
-      filter: walletTransactions.type.equals('debit'),
-    );
-
-    final query = selectOnly(walletTransactions)
-      ..addColumns([credits, debits])
-      ..where(walletTransactions.walletId.equals(walletId));
-
-    final row = await query.getSingleOrNull();
-    if (row == null) return 0;
-    final creditSum = row.read(credits) ?? 0;
-    final debitSum = row.read(debits) ?? 0;
-
-    return creditSum - debitSum;
   }
 }
 
 @DriftAccessor(tables: [Purchases, PurchaseItems, Suppliers, Products])
 class DeliveriesDao extends DatabaseAccessor<AppDatabase>
-    with _$DeliveriesDaoMixin {
+    with _$DeliveriesDaoMixin, BusinessScopedDao<AppDatabase> {
   DeliveriesDao(super.db);
-  Stream<List<DeliveryData>> watchAll() => select(purchases).watch();
+
+  Stream<List<DeliveryData>> watchAll() => _stub();
   Future<void> receiveDelivery(
     PurchasesCompanion delivery,
     List<PurchaseItemsCompanion> items,
-  ) async {}
-  Future<void> confirmDelivery(
-    String deliveryIdStr,
-    String confirmedBy,
-  ) async {}
-
-  /// Returns the most recent delivery (purchase) for a product, or null if none.
-  Future<LastDeliveryInfo?> getLastDeliveryForProduct(int productId) async {
-    final query =
-        select(purchaseItems).join([
-            innerJoin(
-              purchases,
-              purchases.id.equalsExp(purchaseItems.purchaseId),
-            ),
-          ])
-          ..where(purchaseItems.productId.equals(productId))
-          ..orderBy([OrderingTerm.desc(purchases.timestamp)])
-          ..limit(1);
-
-    final row = await query.getSingleOrNull();
-    if (row == null) return null;
-    final item = row.readTable(purchaseItems);
-    final delivery = row.readTable(purchases);
-    return LastDeliveryInfo(
-      date: delivery.timestamp,
-      quantity: item.quantity,
-      unitPriceKobo: item.unitPriceKobo,
-      totalKobo: item.totalKobo,
-    );
-  }
+  ) => _stub();
+  Future<void> confirmDelivery(String deliveryIdStr, String confirmedBy) =>
+      _stub();
+  Future<LastDeliveryInfo?> getLastDeliveryForProduct(String productId) =>
+      _stub();
 }
 
 class LastDeliveryInfo {
@@ -1647,536 +1287,811 @@ class LastDeliveryInfo {
   });
 }
 
-@DriftAccessor(tables: [Expenses, ExpenseCategories])
+@DriftAccessor(tables: [Expenses, ExpenseCategories, ActivityLogs, PaymentTransactions])
 class ExpensesDao extends DatabaseAccessor<AppDatabase>
-    with _$ExpensesDaoMixin {
+    with _$ExpensesDaoMixin, BusinessScopedDao<AppDatabase> {
   ExpensesDao(super.db);
-  Stream<List<ExpenseData>> watchAll({int? warehouseId}) {
-    if (warehouseId == null) return select(expenses).watch();
-    return (select(
-      expenses,
-    )..where((t) => t.warehouseId.equals(warehouseId))).watch();
+
+  Stream<List<ExpenseWithCategory>> watchAll({String? warehouseId}) {
+    final query = select(expenses).join([
+      leftOuterJoin(
+        expenseCategories,
+        expenseCategories.id.equalsExp(expenses.categoryId),
+      ),
+    ]);
+
+    query.where(whereBusiness(expenses) & expenses.isDeleted.not());
+    if (warehouseId != null) {
+      query.where(expenses.warehouseId.equals(warehouseId));
+    }
+    query.orderBy([OrderingTerm.desc(expenses.createdAt)]);
+
+    return query.watch().map((rows) {
+      return rows.map((row) {
+        return ExpenseWithCategory(
+          expense: row.readTable(expenses),
+          category: row.readTableOrNull(expenseCategories),
+        );
+      }).toList();
+    });
   }
 
-  Future<void> addExpense(ExpensesCompanion companion) async {
-    await transaction(() async {
-      final withSync = companion.copyWith(
-        lastUpdatedAt: Value(DateTime.now()),
-      );
-      final id = await into(expenses).insert(withSync);
+  Stream<List<ExpenseCategoryData>> watchAllCategories() {
+    return (select(expenseCategories)
+          ..where(
+            (t) =>
+                whereBusiness(t) & t.isDeleted.not(),
+          )
+          ..orderBy([(t) => OrderingTerm.asc(t.name)]))
+        .watch();
+  }
 
-      // Queue for Sync
-      await db.syncDao.enqueue(
-        'expenses:insert',
-        jsonEncode({
-          'id': id,
-          'business_id': companion.businessId.value,
-          'category_id': companion.categoryId.value,
-          'category': companion.category.value,
-          'amount_kobo': companion.amountKobo.value,
-          'description': companion.description.value,
-          'payment_method': companion.paymentMethod.value,
-          'recorded_by': companion.recordedBy.value,
-          'reference': companion.reference.value,
-          'timestamp': (companion.timestamp.present
-                  ? companion.timestamp.value
-                  : DateTime.now())
-              .toIso8601String(),
-          'warehouse_id': companion.warehouseId.value,
-          'last_updated_at': DateTime.now().toIso8601String(),
-          'is_deleted': false,
-        }),
-        businessId: companion.businessId.value ?? db.currentBusinessId!,
+  Future<String> resolveCategoryId(String name) async {
+    final normalized = name.trim();
+
+    final existing = await (select(expenseCategories)
+          ..where((t) => whereBusiness(t) & t.name.equals(normalized))
+          ..limit(1))
+        .getSingleOrNull();
+
+    if (existing != null) return existing.id;
+
+    final id = UuidV7.generate();
+    await into(expenseCategories).insert(
+      ExpenseCategoriesCompanion.insert(
+        id: Value(id),
+        businessId: requireBusinessId(),
+        name: normalized,
+      ),
+    );
+    return id;
+  }
+
+  Future<void> addExpense({
+    required String categoryName,
+    required int amountKobo,
+    required String description,
+    String? paymentMethod,
+    String? reference,
+    String? warehouseId,
+    required String recordedBy,
+  }) async {
+
+    await transaction(() async {
+      final categoryId = await resolveCategoryId(categoryName);
+      final expenseId = UuidV7.generate();
+
+      // 1. Insert Expense
+      await into(expenses).insert(
+        ExpensesCompanion.insert(
+          id: Value(expenseId),
+          businessId: requireBusinessId(),
+          categoryId: Value(categoryId),
+          amountKobo: amountKobo,
+          description: description,
+          paymentMethod: Value(paymentMethod),
+          recordedBy: Value(recordedBy),
+          reference: Value(reference),
+          warehouseId: Value(warehouseId),
+        ),
+      );
+
+      // 2. Append Activity Log
+      await db.activityLogDao.log(
+        action: 'expense_created',
+        description: 'Recorded expense: $description ($categoryName)',
+        staffId: recordedBy,
+        expenseId: expenseId,
+        warehouseId: warehouseId,
+      );
+
+      // 3. Append Payment Transaction
+      await into(db.paymentTransactions).insert(
+        PaymentTransactionsCompanion.insert(
+          id: Value(UuidV7.generate()),
+          businessId: requireBusinessId(),
+          amountKobo: amountKobo,
+          method: paymentMethod ?? 'other',
+          type: 'expense',
+          expenseId: Value(expenseId),
+          performedBy: Value(recordedBy),
+        ),
       );
     });
   }
-  Stream<double> watchTotalThisMonth() => Stream.value(0.0);
+
+  Stream<int> watchTotalThisMonth() {
+
+    return db.settingsDao.watchTimezone().switchMap((timezoneName) {
+      final location = tz.getLocation(timezoneName);
+      final now = tz.TZDateTime.now(location);
+      final startOfMonth = tz.TZDateTime(location, now.year, now.month, 1);
+      final nextMonth = tz.TZDateTime(location, now.year, now.month + 1, 1);
+
+
+      final query = selectOnly(expenses)
+        ..addColumns([expenses.amountKobo.sum()])
+        ..where(
+          whereBusiness(expenses) &
+              expenses.isDeleted.not() &
+              expenses.createdAt.isBiggerOrEqualValue(startOfMonth) &
+              expenses.createdAt.isSmallerThanValue(nextMonth),
+        );
+
+      return query.watchSingleOrNull().map((row) => row?.read(expenses.amountKobo.sum()) ?? 0);
+    });
+  }
+}
+
+class ExpenseWithCategory {
+  final ExpenseData expense;
+  final ExpenseCategoryData? category;
+  ExpenseWithCategory({required this.expense, this.category});
 }
 
 @DriftAccessor(tables: [SyncQueue])
-class SyncDao extends DatabaseAccessor<AppDatabase> with _$SyncDaoMixin {
+class SyncDao extends DatabaseAccessor<AppDatabase>
+    with _$SyncDaoMixin, BusinessScopedDao<AppDatabase> {
   SyncDao(super.db);
-  /// Items eligible for an immediate push attempt: not yet synced, and either
-  /// pending/in_progress, or previously failed but past their backoff window.
-  /// `nextAttemptAt IS NULL` is treated as eligible so legacy `failed` rows
-  /// (written before backoff was wired up) get one fresh chance.
-  Future<List<SyncQueueData>> getPendingItems({int limit = 50, int? businessId}) {
-    final now = DateTime.now();
+
+  Future<List<SyncQueueData>> getPendingItems({
+    int limit = 50,
+  }) {
     final query = select(syncQueue)
       ..where((t) =>
-          t.isSynced.not() &
-          (t.status.isIn(['pending', 'in_progress']) |
-              (t.status.equals('failed') &
-                  (t.nextAttemptAt.isNull() |
-                      t.nextAttemptAt.isSmallerOrEqualValue(now)))));
-    if (businessId != null) {
-      query.where((t) => t.businessId.equals(businessId));
-    }
-    return (query..limit(limit)).get();
+          t.isSynced.not() & t.status.equals('pending') & whereBusiness(t))
+      ..orderBy([
+        (t) => OrderingTerm(expression: t.createdAt, mode: OrderingMode.asc)
+      ])
+      ..limit(limit);
+
+    return query.get();
   }
 
-  Future<void> markInProgress(int id) =>
-      (update(syncQueue)..where((t) => t.id.equals(id))).write(
-        const SyncQueueCompanion(status: Value('in_progress')),
-      );
-  Future<void> markDone(int id) =>
-      (update(syncQueue)..where((t) => t.id.equals(id))).write(
-        const SyncQueueCompanion(status: Value('done'), isSynced: Value(true)),
-      );
-
-  /// Records a failure with exponential backoff. Keeps `isSynced=false` so
-  /// the row is preserved for diagnosis, but bumps `nextAttemptAt` so the
-  /// auto-push loop stops hot-retrying a known-broken payload.
-  Future<void> markFailed(int id, String error, {bool permanent = false}) async {
-    final row = await (select(syncQueue)..where((t) => t.id.equals(id)))
-        .getSingleOrNull();
-    final attempts = (row?.attempts ?? 0) + 1;
-    final backoffMinutes = attempts > 6 ? 60 : (1 << (attempts - 1));
+  Future<void> markInProgress(String id) async {
     await (update(syncQueue)..where((t) => t.id.equals(id))).write(
-      SyncQueueCompanion(
-        status: const Value('failed'),
-        errorMessage: Value(error),
-        attempts: Value(attempts),
-        nextAttemptAt:
-            Value(DateTime.now().add(Duration(minutes: backoffMinutes))),
+      const SyncQueueCompanion(status: Value('syncing')),
+    );
+  }
+
+  Future<void> markDone(String id) async {
+    await (update(syncQueue)..where((t) => t.id.equals(id))).write(
+      const SyncQueueCompanion(
+        isSynced: Value(true),
+        status: Value('completed'),
+        nextAttemptAt: Value(null),
       ),
     );
   }
 
-  /// Same predicate as [getPendingItems] so the sidebar badge reflects
-  /// "items eligible to push," not items wedged forever in `failed`.
-  Stream<int> watchPendingCount() {
-    return select(syncQueue).watch().map((rows) {
-      final now = DateTime.now();
-      return rows.where((e) {
-        if (e.isSynced) return false;
-        if (e.status == 'pending' || e.status == 'in_progress') return true;
-        if (e.status == 'failed') {
-          return e.nextAttemptAt == null || !e.nextAttemptAt!.isAfter(now);
-        }
-        return false;
-      }).length;
-    });
+  Future<void> markFailed(String id, String error, {bool permanent = false}) async {
+    final now = DateTime.now();
+    // Simple exponential backoff: 2^attempts * 30 seconds
+    final existing = await (select(syncQueue)..where((t) => t.id.equals(id))).getSingleOrNull();
+    final attempts = (existing?.attempts ?? 0) + 1;
+    final delay = Duration(seconds: (1 << (attempts % 10)) * 30);
+
+    await (update(syncQueue)..where((t) => t.id.equals(id))).write(
+      SyncQueueCompanion(
+        status: Value(permanent ? 'failed' : 'pending'),
+        errorMessage: Value(error),
+        attempts: Value(attempts),
+        nextAttemptAt: Value(permanent ? null : now.add(delay)),
+      ),
+    );
   }
 
-  /// Recovers items abandoned by a crash mid-sync. Call once at service start.
-  Future<void> resetStuckInProgress() =>
-      (update(syncQueue)..where((t) => t.status.equals('in_progress'))).write(
-        const SyncQueueCompanion(status: Value('pending')),
-      );
+  Stream<int> watchPendingCount() {
+    return (selectOnly(syncQueue)
+          ..addColumns([syncQueue.id.count()])
+          ..where(syncQueue.isSynced.not() & whereBusiness(syncQueue)))
+        .watchSingle()
+        .map((row) => row.read(syncQueue.id.count()) ?? 0);
+  }
 
-  /// Wipes backoff state on `failed` rows so they're immediately eligible
-  /// for re-push. Use after recovering from a global cause of failure
-  /// (e.g. fresh sign-in that grants the missing JWT).
-  Future<void> clearFailureBackoff() =>
-      (update(syncQueue)..where((t) => t.status.equals('failed'))).write(
-        const SyncQueueCompanion(
-          status: Value('pending'),
-          attempts: Value(0),
-          nextAttemptAt: Value(null),
-          errorMessage: Value(null),
-        ),
-      );
+  Future<void> resetStuckInProgress() async {
+    // Items stuck in 'syncing' for more than 5 minutes are reset to 'pending'
+    final fiveMinsAgo = DateTime.now().subtract(const Duration(minutes: 5));
+    await (update(syncQueue)
+          ..where((t) =>
+              t.status.equals('syncing') &
+              t.createdAt.isSmallerThanValue(fiveMinsAgo) &
+              whereBusiness(t)))
+        .write(const SyncQueueCompanion(status: Value('pending')));
+  }
 
-  /// Diagnostic: rows currently parked in `failed` state. Used by the
-  /// kDebugMode startup log in SupabaseSyncService.
-  Future<List<SyncQueueData>> getFailedItems({int limit = 50}) =>
-      (select(syncQueue)
-            ..where((t) => t.status.equals('failed'))
-            ..limit(limit))
-          .get();
+  Future<void> clearFailureBackoff() async {
+    await (update(syncQueue)
+            ..where((t) => t.status.equals('pending') & whereBusiness(t)))
+        .write(
+      const SyncQueueCompanion(nextAttemptAt: Value(null)),
+    );
+  }
 
-  Stream<List<SyncQueueData>> watchFailedItems({int limit = 100}) =>
-      (select(syncQueue)
-            ..where((t) => t.status.equals('failed'))
-            ..orderBy([(t) => OrderingTerm.desc(t.id)])
-            ..limit(limit))
-          .watch();
+  Future<List<SyncQueueData>> getFailedItems({int limit = 50}) {
+    return (select(syncQueue)
+          ..where((t) => t.status.equals('failed') & whereBusiness(t))
+          ..orderBy([(t) => OrderingTerm.desc(t.createdAt)])
+          ..limit(limit))
+        .get();
+  }
 
-  Stream<int> watchFailedCount() =>
-      (selectOnly(syncQueue)
-            ..addColumns([syncQueue.id.count()])
-            ..where(syncQueue.status.equals('failed')))
-          .watchSingle()
-          .map((row) => row.read(syncQueue.id.count()) ?? 0);
+  Stream<List<SyncQueueData>> watchFailedItems({int limit = 100}) {
+    return (select(syncQueue)
+          ..where((t) => t.status.equals('failed') & whereBusiness(t))
+          ..orderBy([(t) => OrderingTerm.desc(t.createdAt)])
+          ..limit(limit))
+        .watch();
+  }
 
-  /// Resets one failed row to `pending` so the next push tick retries it.
-  Future<void> clearFailureBackoffById(int id) =>
-      (update(syncQueue)..where((t) => t.id.equals(id))).write(
-        const SyncQueueCompanion(
-          status: Value('pending'),
-          attempts: Value(0),
-          nextAttemptAt: Value(null),
-          errorMessage: Value(null),
-        ),
-      );
+  Stream<int> watchFailedCount() {
+    return (selectOnly(syncQueue)
+          ..addColumns([syncQueue.id.count()])
+          ..where(syncQueue.status.equals('failed') & whereBusiness(syncQueue)))
+        .watchSingle()
+        .map((row) => row.read(syncQueue.id.count()) ?? 0);
+  }
 
-  Future<void> discardQueueItem(int id) =>
-      (delete(syncQueue)..where((t) => t.id.equals(id))).go();
+  Future<void> clearFailureBackoffById(String id) async {
+    await (update(syncQueue)..where((t) => t.id.equals(id))).write(
+      const SyncQueueCompanion(nextAttemptAt: Value(null), status: Value('pending')),
+    );
+  }
 
-  Future<void> purgeOldDoneItems() =>
-      (delete(syncQueue)..where((t) => t.isSynced)).go();
+  Future<void> discardQueueItem(String id) async {
+    await (delete(syncQueue)..where((t) => t.id.equals(id))).go();
+  }
+
+  Future<void> purgeOldDoneItems() async {
+    final sevenDaysAgo = DateTime.now().subtract(const Duration(days: 7));
+    await (delete(syncQueue)
+          ..where((t) => t.isSynced.equals(true) & t.createdAt.isSmallerThanValue(sevenDaysAgo)))
+        .go();
+  }
 
   Future<void> enqueue(
     String actionType,
-    String payload, {
-    required int businessId,
-  }) =>
-      into(syncQueue).insert(SyncQueueCompanion.insert(
+    String payload,
+  ) async {
+    await into(syncQueue).insert(
+      SyncQueueCompanion.insert(
+        id: Value(UuidV7.generate()),
+        businessId: requireBusinessId(),
         actionType: actionType,
         payload: payload,
-        businessId: Value(businessId),
-      ));
+      ),
+    );
+  }
 }
 
 @DriftAccessor(tables: [ActivityLogs])
 class ActivityLogDao extends DatabaseAccessor<AppDatabase>
     with _$ActivityLogDaoMixin, BusinessScopedDao<AppDatabase> {
   ActivityLogDao(super.db);
+
   Future<void> log({
-    int? staffId,
     required String action,
     required String description,
-    String? entityId,
-    String? entityType,
+    String? staffId,
     String? warehouseId,
-  }) => into(activityLogs).insert(
-    ActivityLogsCompanion.insert(
-      userId: Value(staffId),
-      action: action,
-      description: description,
-      relatedEntityId: Value(entityId),
-      relatedEntityType: Value(entityType),
-      warehouseId: Value(warehouseId),
-      businessId: Value(requireBusinessId()),
-    ),
-  );
-  Stream<List<ActivityLogData>> watchRecent({int limit = 100}) =>
-      (select(activityLogs)
-            ..where((t) => t.businessId.equals(requireBusinessId()))
-            ..orderBy([(t) => OrderingTerm.desc(t.timestamp)])
-            ..limit(limit))
-          .watch();
-  Future<List<ActivityLogData>> getForEntity(String entityId) => (select(
-    activityLogs,
-  )..where((t) =>
-      t.relatedEntityId.equals(entityId) &
-      t.businessId.equals(requireBusinessId()))).get();
-  Future<List<ActivityLogData>> getStockCountLogs() =>
-      (select(activityLogs)
-            ..where((t) =>
-                t.action.equals('stock_count') &
-                t.businessId.equals(requireBusinessId()))
-            ..orderBy([(t) => OrderingTerm.desc(t.timestamp)]))
-          .get();
+    String? orderId,
+    String? productId,
+    String? customerId,
+    String? expenseId,
+    String? deliveryId,
+    String? walletTxnId,
+  }) async {
+    await into(activityLogs).insert(
+      ActivityLogsCompanion.insert(
+        id: Value(UuidV7.generate()),
+        businessId: requireBusinessId(),
+        userId: Value(staffId),
+        action: action,
+        description: description,
+        orderId: Value(orderId),
+        productId: Value(productId),
+        customerId: Value(customerId),
+        expenseId: Value(expenseId),
+        deliveryId: Value(deliveryId),
+        walletTxnId: Value(walletTxnId),
+        warehouseId: Value(warehouseId),
+      ),
+    );
+  }
+
+  Stream<List<ActivityLogData>> watchRecent({int limit = 100}) {
+    return (select(activityLogs)
+          ..where((t) => whereBusiness(t) & t.voidedAt.isNull())
+          ..orderBy([
+            (t) => OrderingTerm(expression: t.createdAt, mode: OrderingMode.desc)
+          ])
+          ..limit(limit))
+        .watch();
+  }
+
+  Future<List<ActivityLogData>> getForOrder(String orderId) {
+    return (select(activityLogs)
+          ..where((t) =>
+              whereBusiness(t) &
+              t.orderId.equals(orderId) &
+              t.voidedAt.isNull())
+          ..orderBy([
+            (t) => OrderingTerm(expression: t.createdAt, mode: OrderingMode.desc)
+          ]))
+        .get();
+  }
+
+  Future<List<ActivityLogData>> getForProduct(String productId) {
+    return (select(activityLogs)
+          ..where((t) =>
+              whereBusiness(t) &
+              t.productId.equals(productId) &
+              t.voidedAt.isNull())
+          ..orderBy([
+            (t) => OrderingTerm(expression: t.createdAt, mode: OrderingMode.desc)
+          ]))
+        .get();
+  }
+
+  Future<List<ActivityLogData>> getForCustomer(String customerId) {
+    return (select(activityLogs)
+          ..where((t) =>
+              whereBusiness(t) &
+              t.customerId.equals(customerId) &
+              t.voidedAt.isNull())
+          ..orderBy([
+            (t) => OrderingTerm(expression: t.createdAt, mode: OrderingMode.desc)
+          ]))
+        .get();
+  }
+
+  Future<List<ActivityLogData>> getForExpense(String expenseId) {
+    return (select(activityLogs)
+          ..where((t) =>
+              whereBusiness(t) &
+              t.expenseId.equals(expenseId) &
+              t.voidedAt.isNull())
+          ..orderBy([
+            (t) => OrderingTerm(expression: t.createdAt, mode: OrderingMode.desc)
+          ]))
+        .get();
+  }
+
+  Future<List<ActivityLogData>> getForDelivery(String deliveryId) {
+    return (select(activityLogs)
+          ..where((t) =>
+              whereBusiness(t) &
+              t.deliveryId.equals(deliveryId) &
+              t.voidedAt.isNull())
+          ..orderBy([
+            (t) => OrderingTerm(expression: t.createdAt, mode: OrderingMode.desc)
+          ]))
+        .get();
+  }
+
+  Future<List<ActivityLogData>> getForWalletTxn(String walletTxnId) {
+    return (select(activityLogs)
+          ..where((t) =>
+              whereBusiness(t) &
+              t.walletTxnId.equals(walletTxnId) &
+              t.voidedAt.isNull())
+          ..orderBy([
+            (t) => OrderingTerm(expression: t.createdAt, mode: OrderingMode.desc)
+          ]))
+        .get();
+  }
+
+  Future<List<ActivityLogData>> getStockCountLogs() {
+    return (select(activityLogs)
+          ..where((t) =>
+              whereBusiness(t) &
+              t.action.equals('stock_count') &
+              t.voidedAt.isNull())
+          ..orderBy([
+            (t) => OrderingTerm(expression: t.createdAt, mode: OrderingMode.desc)
+          ]))
+        .get();
+  }
 }
 
 @DriftAccessor(tables: [Users, Warehouses])
 class WarehousesDao extends DatabaseAccessor<AppDatabase>
-    with _$WarehousesDaoMixin {
+    with _$WarehousesDaoMixin, BusinessScopedDao<AppDatabase> {
   WarehousesDao(super.db);
-  Stream<WarehouseData?> watchWarehouse(int id) =>
-      (select(warehouses)..where((t) => t.id.equals(id))).watchSingleOrNull();
-  Future<WarehouseData?> getWarehouse(int id) =>
-      (select(warehouses)..where((t) => t.id.equals(id))).getSingleOrNull();
-  Stream<List<UserData>> watchAllStaff() => select(users).watch();
-  Future<List<UserData>> getRiders() =>
-      (select(users)..where((t) => t.role.equals('rider'))).get();
-  Stream<List<UserData>> watchStaffByWarehouse(int warehouseId) =>
-      (select(users)..where((t) => t.warehouseId.equals(warehouseId))).watch();
-  Future<void> assignStaffToWarehouse(int userId, int? warehouseId) =>
-      (update(users)..where((t) => t.id.equals(userId))).write(
-        UsersCompanion(warehouseId: Value(warehouseId)),
-      );
-  Stream<Map<int, int>> watchWarehouseStaffCounts() => Stream.value({});
-  Future<UserData?> getUserById(int id) =>
-      (select(users)..where((t) => t.id.equals(id))).getSingleOrNull();
-  Future<UserData?> getUserByEmail(String email) =>
-      (select(users)..where((t) => t.email.equals(email))).getSingleOrNull();
+
+  Stream<WarehouseData?> watchWarehouse(String id) {
+    return (select(warehouses)
+          ..where((t) => t.id.equals(id) & whereBusiness(t)))
+        .watchSingleOrNull();
+  }
+
+  Future<WarehouseData?> getWarehouse(String id) {
+    return (select(warehouses)
+          ..where((t) => t.id.equals(id) & whereBusiness(t)))
+        .getSingleOrNull();
+  }
+
+  Stream<List<UserData>> watchAllStaff() {
+    return (select(users)
+          ..where((t) => whereBusiness(t) & t.isDeleted.not())
+          ..orderBy([(t) => OrderingTerm(expression: t.name)]))
+        .watch();
+  }
+
+  Future<List<UserData>> getRiders() {
+    return (select(users)
+          ..where(
+            (t) =>
+                whereBusiness(t) &
+                t.isDeleted.not() &
+                t.role.equals('rider'),
+          )
+          ..orderBy([(t) => OrderingTerm(expression: t.name)]))
+        .get();
+  }
+
+  Stream<List<UserData>> watchStaffByWarehouse(String warehouseId) {
+    return (select(users)
+          ..where(
+            (t) =>
+                whereBusiness(t) &
+                t.isDeleted.not() &
+                t.warehouseId.equals(warehouseId),
+          )
+          ..orderBy([(t) => OrderingTerm(expression: t.name)]))
+        .watch();
+  }
+
+  Future<void> assignStaffToWarehouse(
+    String userId,
+    String? warehouseId,
+  ) async {
+    await (update(users)
+          ..where((t) => t.id.equals(userId) & whereBusiness(t)))
+        .write(
+      UsersCompanion(
+        warehouseId: Value(warehouseId),
+        lastUpdatedAt: Value(DateTime.now()),
+      ),
+    );
+  }
+
+  Stream<Map<String, int>> watchWarehouseStaffCounts() {
+    return (select(users)..where(
+          (t) =>
+              whereBusiness(t) &
+              t.isDeleted.not() &
+              t.warehouseId.isNotNull(),
+        ))
+        .watch()
+        .map((rows) {
+          final counts = <String, int>{};
+          for (final u in rows) {
+            final wid = u.warehouseId;
+            if (wid == null) continue;
+            counts[wid] = (counts[wid] ?? 0) + 1;
+          }
+          return counts;
+        });
+  }
+
+  Future<UserData?> getUserById(String id) {
+    // deliberately not businessId-scoped
+    return (select(users)..where((t) => t.id.equals(id))).getSingleOrNull();
+  }
+
+  Future<UserData?> getUserByEmail(String email) {
+    // deliberately not businessId-scoped
+    return (select(users)..where((t) => t.email.equals(email)))
+        .getSingleOrNull();
+  }
 }
 
 @DriftAccessor(tables: [Notifications])
 class NotificationsDao extends DatabaseAccessor<AppDatabase>
-    with _$NotificationsDaoMixin {
+    with _$NotificationsDaoMixin, BusinessScopedDao<AppDatabase> {
   NotificationsDao(super.db);
-  Future<void> create(String type, String message, {String? linkedRecordId}) =>
-      into(notifications).insert(
-        NotificationsCompanion.insert(
-          type: type,
-          message: message,
-          linkedRecordId: Value(linkedRecordId),
-        ),
-      );
-  Stream<List<NotificationData>> watchAll() => (select(
-    notifications,
-  )..orderBy([(t) => OrderingTerm.desc(t.timestamp)])).watch();
-  Stream<int> watchUnreadCount() => select(
-    notifications,
-  ).watch().map((l) => l.where((e) => !e.isRead).length);
-  Future<void> markRead(int id) =>
-      (update(notifications)..where((t) => t.id.equals(id))).write(
-        const NotificationsCompanion(isRead: Value(true)),
-      );
-  Future<void> markAllRead() => update(
-    notifications,
-  ).write(const NotificationsCompanion(isRead: Value(true)));
-  Future<void> deleteSingle(int id) =>
-      (delete(notifications)..where((t) => t.id.equals(id))).go();
-  Future<void> clearAll() => delete(notifications).go();
+
+  Future<void> create(String type, String message, {String? linkedRecordId}) async {
+    await into(notifications).insert(
+      NotificationsCompanion.insert(
+        id: Value(UuidV7.generate()),
+        businessId: requireBusinessId(),
+        type: type,
+        message: message,
+        linkedRecordId: Value(linkedRecordId),
+      ),
+    );
+  }
+
+  Stream<List<NotificationData>> watchAll() {
+    return (select(notifications)
+          ..where((t) => whereBusiness(t))
+          ..orderBy([
+            (t) => OrderingTerm(expression: t.createdAt, mode: OrderingMode.desc)
+          ]))
+        .watch();
+  }
+
+  Stream<int> watchUnreadCount() {
+    final count = notifications.id.count();
+    return (selectOnly(notifications)
+          ..addColumns([count])
+          ..where(whereBusiness(notifications) &
+              notifications.isRead.equals(false)))
+        .watchSingle()
+        .map((row) => row.read(count) ?? 0);
+  }
+
+  Future<void> markRead(String id) async {
+    await (update(notifications)
+          ..where((t) => t.id.equals(id) & whereBusiness(t)))
+        .write(
+      const NotificationsCompanion(isRead: Value(true)),
+    );
+  }
+
+  Future<void> markAllRead() async {
+    await (update(notifications)..where((t) => whereBusiness(t)))
+        .write(
+      const NotificationsCompanion(isRead: Value(true)),
+    );
+  }
+
+  Future<void> deleteSingle(String id) async {
+    await (delete(notifications)
+          ..where((t) => t.id.equals(id) & whereBusiness(t)))
+        .go();
+  }
+
+  Future<void> clearAll() async {
+    await (delete(notifications)..where((t) => whereBusiness(t)))
+        .go();
+  }
 }
 
-@DriftAccessor(tables: [StockTransactions, Products, Users, Warehouses, Inventory])
+@DriftAccessor(
+  tables: [StockTransactions, Products, Users, Warehouses, Inventory],
+)
 class StockLedgerDao extends DatabaseAccessor<AppDatabase>
     with _$StockLedgerDaoMixin, BusinessScopedDao<AppDatabase> {
   StockLedgerDao(super.db);
 
-  Future<int> getCurrentStock(int productId, int locationId) async {
-    final delta = stockTransactions.quantityDelta.sum();
-    return await (selectOnly(stockTransactions)
-              ..where(stockTransactions.productId.equals(productId))
-              ..where(stockTransactions.locationId.equals(locationId))
-              ..addColumns([delta]))
-            .map((row) => row.read(delta) ?? 0)
-            .getSingleOrNull() ??
-        0;
+  Future<int> getCurrentStock(String productId, String locationId) async {
+    final row =
+        await (select(inventory)
+              ..where(
+                (i) =>
+                    whereBusiness(i) &
+                    i.productId.equals(productId) &
+                    i.warehouseId.equals(locationId),
+              )
+              ..limit(1))
+            .getSingleOrNull();
+    return row?.quantity ?? 0;
   }
 
-  Stream<int> watchCurrentStock(int productId, int locationId) {
-    final delta = stockTransactions.quantityDelta.sum();
-    return (selectOnly(stockTransactions)
-          ..where(stockTransactions.productId.equals(productId))
-          ..where(stockTransactions.locationId.equals(locationId))
-          ..addColumns([delta]))
-        .map((row) => row.read(delta) ?? 0)
+  Stream<int> watchCurrentStock(String productId, String locationId) {
+    return (select(inventory)
+          ..where(
+            (i) =>
+                whereBusiness(i) &
+                i.productId.equals(productId) &
+                i.warehouseId.equals(locationId),
+          )
+          ..limit(1))
         .watchSingleOrNull()
-        .map((val) => val ?? 0);
+        .map((row) => row?.quantity ?? 0);
   }
 
-  Future<void> insertTransaction(StockTransactionsCompanion companion) =>
-      into(stockTransactions).insert(companion);
+  Future<void> insertTransaction(StockTransactionsCompanion companion) {
+    return into(stockTransactions).insert(companion);
+  }
 
-  Stream<List<StockTransactionData>> watchLedger(int productId) {
+  Stream<List<StockTransactionData>> watchLedger(String productId) {
     return (select(stockTransactions)
-          ..where((t) => t.productId.equals(productId))
-          ..orderBy([(t) => OrderingTerm.desc(t.createdAt)]))
+          ..where(
+            (s) =>
+                whereBusiness(s) &
+                s.productId.equals(productId) &
+                s.voidedAt.isNull(),
+          )
+          ..orderBy([(s) => OrderingTerm.desc(s.createdAt)]))
         .watch();
   }
 
-  /// Streams all stock transactions with joined product/user/warehouse names.
-  /// Filters by warehouse, date range, and movement type.
+  // ── Filtered queries with joined product/user/warehouse names ──────────
+
+  JoinedSelectStatement<HasResultSet, dynamic> _buildFilteredQuery({
+    String? warehouseId,
+    DateTime? startDate,
+    DateTime? endDate,
+    String? movementType,
+  }) {
+    final query = select(stockTransactions).join([
+      innerJoin(products, products.id.equalsExp(stockTransactions.productId)),
+      innerJoin(users, users.id.equalsExp(stockTransactions.performedBy)),
+      leftOuterJoin(
+        warehouses,
+        warehouses.id.equalsExp(stockTransactions.locationId),
+      ),
+    ]);
+    query.where(
+      whereBusiness(stockTransactions) &
+          stockTransactions.voidedAt.isNull(),
+    );
+    if (warehouseId != null) {
+      query.where(stockTransactions.locationId.equals(warehouseId));
+    }
+    if (startDate != null) {
+      query.where(stockTransactions.createdAt.isBiggerOrEqualValue(startDate));
+    }
+    if (endDate != null) {
+      query.where(stockTransactions.createdAt.isSmallerOrEqualValue(endDate));
+    }
+    if (movementType != null) {
+      query.where(stockTransactions.movementType.equals(movementType));
+    }
+    query.orderBy([OrderingTerm.desc(stockTransactions.createdAt)]);
+    return query;
+  }
+
+  StockTransactionWithDetails _mapRow(TypedResult row) {
+    final s = row.readTable(stockTransactions);
+    final p = row.readTable(products);
+    final u = row.readTable(users);
+    final w = row.readTableOrNull(warehouses);
+    return StockTransactionWithDetails(
+      transactionId: s.id,
+      productId: s.productId,
+      productName: p.name,
+      movementType: s.movementType,
+      quantityDelta: s.quantityDelta,
+      performedByName: u.name,
+      locationId: s.locationId,
+      warehouseName: w?.name,
+      referenceId: s.orderId ?? s.transferId ?? s.adjustmentId ?? s.purchaseId,
+      createdAt: s.createdAt,
+      unitPriceKobo: p.sellingPriceKobo > 0
+          ? p.sellingPriceKobo
+          : p.retailPriceKobo,
+    );
+  }
+
   Stream<List<StockTransactionWithDetails>> watchAllTransactionsFiltered({
-    int? warehouseId,
+    String? warehouseId,
     DateTime? startDate,
     DateTime? endDate,
     String? movementType,
   }) {
-    final u = alias(users, 'u');
-    final w = alias(warehouses, 'w');
-
-    final query = select(stockTransactions).join([
-      innerJoin(products, products.id.equalsExp(stockTransactions.productId)),
-      innerJoin(u, u.id.equalsExp(stockTransactions.performedBy)),
-      innerJoin(w, w.id.equalsExp(stockTransactions.locationId)),
-    ]);
-
-    query.where(stockTransactions.businessId.equals(requireBusinessId()));
-
-    if (warehouseId != null) {
-      query.where(stockTransactions.locationId.equals(warehouseId));
-    }
-    if (startDate != null) {
-      query.where(stockTransactions.createdAt
-          .isBiggerOrEqualValue(startDate));
-    }
-    if (endDate != null) {
-      query.where(stockTransactions.createdAt.isSmallerOrEqualValue(endDate));
-    }
-    if (movementType != null) {
-      query.where(stockTransactions.movementType.equals(movementType));
-    }
-
-    query.orderBy([OrderingTerm.desc(stockTransactions.createdAt)]);
-
-    return query.watch().map((rows) => rows.map((row) {
-          final tx = row.readTable(stockTransactions);
-          final product = row.readTable(products);
-          final user = row.readTable(u);
-          final warehouse = row.readTable(w);
-          return StockTransactionWithDetails(
-            transactionId: tx.transactionId,
-            productId: product.id,
-            productName: product.name,
-            movementType: tx.movementType,
-            quantityDelta: tx.quantityDelta,
-            performedByName: user.name,
-            locationId: tx.locationId,
-            warehouseName: warehouse.name,
-            referenceId: tx.referenceId,
-            createdAt: tx.createdAt,
-            unitPriceKobo: product.retailPriceKobo,
-          );
-        }).toList());
+    return _buildFilteredQuery(
+      warehouseId: warehouseId,
+      startDate: startDate,
+      endDate: endDate,
+      movementType: movementType,
+    ).watch().map((rows) => rows.map(_mapRow).toList());
   }
 
-  /// One-shot version of [watchAllTransactionsFiltered].
   Future<List<StockTransactionWithDetails>> getTransactionsFiltered({
-    int? warehouseId,
+    String? warehouseId,
     DateTime? startDate,
     DateTime? endDate,
     String? movementType,
-  }) {
-    final u = alias(users, 'u');
-    final w = alias(warehouses, 'w');
-
-    final query = select(stockTransactions).join([
-      innerJoin(products, products.id.equalsExp(stockTransactions.productId)),
-      innerJoin(u, u.id.equalsExp(stockTransactions.performedBy)),
-      innerJoin(w, w.id.equalsExp(stockTransactions.locationId)),
-    ]);
-
-    query.where(stockTransactions.businessId.equals(requireBusinessId()));
-
-    if (warehouseId != null) {
-      query.where(stockTransactions.locationId.equals(warehouseId));
-    }
-    if (startDate != null) {
-      query.where(stockTransactions.createdAt
-          .isBiggerOrEqualValue(startDate));
-    }
-    if (endDate != null) {
-      query.where(stockTransactions.createdAt.isSmallerOrEqualValue(endDate));
-    }
-    if (movementType != null) {
-      query.where(stockTransactions.movementType.equals(movementType));
-    }
-
-    query.orderBy([OrderingTerm.desc(stockTransactions.createdAt)]);
-
-    return query.get().then((rows) => rows.map((row) {
-          final tx = row.readTable(stockTransactions);
-          final product = row.readTable(products);
-          final user = row.readTable(u);
-          final warehouse = row.readTable(w);
-          return StockTransactionWithDetails(
-            transactionId: tx.transactionId,
-            productId: product.id,
-            productName: product.name,
-            movementType: tx.movementType,
-            quantityDelta: tx.quantityDelta,
-            performedByName: user.name,
-            locationId: tx.locationId,
-            warehouseName: warehouse.name,
-            referenceId: tx.referenceId,
-            createdAt: tx.createdAt,
-            unitPriceKobo: product.retailPriceKobo,
-          );
-        }).toList());
+  }) async {
+    final rows = await _buildFilteredQuery(
+      warehouseId: warehouseId,
+      startDate: startDate,
+      endDate: endDate,
+      movementType: movementType,
+    ).get();
+    return rows.map(_mapRow).toList();
   }
 
-  /// Returns period summary: total inbound, total outbound, adjustment count.
   Future<PeriodStockSummary> getPeriodSummary({
-    int? warehouseId,
+    String? warehouseId,
     DateTime? startDate,
     DateTime? endDate,
   }) async {
-    final txs = await getTransactionsFiltered(
+    final txns = await getTransactionsFiltered(
       warehouseId: warehouseId,
       startDate: startDate,
       endDate: endDate,
     );
-    int totalIn = 0;
-    int totalOut = 0;
-    int adjustmentCount = 0;
-    int flaggedCount = 0;
-    for (final tx in txs) {
-      if (tx.quantityDelta > 0) {
-        totalIn += tx.quantityDelta;
+    int totalIn = 0, totalOut = 0, adjustments = 0, flagged = 0;
+    for (final t in txns) {
+      if (t.quantityDelta > 0) {
+        totalIn += t.quantityDelta;
       } else {
-        totalOut += tx.quantityDelta.abs();
+        totalOut += t.quantityDelta.abs();
       }
-      if (tx.movementType == 'adjustment') {
-        adjustmentCount++;
-        flaggedCount++;
-      }
+      if (t.isAdjustment) adjustments++;
     }
     return PeriodStockSummary(
       totalIn: totalIn,
       totalOut: totalOut,
-      adjustmentCount: adjustmentCount,
-      flaggedCount: flaggedCount,
-      transactionCount: txs.length,
+      adjustmentCount: adjustments,
+      flaggedCount: flagged,
+      transactionCount: txns.length,
     );
   }
 
-  /// Returns all transactions for a product ordered by date ASC with running balance.
   Future<List<StockTransactionWithBalance>> getRunningBalanceForProduct(
-    int productId, {
-    int? warehouseId,
+    String productId, {
+    String? warehouseId,
   }) async {
     final query = select(stockTransactions)
-      ..where((t) => t.productId.equals(productId))
-      ..orderBy([(t) => OrderingTerm.asc(t.createdAt)]);
+      ..where(
+        (s) =>
+            whereBusiness(s) &
+            s.productId.equals(productId) &
+            s.voidedAt.isNull(),
+      )
+      ..orderBy([(s) => OrderingTerm.asc(s.createdAt)]);
     if (warehouseId != null) {
-      query.where((t) => t.locationId.equals(warehouseId));
+      query.where((s) => s.locationId.equals(warehouseId));
     }
-    final txs = await query.get();
-    int runningBalance = 0;
+    final txns = await query.get();
+    int balance = 0;
     final result = <StockTransactionWithBalance>[];
-    for (final tx in txs) {
-      final previous = runningBalance;
-      runningBalance += tx.quantityDelta;
-      result.add(StockTransactionWithBalance(
-        transaction: tx,
-        previousBalance: previous,
-        newBalance: runningBalance,
-        isFlagged: runningBalance < 0,
-      ));
+    for (final txn in txns) {
+      final prev = balance;
+      balance += txn.quantityDelta;
+      result.add(
+        StockTransactionWithBalance(
+          transaction: txn,
+          previousBalance: prev,
+          newBalance: balance,
+          isFlagged: balance < 0,
+        ),
+      );
     }
     return result;
   }
 
-  /// Computes the period reconciliation for all products in a warehouse.
   Future<PeriodReconciliation> getPeriodReconciliation({
-    required int warehouseId,
+    required String warehouseId,
     required DateTime startDate,
     required DateTime endDate,
   }) async {
-    // Opening stock: sum of all deltas before startDate for this warehouse
-    final openingQuery = selectOnly(stockTransactions)
-      ..addColumns([stockTransactions.quantityDelta.sum()])
-      ..where(stockTransactions.locationId.equals(warehouseId) &
-          stockTransactions.createdAt.isSmallerThanValue(startDate));
-    final openingResult = await openingQuery
-        .map((row) => row.read(stockTransactions.quantityDelta.sum()) ?? 0)
-        .getSingleOrNull();
-    final openingStock = openingResult ?? 0;
+    // Get all transactions for this warehouse, sorted by time
+    final allTxns =
+        await (select(stockTransactions)
+              ..where(
+                (s) =>
+                    whereBusiness(s) &
+                    s.locationId.equals(warehouseId) &
+                    s.voidedAt.isNull(),
+              )
+              ..orderBy([(s) => OrderingTerm.asc(s.createdAt)]))
+            .get();
 
-    // Period movements
-    final periodTxs = await getTransactionsFiltered(
-      warehouseId: warehouseId,
-      startDate: startDate,
-      endDate: endDate,
-    );
+    int openingStock = 0;
     int stockIn = 0;
     int stockOut = 0;
-    for (final tx in periodTxs) {
-      if (tx.quantityDelta > 0) {
-        stockIn += tx.quantityDelta;
-      } else {
-        stockOut += tx.quantityDelta.abs();
+
+    for (final txn in allTxns) {
+      if (txn.createdAt.isBefore(startDate)) {
+        openingStock += txn.quantityDelta;
+      } else if (!txn.createdAt.isAfter(endDate)) {
+        if (txn.quantityDelta > 0) {
+          stockIn += txn.quantityDelta;
+        } else {
+          stockOut += txn.quantityDelta.abs();
+        }
       }
     }
 
     final expectedClosing = openingStock + stockIn - stockOut;
 
-    // Actual closing: sum of all inventory rows for this warehouse
-    final actualQuery = selectOnly(inventory)
-      ..addColumns([inventory.quantity.sum()])
-      ..where(inventory.warehouseId.equals(warehouseId));
-    final actualResult = await actualQuery
-        .map((row) => row.read(inventory.quantity.sum()) ?? 0)
-        .getSingleOrNull();
-    final actualClosing = actualResult ?? 0;
+    // Get current actual stock from inventory table
+    final invRows =
+        await (select(inventory)..where(
+              (i) =>
+                  whereBusiness(i) &
+                  i.warehouseId.equals(warehouseId),
+            ))
+            .get();
+    final actualClosing = invRows.fold<int>(0, (s, r) => s + r.quantity);
 
     return PeriodReconciliation(
       openingStock: openingStock,
@@ -2188,57 +2103,43 @@ class StockLedgerDao extends DatabaseAccessor<AppDatabase>
     );
   }
 
-  Future<List<ProductBelowROP>> getProductsBelowROP(int locationId) async {
-    final qty = stockTransactions.quantityDelta.sum();
-
-    final query =
-        (selectOnly(products)
-            ..addColumns([
-              products.id,
-              products.name,
-              products.avgDailySales,
-              products.leadTimeDays,
-              products.safetyStockQty,
-              qty,
-            ])
-            ..join([
-              leftOuterJoin(
-                stockTransactions,
-                stockTransactions.productId.equalsExp(products.id),
-              ),
-            ]))
-          ..where(
-            stockTransactions.locationId.equals(locationId) |
-                stockTransactions.locationId.isNull(),
-          )
-          ..groupBy([products.id]);
-
-    final results = await query.get();
-    return results
-        .map((row) {
-          final productId = row.read(products.id)!;
-          final productName = row.read(products.name)!;
-          final avgDailySales = row.read(products.avgDailySales)!;
-          final leadTimeDays = row.read(products.leadTimeDays)!;
-          final safetyStockQty = row.read(products.safetyStockQty)!;
-          final currentStock = row.read(qty) ?? 0;
-
-          final computedROP = (avgDailySales * leadTimeDays) + safetyStockQty;
-
-          return ProductBelowROP(
-            productId: productId,
-            productName: productName,
-            currentStock: currentStock.toInt(),
-            rop: computedROP.toDouble(),
-          );
-        })
-        .where((p) => p.currentStock <= p.rop)
-        .toList();
+  Future<List<ProductBelowROP>> getProductsBelowROP(String locationId) async {
+    final ps = await (select(
+      products,
+    )..where((p) => whereBusiness(p) & p.isDeleted.not())).get();
+    final invs =
+        await (select(inventory)..where(
+              (i) =>
+                  whereBusiness(i) &
+                  i.warehouseId.equals(locationId),
+            ))
+            .get();
+    final stockMap = <String, int>{};
+    for (final i in invs) {
+      stockMap[i.productId] = (stockMap[i.productId] ?? 0) + i.quantity;
+    }
+    final result = <ProductBelowROP>[];
+    for (final p in ps) {
+      final stock = stockMap[p.id] ?? 0;
+      // ROP = avgDailySales * leadTimeDays + safetyStockQty
+      final rop = p.avgDailySales * p.leadTimeDays + p.safetyStockQty;
+      if (stock < rop) {
+        result.add(
+          ProductBelowROP(
+            productId: p.id,
+            productName: p.name,
+            currentStock: stock,
+            rop: rop,
+          ),
+        );
+      }
+    }
+    return result;
   }
 }
 
 class ProductBelowROP {
-  final int productId;
+  final String productId;
   final String productName;
   final int currentStock;
   final double rop;
@@ -2253,12 +2154,12 @@ class ProductBelowROP {
 
 class StockTransactionWithDetails {
   final String transactionId;
-  final int productId;
+  final String productId;
   final String productName;
   final String movementType;
   final int quantityDelta;
   final String performedByName;
-  final int locationId;
+  final String locationId;
   final String? warehouseName;
   final String? referenceId;
   final DateTime createdAt;
@@ -2359,135 +2260,566 @@ class PeriodReconciliation {
 
 @DriftAccessor(tables: [StockTransfers, StockTransactions])
 class StockTransferDao extends DatabaseAccessor<AppDatabase>
-    with _$StockTransferDaoMixin {
+    with _$StockTransferDaoMixin, BusinessScopedDao<AppDatabase> {
   StockTransferDao(super.db);
 
-  String _generateUuid() =>
-      '${DateTime.now().microsecondsSinceEpoch}-${Random().nextInt(10000)}';
-
-  Future<void> initiateTransfer(StockTransfersCompanion companion) async {
-    await transaction(() async {
-      final id = await into(stockTransfers).insert(
-        companion.copyWith(
-          status: const Value('pending'),
-          initiatedAt: Value(DateTime.now()),
-        ),
-      );
-      await into(attachedDatabase.stockTransactions).insert(
-        StockTransactionsCompanion.insert(
-          transactionId: _generateUuid(),
-          productId: companion.productId.value,
-          locationId: companion.fromLocationId.value,
-          quantityDelta: -companion.quantity.value,
-          movementType: 'transfer_out',
-          referenceId: Value(id.toString()),
-          performedBy: companion.initiatedBy.value,
-          createdAt: Value(DateTime.now()),
-        ),
-      );
-    });
-  }
-
-  Future<void> receiveTransfer(int transferId, int receivedBy) async {
-    await transaction(() async {
-      final transfer = await (select(
-        stockTransfers,
-      )..where((t) => t.transferId.equals(transferId))).getSingleOrNull();
-      if (transfer == null ||
-          (transfer.status != 'pending' && transfer.status != 'in_transit')) {
-        throw Exception('Transfer cannot be received');
-      }
-      await (update(
-        stockTransfers,
-      )..where((t) => t.transferId.equals(transferId))).write(
-        StockTransfersCompanion(
-          status: const Value('received'),
-          receivedBy: Value(receivedBy),
-          receivedAt: Value(DateTime.now()),
-        ),
-      );
-      await into(attachedDatabase.stockTransactions).insert(
-        StockTransactionsCompanion.insert(
-          transactionId: _generateUuid(),
-          productId: transfer.productId,
-          locationId: transfer.toLocationId,
-          quantityDelta: transfer.quantity,
-          movementType: 'transfer_in',
-          referenceId: Value(transferId.toString()),
-          performedBy: receivedBy,
-          createdAt: Value(DateTime.now()),
-        ),
-      );
-    });
-  }
-
-  Future<void> cancelTransfer(int transferId) async {
-    await transaction(() async {
-      final transfer = await (select(
-        stockTransfers,
-      )..where((t) => t.transferId.equals(transferId))).getSingleOrNull();
-      if (transfer == null) throw Exception('Transfer not found');
-      if (transfer.status == 'received') {
-        throw Exception('Cannot cancel received transfer');
-      }
-      await (update(stockTransfers)
-            ..where((t) => t.transferId.equals(transferId)))
-          .write(const StockTransfersCompanion(status: Value('cancelled')));
-      final tx =
-          await (select(attachedDatabase.stockTransactions)..where(
-                (t) =>
-                    t.referenceId.equals(transferId.toString()) &
-                    t.movementType.equals('transfer_out'),
-              ))
-              .getSingleOrNull();
-      if (tx != null) {
-        await into(attachedDatabase.stockTransactions).insert(
-          StockTransactionsCompanion.insert(
-            transactionId: _generateUuid(),
-            productId: transfer.productId,
-            locationId: transfer.fromLocationId,
-            quantityDelta: transfer.quantity,
-            movementType: 'transfer_cancelled',
-            referenceId: Value(transferId.toString()),
-            performedBy: transfer.initiatedBy,
-            createdAt: Value(DateTime.now()),
-          ),
-        );
-      }
-    });
-  }
+  Future<void> initiateTransfer(StockTransfersCompanion companion) => _stub();
+  Future<void> receiveTransfer(String transferId, String receivedBy) => _stub();
+  Future<void> cancelTransfer(String transferId) => _stub();
 }
 
 @DriftAccessor(tables: [PendingCrateReturns])
 class PendingCrateReturnsDao extends DatabaseAccessor<AppDatabase>
-    with _$PendingCrateReturnsDaoMixin {
+    with _$PendingCrateReturnsDaoMixin, BusinessScopedDao<AppDatabase> {
   PendingCrateReturnsDao(super.db);
 
-  Future<int> createPendingReturn({
-    required int orderId,
-    required int customerId,
-    required int staffId,
-    required String returnDataJson,
-  }) => into(pendingCrateReturns).insert(
-    PendingCrateReturnsCompanion.insert(
-      orderId: orderId,
-      customerId: customerId,
-      staffId: staffId,
-      returnDataJson: returnDataJson,
-    ),
-  );
+  Future<String> createPendingReturn({
+    required String? orderId,
+    required String customerId,
+    required String submittedBy,
+    required String crateGroupId,
+    required int quantity,
+  }) async {
+    final id = UuidV7.generate();
+    await into(pendingCrateReturns).insert(
+      PendingCrateReturnsCompanion.insert(
+        id: Value(id),
+        businessId: requireBusinessId(),
+        orderId: Value(orderId),
+        customerId: customerId,
+        crateGroupId: crateGroupId,
+        quantity: quantity,
+        submittedBy: submittedBy,
+      ),
+    );
+    return id;
+  }
 
-  Future<PendingCrateReturnData?> getById(int id) => (select(
-    pendingCrateReturns,
-  )..where((t) => t.id.equals(id))).getSingleOrNull();
+  Future<PendingCrateReturnData?> getById(String id) {
+    return (select(pendingCrateReturns)
+          ..where((t) => t.id.equals(id) & whereBusiness(t))
+          ..limit(1))
+        .getSingleOrNull();
+  }
 
-  Future<void> updateStatus(int id, String newStatus) =>
-      (update(pendingCrateReturns)..where((t) => t.id.equals(id))).write(
-        PendingCrateReturnsCompanion(status: Value(newStatus)),
-      );
+  Future<void> updateStatus(String id, String newStatus) async {
+    await (update(pendingCrateReturns)
+          ..where((t) => t.id.equals(id) & whereBusiness(t)))
+        .write(
+      PendingCrateReturnsCompanion(
+        status: Value(newStatus),
+        lastUpdatedAt: Value(DateTime.now()),
+      ),
+    );
+  }
 }
 
 extension CustomerDataExtension on CustomerData {
   String get addressText => address ?? 'N/A';
-  double get customerWallet => walletBalanceKobo / 100.0;
+}
+
+@DriftAccessor(tables: [Sessions])
+class SessionsDao extends DatabaseAccessor<AppDatabase>
+    with _$SessionsDaoMixin, BusinessScopedDao<AppDatabase> {
+  SessionsDao(super.db);
+
+  Future<String> createSession({
+    required String userId,
+    required Duration ttl,
+    String? userAgent,
+    String? ipAddress,
+    String? deviceId,
+  }) async {
+    final businessId = requireBusinessId();
+    final id = UuidV7.generate();
+    await into(sessions).insert(
+      SessionsCompanion.insert(
+        id: Value(id),
+        businessId: businessId,
+        userId: userId,
+        expiresAt: DateTime.now().add(ttl),
+        userAgent: Value(userAgent),
+        ipAddress: Value(ipAddress),
+        deviceId: Value(deviceId),
+      ),
+    );
+    return id;
+  }
+
+  Future<void> revokeSession(String sessionId) async {
+    await (update(sessions)
+          ..where((t) => t.id.equals(sessionId) & whereBusiness(t)))
+        .write(
+      SessionsCompanion(
+        revokedAt: Value(DateTime.now()),
+        lastUpdatedAt: Value(DateTime.now()),
+      ),
+    );
+  }
+
+  Future<void> revokeAllSessionsForUser(String userId) async {
+    final now = DateTime.now();
+    await (update(sessions)
+          ..where(
+            (t) =>
+                t.userId.equals(userId) &
+                whereBusiness(t) &
+                t.revokedAt.isNull() &
+                t.expiresAt.isBiggerThanValue(now),
+          ))
+        .write(
+      SessionsCompanion(revokedAt: Value(now), lastUpdatedAt: Value(now)),
+    );
+  }
+
+  Future<SessionData?> findActiveSession(String sessionId) async {
+    final now = DateTime.now();
+    return (select(sessions)
+          ..where(
+            (t) =>
+                t.id.equals(sessionId) &
+                whereBusiness(t) &
+                t.revokedAt.isNull() &
+                t.expiresAt.isBiggerThanValue(now),
+          )
+          ..limit(1))
+        .getSingleOrNull();
+  }
+}
+
+@DriftAccessor(tables: [CustomerWallets])
+class CustomerWalletsDao extends DatabaseAccessor<AppDatabase>
+    with _$CustomerWalletsDaoMixin, BusinessScopedDao<AppDatabase> {
+  CustomerWalletsDao(super.db);
+
+  Future<CustomerWalletData?> getByCustomerId(String customerId) {
+    return (select(customerWallets)
+          ..where(
+            (t) =>
+                whereBusiness(t) &
+                t.customerId.equals(customerId) &
+                t.isDeleted.not(),
+          )
+          ..limit(1))
+        .getSingleOrNull();
+  }
+
+  Future<void> updateWalletLimit(String customerId, int limitKobo) async {
+    await (update(attachedDatabase.customers)..where(
+          (t) => t.id.equals(customerId) & whereBusiness(t),
+        ))
+        .write(
+          CustomersCompanion(
+            walletLimitKobo: Value(limitKobo),
+            lastUpdatedAt: Value(DateTime.now()),
+          ),
+        );
+  }
+}
+
+@DriftAccessor(tables: [WalletTransactions, CustomerWallets, PaymentTransactions, Orders])
+class WalletTransactionsDao extends DatabaseAccessor<AppDatabase>
+    with _$WalletTransactionsDaoMixin, BusinessScopedDao<AppDatabase> {
+  WalletTransactionsDao(super.db);
+
+  /// Computes the current wallet balance by summing all signed amounts.
+  /// Per PR 4d "Recommended void approach", we don't filter by voidedAt IS NULL
+  /// because a compensating entry (opposite sign) will have been appended.
+  Future<int> getBalanceKobo(String customerId) async {
+    final sumExpr = walletTransactions.signedAmountKobo.sum();
+    final query = selectOnly(walletTransactions)
+      ..addColumns([sumExpr])
+      ..where(
+        whereBusiness(walletTransactions) &
+            walletTransactions.customerId.equals(customerId),
+      );
+    final row = await query.getSingleOrNull();
+    return row?.read(sumExpr) ?? 0;
+  }
+
+  Stream<int> watchBalanceKobo(String customerId) {
+    final sumExpr = walletTransactions.signedAmountKobo.sum();
+    final query = selectOnly(walletTransactions)
+      ..addColumns([sumExpr])
+      ..where(
+        whereBusiness(walletTransactions) &
+            walletTransactions.customerId.equals(customerId),
+      );
+    return query.watchSingleOrNull().map((row) => row?.read(sumExpr) ?? 0);
+  }
+
+  Stream<Map<String, int>> watchAllBalancesKobo() {
+    final sumExpr = walletTransactions.signedAmountKobo.sum();
+    final query = selectOnly(walletTransactions)
+      ..addColumns([walletTransactions.customerId, sumExpr])
+      ..where(whereBusiness(walletTransactions))
+      ..groupBy([walletTransactions.customerId]);
+    return query.watch().map((rows) {
+      final out = <String, int>{};
+      for (final r in rows) {
+        final cid = r.read(walletTransactions.customerId);
+        final sum = r.read(sumExpr);
+        if (cid != null) out[cid] = sum ?? 0;
+      }
+      return out;
+    });
+  }
+
+  Stream<List<WalletTransactionData>> watchHistory(String customerId) {
+    return (select(walletTransactions)
+          ..where(
+            (t) =>
+                whereBusiness(t) &
+                t.customerId.equals(customerId),
+          )
+          ..orderBy([
+            (t) =>
+                OrderingTerm(expression: t.createdAt, mode: OrderingMode.desc),
+          ]))
+        .watch();
+  }
+
+  /// Voids a transaction by marking the original as voided AND appending
+  /// a compensating entry with the opposite sign.
+  Future<void> voidTransaction({
+    required String transactionId,
+    required String voidedBy,
+    required String reason,
+  }) async {
+
+
+    await transaction(() async {
+      final original = await (select(walletTransactions)
+            ..where((t) => t.id.equals(transactionId))
+            ..limit(1))
+          .getSingleOrNull();
+
+      if (original == null) return;
+      if (original.voidedAt != null) return; // Already voided
+
+      // 1. Mark original as voided
+      await (update(walletTransactions)..where((t) => t.id.equals(transactionId)))
+          .write(
+        WalletTransactionsCompanion(
+          voidedAt: Value(DateTime.now()),
+          voidedBy: Value(voidedBy),
+          voidReason: Value(reason),
+          lastUpdatedAt: Value(DateTime.now()),
+        ),
+      );
+
+      // 2. Append compensating entry
+      await into(walletTransactions).insert(
+        WalletTransactionsCompanion.insert(
+          id: Value(UuidV7.generate()),
+          businessId: requireBusinessId(),
+          walletId: original.walletId,
+          customerId: original.customerId,
+          type: original.type == 'credit' ? 'debit' : 'credit',
+          amountKobo: original.amountKobo,
+          signedAmountKobo: -original.signedAmountKobo,
+          referenceType: 'void',
+          orderId: Value(original.orderId), // Link to same order if applicable
+          performedBy: Value(voidedBy),
+          createdAt: Value(DateTime.now()),
+          lastUpdatedAt: Value(DateTime.now()),
+        ),
+      );
+    });
+  }
+}
+
+@DriftAccessor(tables: [CrateGroups])
+class CrateGroupsDao extends DatabaseAccessor<AppDatabase>
+    with _$CrateGroupsDaoMixin, BusinessScopedDao<AppDatabase> {
+  CrateGroupsDao(super.db);
+
+  Stream<List<CrateGroupData>> watchAll() {
+    return (select(crateGroups)
+          ..where((t) => whereBusiness(t) & t.isDeleted.not())
+          ..orderBy([(t) => OrderingTerm.asc(t.name)]))
+        .watch();
+  }
+
+  Future<List<CrateGroupData>> getAll() {
+    return (select(crateGroups)
+          ..where((t) => whereBusiness(t) & t.isDeleted.not())
+          ..orderBy([(t) => OrderingTerm.asc(t.name)]))
+        .get();
+  }
+}
+
+@DriftAccessor(tables: [CustomerCrateBalances, CrateGroups])
+class CustomerCrateBalancesDao extends DatabaseAccessor<AppDatabase>
+    with _$CustomerCrateBalancesDaoMixin, BusinessScopedDao<AppDatabase> {
+  CustomerCrateBalancesDao(super.db);
+
+  Stream<List<CustomerCrateBalanceWithGroup>> watchByCustomer(String customerId) {
+    final query = select(customerCrateBalances).join([
+      innerJoin(
+        crateGroups,
+        crateGroups.id.equalsExp(customerCrateBalances.crateGroupId),
+      ),
+    ]);
+    query.where(
+      whereBusiness(customerCrateBalances) &
+          customerCrateBalances.customerId.equals(customerId),
+    );
+
+    return query.watch().map((rows) {
+      return rows.map((row) {
+        return CustomerCrateBalanceWithGroup(
+          balance: row.readTable(customerCrateBalances),
+          group: row.readTable(crateGroups),
+        );
+      }).toList();
+    });
+  }
+}
+
+class CustomerCrateBalanceWithGroup {
+  final CustomerCrateBalance balance;
+  final CrateGroupData group;
+  CustomerCrateBalanceWithGroup({required this.balance, required this.group});
+}
+
+@DriftAccessor(tables: [ManufacturerCrateBalances, CrateGroups])
+class ManufacturerCrateBalancesDao extends DatabaseAccessor<AppDatabase>
+    with _$ManufacturerCrateBalancesDaoMixin, BusinessScopedDao<AppDatabase> {
+  ManufacturerCrateBalancesDao(super.db);
+
+  Stream<List<ManufacturerCrateBalanceWithGroup>> watchByManufacturer(
+    String manufacturerId,
+  ) {
+    final query = select(manufacturerCrateBalances).join([
+      innerJoin(
+        crateGroups,
+        crateGroups.id.equalsExp(manufacturerCrateBalances.crateGroupId),
+      ),
+    ]);
+    query.where(
+      whereBusiness(manufacturerCrateBalances) &
+          manufacturerCrateBalances.manufacturerId.equals(manufacturerId),
+    );
+
+    return query.watch().map((rows) {
+      return rows.map((row) {
+        return ManufacturerCrateBalanceWithGroup(
+          balance: row.readTable(manufacturerCrateBalances),
+          group: row.readTable(crateGroups),
+        );
+      }).toList();
+    });
+  }
+}
+
+class ManufacturerCrateBalanceWithGroup {
+  final ManufacturerCrateBalance balance;
+  final CrateGroupData group;
+  ManufacturerCrateBalanceWithGroup({required this.balance, required this.group});
+}
+
+@DriftAccessor(tables: [
+  CrateLedger,
+  CustomerCrateBalances,
+  ManufacturerCrateBalances,
+])
+class CrateLedgerDao extends DatabaseAccessor<AppDatabase>
+    with _$CrateLedgerDaoMixin, BusinessScopedDao<AppDatabase> {
+  CrateLedgerDao(super.db);
+
+  Future<void> recordCrateReturnByManufacturer({
+    required String manufacturerId,
+    required String crateGroupId,
+    required int quantity,
+    required String performedBy,
+  }) async {
+    final delta = -quantity; // returning empties reduces our balance
+
+    await transaction(() async {
+      // 1. Append crate_ledger entry
+      await into(crateLedger).insert(
+        CrateLedgerCompanion.insert(
+          id: Value(UuidV7.generate()),
+          businessId: requireBusinessId(),
+          manufacturerId: Value(manufacturerId),
+          crateGroupId: crateGroupId,
+          quantityDelta: delta,
+          movementType: 'returned',
+          performedBy: Value(performedBy),
+        ),
+      );
+
+      // 2. Update manufacturer_crate_balances cache
+      await customStatement(
+        'INSERT INTO manufacturer_crate_balances (id, business_id, manufacturer_id, crate_group_id, balance) '
+        'VALUES (?, ?, ?, ?, ?) '
+        'ON CONFLICT(business_id, manufacturer_id, crate_group_id) DO UPDATE SET '
+        'balance = balance + excluded.balance, last_updated_at = CURRENT_TIMESTAMP',
+        [UuidV7.generate(), requireBusinessId(), manufacturerId, crateGroupId, delta],
+      );
+    });
+  }
+
+  Future<void> recordCrateReturnByCustomer({
+    required String customerId,
+    required String crateGroupId,
+    required int quantity,
+    required String performedBy,
+    String? orderId,
+  }) async {
+    final delta = -quantity; // customer returning reduces balance
+
+    await transaction(() async {
+      await into(crateLedger).insert(
+        CrateLedgerCompanion.insert(
+          id: Value(UuidV7.generate()),
+          businessId: requireBusinessId(),
+          customerId: Value(customerId),
+          manufacturerId: const Value.absent(),
+          crateGroupId: crateGroupId,
+          quantityDelta: delta,
+          movementType: 'returned',
+          referenceOrderId: Value(orderId),
+          performedBy: Value(performedBy),
+        ),
+      );
+
+      await customStatement(
+        'INSERT INTO customer_crate_balances (id, business_id, customer_id, crate_group_id, balance) '
+        'VALUES (?, ?, ?, ?, ?) '
+        'ON CONFLICT(business_id, customer_id, crate_group_id) DO UPDATE SET '
+        'balance = balance + excluded.balance, last_updated_at = CURRENT_TIMESTAMP',
+        [UuidV7.generate(), requireBusinessId(), customerId, crateGroupId, delta],
+      );
+    });
+  }
+
+  /// Verification logic to ensure cache tables match ledger sums.
+  /// To be scheduled nightly or run on-demand.
+  Future<void> verifyCrateReconciliation() async {
+
+    // 1. Reconcile Customers
+    final customerLedgerSums = await (selectOnly(crateLedger)
+          ..addColumns([
+            crateLedger.customerId,
+            crateLedger.crateGroupId,
+            crateLedger.quantityDelta.sum()
+          ])
+          ..where(whereBusiness(crateLedger) &
+              crateLedger.customerId.isNotNull())
+          ..groupBy([crateLedger.customerId, crateLedger.crateGroupId]))
+        .get();
+
+    for (final row in customerLedgerSums) {
+      final custId = row.read(crateLedger.customerId)!;
+      final cgId = row.read(crateLedger.crateGroupId)!;
+      final sum = row.read(crateLedger.quantityDelta.sum()) ?? 0;
+
+      final cache = await (select(customerCrateBalances)
+            ..where((t) =>
+                whereBusiness(t) &
+                t.customerId.equals(custId) &
+                t.crateGroupId.equals(cgId)))
+          .getSingleOrNull();
+
+      if (cache == null || cache.balance != sum.toInt()) {
+        // Log mismatch or trigger auto-fix (logging for now)
+        // ignore: avoid_print
+        print(
+            'CRATE MISMATCH [Customer]: $custId, Group: $cgId, Ledger: $sum, Cache: ${cache?.balance}');
+      }
+    }
+
+    // 2. Reconcile Manufacturers
+    final manufacturerLedgerSums = await (selectOnly(crateLedger)
+          ..addColumns([
+            crateLedger.manufacturerId,
+            crateLedger.crateGroupId,
+            crateLedger.quantityDelta.sum()
+          ])
+          ..where(whereBusiness(crateLedger) &
+              crateLedger.manufacturerId.isNotNull())
+          ..groupBy([crateLedger.manufacturerId, crateLedger.crateGroupId]))
+        .get();
+
+    for (final row in manufacturerLedgerSums) {
+      final mfrId = row.read(crateLedger.manufacturerId)!;
+      final cgId = row.read(crateLedger.crateGroupId)!;
+      final sum = row.read(crateLedger.quantityDelta.sum()) ?? 0;
+
+      final cache = await (select(manufacturerCrateBalances)
+            ..where((t) =>
+                whereBusiness(t) &
+                t.manufacturerId.equals(mfrId) &
+                t.crateGroupId.equals(cgId)))
+          .getSingleOrNull();
+
+      if (cache == null || cache.balance != sum.toInt()) {
+        // ignore: avoid_print
+        print(
+            'CRATE MISMATCH [Manufacturer]: $mfrId, Group: $cgId, Ledger: $sum, Cache: ${cache?.balance}');
+      }
+    }
+  }
+}
+
+@DriftAccessor(tables: [Settings])
+class SettingsDao extends DatabaseAccessor<AppDatabase>
+    with _$SettingsDaoMixin, BusinessScopedDao<AppDatabase> {
+  SettingsDao(super.db);
+
+  Future<String?> get(String key) async {
+    final row = await (select(settings)
+          ..where((t) => whereBusiness(t) & t.key.equals(key))
+          ..limit(1))
+        .getSingleOrNull();
+    return row?.value;
+  }
+
+  Future<void> set(String key, String value) async {
+    await customStatement(
+      'INSERT INTO settings (id, business_id, "key", value) VALUES (?, ?, ?, ?) '
+      'ON CONFLICT(business_id, "key") DO UPDATE SET value = excluded.value, last_updated_at = (strftime(\'%s\', \'now\'))',
+      [UuidV7.generate(), requireBusinessId(), key, value],
+    );
+  }
+
+  Stream<String?> watch(String key) {
+    return (select(settings)
+          ..where((t) => whereBusiness(t) & t.key.equals(key))
+          ..limit(1))
+        .watchSingleOrNull()
+        .map((row) => row?.value);
+  }
+
+  /// Helper for timezone-aware logic (PR 4c/4f)
+  Future<String> getTimezone() async {
+    return (await get('business_timezone')) ?? 'UTC';
+  }
+
+  Stream<String> watchTimezone() {
+    return watch('business_timezone').map((v) => v ?? 'UTC');
+  }
+}
+
+@DriftAccessor(tables: [SystemConfig])
+class SystemConfigDao extends DatabaseAccessor<AppDatabase> with _$SystemConfigDaoMixin {
+  SystemConfigDao(super.db);
+
+  Future<String?> get(String key) async {
+    final row = await (select(systemConfig)
+          ..where((t) => t.key.equals(key))
+          ..limit(1))
+        .getSingleOrNull();
+    return row?.value;
+  }
+
+  Future<void> set(String key, String? value) async {
+    await customStatement(
+      'INSERT INTO system_config ("key", value) VALUES (?, ?) '
+      'ON CONFLICT("key") DO UPDATE SET value = excluded.value, last_updated_at = (strftime(\'%s\', \'now\'))',
+      [key, value],
+    );
+  }
 }

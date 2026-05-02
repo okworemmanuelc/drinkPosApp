@@ -24,7 +24,7 @@ import 'package:reebaplus_pos/shared/widgets/app_dropdown.dart';
 import 'package:reebaplus_pos/shared/widgets/app_input.dart';
 import 'package:reebaplus_pos/core/utils/notifications.dart';
 
-const int _kAllWarehouses = -1;
+const String _kAllWarehouses = '__all__';
 
 class StaffListItem {
   final UserData? user;
@@ -34,7 +34,7 @@ class StaffListItem {
   final String name;
   final String roleLabel;
   final String? avatarColor;
-  final int warehouseId;
+  final String warehouseId;
 
   StaffListItem.fromUser(this.user, RoleOption roleInfo)
     : invite = null,
@@ -43,7 +43,7 @@ class StaffListItem {
       name = user.name,
       roleLabel = roleInfo.label,
       avatarColor = user.avatarColor,
-      warehouseId = user.warehouseId ?? -1;
+      warehouseId = user.warehouseId ?? _kAllWarehouses;
 
   StaffListItem.fromInvite(this.invite, RoleOption roleInfo)
     : user = null,
@@ -52,7 +52,7 @@ class StaffListItem {
       name = invite.inviteeName,
       roleLabel = roleInfo.label,
       avatarColor = null,
-      warehouseId = invite.warehouseId ?? -1;
+      warehouseId = invite.warehouseId ?? _kAllWarehouses;
 }
 
 class StaffScreen extends ConsumerStatefulWidget {
@@ -64,7 +64,7 @@ class StaffScreen extends ConsumerStatefulWidget {
 
 class _StaffScreenState extends ConsumerState<StaffScreen> {
   String _searchQuery = '';
-  int _selectedWarehouseFilter = _kAllWarehouses;
+  String _selectedWarehouseFilter = _kAllWarehouses;
   List<WarehouseData> _warehouses = [];
   List<UserData> _rawUsers = [];
   List<InviteData> _rawInvites = [];
@@ -252,7 +252,7 @@ class _StaffScreenState extends ConsumerState<StaffScreen> {
     );
   }
 
-  Widget _filterChip(String label, int id) {
+  Widget _filterChip(String label, String id) {
     final active = _selectedWarehouseFilter == id;
     return GestureDetector(
       onTap: () => setState(() => _selectedWarehouseFilter = id),
@@ -581,7 +581,7 @@ class _StaffFormSheetState extends ConsumerState<_StaffFormSheet> {
   late TextEditingController _emailCtrl;
   late TextEditingController _pinCtrl;
   late RoleOption _selectedRole;
-  int? _selectedWarehouseId;
+  String? _selectedWarehouseId;
   bool _showPin = false;
   bool _isSaving = false;
   Color get _surface => Theme.of(context).colorScheme.surface;
@@ -738,12 +738,12 @@ class _StaffFormSheetState extends ConsumerState<_StaffFormSheet> {
 
                 const SizedBox(height: 16),
 
-                AppDropdown<int>(
+                AppDropdown<String>(
                   labelText: 'Assigned Warehouse',
                   value: _selectedWarehouseId,
                   hintText: 'Select Warehouse',
                   items: widget.warehouses.map((w) {
-                    return DropdownMenuItem<int>(
+                    return DropdownMenuItem<String>(
                       value: w.id,
                       child: Text(w.name),
                     );
@@ -796,12 +796,10 @@ class _StaffFormSheetState extends ConsumerState<_StaffFormSheet> {
 
       if (otherManagers.isEmpty) {
         if (!mounted) return;
-        final warehouseName = widget.warehouses
-            .firstWhere(
-              (w) => w.id == _selectedWarehouseId,
-              orElse: () => const WarehouseData(id: -1, name: 'this warehouse', isDeleted: false),
-            )
-            .name;
+        final matchedWarehouse = widget.warehouses
+            .where((w) => w.id == _selectedWarehouseId)
+            .firstOrNull;
+        final warehouseName = matchedWarehouse?.name ?? 'this warehouse';
         showDialog(
           context: context,
           builder: (ctx) => AlertDialog(
@@ -845,12 +843,10 @@ class _StaffFormSheetState extends ConsumerState<_StaffFormSheet> {
       }
     }
 
-    final warehouseName = widget.warehouses
-        .firstWhere(
-          (w) => w.id == _selectedWarehouseId,
-          orElse: () => const WarehouseData(id: -1, name: 'the warehouse', isDeleted: false),
-        )
-        .name;
+    final matchedWarehouse = widget.warehouses
+        .where((w) => w.id == _selectedWarehouseId)
+        .firstOrNull;
+    final warehouseName = matchedWarehouse?.name ?? 'the warehouse';
 
     if (widget.user == null) {
       if (!mounted) return;

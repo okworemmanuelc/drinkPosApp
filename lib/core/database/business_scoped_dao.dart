@@ -11,12 +11,12 @@ import 'package:reebaplus_pos/core/database/app_database.dart';
 /// `WHERE` filter (or as a column on insert).
 mixin BusinessScopedDao<DB extends GeneratedDatabase> on DatabaseAccessor<DB> {
   AppDatabase get _appDb => attachedDatabase as AppDatabase;
-  int? get currentBusinessId => _appDb.currentBusinessId;
+  String? get currentBusinessId => _appDb.currentBusinessId;
 
   /// Returns the current businessId, throwing if no session is active.
   /// Use at every tenant-scoped query site so cross-tenant leaks become
   /// loud failures instead of silent data bleed.
-  int requireBusinessId() {
+  String requireBusinessId() {
     final id = currentBusinessId;
     if (id == null) {
       throw StateError(
@@ -24,5 +24,15 @@ mixin BusinessScopedDao<DB extends GeneratedDatabase> on DatabaseAccessor<DB> {
       );
     }
     return id;
+  }
+
+  /// Helper to standardize tenant filtering in queries.
+  /// Usage: `..where((t) => whereBusiness(t))`
+  Expression<bool> whereBusiness(dynamic table) {
+    // Businesses table uses 'id' as its tenant identifier.
+    if (table.actualTableName == 'businesses') {
+      return (table.id as Expression<String>).equals(requireBusinessId());
+    }
+    return (table.businessId as Expression<String>).equals(requireBusinessId());
   }
 }
