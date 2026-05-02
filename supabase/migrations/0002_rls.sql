@@ -12,7 +12,10 @@
 -- =============================================================================
 
 -- -----------------------------------------------------------------------------
--- 1. Helper: auth.business_id()
+-- 1. Helper: public.business_id()
+--    Lives in public, not auth: Supabase reserves the auth schema for its
+--    own service and revokes CREATE on it from the postgres role, so any
+--    CREATE FUNCTION auth.* fails with "permission denied for schema auth".
 --    STABLE so PostgreSQL can cache the lookup within a single statement.
 --    NOT SECURITY DEFINER — the function runs as the calling user, so RLS on
 --    profiles applies. The profiles policy permits SELECT where id =
@@ -22,7 +25,7 @@
 --    every authenticated user read every profile.
 -- -----------------------------------------------------------------------------
 
-CREATE OR REPLACE FUNCTION auth.business_id()
+CREATE OR REPLACE FUNCTION public.business_id()
 RETURNS uuid
 LANGUAGE sql
 STABLE
@@ -30,8 +33,8 @@ AS $$
   SELECT business_id FROM public.profiles WHERE id = auth.uid()
 $$;
 
-REVOKE ALL ON FUNCTION auth.business_id() FROM public;
-GRANT EXECUTE ON FUNCTION auth.business_id() TO authenticated, service_role;
+REVOKE ALL ON FUNCTION public.business_id() FROM public;
+GRANT EXECUTE ON FUNCTION public.business_id() TO authenticated, service_role;
 
 -- -----------------------------------------------------------------------------
 -- 2. Enable + force RLS on every table.
@@ -92,17 +95,17 @@ BEGIN
 
     EXECUTE format(
       'CREATE POLICY tenant_select ON public.%I FOR SELECT TO authenticated '
-      'USING (business_id = auth.business_id())', t);
+      'USING (business_id = public.business_id())', t);
     EXECUTE format(
       'CREATE POLICY tenant_insert ON public.%I FOR INSERT TO authenticated '
-      'WITH CHECK (business_id = auth.business_id())', t);
+      'WITH CHECK (business_id = public.business_id())', t);
     EXECUTE format(
       'CREATE POLICY tenant_update ON public.%I FOR UPDATE TO authenticated '
-      'USING (business_id = auth.business_id()) '
-      'WITH CHECK (business_id = auth.business_id())', t);
+      'USING (business_id = public.business_id()) '
+      'WITH CHECK (business_id = public.business_id())', t);
     EXECUTE format(
       'CREATE POLICY tenant_delete ON public.%I FOR DELETE TO authenticated '
-      'USING (business_id = auth.business_id())', t);
+      'USING (business_id = public.business_id())', t);
   END LOOP;
 END $$;
 
@@ -148,7 +151,7 @@ DROP POLICY IF EXISTS businesses_delete  ON public.businesses;
 
 CREATE POLICY businesses_select ON public.businesses
   FOR SELECT TO authenticated
-  USING (id = auth.business_id());
+  USING (id = public.business_id());
 
 CREATE POLICY businesses_insert ON public.businesses
   FOR INSERT TO authenticated
@@ -156,8 +159,8 @@ CREATE POLICY businesses_insert ON public.businesses
 
 CREATE POLICY businesses_update ON public.businesses
   FOR UPDATE TO authenticated
-  USING (id = auth.business_id())
-  WITH CHECK (id = auth.business_id());
+  USING (id = public.business_id())
+  WITH CHECK (id = public.business_id());
 
 -- No DELETE policy ⇒ DELETE is denied for non-service roles.
 
@@ -182,7 +185,7 @@ CREATE POLICY system_config_select ON public.system_config
 --    WHERE schemaname='public' ORDER BY tablename, cmd;
 --
 -- 2. Caller's business resolves correctly:
---    SELECT auth.business_id();   -- not NULL
+--    SELECT public.business_id();   -- not NULL
 --    SELECT * FROM profiles WHERE id = auth.uid();   -- exactly 1 row
 --
 -- 3. Tenant isolation (sign in as a user from business B; A has data):
