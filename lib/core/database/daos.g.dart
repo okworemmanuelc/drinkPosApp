@@ -42,6 +42,15 @@ mixin _$InventoryDaoMixin on DatabaseAccessor<AppDatabase> {
   $ProductsTable get products => attachedDatabase.products;
   $WarehousesTable get warehouses => attachedDatabase.warehouses;
   $InventoryTable get inventory => attachedDatabase.inventory;
+  $UsersTable get users => attachedDatabase.users;
+  $StockAdjustmentsTable get stockAdjustments =>
+      attachedDatabase.stockAdjustments;
+  $CustomersTable get customers => attachedDatabase.customers;
+  $OrdersTable get orders => attachedDatabase.orders;
+  $StockTransfersTable get stockTransfers => attachedDatabase.stockTransfers;
+  $PurchasesTable get purchases => attachedDatabase.purchases;
+  $StockTransactionsTable get stockTransactions =>
+      attachedDatabase.stockTransactions;
   InventoryDaoManager get managers => InventoryDaoManager(this);
 }
 
@@ -64,6 +73,29 @@ class InventoryDaoManager {
       $$WarehousesTableTableManager(_db.attachedDatabase, _db.warehouses);
   $$InventoryTableTableManager get inventory =>
       $$InventoryTableTableManager(_db.attachedDatabase, _db.inventory);
+  $$UsersTableTableManager get users =>
+      $$UsersTableTableManager(_db.attachedDatabase, _db.users);
+  $$StockAdjustmentsTableTableManager get stockAdjustments =>
+      $$StockAdjustmentsTableTableManager(
+        _db.attachedDatabase,
+        _db.stockAdjustments,
+      );
+  $$CustomersTableTableManager get customers =>
+      $$CustomersTableTableManager(_db.attachedDatabase, _db.customers);
+  $$OrdersTableTableManager get orders =>
+      $$OrdersTableTableManager(_db.attachedDatabase, _db.orders);
+  $$StockTransfersTableTableManager get stockTransfers =>
+      $$StockTransfersTableTableManager(
+        _db.attachedDatabase,
+        _db.stockTransfers,
+      );
+  $$PurchasesTableTableManager get purchases =>
+      $$PurchasesTableTableManager(_db.attachedDatabase, _db.purchases);
+  $$StockTransactionsTableTableManager get stockTransactions =>
+      $$StockTransactionsTableTableManager(
+        _db.attachedDatabase,
+        _db.stockTransactions,
+      );
 }
 
 mixin _$OrdersDaoMixin on DatabaseAccessor<AppDatabase> {

@@ -55,3 +55,15 @@ Thumbs.db
 
 # Local properties (machine-specific)
 android/local.properties
+
+# Debug / analysis output dumps
+analyze*.txt
+errors.txt
+lint_errors.txt
+output_lints.txt
+flutter_analyze.txt
+analysis_*.txt
+final_analysis.txt
+project_summary*.txt
+test.txt
+test_checkout.txt

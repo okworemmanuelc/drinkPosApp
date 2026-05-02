@@ -520,7 +520,7 @@ CREATE TABLE public.stock_transactions (
   transfer_id         uuid REFERENCES public.stock_transfers(id),
   adjustment_id       uuid REFERENCES public.stock_adjustments(id),
   purchase_id         uuid,  -- FK added after purchases
-  performed_by        uuid NOT NULL REFERENCES public.users(id),
+  performed_by        uuid REFERENCES public.users(id),
   voided_at           timestamptz,
   voided_by           uuid REFERENCES public.users(id),
   void_reason         text,

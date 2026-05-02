@@ -473,7 +473,7 @@ class StockTransactions extends Table {
   TextColumn get adjustmentId =>
       text().nullable().references(StockAdjustments, #id)();
   TextColumn get purchaseId => text().nullable().references(Purchases, #id)();
-  TextColumn get performedBy => text().references(Users, #id)();
+  TextColumn get performedBy => text().nullable().references(Users, #id)();
   DateTimeColumn get voidedAt => dateTime().nullable()();
   TextColumn get voidedBy => text().nullable().references(Users, #id)();
   TextColumn get voidReason => text().nullable()();

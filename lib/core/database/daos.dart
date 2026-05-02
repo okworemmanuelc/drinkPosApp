@@ -8,20 +8,6 @@ import 'package:reebaplus_pos/core/database/uuid_v7.dart';
 
 part 'daos.g.dart';
 
-// ---------------------------------------------------------------------------
-// PR 2b stub layer.
-//
-// The schema rewrite (UUID v7 ids, typed FKs, append-only ledgers, reshaped
-// tables) breaks every DAO body that references removed columns or assumes
-// integer ids. Per the PR 2b plan, signatures are flipped (int → String for
-// ids) and bodies are stubbed with UnimplementedError. PR 4 walks each
-// breadcrumb and writes the real implementations against the new shape.
-// ---------------------------------------------------------------------------
-
-Never _stub() => throw UnimplementedError(
-  'PR 2b stub: schema migrated to UUID; rewrite against new shape in PR 4',
-);
-
 @DriftAccessor(
   tables: [Suppliers, Products, Categories, Warehouses, Manufacturers],
 )
@@ -212,6 +198,8 @@ class CatalogDao extends DatabaseAccessor<AppDatabase>
     CrateGroups,
     Manufacturers,
     Categories,
+    StockAdjustments,
+    StockTransactions,
   ],
 )
 class InventoryDao extends DatabaseAccessor<AppDatabase>
@@ -238,8 +226,27 @@ class InventoryDao extends DatabaseAccessor<AppDatabase>
     return id;
   }
 
-  Future<void> updateManufacturerStock(String id, int newStock) => _stub();
-  Future<void> updateManufacturerDeposit(String id, int depositKobo) => _stub();
+  Future<void> updateManufacturerStock(String id, int newStock) async {
+    await (update(manufacturers)
+          ..where((t) => t.id.equals(id) & whereBusiness(t)))
+        .write(
+      ManufacturersCompanion(
+        emptyCrateStock: Value(newStock),
+        lastUpdatedAt: Value(DateTime.now()),
+      ),
+    );
+  }
+
+  Future<void> updateManufacturerDeposit(String id, int depositKobo) async {
+    await (update(manufacturers)
+          ..where((t) => t.id.equals(id) & whereBusiness(t)))
+        .write(
+      ManufacturersCompanion(
+        depositAmountKobo: Value(depositKobo),
+        lastUpdatedAt: Value(DateTime.now()),
+      ),
+    );
+  }
 
   Future<List<ProductDataWithStock>> getProductsWithStock({
     String? warehouseId,
@@ -333,17 +340,81 @@ class InventoryDao extends DatabaseAccessor<AppDatabase>
   Stream<int> watchTotalEmptyCratesByWarehouse(String? warehouseId) =>
       Stream<int>.value(0);
 
-  Future<void> deductStock(String productId, String warehouseId, int qty) =>
-      _stub();
-  Future<void> addStock(String productId, String warehouseId, int qty) =>
-      _stub();
+  /// Adjust on-hand inventory by [delta] for ([productId], [warehouseId]).
+  /// Append-only: writes a `stock_adjustments` row + a `stock_transactions`
+  /// ledger row referencing it, then UPSERTs the inventory cache. Negative
+  /// delta is guarded against quantity going negative.
   Future<void> adjustStock(
     String productId,
     String warehouseId,
     int delta,
     String note,
     String? staffId,
-  ) => _stub();
+  ) async {
+    if (delta == 0) return;
+    await transaction(() async {
+      // 1. Append stock_adjustments
+      final adjustmentId = UuidV7.generate();
+      await into(stockAdjustments).insert(
+        StockAdjustmentsCompanion.insert(
+          id: Value(adjustmentId),
+          businessId: requireBusinessId(),
+          productId: productId,
+          warehouseId: warehouseId,
+          quantityDiff: delta,
+          reason: note,
+          performedBy: Value(staffId),
+        ),
+      );
+
+      // 2. Append stock_transactions ledger row
+      await into(stockTransactions).insert(
+        StockTransactionsCompanion.insert(
+          businessId: requireBusinessId(),
+          productId: productId,
+          locationId: warehouseId,
+          quantityDelta: delta,
+          movementType: 'adjustment',
+          adjustmentId: Value(adjustmentId),
+          performedBy: Value(staffId),
+        ),
+      );
+
+      // 3. UPSERT inventory cache
+      if (delta >= 0) {
+        await customStatement(
+          'INSERT INTO inventory (id, business_id, product_id, warehouse_id, quantity) '
+          'VALUES (?, ?, ?, ?, ?) '
+          'ON CONFLICT(business_id, product_id, warehouse_id) DO UPDATE SET '
+          'quantity = quantity + excluded.quantity, '
+          'last_updated_at = CURRENT_TIMESTAMP',
+          [UuidV7.generate(), requireBusinessId(), productId, warehouseId, delta],
+        );
+      } else {
+        // Decrement with stock guard.
+        final rowsAffected = await customUpdate(
+          'UPDATE inventory SET quantity = quantity + ?, '
+          'last_updated_at = CURRENT_TIMESTAMP '
+          'WHERE business_id = ? AND product_id = ? AND warehouse_id = ? '
+          'AND quantity >= ?',
+          variables: [
+            Variable(delta),
+            Variable(requireBusinessId()),
+            Variable(productId),
+            Variable(warehouseId),
+            Variable(-delta),
+          ],
+          updates: {inventory},
+        );
+        if (rowsAffected == 0) {
+          throw InsufficientStockException(
+            productId: productId,
+            requested: -delta,
+          );
+        }
+      }
+    });
+  }
 
   Stream<List<CategoryData>> watchAllCategories() {
     return (select(categories)
@@ -366,21 +437,73 @@ class InventoryDao extends DatabaseAccessor<AppDatabase>
         .get();
   }
 
-  Future<void> assignCrateGroup(
-    String productId,
-    String? crateGroupId,
-    String? size,
-  ) => _stub();
-  Future<void> updateCrateGroupStock(String groupId, int newStock) => _stub();
-  Future<void> updateCrateGroupDeposit(String groupId, int depositKobo) =>
-      _stub();
-  Future<void> addEmptyCrates(String manufacturerId, int quantity) => _stub();
-  Future<void> deductEmptyCrates(String manufacturerId, int quantity) =>
-      _stub();
-  Stream<Map<String, int>> watchFullCratesByManufacturer() => _stub();
-  Stream<Map<String, int>> watchEmptyCratesByManufacturer() => _stub();
-  Stream<int> watchTotalManufacturerEmptyCrates() => _stub();
-  Stream<int> watchTotalCrateAssets() => _stub();
+  Future<void> updateCrateGroupStock(String groupId, int newStock) async {
+    await (update(crateGroups)
+          ..where((t) => t.id.equals(groupId) & whereBusiness(t)))
+        .write(
+      CrateGroupsCompanion(
+        emptyCrateStock: Value(newStock),
+        lastUpdatedAt: Value(DateTime.now()),
+      ),
+    );
+  }
+
+  /// Increment a manufacturer's empty-crate stock counter. Used by the
+  /// receive-delivery and crate-return flows to credit the physical pool of
+  /// returnable crates held against a manufacturer.
+  Future<void> addEmptyCrates(String manufacturerId, int quantity) async {
+    if (quantity == 0) return;
+    await customUpdate(
+      'UPDATE manufacturers SET empty_crate_stock = empty_crate_stock + ?, '
+      'last_updated_at = CURRENT_TIMESTAMP '
+      'WHERE id = ? AND business_id = ?',
+      variables: [
+        Variable(quantity),
+        Variable(manufacturerId),
+        Variable(requireBusinessId()),
+      ],
+      updates: {manufacturers},
+    );
+  }
+
+  /// Stream the per-manufacturer count of full bottles in stock, derived
+  /// from inventory rows joined with products on `manufacturer_id`.
+  Stream<Map<String, int>> watchFullCratesByManufacturer() {
+    final query = select(inventory).join([
+      innerJoin(products, products.id.equalsExp(inventory.productId)),
+    ])
+      ..where(whereBusiness(inventory) &
+          whereBusiness(products) &
+          products.manufacturerId.isNotNull() &
+          products.isDeleted.not());
+    return query.watch().map((rows) {
+      final out = <String, int>{};
+      for (final row in rows) {
+        final mfrId = row.readTable(products).manufacturerId;
+        if (mfrId == null) continue;
+        final qty = row.readTable(inventory).quantity;
+        out[mfrId] = (out[mfrId] ?? 0) + qty;
+      }
+      return out;
+    });
+  }
+
+  /// Stream per-manufacturer empty-crate stock from the manufacturers cache.
+  Stream<Map<String, int>> watchEmptyCratesByManufacturer() {
+    return (select(manufacturers)
+          ..where((t) => whereBusiness(t) & t.isDeleted.not()))
+        .watch()
+        .map((rows) => {for (final m in rows) m.id: m.emptyCrateStock});
+  }
+
+  /// Stream the total empty-crate assets across all manufacturers — used by
+  /// the inventory dashboard summary card.
+  Stream<int> watchTotalCrateAssets() {
+    return (select(manufacturers)
+          ..where((t) => whereBusiness(t) & t.isDeleted.not()))
+        .watch()
+        .map((rows) => rows.fold<int>(0, (sum, m) => sum + m.emptyCrateStock));
+  }
 
   Future<List<ProductStockWithWarehouse>> getProductsStockPerWarehouse({
     String? warehouseId,
@@ -653,7 +776,7 @@ class OrdersDao extends DatabaseAccessor<AppDatabase>
             quantityDelta: -item.quantity.value,
             movementType: 'sale',
             orderId: Value(orderId),
-            performedBy: staffId,
+            performedBy: Value(staffId),
           ),
         );
       }
@@ -764,7 +887,7 @@ class OrdersDao extends DatabaseAccessor<AppDatabase>
             quantityDelta: -row.quantityDelta, // positive (return)
             movementType: 'return',
             orderId: Value(orderId),
-            performedBy: staffId,
+            performedBy: Value(staffId),
           ),
         );
         // Restore inventory
@@ -1181,23 +1304,6 @@ class CustomersDao extends DatabaseAccessor<AppDatabase>
     return customerId;
   }
 
-  Future<void> updateCrateBalance(
-    String customerId,
-    String crateGroupId,
-    int deltaQty,
-  ) => _stub();
-  Future<void> recordCrateReturn(
-    String customerId,
-    String crateGroupId,
-    int returnedQty,
-  ) => _stub();
-  Future<void> recordCrateReturnByManufacturer(
-    String customerId,
-    String manufacturerId,
-    int returnedQty,
-  ) => _stub();
-  Stream<Map<String, int>> watchCrateBalance(String customerId) => _stub();
-
   // ── Wallet forwarders ────────────────────────────────────────────────────
   // Balance is derived from the WalletTransactions ledger; the legacy
   // `customers.wallet_balance_kobo` cache column is gone. These forwarders
@@ -1262,15 +1368,28 @@ class DeliveriesDao extends DatabaseAccessor<AppDatabase>
     with _$DeliveriesDaoMixin, BusinessScopedDao<AppDatabase> {
   DeliveriesDao(super.db);
 
-  Stream<List<DeliveryData>> watchAll() => _stub();
-  Future<void> receiveDelivery(
-    PurchasesCompanion delivery,
-    List<PurchaseItemsCompanion> items,
-  ) => _stub();
-  Future<void> confirmDelivery(String deliveryIdStr, String confirmedBy) =>
-      _stub();
-  Future<LastDeliveryInfo?> getLastDeliveryForProduct(String productId) =>
-      _stub();
+  /// Most recent purchase row for a given product, exposed as a small struct
+  /// for the product-detail screen. Returns null when the product has never
+  /// been purchased.
+  Future<LastDeliveryInfo?> getLastDeliveryForProduct(String productId) async {
+    final query = select(purchaseItems).join([
+      innerJoin(purchases, purchases.id.equalsExp(purchaseItems.purchaseId)),
+    ])
+      ..where(whereBusiness(purchaseItems) &
+          purchaseItems.productId.equals(productId))
+      ..orderBy([OrderingTerm.desc(purchases.createdAt)])
+      ..limit(1);
+    final row = await query.getSingleOrNull();
+    if (row == null) return null;
+    final item = row.readTable(purchaseItems);
+    final purchase = row.readTable(purchases);
+    return LastDeliveryInfo(
+      date: purchase.createdAt,
+      quantity: item.quantity,
+      unitPriceKobo: item.unitPriceKobo,
+      totalKobo: item.totalKobo,
+    );
+  }
 }
 
 class LastDeliveryInfo {
@@ -2262,10 +2381,9 @@ class PeriodReconciliation {
 class StockTransferDao extends DatabaseAccessor<AppDatabase>
     with _$StockTransferDaoMixin, BusinessScopedDao<AppDatabase> {
   StockTransferDao(super.db);
-
-  Future<void> initiateTransfer(StockTransfersCompanion companion) => _stub();
-  Future<void> receiveTransfer(String transferId, String receivedBy) => _stub();
-  Future<void> cancelTransfer(String transferId) => _stub();
+  // Transfer flows have no UI callers today; methods will land alongside the
+  // transfer screens. Keeping the shell preserves the AppDatabase accessor
+  // registration so adding methods later doesn't require schema regen.
 }
 
 @DriftAccessor(tables: [PendingCrateReturns])

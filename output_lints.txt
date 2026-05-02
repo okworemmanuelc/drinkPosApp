@@ -1,7 +1,0 @@
-Analyzing drink_pos_app...                                      
-
-   info - Statements in an if should be enclosed in a block - lib\features\customers\screens\customer_detail_screen.dart:659:23 - curly_braces_in_flow_control_structures
-   info - Statements in an if should be enclosed in a block - lib\features\customers\screens\customer_detail_screen.dart:722:7 - curly_braces_in_flow_control_structures
-   info - 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre - lib\features\customers\screens\customer_detail_screen.dart:751:31 - deprecated_member_use
-   info - Statements in an if should be enclosed in a block - lib\features\customers\screens\customer_detail_screen.dart:763:35 - curly_braces_in_flow_control_structures
-

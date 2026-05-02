@@ -15716,9 +15716,9 @@ class $StockTransactionsTable extends StockTransactions
   late final GeneratedColumn<String> performedBy = GeneratedColumn<String>(
     'performed_by',
     aliasedName,
-    false,
+    true,
     type: DriftSqlType.string,
-    requiredDuringInsert: true,
+    requiredDuringInsert: false,
     defaultConstraints: GeneratedColumn.constraintIsAlways(
       'REFERENCES users (id)',
     ),
@@ -15899,8 +15899,6 @@ class $StockTransactionsTable extends StockTransactions
           _performedByMeta,
         ),
       );
-    } else if (isInserting) {
-      context.missing(_performedByMeta);
     }
     if (data.containsKey('voided_at')) {
       context.handle(
@@ -15987,7 +15985,7 @@ class $StockTransactionsTable extends StockTransactions
       performedBy: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}performed_by'],
-      )!,
+      ),
       voidedAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}voided_at'],
@@ -16029,7 +16027,7 @@ class StockTransactionData extends DataClass
   final String? transferId;
   final String? adjustmentId;
   final String? purchaseId;
-  final String performedBy;
+  final String? performedBy;
   final DateTime? voidedAt;
   final String? voidedBy;
   final String? voidReason;
@@ -16046,7 +16044,7 @@ class StockTransactionData extends DataClass
     this.transferId,
     this.adjustmentId,
     this.purchaseId,
-    required this.performedBy,
+    this.performedBy,
     this.voidedAt,
     this.voidedBy,
     this.voidReason,
@@ -16074,7 +16072,9 @@ class StockTransactionData extends DataClass
     if (!nullToAbsent || purchaseId != null) {
       map['purchase_id'] = Variable<String>(purchaseId);
     }
-    map['performed_by'] = Variable<String>(performedBy);
+    if (!nullToAbsent || performedBy != null) {
+      map['performed_by'] = Variable<String>(performedBy);
+    }
     if (!nullToAbsent || voidedAt != null) {
       map['voided_at'] = Variable<DateTime>(voidedAt);
     }
@@ -16109,7 +16109,9 @@ class StockTransactionData extends DataClass
       purchaseId: purchaseId == null && nullToAbsent
           ? const Value.absent()
           : Value(purchaseId),
-      performedBy: Value(performedBy),
+      performedBy: performedBy == null && nullToAbsent
+          ? const Value.absent()
+          : Value(performedBy),
       voidedAt: voidedAt == null && nullToAbsent
           ? const Value.absent()
           : Value(voidedAt),
@@ -16140,7 +16142,7 @@ class StockTransactionData extends DataClass
       transferId: serializer.fromJson<String?>(json['transferId']),
       adjustmentId: serializer.fromJson<String?>(json['adjustmentId']),
       purchaseId: serializer.fromJson<String?>(json['purchaseId']),
-      performedBy: serializer.fromJson<String>(json['performedBy']),
+      performedBy: serializer.fromJson<String?>(json['performedBy']),
       voidedAt: serializer.fromJson<DateTime?>(json['voidedAt']),
       voidedBy: serializer.fromJson<String?>(json['voidedBy']),
       voidReason: serializer.fromJson<String?>(json['voidReason']),
@@ -16162,7 +16164,7 @@ class StockTransactionData extends DataClass
       'transferId': serializer.toJson<String?>(transferId),
       'adjustmentId': serializer.toJson<String?>(adjustmentId),
       'purchaseId': serializer.toJson<String?>(purchaseId),
-      'performedBy': serializer.toJson<String>(performedBy),
+      'performedBy': serializer.toJson<String?>(performedBy),
       'voidedAt': serializer.toJson<DateTime?>(voidedAt),
       'voidedBy': serializer.toJson<String?>(voidedBy),
       'voidReason': serializer.toJson<String?>(voidReason),
@@ -16182,7 +16184,7 @@ class StockTransactionData extends DataClass
     Value<String?> transferId = const Value.absent(),
     Value<String?> adjustmentId = const Value.absent(),
     Value<String?> purchaseId = const Value.absent(),
-    String? performedBy,
+    Value<String?> performedBy = const Value.absent(),
     Value<DateTime?> voidedAt = const Value.absent(),
     Value<String?> voidedBy = const Value.absent(),
     Value<String?> voidReason = const Value.absent(),
@@ -16199,7 +16201,7 @@ class StockTransactionData extends DataClass
     transferId: transferId.present ? transferId.value : this.transferId,
     adjustmentId: adjustmentId.present ? adjustmentId.value : this.adjustmentId,
     purchaseId: purchaseId.present ? purchaseId.value : this.purchaseId,
-    performedBy: performedBy ?? this.performedBy,
+    performedBy: performedBy.present ? performedBy.value : this.performedBy,
     voidedAt: voidedAt.present ? voidedAt.value : this.voidedAt,
     voidedBy: voidedBy.present ? voidedBy.value : this.voidedBy,
     voidReason: voidReason.present ? voidReason.value : this.voidReason,
@@ -16322,7 +16324,7 @@ class StockTransactionsCompanion extends UpdateCompanion<StockTransactionData> {
   final Value<String?> transferId;
   final Value<String?> adjustmentId;
   final Value<String?> purchaseId;
-  final Value<String> performedBy;
+  final Value<String?> performedBy;
   final Value<DateTime?> voidedAt;
   final Value<String?> voidedBy;
   final Value<String?> voidReason;
@@ -16359,7 +16361,7 @@ class StockTransactionsCompanion extends UpdateCompanion<StockTransactionData> {
     this.transferId = const Value.absent(),
     this.adjustmentId = const Value.absent(),
     this.purchaseId = const Value.absent(),
-    required String performedBy,
+    this.performedBy = const Value.absent(),
     this.voidedAt = const Value.absent(),
     this.voidedBy = const Value.absent(),
     this.voidReason = const Value.absent(),
@@ -16370,8 +16372,7 @@ class StockTransactionsCompanion extends UpdateCompanion<StockTransactionData> {
        productId = Value(productId),
        locationId = Value(locationId),
        quantityDelta = Value(quantityDelta),
-       movementType = Value(movementType),
-       performedBy = Value(performedBy);
+       movementType = Value(movementType);
   static Insertable<StockTransactionData> custom({
     Expression<String>? id,
     Expression<String>? businessId,
@@ -16423,7 +16424,7 @@ class StockTransactionsCompanion extends UpdateCompanion<StockTransactionData> {
     Value<String?>? transferId,
     Value<String?>? adjustmentId,
     Value<String?>? purchaseId,
-    Value<String>? performedBy,
+    Value<String?>? performedBy,
     Value<DateTime?>? voidedAt,
     Value<String?>? voidedBy,
     Value<String?>? voidReason,
@@ -50439,7 +50440,7 @@ typedef $$StockTransactionsTableCreateCompanionBuilder =
       Value<String?> transferId,
       Value<String?> adjustmentId,
       Value<String?> purchaseId,
-      required String performedBy,
+      Value<String?> performedBy,
       Value<DateTime?> voidedAt,
       Value<String?> voidedBy,
       Value<String?> voidReason,
@@ -50459,7 +50460,7 @@ typedef $$StockTransactionsTableUpdateCompanionBuilder =
       Value<String?> transferId,
       Value<String?> adjustmentId,
       Value<String?> purchaseId,
-      Value<String> performedBy,
+      Value<String?> performedBy,
       Value<DateTime?> voidedAt,
       Value<String?> voidedBy,
       Value<String?> voidReason,
@@ -50624,9 +50625,9 @@ final class $$StockTransactionsTableReferences
         $_aliasNameGenerator(db.stockTransactions.performedBy, db.users.id),
       );
 
-  $$UsersTableProcessedTableManager get performedBy {
-    final $_column = $_itemColumn<String>('performed_by')!;
-
+  $$UsersTableProcessedTableManager? get performedBy {
+    final $_column = $_itemColumn<String>('performed_by');
+    if ($_column == null) return null;
     final manager = $$UsersTableTableManager(
       $_db,
       $_db.users,
@@ -51460,7 +51461,7 @@ class $$StockTransactionsTableTableManager
                 Value<String?> transferId = const Value.absent(),
                 Value<String?> adjustmentId = const Value.absent(),
                 Value<String?> purchaseId = const Value.absent(),
-                Value<String> performedBy = const Value.absent(),
+                Value<String?> performedBy = const Value.absent(),
                 Value<DateTime?> voidedAt = const Value.absent(),
                 Value<String?> voidedBy = const Value.absent(),
                 Value<String?> voidReason = const Value.absent(),
@@ -51498,7 +51499,7 @@ class $$StockTransactionsTableTableManager
                 Value<String?> transferId = const Value.absent(),
                 Value<String?> adjustmentId = const Value.absent(),
                 Value<String?> purchaseId = const Value.absent(),
-                required String performedBy,
+                Value<String?> performedBy = const Value.absent(),
                 Value<DateTime?> voidedAt = const Value.absent(),
                 Value<String?> voidedBy = const Value.absent(),
                 Value<String?> voidReason = const Value.absent(),

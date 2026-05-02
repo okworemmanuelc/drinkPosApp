@@ -1,9 +1,0 @@
-Analyzing drink_pos_app...                                      
-
-   info - Unnecessary use of multiple underscores - lib\features\customers\screens\customer_detail_screen.dart:359:43 - unnecessary_underscores
-   info - Unnecessary use of multiple underscores - lib\features\customers\screens\customer_detail_screen.dart:542:47 - unnecessary_underscores
-   info - Unnecessary use of multiple underscores - lib\features\customers\screens\customer_detail_screen.dart:588:47 - unnecessary_underscores
-   info - Unnecessary use of multiple underscores - lib\features\customers\screens\customer_detail_screen.dart:994:47 - unnecessary_underscores
-   info - Unnecessary use of multiple underscores - lib\features\customers\screens\customer_detail_screen.dart:1040:47 - unnecessary_underscores
-   info - 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre - lib\features\customers\screens\customer_detail_screen.dart:1584:45 - deprecated_member_use
-
