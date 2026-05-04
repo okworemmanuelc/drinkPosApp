@@ -56,6 +56,9 @@ Thumbs.db
 # Local properties (machine-specific)
 android/local.properties
 
+# Supabase CLI local cache
+supabase/.temp/
+
 # Debug / analysis output dumps
 analyze*.txt
 errors.txt

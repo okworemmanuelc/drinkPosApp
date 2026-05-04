@@ -28,6 +28,7 @@ class _PostPinOtpScreenState extends ConsumerState<PostPinOtpScreen> {
   final GlobalKey<ShakeWidgetState> _shakeKey = GlobalKey();
 
   bool _loading = false;
+  bool _verified = false;
   String? _errorMessage;
 
   int _resendCountdown = 60;
@@ -178,7 +179,15 @@ class _PostPinOtpScreenState extends ConsumerState<PostPinOtpScreen> {
     }
 
     // OTP verified — complete login
-    setState(() => _loading = false);
+    setState(() {
+      _loading = false;
+      _verified = true;
+    });
+
+    // Brief pause to show success state before navigating.
+    await Future.delayed(const Duration(milliseconds: 800));
+    if (!mounted) return;
+
     ref.read(authProvider).setCurrentUser(widget.user);
     // Navigator key regeneration in main.dart handles routing automatically.
   }
@@ -311,8 +320,8 @@ class _PostPinOtpScreenState extends ConsumerState<PostPinOtpScreen> {
                         padding: const EdgeInsets.only(bottom: 4),
                         child: Text(
                           _errorMessage!,
-                          style: const TextStyle(
-                            color: Color(0xFFFF6B6B),
+                          style: TextStyle(
+                            color: theme.colorScheme.error,
                             fontSize: 13,
                           ),
                           textAlign: TextAlign.center,
@@ -322,10 +331,22 @@ class _PostPinOtpScreenState extends ConsumerState<PostPinOtpScreen> {
               ),
               const SizedBox(height: 16),
 
-              AppButton(
-                text: 'Verify & Continue',
-                isLoading: _loading,
-                onPressed: _canSubmit ? _submit : null,
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 350),
+                switchInCurve: Curves.easeOut,
+                child: _verified
+                    ? const AppButton(
+                        key: ValueKey('verified'),
+                        text: 'Verified  ✓',
+                        variant: AppButtonVariant.success,
+                        onPressed: null,
+                      )
+                    : AppButton(
+                        key: const ValueKey('verify'),
+                        text: 'Verify & Continue',
+                        isLoading: _loading,
+                        onPressed: _canSubmit ? _submit : null,
+                      ),
               ),
               const SizedBox(height: 20),
 

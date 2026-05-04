@@ -4,7 +4,6 @@ import 'package:drift/drift.dart';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-import 'dart:math';
 import 'package:reebaplus_pos/core/database/app_database.dart';
 import 'package:reebaplus_pos/core/database/uuid_v7.dart';
 import 'package:reebaplus_pos/shared/services/navigation_service.dart';
@@ -40,6 +39,45 @@ class AuthService extends ValueNotifier<UserData?> {
   /// Set before calling [setCurrentUser] to route to a special post-login screen.
   PostLoginRoute pendingPostLoginRoute = PostLoginRoute.none;
   UserData? pendingPostLoginUser;
+
+  /// Set by [InviteLandingScreen] when an invite-link is being processed.
+  /// Consumed by [InviteJoinNameScreen] post-OTP via [consumePendingInviteToken],
+  /// or expired by the 10-minute TTL below if the user navigates away.
+  /// In-memory only — never persisted.
+  String? _pendingInviteToken;
+  DateTime? _pendingInviteTokenSetAt;
+  static const _pendingInviteTokenTtl = Duration(minutes: 10);
+
+  /// Returns the current pending invite token if it's still within the
+  /// [_pendingInviteTokenTtl] window. Auto-clears stale tokens on read.
+  String? get pendingInviteToken {
+    final at = _pendingInviteTokenSetAt;
+    if (at == null) return null;
+    if (DateTime.now().difference(at) > _pendingInviteTokenTtl) {
+      _pendingInviteToken = null;
+      _pendingInviteTokenSetAt = null;
+      return null;
+    }
+    return _pendingInviteToken;
+  }
+
+  void setPendingInviteToken(String token) {
+    _pendingInviteToken = token;
+    _pendingInviteTokenSetAt = DateTime.now();
+  }
+
+  /// Read-and-clear, used by [InviteJoinNameScreen] before redeeming.
+  String? consumePendingInviteToken() {
+    final v = pendingInviteToken; // applies TTL check
+    _pendingInviteToken = null;
+    _pendingInviteTokenSetAt = null;
+    return v;
+  }
+
+  void _clearPendingInviteToken() {
+    _pendingInviteToken = null;
+    _pendingInviteTokenSetAt = null;
+  }
 
   /// The currently logged-in user, or null if nobody is logged in.
   UserData? get currentUser => value;
@@ -287,6 +325,11 @@ class AuthService extends ValueNotifier<UserData?> {
   // ── Session management ─────────────────────────────────────────────────────
 
   /// Marks [user] as the active logged-in user and applies warehouse lock.
+  ///
+  /// Onboarding contract: `value` stays null until this call. _onAuthChanged in
+  /// main.dart regenerates the navigator key on every value change, which
+  /// would tear down the in-progress onboarding stack — so onboarding screens
+  /// pass UserData/businessId by widget args instead of reading from `value`.
   void setCurrentUser(UserData user) {
     try {
       // Side-effects first — navigationService fully ready before any rebuild
@@ -298,6 +341,10 @@ class AuthService extends ValueNotifier<UserData?> {
       }
       saveDeviceUserId(user.id);
       if (user.email != null) saveLastLoggedInEmail(user.email!);
+
+      // Successful sign-in completes any pending invite redemption (or this
+      // wasn't an invite path); either way, drop the token.
+      _clearPendingInviteToken();
 
       // Set synchronously so VLB listener fires before any route pop cleans up
       value = user;
@@ -406,7 +453,16 @@ class AuthService extends ValueNotifier<UserData?> {
 
   /// Completely wipes the session, reverting the device to a fresh state.
   /// Next launch will demand Email + OTP.
-  Future<void> fullLogout() async {
+  ///
+  /// [preserveInviteToken] keeps any pending invite token across the logout,
+  /// used by [InviteLandingScreen]'s "switch account" path where the user
+  /// must sign out an existing session before redeeming the invite they
+  /// just landed on. Default false — regular sign-out paths drop the token.
+  Future<void> fullLogout({bool preserveInviteToken = false}) async {
+    if (!preserveInviteToken) {
+      _clearPendingInviteToken();
+    }
+
     // 1. Wipe all encrypted auth data so the notifier fires and _hasDeviceUser
     //    becomes false before the ValueListenableBuilder rebuilds.
     await _secure.clearAll();
@@ -446,31 +502,71 @@ class AuthService extends ValueNotifier<UserData?> {
     return matches.any((u) => u.roleTier >= minimumTier);
   }
 
-  /// Creates a new owner (CEO) account in the local database after OTP verification.
-  /// If an account with this email already exists (e.g. user went back and
-  /// re-submitted the name screen), updates the name and returns the existing record.
+  /// Creates a new owner (CEO) account. Online-first: Supabase is the source
+  /// of truth during onboarding; Drift mirrors after the Supabase write returns.
+  ///
+  /// If an incomplete onboarding row already exists for this auth user
+  /// (interrupted previous attempt), reuses its businessId so the user
+  /// resumes with the same id end-to-end — no local/server divergence.
+  ///
+  /// Throws on network failure rather than seeding partial local state.
   Future<UserData> createNewOwner(String email, String name) async {
-    final existing = await getUserByEmail(email);
-    if (existing != null) {
-      await (_db.update(_db.users)..where((u) => u.id.equals(existing.id)))
-          .write(UsersCompanion(
-        name: Value(name),
-        lastUpdatedAt: Value(DateTime.now()),
-      ));
-      return (_db.select(_db.users)..where((u) => u.id.equals(existing.id)))
-          .getSingle();
+    final supabase = Supabase.instance.client;
+    final authUserId = supabase.auth.currentUser?.id;
+    if (authUserId == null) {
+      throw StateError(
+        'createNewOwner called without an authenticated Supabase session',
+      );
     }
 
-    // Users.businessId is NOT NULL, so seed a Businesses row first using the
-    // owner's name as a placeholder. BusinessDetailsScreen overwrites it with
-    // the real business name in the next step of onboarding.
-    final businessId = UuidV7.generate();
+    // 1. Resume detection. The tenant_select policy on businesses lets the
+    //    user see their own row once a profile exists, which it does for
+    //    any prior attempt that got past start_onboarding.
+    final existingRow = await supabase
+        .from('businesses')
+        .select('id')
+        .eq('owner_id', authUserId)
+        .eq('onboarding_complete', false)
+        .maybeSingle();
+
+    final String businessId;
+    if (existingRow != null) {
+      businessId = existingRow['id'] as String;
+      // Update the placeholder name with whatever they typed this time.
+      await supabase
+          .from('businesses')
+          .update({'name': name})
+          .eq('id', businessId);
+    } else {
+      businessId = UuidV7.generate();
+      // Atomic businesses + profiles insert via SECURITY DEFINER RPC.
+      // Avoids a partial-state crash window between two separate inserts
+      // (business visible, profile missing → public.business_id() returns
+      // null, blocking subsequent tenant inserts).
+      await supabase.rpc(
+        'start_onboarding',
+        params: {'p_business_id': businessId, 'p_name': name},
+      );
+    }
+
+    // 2. Mirror to Drift. BusinessTypeSelectionScreen._onRegister already
+    //    called clearAllData() before pushing into onboarding, so the local
+    //    DB starts empty. The user-by-email delete here only matters when
+    //    createNewOwner runs twice in the same session (e.g. user backed
+    //    out of NewOwnerNameScreen and re-submitted with a different name).
     final userId = UuidV7.generate();
+    final now = DateTime.now();
     await _db.transaction(() async {
-      await _db.into(_db.businesses).insert(BusinessesCompanion.insert(
-            id: Value(businessId),
-            name: name,
-          ));
+      await (_db.delete(_db.users)..where((u) => u.email.equals(email))).go();
+
+      await _db.into(_db.businesses).insertOnConflictUpdate(
+            BusinessesCompanion.insert(
+              id: Value(businessId),
+              name: name,
+              onboardingComplete: const Value(false),
+              lastUpdatedAt: Value(now),
+            ),
+          );
       await _db.into(_db.users).insert(UsersCompanion.insert(
             id: Value(userId),
             businessId: businessId,
@@ -481,6 +577,7 @@ class AuthService extends ValueNotifier<UserData?> {
             roleTier: const Value(5),
           ));
     });
+
     return (_db.select(_db.users)..where((u) => u.id.equals(userId)))
         .getSingle();
   }
@@ -559,172 +656,9 @@ class AuthService extends ValueNotifier<UserData?> {
   Future<void> disableQuickAccess() async {}
   Future<bool> verifySupervisorPin(String userId, String pin) async => false;
 
-  // ── Invite lifecycle ───────────────────────────────────────────────────────
-
-  /// Generates a secure 8-character invite code (no confusing characters).
-  String _generateSecureCode() {
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // No 0, O, I, 1
-    final rnd = Random.secure();
-    return List.generate(8, (index) => chars[rnd.nextInt(chars.length)]).join();
-  }
-
-  /// Creates a new invite and returns the generated sharing link.
-  Future<String> createInvite({
-    required String email,
-    required String inviteeName,
-    required String role,
-    String? warehouseId,
-  }) async {
-    final businessId = value?.businessId;
-    final createdBy = value?.id;
-    if (businessId == null || createdBy == null) {
-      throw StateError('Cannot create invite: no active session');
-    }
-
-    final code = _generateSecureCode();
-    final expiresAt = DateTime.now().add(const Duration(hours: 48));
-
-    await _db.into(_db.invites).insert(
-          InvitesCompanion.insert(
-            businessId: businessId,
-            email: email,
-            inviteeName: inviteeName,
-            role: role,
-            warehouseId: Value(warehouseId),
-            code: code,
-            status: const Value('pending'),
-            expiresAt: expiresAt,
-            createdBy: createdBy,
-            createdAt: Value(DateTime.now()),
-            lastUpdatedAt: Value(DateTime.now()),
-          ),
-        );
-
-    return 'https://reebaplus.pos/join?code=$code';
-  }
-
-  /// Validates an invite code and returns the details.
-  Future<InviteValidationResult> validateInvite(String code) async {
-    final normalized = code.trim().toUpperCase();
-    final invite = await (_db.select(
-      _db.invites,
-    )..where((t) => t.code.equals(normalized))).getSingleOrNull();
-
-    if (invite == null) {
-      return InviteValidationResult.error('Invalid invite code.');
-    }
-    if (invite.status == 'revoked') {
-      return InviteValidationResult.error(
-        'This invite has been cancelled by your manager.',
-      );
-    }
-    if (invite.status == 'accepted') {
-      return InviteValidationResult.error('This invite has already been used.');
-    }
-
-    final now = DateTime.now();
-    if (invite.expiresAt.isBefore(now)) {
-      await (_db.update(_db.invites)..where((t) => t.id.equals(invite.id)))
-          .write(const InvitesCompanion(status: Value('expired')));
-      return InviteValidationResult.error(
-        'This invite has expired. Ask your manager for a new one.',
-      );
-    }
-
-    final biz = await (_db.select(
-      _db.businesses,
-    )..where((t) => t.id.equals(invite.businessId))).getSingle();
-
-    final inviter = await (_db.select(
-      _db.users,
-    )..where((t) => t.id.equals(invite.createdBy))).getSingleOrNull();
-
-    return InviteValidationResult.success(
-      invite: invite,
-      businessName: biz.name,
-      inviterName: inviter?.name ?? 'your manager',
-    );
-  }
-
-  /// Completes the join process for a user.
-  Future<void> redeemInvite(String code, String userId) async {
-    final normalized = code.trim().toUpperCase();
-    final invite = await (_db.select(
-      _db.invites,
-    )..where((t) => t.code.equals(normalized))).getSingleOrNull();
-
-    if (invite == null) throw Exception('Invite not found');
-
-    await _db.transaction(() async {
-      // 1. Update invite status
-      await (_db.update(
-        _db.invites,
-      )..where((t) => t.id.equals(invite.id))).write(
-        InvitesCompanion(
-          status: const Value('accepted'),
-          usedAt: Value(DateTime.now()),
-        ),
-      );
-
-      // 2. Assign role and business to user
-      // We need to map the role string to a tier.
-      int tier = 1; // Default staff
-      if (invite.role.toLowerCase().contains('manager')) tier = 4;
-      if (invite.role.toLowerCase().contains('ceo')) tier = 5;
-
-      await (_db.update(_db.users)..where((t) => t.id.equals(userId))).write(
-        UsersCompanion(
-          role: Value(invite.role),
-          roleTier: Value(tier),
-          businessId: Value(invite.businessId),
-          warehouseId: Value(invite.warehouseId),
-        ),
-      );
-    });
-  }
-
-  /// Cancels an invite.
-  Future<void> revokeInvite(String inviteId) async {
-    await (_db.update(_db.invites)..where((t) => t.id.equals(inviteId))).write(
-      const InvitesCompanion(status: Value('revoked')),
-    );
-  }
-
-  /// Re-issues an invite with a new code and expiry.
-  Future<String> resendInvite(String inviteId) async {
-    final code = _generateSecureCode();
-    final expiresAt = DateTime.now().add(const Duration(hours: 48));
-
-    await (_db.update(_db.invites)..where((t) => t.id.equals(inviteId))).write(
-      InvitesCompanion(
-        code: Value(code),
-        status: const Value('pending'),
-        expiresAt: Value(expiresAt),
-      ),
-    );
-
-    return 'https://reebaplus.pos/join?code=$code';
-  }
-}
-
-class InviteValidationResult {
-  final InviteData? invite;
-  final String? businessName;
-  final String? inviterName;
-  final String? error;
-
-  InviteValidationResult.success({
-    required this.invite,
-    required this.businessName,
-    required this.inviterName,
-  }) : error = null;
-
-  InviteValidationResult.error(this.error)
-    : invite = null,
-      businessName = null,
-      inviterName = null;
-
-  bool get isSuccess => error == null;
+  // Invite lifecycle moved to lib/features/invite/services/invite_api_service.dart
+  // (cloud-first, server-validated). Callers go through inviteApiServiceProvider
+  // directly; this service no longer exposes invite CRUD.
 }
 
 /// Snapshot of the current auth user's cloud profile + linked business,

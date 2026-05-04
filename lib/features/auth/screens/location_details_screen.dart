@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -12,6 +11,7 @@ import 'package:drift/drift.dart' as drift;
 import 'package:reebaplus_pos/features/auth/widgets/auth_background.dart';
 import 'package:reebaplus_pos/core/theme/app_decorations.dart';
 import 'package:reebaplus_pos/shared/widgets/smooth_route.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class LocationDetailsScreen extends ConsumerStatefulWidget {
   final UserData user;
@@ -34,6 +34,37 @@ class _LocationDetailsScreenState extends ConsumerState<LocationDetailsScreen> {
   /// Set after the first successful submit so a second press updates
   /// the existing warehouse instead of creating a duplicate.
   String? _savedWarehouseId;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadExistingData();
+  }
+
+  /// Pre-fills the form from Supabase. On a resume after interruption,
+  /// the warehouse row from the previous attempt rehydrates the inputs.
+  Future<void> _loadExistingData() async {
+    try {
+      final row = await Supabase.instance.client
+          .from('warehouses')
+          .select()
+          .eq('business_id', widget.user.businessId)
+          .limit(1)
+          .maybeSingle();
+      if (row == null || !mounted) return;
+      final location = (row['location'] as String?) ?? '';
+      final parts = location.split(', ');
+      setState(() {
+        _savedWarehouseId = row['id'] as String?;
+        _nameController.text = (row['name'] as String?) ?? '';
+        if (parts.isNotEmpty) _addressController.text = parts[0];
+        if (parts.length >= 2) _cityStateController.text = parts[1];
+        if (parts.length >= 3) _countryController.text = parts[2];
+      });
+    } catch (e) {
+      debugPrint('[LocationDetailsScreen] _loadExistingData failed: $e');
+    }
+  }
 
   @override
   void dispose() {
@@ -82,19 +113,20 @@ class _LocationDetailsScreenState extends ConsumerState<LocationDetailsScreen> {
       _savedWarehouseId = warehouseId;
     }
 
-    // Push the warehouse to cloud. Customers/products reference warehouse_id
-    // as a FK, so an unsynced warehouse breaks every downstream insert.
-    await db.syncDao.enqueue(
-      'warehouses:upsert',
-      jsonEncode({
-        'id': warehouseId,
-        'business_id': widget.user.businessId,
-        'name': _nameController.text.trim(),
-        'location': locationCombined,
-        'last_updated_at': now.toIso8601String(),
-        'is_deleted': false,
-      }),
-    );
+    // Push the warehouse to Supabase directly. Onboarding is online-first;
+    // the sync queue would call requireBusinessId() against a null
+    // AuthService.value (intentional — see _onAuthChanged in main.dart).
+    // Profile was inserted in BusinessDetailsScreen, so public.business_id()
+    // resolves and the standard tenant_insert/update RLS policies accept this.
+    // Upsert handles both first submit and re-submit (when the user goes back).
+    await Supabase.instance.client.from('warehouses').upsert({
+      'id': warehouseId,
+      'business_id': widget.user.businessId,
+      'name': _nameController.text.trim(),
+      'location': locationCombined,
+      'last_updated_at': now.toIso8601String(),
+      'is_deleted': false,
+    });
 
     // Keep current user assigned to this warehouse.
     await (db.update(db.users)..where((u) => u.id.equals(widget.user.id)))

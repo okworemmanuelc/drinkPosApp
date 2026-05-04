@@ -40,15 +40,12 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
             
-            <!-- App Links -->
-            <intent-filter android:autoVerify="true">
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="https" android:host="reebaplus.pos" />
-            </intent-filter>
-
-            <!-- Custom URL Scheme -->
+            <!-- Custom URL scheme used by:
+                   • Supabase OAuth callback (reebaplus://login-callback)
+                   • Invite deep links     (reebaplus://invite?token=…)
+                 No https App Link declared — there's no real domain backing
+                 it, and autoVerify on a non-resolvable host produces
+                 verification failures on Android 12+. -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />

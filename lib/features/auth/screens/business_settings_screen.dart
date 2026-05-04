@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:reebaplus_pos/shared/widgets/app_button.dart';
 import 'package:reebaplus_pos/features/auth/widgets/onboarding_step_indicator.dart';
@@ -58,6 +59,41 @@ class _BusinessSettingsScreenState
   bool _loading = false;
 
   @override
+  void initState() {
+    super.initState();
+    _loadExistingData();
+  }
+
+  /// Pre-fills the form from Supabase. On a resume after interruption,
+  /// previously selected currency/timezone/tax fields rehydrate.
+  Future<void> _loadExistingData() async {
+    try {
+      final rows = await Supabase.instance.client
+          .from('settings')
+          .select('key, value')
+          .eq('business_id', widget.user.businessId);
+      if (!mounted) return;
+      final map = {
+        for (final r in rows as List) (r['key'] as String): r['value'] as String,
+      };
+      setState(() {
+        final currency = map['default_currency'];
+        if (currency != null && _currencies.contains(currency)) {
+          _selectedCurrency = currency;
+        }
+        final tz = map['timezone'];
+        if (tz != null && _timezones.contains(tz)) {
+          _selectedTimezone = tz;
+        }
+        final tax = map['tax_registration_number'];
+        if (tax != null) _taxController.text = tax;
+      });
+    } catch (e) {
+      debugPrint('[BusinessSettingsScreen] _loadExistingData failed: $e');
+    }
+  }
+
+  @override
   void dispose() {
     _taxController.dispose();
     super.dispose();
@@ -71,52 +107,91 @@ class _BusinessSettingsScreenState
     final db = ref.read(databaseProvider);
     final now = DateTime.now();
     final businessId = widget.user.businessId;
-    await db.batch((batch) {
-      batch.insert(
-        db.settings,
-        SettingsCompanion.insert(
-          key: 'default_currency',
-          value: _selectedCurrency,
-          businessId: businessId,
-          lastUpdatedAt: Value(now),
-        ),
-        mode: InsertMode.insertOrReplace,
-      );
-      batch.insert(
-        db.settings,
-        SettingsCompanion.insert(
-          key: 'timezone',
-          value: _selectedTimezone,
-          businessId: businessId,
-          lastUpdatedAt: Value(now),
-        ),
-        mode: InsertMode.insertOrReplace,
-      );
-      if (_taxController.text.trim().isNotEmpty) {
+    final taxValue = _taxController.text.trim();
+
+    try {
+      // 1. Upsert to Supabase. Unique constraint on (business_id, key)
+      //    in 0001_initial.sql:824 makes onConflict idempotent for resume.
+      final rows = <Map<String, dynamic>>[
+        {
+          'business_id': businessId,
+          'key': 'default_currency',
+          'value': _selectedCurrency,
+          'last_updated_at': now.toIso8601String(),
+        },
+        {
+          'business_id': businessId,
+          'key': 'timezone',
+          'value': _selectedTimezone,
+          'last_updated_at': now.toIso8601String(),
+        },
+        if (taxValue.isNotEmpty)
+          {
+            'business_id': businessId,
+            'key': 'tax_registration_number',
+            'value': taxValue,
+            'last_updated_at': now.toIso8601String(),
+          },
+      ];
+      await Supabase.instance.client
+          .from('settings')
+          .upsert(rows, onConflict: 'business_id,key');
+
+      // 2. Mirror to local Drift.
+      await db.batch((batch) {
         batch.insert(
           db.settings,
           SettingsCompanion.insert(
-            key: 'tax_registration_number',
-            value: _taxController.text.trim(),
+            key: 'default_currency',
+            value: _selectedCurrency,
             businessId: businessId,
             lastUpdatedAt: Value(now),
           ),
           mode: InsertMode.insertOrReplace,
         );
-      }
-    });
+        batch.insert(
+          db.settings,
+          SettingsCompanion.insert(
+            key: 'timezone',
+            value: _selectedTimezone,
+            businessId: businessId,
+            lastUpdatedAt: Value(now),
+          ),
+          mode: InsertMode.insertOrReplace,
+        );
+        if (taxValue.isNotEmpty) {
+          batch.insert(
+            db.settings,
+            SettingsCompanion.insert(
+              key: 'tax_registration_number',
+              value: taxValue,
+              businessId: businessId,
+              lastUpdatedAt: Value(now),
+            ),
+            mode: InsertMode.insertOrReplace,
+          );
+        }
+      });
 
-    if (!mounted) return;
-    setState(() => _loading = false);
+      if (!mounted) return;
+      setState(() => _loading = false);
 
-    Navigator.of(context).push(
-      SmoothRoute(
-        page: CreatePinScreen(
-          user: widget.user,
-          isNewBusinessSetup: widget.isNewBusinessSetup,
+      Navigator.of(context).push(
+        SmoothRoute(
+          page: CreatePinScreen(
+            user: widget.user,
+            isNewBusinessSetup: widget.isNewBusinessSetup,
+          ),
         ),
-      ),
-    );
+      );
+    } catch (e) {
+      debugPrint('[BusinessSettingsScreen] Error saving settings: $e');
+      if (!mounted) return;
+      setState(() => _loading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error saving settings: $e')),
+      );
+    }
   }
 
   @override

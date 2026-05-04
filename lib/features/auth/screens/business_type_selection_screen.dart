@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:reebaplus_pos/features/auth/screens/new_owner_name_screen.dart';
 import 'package:reebaplus_pos/features/auth/screens/invite_code_screen.dart';
 import 'package:reebaplus_pos/features/auth/widgets/onboarding_step_indicator.dart';
@@ -13,7 +14,37 @@ class BusinessTypeSelectionScreen extends ConsumerWidget {
 
   const BusinessTypeSelectionScreen({super.key, required this.email});
 
+  /// Onboarding writes go to Supabase first (the source of truth), so
+  /// every screen needs the network. Fail-fast here rather than letting
+  /// users fill forms that will reject on submit.
+  Future<bool> _ensureOnline(BuildContext context) async {
+    final result = await Connectivity().checkConnectivity();
+    final online =
+        !(result.isEmpty || result.every((r) => r == ConnectivityResult.none));
+    if (!online && context.mounted) {
+      await showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Internet required'),
+          content: const Text(
+            'Setting up a business requires an active internet connection. '
+            'Please connect and try again.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+    }
+    return online;
+  }
+
   Future<void> _onRegister(BuildContext context, WidgetRef ref) async {
+    if (!await _ensureOnline(context)) return;
+    if (!context.mounted) return;
     // Ensure the database is completely empty before starting a new business
     await ref.read(databaseProvider).clearAllData();
     if (!context.mounted) return;
@@ -21,6 +52,8 @@ class BusinessTypeSelectionScreen extends ConsumerWidget {
   }
 
   Future<void> _onJoin(BuildContext context, WidgetRef ref) async {
+    if (!await _ensureOnline(context)) return;
+    if (!context.mounted) return;
     // Ensure the database is completely empty before joining a business
     await ref.read(databaseProvider).clearAllData();
     if (!context.mounted) return;

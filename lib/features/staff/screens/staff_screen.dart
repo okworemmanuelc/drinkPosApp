@@ -17,6 +17,9 @@ import 'package:reebaplus_pos/shared/widgets/menu_button.dart';
 import 'package:reebaplus_pos/shared/widgets/app_bar_header.dart';
 import 'package:reebaplus_pos/shared/widgets/notification_bell.dart';
 import 'package:reebaplus_pos/shared/widgets/role_guard.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:reebaplus_pos/features/invite/services/invite_api_service.dart';
+import 'package:reebaplus_pos/features/invite/widgets/invite_modal.dart';
 import 'package:reebaplus_pos/features/staff/screens/staff_constants.dart';
 import 'package:reebaplus_pos/features/staff/screens/staff_details_screen.dart';
 import 'package:reebaplus_pos/shared/widgets/app_button.dart';
@@ -479,6 +482,21 @@ class _StaffScreenState extends ConsumerState<StaffScreen> {
   }
 
   void _showStaffSheet(BuildContext context, {UserData? user}) {
+    if (user == null) {
+      // New staff: cloud-first invite flow with native share-sheet handoff.
+      // Modal looks up the business name itself from local Drift.
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Theme.of(context).cardColor,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        builder: (_) => InviteModal(warehouses: _warehouses),
+      );
+      return;
+    }
+    // Editing an existing staff row keeps the original form (PIN reset etc.).
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -586,7 +604,6 @@ class _StaffFormSheetState extends ConsumerState<_StaffFormSheet> {
   bool _isSaving = false;
   Color get _surface => Theme.of(context).colorScheme.surface;
   Color get _text => Theme.of(context).colorScheme.onSurface;
-  Color get _primary => Theme.of(context).colorScheme.primary;
   Color get _subtext =>
       Theme.of(context).textTheme.bodySmall?.color ??
       Theme.of(context).iconTheme.color!;
@@ -849,100 +866,11 @@ class _StaffFormSheetState extends ConsumerState<_StaffFormSheet> {
     final warehouseName = matchedWarehouse?.name ?? 'the warehouse';
 
     if (widget.user == null) {
-      if (!mounted) return;
-      setState(() => _isSaving = true);
-      try {
-        final link = await ref
-            .read(authProvider)
-            .createInvite(
-              email: email,
-              inviteeName: name,
-              role: role,
-              warehouseId: _selectedWarehouseId,
-            );
-        if (!mounted) return;
-        Navigator.pop(context);
-        showDialog(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            backgroundColor: _surface,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
-            ),
-            title: Text(
-              'Invite Sent!',
-              style: TextStyle(
-                color: _primary,
-                fontWeight: FontWeight.bold,
-                fontSize: 18,
-              ),
-            ),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'An invite link has been generated. This link expires in 48 hours.',
-                  style: TextStyle(color: _subtext),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  'Role: ${roleFor(role).label}',
-                  style: TextStyle(color: _text, fontWeight: FontWeight.bold),
-                ),
-                Text(
-                  'Location: $warehouseName',
-                  style: TextStyle(color: _text, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: _primary.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          link,
-                          style: TextStyle(
-                            color: _primary,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.copy, size: 18),
-                        color: _primary,
-                        onPressed: () {
-                          Clipboard.setData(ClipboardData(text: link));
-                          AppNotification.showSuccess(
-                            ctx,
-                            'Link copied to clipboard!',
-                          );
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: Text('Done', style: TextStyle(color: _subtext)),
-              ),
-            ],
-          ),
-        );
-      } catch (e) {
-        if (!mounted) return;
-        AppNotification.showError(context, 'Failed to create invite: $e');
-      } finally {
-        if (mounted) setState(() => _isSaving = false);
-      }
+      // New-staff path now lives in InviteModal (server-validated invite +
+      // native share-sheet handoff). _StaffFormSheet is editing-only — this
+      // branch is unreachable from the redesigned _showStaffSheet, but the
+      // assertion keeps an accidental future caller from silently no-op'ing.
+      assert(false, '_StaffFormSheet must be opened with a non-null user.');
       return;
     } else {
       // Update existing staff member
@@ -1099,18 +1027,16 @@ class _StaffActionSheet extends ConsumerWidget {
             _actionTile(
               context,
               icon: FontAwesomeIcons.copy,
-              label: 'Copy Link',
-              subtitle: 'Share invite link manually',
+              label: 'Copy Code',
+              subtitle: 'The full link was sent on creation',
               color: Theme.of(context).colorScheme.primary,
               onTap: () {
                 Navigator.pop(context);
-                Clipboard.setData(
-                  ClipboardData(
-                    text:
-                        'https://reebaplus.pos/join?code=${item.invite!.code}',
-                  ),
+                Clipboard.setData(ClipboardData(text: item.invite!.code));
+                AppNotification.showSuccess(
+                  context,
+                  'Manual code copied — recipients can enter it in the app.',
                 );
-                AppNotification.showSuccess(context, 'Invite link copied!');
               },
               isDark: Theme.of(context).brightness == Brightness.dark,
               bg: bgColor,
@@ -1122,18 +1048,24 @@ class _StaffActionSheet extends ConsumerWidget {
               context,
               icon: FontAwesomeIcons.rotateRight,
               label: 'Resend / Extend',
-              subtitle: 'Generates a new 48hr invite code',
+              subtitle: 'Issues a fresh 48hr invite & re-shares',
               color: Colors.orange,
               onTap: () async {
                 Navigator.pop(context);
-                final link = await ref
-                    .read(authProvider)
-                    .resendInvite(item.invite!.id);
-                if (context.mounted) {
-                  Clipboard.setData(ClipboardData(text: link));
-                  AppNotification.showSuccess(
-                    context,
-                    'New invite generated & copied!',
+                final api = ref.read(inviteApiServiceProvider);
+                final result = await api.resendInvite(item.invite!.id);
+                if (!context.mounted) return;
+                if (result is InviteApiErr<Map<String, dynamic>>) {
+                  AppNotification.showError(context, result.message);
+                  return;
+                }
+                final ok = result as InviteApiOk<Map<String, dynamic>>;
+                final url = ok.data['url']?.toString();
+                if (url != null) {
+                  await Share.share(
+                    "You've been invited to join the team on Reebaplus POS.\n\n"
+                    'Tap to accept: $url',
+                    subject: 'Reebaplus POS invite',
                   );
                 }
               },
@@ -1151,8 +1083,16 @@ class _StaffActionSheet extends ConsumerWidget {
               color: Theme.of(context).colorScheme.error,
               onTap: () async {
                 Navigator.pop(context);
-                if (context.mounted) {
+                final api = ref.read(inviteApiServiceProvider);
+                final ok = await api.revoke(item.invite!.id);
+                if (!context.mounted) return;
+                if (ok) {
                   AppNotification.showSuccess(context, 'Invite revoked.');
+                } else {
+                  AppNotification.showError(
+                    context,
+                    'Could not revoke invite. Please retry.',
+                  );
                 }
               },
               isDark: Theme.of(context).brightness == Brightness.dark,

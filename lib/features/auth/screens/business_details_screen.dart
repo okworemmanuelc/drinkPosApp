@@ -45,6 +45,38 @@ class _BusinessDetailsScreenState extends ConsumerState<BusinessDetailsScreen> {
   void initState() {
     super.initState();
     _emailController.text = widget.user.email ?? '';
+    _loadExistingData();
+  }
+
+  /// Pre-fills the form from Supabase (the source of truth during onboarding).
+  /// On a fresh start the row only has the placeholder name from
+  /// createNewOwner, so most fields stay empty. On a resume after
+  /// interruption, every previously-submitted field comes back.
+  Future<void> _loadExistingData() async {
+    try {
+      final row = await Supabase.instance.client
+          .from('businesses')
+          .select()
+          .eq('id', widget.user.businessId)
+          .maybeSingle();
+      if (row == null || !mounted) return;
+      setState(() {
+        // Skip the placeholder name from createNewOwner — that's the
+        // owner's name, not the business name. Real business names are
+        // longer than the placeholder isn't a good heuristic, so we
+        // pre-fill anything except the literal owner name.
+        final loadedName = (row['name'] as String?) ?? '';
+        if (loadedName.isNotEmpty && loadedName != widget.user.name) {
+          _nameController.text = loadedName;
+        }
+        _typeController.text = (row['type'] as String?) ?? '';
+        _phoneController.text = (row['phone'] as String?) ?? '';
+        final loadedEmail = (row['email'] as String?) ?? '';
+        if (loadedEmail.isNotEmpty) _emailController.text = loadedEmail;
+      });
+    } catch (e) {
+      debugPrint('[BusinessDetailsScreen] _loadExistingData failed: $e');
+    }
   }
 
   @override
@@ -75,40 +107,20 @@ class _BusinessDetailsScreenState extends ConsumerState<BusinessDetailsScreen> {
       final name = _nameController.text.trim();
       final phone = _phoneController.text.trim();
       final email = _emailController.text.trim();
-
-      final supabase = Supabase.instance.client;
-      final authUserId = supabase.auth.currentUser?.id;
-      if (authUserId == null) {
-        throw Exception('Not authenticated with Supabase. Please log in again.');
-      }
-
-      // The local placeholder business + user were seeded in createNewOwner
-      // with a client-generated UUIDv7. Reuse that id end-to-end so the local
-      // and remote rows share a primary key.
       final businessId = widget.user.businessId;
 
-      // 1. Insert the business in Supabase. RLS allows businesses INSERT during
-      //    onboarding (WITH CHECK true).
-      await supabase.from('businesses').insert({
-        'id': businessId,
+      // 1. Update Supabase. The row already exists — createNewOwner inserts
+      //    it (atomically with the profile) via the start_onboarding RPC so
+      //    public.business_id() resolves for every subsequent onboarding
+      //    write. No profile insert here — already done.
+      await Supabase.instance.client.from('businesses').update({
         'name': name,
         'type': businessType,
         'phone': phone,
         'email': email,
-      });
+      }).eq('id', businessId);
 
-      // 2. Link this auth user to the business via profiles. This must come
-      //    after the businesses insert (profiles.business_id is FK to it) and
-      //    before any other tenant-scoped insert (auth.business_id() reads it).
-      await supabase.from('profiles').insert({
-        'id': authUserId,
-        'business_id': businessId,
-        'name': widget.user.name,
-        'role': 'ceo',
-        'role_tier': 5,
-      });
-
-      // 3. Overwrite the local placeholder business row with the real fields.
+      // 2. Mirror to local Drift.
       final db = ref.read(databaseProvider);
       await (db.update(db.businesses)..where((b) => b.id.equals(businessId)))
           .write(BusinessesCompanion(
@@ -118,51 +130,6 @@ class _BusinessDetailsScreenState extends ConsumerState<BusinessDetailsScreen> {
         email: Value(email),
       ));
 
-      // 4. Mirror business fields into Settings for legacy readers.
-      final now = DateTime.now();
-      await db.batch((batch) {
-        batch.insert(
-          db.settings,
-          SettingsCompanion.insert(
-            key: 'business_name',
-            value: name,
-            businessId: businessId,
-            lastUpdatedAt: Value(now),
-          ),
-          mode: InsertMode.insertOrReplace,
-        );
-        batch.insert(
-          db.settings,
-          SettingsCompanion.insert(
-            key: 'business_type',
-            value: businessType,
-            businessId: businessId,
-            lastUpdatedAt: Value(now),
-          ),
-          mode: InsertMode.insertOrReplace,
-        );
-        batch.insert(
-          db.settings,
-          SettingsCompanion.insert(
-            key: 'business_phone',
-            value: phone,
-            businessId: businessId,
-            lastUpdatedAt: Value(now),
-          ),
-          mode: InsertMode.insertOrReplace,
-        );
-        batch.insert(
-          db.settings,
-          SettingsCompanion.insert(
-            key: 'business_email',
-            value: email,
-            businessId: businessId,
-            lastUpdatedAt: Value(now),
-          ),
-          mode: InsertMode.insertOrReplace,
-        );
-      });
-
       if (!mounted) return;
       setState(() => _loading = false);
 
@@ -170,11 +137,11 @@ class _BusinessDetailsScreenState extends ConsumerState<BusinessDetailsScreen> {
         SmoothRoute(page: LocationDetailsScreen(user: widget.user)),
       );
     } catch (e) {
-      debugPrint('[BusinessDetailsScreen] Error creating business: $e');
+      debugPrint('[BusinessDetailsScreen] Error saving business: $e');
       if (!mounted) return;
       setState(() => _loading = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error creating business: $e')),
+        SnackBar(content: Text('Error saving business: $e')),
       );
     }
   }

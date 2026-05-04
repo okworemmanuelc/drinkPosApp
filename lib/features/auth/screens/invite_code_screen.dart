@@ -4,8 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:reebaplus_pos/core/providers/app_providers.dart';
 import 'package:reebaplus_pos/shared/widgets/app_button.dart';
-import 'package:reebaplus_pos/features/auth/screens/role_confirmation_screen.dart';
+import 'package:reebaplus_pos/features/auth/screens/invite_join_name_screen.dart';
 import 'package:reebaplus_pos/features/auth/widgets/onboarding_step_indicator.dart';
+import 'package:reebaplus_pos/features/invite/services/invite_api_service.dart';
 import 'package:reebaplus_pos/features/auth/widgets/auth_background.dart';
 import 'package:reebaplus_pos/core/theme/app_decorations.dart';
 
@@ -69,24 +70,30 @@ class _InviteCodeScreenState extends ConsumerState<InviteCodeScreen> {
       _errorMessage = null;
     });
 
-    final result = await ref.read(authProvider).validateInvite(code);
+    final api = ref.read(inviteApiServiceProvider);
+    final result = await api.previewByCode(code);
 
     if (!mounted) return;
 
-    if (!result.isSuccess) {
+    if (result is InviteApiErr<Map<String, dynamic>>) {
       setState(() {
         _loading = false;
-        _errorMessage = result.error;
+        _errorMessage = result.message;
       });
       return;
     }
 
     setState(() => _loading = false);
 
+    // Manual-code path skips the separate role-confirmation screen — the
+    // user already chose to join via the InviteCodeScreen, and the redeem
+    // RPC will reject if anything's off (mismatch / revoked / expired).
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) =>
-            RoleConfirmationScreen(email: widget.email, result: result),
+        builder: (_) => InviteJoinNameScreen(
+          code: code,
+          email: widget.email,
+        ),
       ),
     );
   }

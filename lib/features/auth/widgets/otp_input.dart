@@ -33,12 +33,10 @@ class _OtpBoxRowState extends State<OtpBoxRow> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _focusNode.addListener(_handleFocusChange);
 
     Future.delayed(const Duration(milliseconds: 350), () {
       if (mounted && !widget.ignorePointers && !_focusNode.hasFocus) {
-        _focusNode.requestFocus();
-        SystemChannels.textInput.invokeMethod('TextInput.show');
+        _requestKeyboard();
       }
     });
   }
@@ -46,7 +44,6 @@ class _OtpBoxRowState extends State<OtpBoxRow> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _focusNode.removeListener(_handleFocusChange);
     _focusNode.dispose();
     super.dispose();
   }
@@ -54,27 +51,48 @@ class _OtpBoxRowState extends State<OtpBoxRow> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      Future.delayed(const Duration(milliseconds: 250), () {
-        if (mounted && !widget.ignorePointers) {
-          _focusNode.requestFocus();
-          SystemChannels.textInput.invokeMethod('TextInput.show');
-        }
+      // The platform tears down the input connection on app-switch. On
+      // return, the FocusNode may still think it has focus but no keyboard
+      // is visible. Wait for the engine to settle, then re-request.
+      Future.delayed(const Duration(milliseconds: 400), () {
+        if (!mounted || widget.ignorePointers) return;
+        _requestKeyboard();
       });
     }
   }
 
-  void _handleFocusChange() {
-    // Placeholder — lifecycle and explicit taps handle focus.
+  /// Safely requests focus and shows the keyboard.
+  ///
+  /// If the node already has focus, we schedule an unfocus + refocus on the
+  /// next frame to force a new platform input connection. All operations
+  /// are guarded by [mounted] checks to avoid use-after-dispose crashes.
+  void _requestKeyboard() {
+    if (!mounted) return;
+
+    if (_focusNode.hasFocus) {
+      // Node thinks it has focus but keyboard may be gone. Unfocus on this
+      // frame, then refocus on the next frame to force a new connection.
+      _focusNode.unfocus();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || widget.ignorePointers) return;
+        _focusNode.requestFocus();
+        SystemChannels.textInput.invokeMethod('TextInput.show');
+      });
+    } else {
+      _focusNode.requestFocus();
+      SystemChannels.textInput.invokeMethod('TextInput.show');
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final errorColor = Theme.of(context).colorScheme.error;
+
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () {
         if (!widget.ignorePointers) {
-          _focusNode.requestFocus();
-          SystemChannels.textInput.invokeMethod('TextInput.show');
+          _requestKeyboard();
         }
       },
       child: Stack(
@@ -127,7 +145,7 @@ class _OtpBoxRowState extends State<OtpBoxRow> with WidgetsBindingObserver {
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
                             color: widget.hasError
-                                ? const Color(0xFFFF6B6B)
+                                ? errorColor
                                 : isActive
                                     ? widget.textColor
                                     : widget.textColor

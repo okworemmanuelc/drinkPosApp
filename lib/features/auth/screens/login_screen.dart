@@ -241,7 +241,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     // Update value WITHOUT full screen rebuild to maintain 120fps input & retain ink ripple
     _pinNotifier.value += digit;
 
-    if (_pinNotifier.value.length == 6) _submit();
+    if (_pinNotifier.value.length == 6) {
+      // Defer so the 6th dot animates before heavy DB work begins.
+      WidgetsBinding.instance.addPostFrameCallback((_) => _submit());
+    }
   }
 
   void _onBackspace() {
@@ -329,6 +332,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
 
   /// Plays the success animation then opens the app.
   Future<void> _enterApp(UserData user) async {
+    if (!mounted) return;
+
+    // Brief pause so the user sees all 6 dots filled before the overlay swap.
+    await Future.delayed(const Duration(milliseconds: 100));
     if (!mounted) return;
 
     setState(() {

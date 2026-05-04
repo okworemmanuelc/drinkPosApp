@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:reebaplus_pos/core/theme/colors.dart';
+import 'package:reebaplus_pos/core/theme/semantic_colors.dart';
 
 class AppTheme {
   AppTheme._();
@@ -9,9 +10,32 @@ class AppTheme {
   // BLUE CLASSIC (original)
   // ═══════════════════════════════════════════════════════════════════════════
 
+  // Shared semantic-color palettes per design system.
+  static const _blueSemantics = AppSemanticColors(
+    success: successGreen,
+    warning: Color(0xFFFFB020),
+    info: blueMain,
+  );
+  static const _amberSemantics = AppSemanticColors(
+    success: successGreen,
+    warning: Color(0xFFFFB020),
+    info: Color(0xFF3B82F6),
+  );
+  static const _purpleSemantics = AppSemanticColors(
+    success: Color(0xFF34D399),
+    warning: Color(0xFFFBBF24),
+    info: purplePrimary,
+  );
+  static const _greenSemantics = AppSemanticColors(
+    success: greenPrimary,
+    warning: Color(0xFFFFB020),
+    info: Color(0xFF3B82F6),
+  );
+
   static ThemeData light() => ThemeData(
     useMaterial3: true,
     brightness: Brightness.light,
+    extensions: const [_blueSemantics],
     scaffoldBackgroundColor: lBg,
     primaryColor: blueMain,
     colorScheme: const ColorScheme.light(
@@ -109,6 +133,7 @@ class AppTheme {
   static ThemeData dark() => ThemeData(
     useMaterial3: true,
     brightness: Brightness.dark,
+    extensions: const [_blueSemantics],
     scaffoldBackgroundColor: dBg,
     primaryColor: blueMain,
     colorScheme: const ColorScheme.dark(
@@ -292,6 +317,7 @@ class AppTheme {
     );
 
     return base.copyWith(
+      extensions: const [_amberSemantics],
       scaffoldBackgroundColor: alBg,
       primaryColor: amberPrimary,
       colorScheme: const ColorScheme.light(
@@ -504,6 +530,7 @@ class AppTheme {
     );
 
     return base.copyWith(
+      extensions: const [_amberSemantics],
       scaffoldBackgroundColor: adBg,
       primaryColor: amberPrimary,
       colorScheme: const ColorScheme.dark(
@@ -716,6 +743,7 @@ class AppTheme {
     );
 
     return base.copyWith(
+      extensions: const [_purpleSemantics],
       scaffoldBackgroundColor: plBg,
       primaryColor: purplePrimary,
       colorScheme: const ColorScheme.light(
@@ -928,6 +956,7 @@ class AppTheme {
     );
 
     return base.copyWith(
+      extensions: const [_purpleSemantics],
       scaffoldBackgroundColor: pdBg,
       primaryColor: purplePrimary,
       colorScheme: const ColorScheme.dark(
@@ -1104,6 +1133,7 @@ class AppTheme {
     );
 
     return base.copyWith(
+      extensions: const [_greenSemantics],
       scaffoldBackgroundColor: glBg,
       primaryColor: greenPrimary,
       colorScheme: const ColorScheme.light(
@@ -1236,6 +1266,7 @@ class AppTheme {
     );
 
     return base.copyWith(
+      extensions: const [_greenSemantics],
       scaffoldBackgroundColor: gdBg,
       primaryColor: greenPrimary,
       colorScheme: const ColorScheme.dark(

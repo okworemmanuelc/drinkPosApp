@@ -1,0 +1,266 @@
+/// Client wrapper around the five invite Edge Functions.
+///
+/// Mirrors the server-side error catalog from supabase/functions/_shared/errors.ts;
+/// keep the two enums in sync.
+library;
+
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+/// Wire-level error codes returned by the Edge Functions.
+enum InviteErrorCode {
+  unauthenticated,
+  forbidden,
+  invalidPayload,
+  invalidEmail,
+  disposableEmail,
+  selfInvite,
+  alreadyMember,
+  invitePending,
+  otherBusinessOwner,
+  invalidWarehouse,
+  forbiddenRole,
+  rateLimited,
+  invalidToken,
+  expired,
+  revoked,
+  alreadyUsed,
+  emailMismatch,
+  internal,
+  networkError;
+
+  /// Default user-facing message. Override per-screen if a more specific
+  /// phrasing is needed.
+  String get defaultMessage => switch (this) {
+        InviteErrorCode.unauthenticated => 'Please sign in again.',
+        InviteErrorCode.forbidden =>
+          'Only managers and owners can send invitations.',
+        InviteErrorCode.invalidPayload =>
+          'Some details are missing. Please try again.',
+        InviteErrorCode.invalidEmail => 'Enter a valid email address.',
+        InviteErrorCode.disposableEmail =>
+          "Disposable email addresses aren't allowed.",
+        InviteErrorCode.selfInvite => "You can't invite yourself.",
+        InviteErrorCode.alreadyMember =>
+          'This person is already on your team.',
+        InviteErrorCode.invitePending =>
+          'An invite to this email is already pending.',
+        InviteErrorCode.otherBusinessOwner =>
+          'This email belongs to the owner of another business.',
+        InviteErrorCode.invalidWarehouse =>
+          'Pick a warehouse from your business.',
+        InviteErrorCode.forbiddenRole =>
+          "You can't invite someone as CEO.",
+        InviteErrorCode.rateLimited =>
+          'Too many invites today. Try again tomorrow.',
+        InviteErrorCode.invalidToken => 'This invite link is invalid.',
+        InviteErrorCode.expired =>
+          'This invite has expired. Ask your manager for a new one.',
+        InviteErrorCode.revoked => 'This invite has been cancelled.',
+        InviteErrorCode.alreadyUsed =>
+          'This invite has already been used.',
+        InviteErrorCode.emailMismatch =>
+          'This invite was sent to a different email.',
+        InviteErrorCode.internal => 'Something went wrong. Please try again.',
+        InviteErrorCode.networkError =>
+          "Couldn't reach the server. Check your connection.",
+      };
+
+  static InviteErrorCode? fromWire(String? wire) {
+    if (wire == null) return null;
+    return switch (wire) {
+      'unauthenticated' => InviteErrorCode.unauthenticated,
+      'forbidden' => InviteErrorCode.forbidden,
+      'invalid_payload' => InviteErrorCode.invalidPayload,
+      'invalid_email' => InviteErrorCode.invalidEmail,
+      'disposable_email' => InviteErrorCode.disposableEmail,
+      'self_invite' => InviteErrorCode.selfInvite,
+      'already_member' => InviteErrorCode.alreadyMember,
+      'invite_pending' => InviteErrorCode.invitePending,
+      'other_business_owner' => InviteErrorCode.otherBusinessOwner,
+      'invalid_warehouse' => InviteErrorCode.invalidWarehouse,
+      'forbidden_role' => InviteErrorCode.forbiddenRole,
+      'rate_limited' => InviteErrorCode.rateLimited,
+      'invalid_token' => InviteErrorCode.invalidToken,
+      'expired' => InviteErrorCode.expired,
+      'revoked' => InviteErrorCode.revoked,
+      'already_used' => InviteErrorCode.alreadyUsed,
+      'email_mismatch' => InviteErrorCode.emailMismatch,
+      'internal' => InviteErrorCode.internal,
+      _ => null,
+    };
+  }
+}
+
+/// Result wrapper for every Edge-Function call.
+sealed class InviteApiResult<T> {
+  const InviteApiResult();
+}
+
+class InviteApiOk<T> extends InviteApiResult<T> {
+  final T data;
+  const InviteApiOk(this.data);
+}
+
+class InviteApiErr<T> extends InviteApiResult<T> {
+  final InviteErrorCode code;
+  final String message;
+  final Map<String, dynamic>? details;
+  const InviteApiErr(this.code, this.message, [this.details]);
+}
+
+class InviteApiService {
+  /// Generic invoker that maps both successful and error responses onto
+  /// `InviteApiResult`. Handles both transport models supabase_flutter has
+  /// shipped: throwing FunctionException on non-2xx (older), or returning
+  /// FunctionResponse with status set (newer).
+  Future<InviteApiResult<Map<String, dynamic>>> _invoke(
+    String fn,
+    Map<String, dynamic> body,
+  ) async {
+    try {
+      final res = await Supabase.instance.client.functions.invoke(
+        fn,
+        body: body,
+      );
+      return _interpret(res.status, res.data);
+    } on FunctionException catch (e) {
+      return _interpret(e.status, e.details);
+    } catch (_) {
+      return InviteApiErr(
+        InviteErrorCode.networkError,
+        InviteErrorCode.networkError.defaultMessage,
+      );
+    }
+  }
+
+  InviteApiResult<Map<String, dynamic>> _interpret(int status, dynamic data) {
+    if (data is Map) {
+      final map = Map<String, dynamic>.from(data);
+      if (map['ok'] == true && status >= 200 && status < 300) {
+        return InviteApiOk(map);
+      }
+      final wireCode = map['error']?.toString();
+      final code = InviteErrorCode.fromWire(wireCode) ??
+          InviteErrorCode.internal;
+      final message = map['message']?.toString() ?? code.defaultMessage;
+      final details = map['details'] is Map
+          ? Map<String, dynamic>.from(map['details'] as Map)
+          : null;
+      return InviteApiErr(code, message, details);
+    }
+    return InviteApiErr(
+      InviteErrorCode.internal,
+      InviteErrorCode.internal.defaultMessage,
+    );
+  }
+
+  // ── Step-1 modal validation ────────────────────────────────────────────
+  Future<InviteApiResult<Map<String, dynamic>>> checkEmail(String email) {
+    return _invoke('check-invite-email', {'email': email});
+  }
+
+  // ── Step-2 modal: create the invite, returns deep-link URL for share ───
+  Future<InviteApiResult<Map<String, dynamic>>> sendInvite({
+    required String email,
+    required String role,
+    String? warehouseId,
+  }) {
+    return _invoke('send-invite', {
+      'email': email,
+      'role': role,
+      'warehouse_id': warehouseId,
+    });
+  }
+
+  // ── Resend an existing invite (revokes old + issues fresh) ─────────────
+  Future<InviteApiResult<Map<String, dynamic>>> resendInvite(String inviteId) {
+    return _invoke('resend-invite', {'invite_id': inviteId});
+  }
+
+  // ── Preview before redemption (deep-link landing screen) ───────────────
+  Future<InviteApiResult<Map<String, dynamic>>> previewByToken(String token) {
+    return _invoke('accept-invite', {'token': token});
+  }
+
+  Future<InviteApiResult<Map<String, dynamic>>> previewByCode(String code) {
+    return _invoke('accept-invite', {'code': code});
+  }
+
+  // ── Atomic finalisation (creates profile + user, marks invite accepted) ─
+  Future<InviteApiResult<Map<String, dynamic>>> redeemByToken({
+    required String token,
+    required String userName,
+  }) {
+    return _invoke('redeem-invite', {
+      'token': token,
+      'user_name': userName,
+    });
+  }
+
+  Future<InviteApiResult<Map<String, dynamic>>> redeemByCode({
+    required String code,
+    required String userName,
+  }) {
+    return _invoke('redeem-invite', {
+      'code': code,
+      'user_name': userName,
+    });
+  }
+
+  /// Direct UPDATE — RLS policy `invites_inviter_revoke` allows it for any
+  /// caller in the same business. No Edge Function needed.
+  Future<bool> revoke(String inviteId) async {
+    try {
+      await Supabase.instance.client.from('invites').update({
+        'status': 'revoked',
+        'last_updated_at': DateTime.now().toUtc().toIso8601String(),
+      }).eq('id', inviteId);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+}
+
+/// Typed wrapper over the JSONB returned by accept_invite_preview.
+/// Keep parsing tolerant — the RPC may add fields in future migrations
+/// and we don't want to break older clients.
+class InvitePreview {
+  final String inviteId;
+  final String businessId;
+  final String businessName;
+  final String role;
+  final String? warehouseId;
+  final String? warehouseName;
+  final String email;
+  final DateTime expiresAt;
+  final String inviterName;
+
+  const InvitePreview({
+    required this.inviteId,
+    required this.businessId,
+    required this.businessName,
+    required this.role,
+    required this.warehouseId,
+    required this.warehouseName,
+    required this.email,
+    required this.expiresAt,
+    required this.inviterName,
+  });
+
+  factory InvitePreview.fromMap(Map<String, dynamic> map) {
+    return InvitePreview(
+      inviteId: map['invite_id']?.toString() ?? '',
+      businessId: map['business_id']?.toString() ?? '',
+      businessName: map['business_name']?.toString() ?? 'Unknown Business',
+      role: map['role']?.toString() ?? 'staff',
+      warehouseId: map['warehouse_id']?.toString(),
+      warehouseName: map['warehouse_name']?.toString(),
+      email: map['email']?.toString() ?? '',
+      expiresAt: DateTime.tryParse(map['expires_at']?.toString() ?? '') ??
+          DateTime.now().add(const Duration(hours: 48)),
+      inviterName: map['inviter_name']?.toString() ?? 'your manager',
+    );
+  }
+}
+

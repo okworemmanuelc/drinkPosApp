@@ -26,6 +26,11 @@ class Businesses extends Table {
   TextColumn get email => text().nullable()();
   TextColumn get logoUrl => text().nullable()();
   TextColumn get timezone => text().withDefault(const Constant('UTC'))();
+  // Mirrors public.businesses.onboarding_complete. Drives the startup
+  // resume gate — a row with onboardingComplete = false means onboarding
+  // was interrupted and the app should route back into it on next launch.
+  BoolColumn get onboardingComplete =>
+      boolean().withDefault(const Constant(false))();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
   DateTimeColumn get lastUpdatedAt =>
       dateTime().withDefault(currentDateAndTime)();
@@ -1037,7 +1042,7 @@ class AppDatabase extends _$AppDatabase {
   String? get currentBusinessId => businessIdResolver();
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -1052,9 +1057,17 @@ class AppDatabase extends _$AppDatabase {
       debugPrint('[AppDatabase] onCreate: DB setup complete.');
     },
     onUpgrade: (m, from, to) async {
-      // No migrations yet — DB was rebuilt clean at v2 (post-wipe).
-      // Future migrations go here, keyed on `from`.
-      debugPrint('[AppDatabase] onUpgrade: v$from → v$to (no-op)');
+      debugPrint('[AppDatabase] onUpgrade: v$from → v$to');
+      if (from < 3) {
+        // v3: businesses.onboarding_complete. Existing rows are from
+        // already-onboarded businesses (anything in Drift at v2 came
+        // through a completed flow), so default them to true to match
+        // the SQL back-fill in supabase/migrations/0004_onboarding_resume.sql.
+        await m.addColumn(businesses, businesses.onboardingComplete);
+        await customStatement(
+          'UPDATE businesses SET onboarding_complete = 1',
+        );
+      }
     },
     beforeOpen: (details) async {
       await customStatement('PRAGMA foreign_keys = ON');

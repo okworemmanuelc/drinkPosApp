@@ -12,6 +12,7 @@ import 'package:reebaplus_pos/features/auth/screens/create_pin_screen.dart';
 import 'package:reebaplus_pos/features/auth/screens/existing_account_screen.dart';
 import 'package:reebaplus_pos/features/auth/screens/login_screen.dart';
 import 'package:reebaplus_pos/features/auth/screens/business_type_selection_screen.dart';
+import 'package:reebaplus_pos/features/auth/screens/invite_join_name_screen.dart';
 import 'package:reebaplus_pos/shared/widgets/smooth_route.dart';
 import 'package:reebaplus_pos/features/auth/widgets/auth_background.dart';
 import 'package:reebaplus_pos/features/auth/widgets/shake_widget.dart';
@@ -39,6 +40,7 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
   final GlobalKey<ShakeWidgetState> _shakeKey = GlobalKey();
 
   bool _loading = false;
+  bool _verified = false;
   String? _errorMessage;
 
   // Resend cooldown: 60 seconds after each send
@@ -176,15 +178,40 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
       return;
     }
 
-    setState(() => _loading = false);
+    setState(() {
+      _loading = false;
+      _verified = true;
+    });
+
+    // Brief pause to show success state before navigating.
+    await Future.delayed(const Duration(milliseconds: 800));
+    if (!mounted) return;
 
     // Mark this session as email-authenticated (triggers second OTP after PIN).
     await ref.read(authProvider).saveAuthMethod('email');
 
+    final auth = ref.read(authProvider);
+
+    // Deep-link invite path: a pending token short-circuits the regular
+    // post-OTP routing. The redeem RPC creates profiles + users atomically;
+    // until that runs the user has no business membership locally.
+    final pendingToken = auth.pendingInviteToken;
+    if (pendingToken != null) {
+      if (!mounted) return;
+      Navigator.of(context).pushReplacement(
+        SmoothRoute(
+          page: InviteJoinNameScreen(
+            token: pendingToken,
+            email: widget.email,
+          ),
+        ),
+      );
+      return;
+    }
+
     // Look up the cloud account (if any) and the local user. On a fresh
     // device with an existing cloud account, we let the user confirm the
     // business before pulling data and seeding a local row.
-    final auth = ref.read(authProvider);
     final account = await auth.fetchSupabaseAccount();
     var localUser = await auth.getUserByEmail(widget.email);
 
@@ -357,8 +384,8 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
                         padding: const EdgeInsets.only(bottom: 4),
                         child: Text(
                           _errorMessage!,
-                          style: const TextStyle(
-                            color: Color(0xFFFF6B6B),
+                          style: TextStyle(
+                            color: theme.colorScheme.error,
                             fontSize: 13,
                           ),
                           textAlign: TextAlign.center,
@@ -368,10 +395,22 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
               ),
               const SizedBox(height: 16),
 
-              AppButton(
-                text: 'Verify',
-                isLoading: _loading,
-                onPressed: _canSubmit ? _submit : null,
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 350),
+                switchInCurve: Curves.easeOut,
+                child: _verified
+                    ? const AppButton(
+                        key: ValueKey('verified'),
+                        text: 'Verified  ✓',
+                        variant: AppButtonVariant.success,
+                        onPressed: null,
+                      )
+                    : AppButton(
+                        key: const ValueKey('verify'),
+                        text: 'Verify',
+                        isLoading: _loading,
+                        onPressed: _canSubmit ? _submit : null,
+                      ),
               ),
               const SizedBox(height: 20),
 

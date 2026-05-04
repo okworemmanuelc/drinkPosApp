@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:reebaplus_pos/core/theme/semantic_colors.dart';
 import 'package:reebaplus_pos/core/utils/responsive.dart';
 
-enum AppButtonVariant { primary, secondary, outline, danger, ghost }
+enum AppButtonVariant { primary, secondary, outline, danger, ghost, success }
 
 enum AppButtonSize { xsmall, small, normal, large }
 
@@ -74,9 +75,17 @@ class AppButton extends StatelessWidget {
         bgColor = Colors.transparent;
         textColor = t.textTheme.bodyMedium?.color ?? t.colorScheme.onSurface;
         break;
+      case AppButtonVariant.success:
+        final successColor = t.extension<AppSemanticColors>()?.success ?? const Color(0xFF30D158);
+        gradient = [
+          Color.lerp(successColor, Colors.white, 0.1)!,
+          successColor,
+        ];
+        textColor = Colors.white;
+        break;
     }
 
-    if (isDisabled && variant == AppButtonVariant.primary) {
+    if (isDisabled && (variant == AppButtonVariant.primary || variant == AppButtonVariant.success)) {
       gradient = [Colors.grey.shade400, Colors.grey.shade500];
     } else if (isDisabled) {
       bgColor = Colors.grey.withValues(alpha: 0.1);
@@ -151,10 +160,12 @@ class AppButton extends StatelessWidget {
               : null,
           color: gradient == null ? bgColor : null,
           border: border != null ? Border.fromBorderSide(border) : null,
-          boxShadow: variant == AppButtonVariant.primary && !isDisabled
+          boxShadow: (variant == AppButtonVariant.primary || variant == AppButtonVariant.success) && !isDisabled
               ? [
                   BoxShadow(
-                    color: t.colorScheme.primary.withValues(alpha: 0.3),
+                    color: (variant == AppButtonVariant.success
+                        ? (t.extension<AppSemanticColors>()?.success ?? const Color(0xFF30D158))
+                        : t.colorScheme.primary).withValues(alpha: 0.3),
                     blurRadius: 12,
                     offset: const Offset(0, 4),
                   ),

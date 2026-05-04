@@ -78,6 +78,20 @@ class $BusinessesTable extends Businesses
     requiredDuringInsert: false,
     defaultValue: const Constant('UTC'),
   );
+  static const VerificationMeta _onboardingCompleteMeta =
+      const VerificationMeta('onboardingComplete');
+  @override
+  late final GeneratedColumn<bool> onboardingComplete = GeneratedColumn<bool>(
+    'onboarding_complete',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("onboarding_complete" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   static const VerificationMeta _createdAtMeta = const VerificationMeta(
     'createdAt',
   );
@@ -112,6 +126,7 @@ class $BusinessesTable extends Businesses
     email,
     logoUrl,
     timezone,
+    onboardingComplete,
     createdAt,
     lastUpdatedAt,
   ];
@@ -168,6 +183,15 @@ class $BusinessesTable extends Businesses
         timezone.isAcceptableOrUnknown(data['timezone']!, _timezoneMeta),
       );
     }
+    if (data.containsKey('onboarding_complete')) {
+      context.handle(
+        _onboardingCompleteMeta,
+        onboardingComplete.isAcceptableOrUnknown(
+          data['onboarding_complete']!,
+          _onboardingCompleteMeta,
+        ),
+      );
+    }
     if (data.containsKey('created_at')) {
       context.handle(
         _createdAtMeta,
@@ -220,6 +244,10 @@ class $BusinessesTable extends Businesses
         DriftSqlType.string,
         data['${effectivePrefix}timezone'],
       )!,
+      onboardingComplete: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}onboarding_complete'],
+      )!,
       createdAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
@@ -245,6 +273,7 @@ class BusinessData extends DataClass implements Insertable<BusinessData> {
   final String? email;
   final String? logoUrl;
   final String timezone;
+  final bool onboardingComplete;
   final DateTime createdAt;
   final DateTime lastUpdatedAt;
   const BusinessData({
@@ -255,6 +284,7 @@ class BusinessData extends DataClass implements Insertable<BusinessData> {
     this.email,
     this.logoUrl,
     required this.timezone,
+    required this.onboardingComplete,
     required this.createdAt,
     required this.lastUpdatedAt,
   });
@@ -276,6 +306,7 @@ class BusinessData extends DataClass implements Insertable<BusinessData> {
       map['logo_url'] = Variable<String>(logoUrl);
     }
     map['timezone'] = Variable<String>(timezone);
+    map['onboarding_complete'] = Variable<bool>(onboardingComplete);
     map['created_at'] = Variable<DateTime>(createdAt);
     map['last_updated_at'] = Variable<DateTime>(lastUpdatedAt);
     return map;
@@ -296,6 +327,7 @@ class BusinessData extends DataClass implements Insertable<BusinessData> {
           ? const Value.absent()
           : Value(logoUrl),
       timezone: Value(timezone),
+      onboardingComplete: Value(onboardingComplete),
       createdAt: Value(createdAt),
       lastUpdatedAt: Value(lastUpdatedAt),
     );
@@ -314,6 +346,7 @@ class BusinessData extends DataClass implements Insertable<BusinessData> {
       email: serializer.fromJson<String?>(json['email']),
       logoUrl: serializer.fromJson<String?>(json['logoUrl']),
       timezone: serializer.fromJson<String>(json['timezone']),
+      onboardingComplete: serializer.fromJson<bool>(json['onboardingComplete']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       lastUpdatedAt: serializer.fromJson<DateTime>(json['lastUpdatedAt']),
     );
@@ -329,6 +362,7 @@ class BusinessData extends DataClass implements Insertable<BusinessData> {
       'email': serializer.toJson<String?>(email),
       'logoUrl': serializer.toJson<String?>(logoUrl),
       'timezone': serializer.toJson<String>(timezone),
+      'onboardingComplete': serializer.toJson<bool>(onboardingComplete),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'lastUpdatedAt': serializer.toJson<DateTime>(lastUpdatedAt),
     };
@@ -342,6 +376,7 @@ class BusinessData extends DataClass implements Insertable<BusinessData> {
     Value<String?> email = const Value.absent(),
     Value<String?> logoUrl = const Value.absent(),
     String? timezone,
+    bool? onboardingComplete,
     DateTime? createdAt,
     DateTime? lastUpdatedAt,
   }) => BusinessData(
@@ -352,6 +387,7 @@ class BusinessData extends DataClass implements Insertable<BusinessData> {
     email: email.present ? email.value : this.email,
     logoUrl: logoUrl.present ? logoUrl.value : this.logoUrl,
     timezone: timezone ?? this.timezone,
+    onboardingComplete: onboardingComplete ?? this.onboardingComplete,
     createdAt: createdAt ?? this.createdAt,
     lastUpdatedAt: lastUpdatedAt ?? this.lastUpdatedAt,
   );
@@ -364,6 +400,9 @@ class BusinessData extends DataClass implements Insertable<BusinessData> {
       email: data.email.present ? data.email.value : this.email,
       logoUrl: data.logoUrl.present ? data.logoUrl.value : this.logoUrl,
       timezone: data.timezone.present ? data.timezone.value : this.timezone,
+      onboardingComplete: data.onboardingComplete.present
+          ? data.onboardingComplete.value
+          : this.onboardingComplete,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       lastUpdatedAt: data.lastUpdatedAt.present
           ? data.lastUpdatedAt.value
@@ -381,6 +420,7 @@ class BusinessData extends DataClass implements Insertable<BusinessData> {
           ..write('email: $email, ')
           ..write('logoUrl: $logoUrl, ')
           ..write('timezone: $timezone, ')
+          ..write('onboardingComplete: $onboardingComplete, ')
           ..write('createdAt: $createdAt, ')
           ..write('lastUpdatedAt: $lastUpdatedAt')
           ..write(')'))
@@ -396,6 +436,7 @@ class BusinessData extends DataClass implements Insertable<BusinessData> {
     email,
     logoUrl,
     timezone,
+    onboardingComplete,
     createdAt,
     lastUpdatedAt,
   );
@@ -410,6 +451,7 @@ class BusinessData extends DataClass implements Insertable<BusinessData> {
           other.email == this.email &&
           other.logoUrl == this.logoUrl &&
           other.timezone == this.timezone &&
+          other.onboardingComplete == this.onboardingComplete &&
           other.createdAt == this.createdAt &&
           other.lastUpdatedAt == this.lastUpdatedAt);
 }
@@ -422,6 +464,7 @@ class BusinessesCompanion extends UpdateCompanion<BusinessData> {
   final Value<String?> email;
   final Value<String?> logoUrl;
   final Value<String> timezone;
+  final Value<bool> onboardingComplete;
   final Value<DateTime> createdAt;
   final Value<DateTime> lastUpdatedAt;
   final Value<int> rowid;
@@ -433,6 +476,7 @@ class BusinessesCompanion extends UpdateCompanion<BusinessData> {
     this.email = const Value.absent(),
     this.logoUrl = const Value.absent(),
     this.timezone = const Value.absent(),
+    this.onboardingComplete = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.lastUpdatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -445,6 +489,7 @@ class BusinessesCompanion extends UpdateCompanion<BusinessData> {
     this.email = const Value.absent(),
     this.logoUrl = const Value.absent(),
     this.timezone = const Value.absent(),
+    this.onboardingComplete = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.lastUpdatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -457,6 +502,7 @@ class BusinessesCompanion extends UpdateCompanion<BusinessData> {
     Expression<String>? email,
     Expression<String>? logoUrl,
     Expression<String>? timezone,
+    Expression<bool>? onboardingComplete,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? lastUpdatedAt,
     Expression<int>? rowid,
@@ -469,6 +515,7 @@ class BusinessesCompanion extends UpdateCompanion<BusinessData> {
       if (email != null) 'email': email,
       if (logoUrl != null) 'logo_url': logoUrl,
       if (timezone != null) 'timezone': timezone,
+      if (onboardingComplete != null) 'onboarding_complete': onboardingComplete,
       if (createdAt != null) 'created_at': createdAt,
       if (lastUpdatedAt != null) 'last_updated_at': lastUpdatedAt,
       if (rowid != null) 'rowid': rowid,
@@ -483,6 +530,7 @@ class BusinessesCompanion extends UpdateCompanion<BusinessData> {
     Value<String?>? email,
     Value<String?>? logoUrl,
     Value<String>? timezone,
+    Value<bool>? onboardingComplete,
     Value<DateTime>? createdAt,
     Value<DateTime>? lastUpdatedAt,
     Value<int>? rowid,
@@ -495,6 +543,7 @@ class BusinessesCompanion extends UpdateCompanion<BusinessData> {
       email: email ?? this.email,
       logoUrl: logoUrl ?? this.logoUrl,
       timezone: timezone ?? this.timezone,
+      onboardingComplete: onboardingComplete ?? this.onboardingComplete,
       createdAt: createdAt ?? this.createdAt,
       lastUpdatedAt: lastUpdatedAt ?? this.lastUpdatedAt,
       rowid: rowid ?? this.rowid,
@@ -525,6 +574,9 @@ class BusinessesCompanion extends UpdateCompanion<BusinessData> {
     if (timezone.present) {
       map['timezone'] = Variable<String>(timezone.value);
     }
+    if (onboardingComplete.present) {
+      map['onboarding_complete'] = Variable<bool>(onboardingComplete.value);
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
@@ -547,6 +599,7 @@ class BusinessesCompanion extends UpdateCompanion<BusinessData> {
           ..write('email: $email, ')
           ..write('logoUrl: $logoUrl, ')
           ..write('timezone: $timezone, ')
+          ..write('onboardingComplete: $onboardingComplete, ')
           ..write('createdAt: $createdAt, ')
           ..write('lastUpdatedAt: $lastUpdatedAt, ')
           ..write('rowid: $rowid')
@@ -26822,6 +26875,7 @@ typedef $$BusinessesTableCreateCompanionBuilder =
       Value<String?> email,
       Value<String?> logoUrl,
       Value<String> timezone,
+      Value<bool> onboardingComplete,
       Value<DateTime> createdAt,
       Value<DateTime> lastUpdatedAt,
       Value<int> rowid,
@@ -26835,6 +26889,7 @@ typedef $$BusinessesTableUpdateCompanionBuilder =
       Value<String?> email,
       Value<String?> logoUrl,
       Value<String> timezone,
+      Value<bool> onboardingComplete,
       Value<DateTime> createdAt,
       Value<DateTime> lastUpdatedAt,
       Value<int> rowid,
@@ -27637,6 +27692,11 @@ class $$BusinessesTableFilterComposer
 
   ColumnFilters<String> get timezone => $composableBuilder(
     column: $table.timezone,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get onboardingComplete => $composableBuilder(
+    column: $table.onboardingComplete,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -28598,6 +28658,11 @@ class $$BusinessesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get onboardingComplete => $composableBuilder(
+    column: $table.onboardingComplete,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
@@ -28638,6 +28703,11 @@ class $$BusinessesTableAnnotationComposer
 
   GeneratedColumn<String> get timezone =>
       $composableBuilder(column: $table.timezone, builder: (column) => column);
+
+  GeneratedColumn<bool> get onboardingComplete => $composableBuilder(
+    column: $table.onboardingComplete,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
@@ -29628,6 +29698,7 @@ class $$BusinessesTableTableManager
                 Value<String?> email = const Value.absent(),
                 Value<String?> logoUrl = const Value.absent(),
                 Value<String> timezone = const Value.absent(),
+                Value<bool> onboardingComplete = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> lastUpdatedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -29639,6 +29710,7 @@ class $$BusinessesTableTableManager
                 email: email,
                 logoUrl: logoUrl,
                 timezone: timezone,
+                onboardingComplete: onboardingComplete,
                 createdAt: createdAt,
                 lastUpdatedAt: lastUpdatedAt,
                 rowid: rowid,
@@ -29652,6 +29724,7 @@ class $$BusinessesTableTableManager
                 Value<String?> email = const Value.absent(),
                 Value<String?> logoUrl = const Value.absent(),
                 Value<String> timezone = const Value.absent(),
+                Value<bool> onboardingComplete = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> lastUpdatedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -29663,6 +29736,7 @@ class $$BusinessesTableTableManager
                 email: email,
                 logoUrl: logoUrl,
                 timezone: timezone,
+                onboardingComplete: onboardingComplete,
                 createdAt: createdAt,
                 lastUpdatedAt: lastUpdatedAt,
                 rowid: rowid,

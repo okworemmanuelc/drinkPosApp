@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:drift/drift.dart' as drift;
 
 import 'package:reebaplus_pos/core/database/app_database.dart';
 import 'package:reebaplus_pos/core/providers/app_providers.dart';
@@ -52,7 +54,10 @@ class _CreatePinScreenState extends ConsumerState<CreatePinScreen> {
       _pin += digit;
       _errorMessage = null;
     });
-    if (_pin.length == 6) _advance();
+    if (_pin.length == 6) {
+      // Defer so the 6th dot animates before heavy DB work begins.
+      WidgetsBinding.instance.addPostFrameCallback((_) => _advance());
+    }
   }
 
   void _onBackspace() {
@@ -95,11 +100,35 @@ class _CreatePinScreenState extends ConsumerState<CreatePinScreen> {
       return;
     }
 
-    // PINs match — save to DB then log in
+    // PINs match — show success state, then save to DB.
     setState(() => _saving = true);
+
+    // Allow AnimatedSwitcher to begin its cross-fade before heavy DB work.
+    await Future.delayed(const Duration(milliseconds: 150));
+    if (!mounted) return;
+
     try {
       final db = ref.read(databaseProvider);
       await ref.read(authProvider).setUserPin(widget.user.id, _pin);
+
+      // Onboarding completion. PIN is the last required input; flipping
+      // onboarding_complete here means a crash between this point and
+      // setCurrentUser (in BiometricSetupScreen / PostPinOtpScreen) routes
+      // to login on next launch instead of back into onboarding.
+      // Gated on isNewBusinessSetup — staff-join and returning-user PIN
+      // changes go through this same screen and must NOT touch the flag.
+      if (widget.isNewBusinessSetup) {
+        await Supabase.instance.client
+            .from('businesses')
+            .update({'onboarding_complete': true})
+            .eq('id', widget.user.businessId);
+
+        await (db.update(db.businesses)
+              ..where((b) => b.id.equals(widget.user.businessId)))
+            .write(const BusinessesCompanion(
+              onboardingComplete: drift.Value(true),
+            ));
+      }
 
       final updatedUser = await db.warehousesDao.getUserById(widget.user.id);
 

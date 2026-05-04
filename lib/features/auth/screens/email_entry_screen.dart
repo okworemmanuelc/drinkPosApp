@@ -18,7 +18,18 @@ import 'package:reebaplus_pos/core/database/app_database.dart' show UserData;
 import 'package:reebaplus_pos/main.dart' show supabaseReady;
 
 class EmailEntryScreen extends ConsumerStatefulWidget {
-  const EmailEntryScreen({super.key});
+  /// When non-null, pre-fills the email field. If [lockedEmail] is also
+  /// true, the field is rendered read-only — used by the invite-link path
+  /// where the email must match the invite address (server-enforced via
+  /// `email_mismatch` on redeem, but locking the input avoids typos).
+  final String? prefilledEmail;
+  final bool lockedEmail;
+
+  const EmailEntryScreen({
+    super.key,
+    this.prefilledEmail,
+    this.lockedEmail = false,
+  });
 
   @override
   ConsumerState<EmailEntryScreen> createState() => _EmailEntryScreenState();
@@ -32,7 +43,11 @@ class _EmailEntryScreenState extends ConsumerState<EmailEntryScreen> {
   @override
   void initState() {
     super.initState();
+    if (widget.prefilledEmail != null && widget.prefilledEmail!.isNotEmpty) {
+      _emailController.text = widget.prefilledEmail!;
+    }
     _emailController.addListener(_validateEmail);
+    _validateEmail();
   }
 
   void _validateEmail() {
@@ -340,12 +355,15 @@ class _EmailEntryScreenState extends ConsumerState<EmailEntryScreen> {
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
                   autofocus: false,
+                  readOnly: widget.lockedEmail,
                   textInputAction: TextInputAction.done,
                   onSubmitted: (_) => _loading ? null : _submit(),
                   style: TextStyle(color: textColor),
                   decoration: AppDecorations.authInputDecoration(
                     context,
-                    label: 'Email Address',
+                    label: widget.lockedEmail
+                        ? 'Email (from invite)'
+                        : 'Email Address',
                     prefixIcon: Icons.email_outlined,
                   ),
                 ),
