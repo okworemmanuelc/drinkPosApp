@@ -228,3 +228,8 @@ final pendingReturnsWithDetailsProvider =
           ))
       .toList());
 });
+
+final localBusinessesProvider = StreamProvider.autoDispose<List<BusinessData>>((ref) {
+  final db = ref.read(databaseProvider);
+  return db.select(db.businesses).watch();
+});

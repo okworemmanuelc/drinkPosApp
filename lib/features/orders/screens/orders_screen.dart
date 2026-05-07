@@ -2030,7 +2030,7 @@ class _PinnedHeaderDelegate extends SliverPersistentHeaderDelegate {
     BuildContext context,
     double shrinkOffset,
     bool overlapsContent,
-  ) => child;
+  ) => SizedBox(height: height, child: child);
 
   @override
   bool shouldRebuild(_PinnedHeaderDelegate oldDelegate) => true;

@@ -51,7 +51,7 @@ class _WarehouseAssignmentScreenState
 
     if (updatedUser != null && updatedUser.warehouseId != null) {
       // Assignment detected!
-      ref.read(authProvider).setCurrentUser(updatedUser);
+      ref.read(authProvider).setCurrentUser(updatedUser, freshSignIn: true);
     }
   }
 

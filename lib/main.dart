@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:reebaplus_pos/core/theme/app_theme.dart';
@@ -22,6 +23,7 @@ import 'package:reebaplus_pos/features/auth/screens/success_dashboard_entry_scre
 import 'package:reebaplus_pos/features/auth/screens/access_granted_screen.dart';
 import 'package:reebaplus_pos/features/auth/screens/invite_landing_screen.dart';
 import 'package:reebaplus_pos/features/diagnostics/screens/schema_error_screen.dart';
+import 'package:reebaplus_pos/features/sync/screens/first_sync_screen.dart';
 
 import 'package:timezone/data/latest.dart' as tz;
 
@@ -31,6 +33,11 @@ late final Future<void> supabaseReady;
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   tz.initializeTimeZones();
+
+  // DM Sans is bundled in assets/google_fonts/. Disable the network fallback
+  // so a missing weight surfaces as an asset error instead of a fonts.gstatic
+  // host-lookup failure when the device is offline.
+  GoogleFonts.config.allowRuntimeFetching = false;
 
   // Must run before any code touches `database` (the warmup query below is the
   // first thing that opens the SQLite file via LazyDatabase). See
@@ -242,7 +249,8 @@ class _ReebaplusPosAppState extends ConsumerState<ReebaplusPosApp> {
     final theme = ref.watch(themeProvider);
     final auth = ref.watch(authProvider);
     final user = auth.value;
-
+    final localBusinessesAsync = ref.watch(localBusinessesProvider);
+ 
     return ForceUpdateWrapper(
       child: AutoLockWrapper(
         child: MaterialApp(
@@ -287,6 +295,14 @@ class _ReebaplusPosAppState extends ConsumerState<ReebaplusPosApp> {
                   : const EmailEntryScreen();
             }
 
+            // Gating the Business Reveal UX for brand-new logins on fresh devices:
+            // If the user has authenticated but there is no business row locally in our Drift database yet,
+            // show the FirstSyncScreen to perform the initial pull, keeping them out of empty screens.
+            final localBusinesses = localBusinessesAsync.valueOrNull;
+            if (localBusinesses == null || localBusinesses.isEmpty) {
+              return FirstSyncScreen(businessId: user.businessId);
+            }
+ 
             // Check for special post-login screens set by BiometricSetupScreen.
             final pendingRoute = auth.pendingPostLoginRoute;
             if (pendingRoute != PostLoginRoute.none) {
@@ -302,7 +318,7 @@ class _ReebaplusPosAppState extends ConsumerState<ReebaplusPosApp> {
                   break;
               }
             }
-
+ 
             if (user.roleTier < 5 && user.warehouseId == null) {
               return WarehouseAssignmentScreen(user: user);
             }

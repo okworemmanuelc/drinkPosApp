@@ -98,6 +98,7 @@ flutter:
     - assets/images/auth_gradient_bg.png
     - assets/images/reebaplus_logo.png
     - assets/images/logo.svg
+    - assets/google_fonts/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

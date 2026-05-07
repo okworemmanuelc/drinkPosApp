@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -51,6 +52,11 @@ class _AutoLockWrapperState extends ConsumerState<AutoLockWrapper>
         await prefs.remove(_pausedTimeKey);
         return;
       }
+      // Single-active-device safety net: a device that was offline during
+      // the kick may have missed the realtime UPDATE. Once realtime catches
+      // up post-resume, the local sessions row reflects revoked_at — this
+      // verifies and triggers fullLogout with the kick snackbar if so.
+      unawaited(ref.read(authProvider).verifyLocalSessionStillActive());
       final pausedMs = prefs.getInt(_pausedTimeKey);
       if (pausedMs != null) {
         final pausedTime = DateTime.fromMillisecondsSinceEpoch(pausedMs);

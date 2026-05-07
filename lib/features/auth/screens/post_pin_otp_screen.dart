@@ -188,7 +188,7 @@ class _PostPinOtpScreenState extends ConsumerState<PostPinOtpScreen> {
     await Future.delayed(const Duration(milliseconds: 800));
     if (!mounted) return;
 
-    ref.read(authProvider).setCurrentUser(widget.user);
+    ref.read(authProvider).setCurrentUser(widget.user, freshSignIn: true);
     // Navigator key regeneration in main.dart handles routing automatically.
   }
 

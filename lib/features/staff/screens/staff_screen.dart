@@ -601,7 +601,7 @@ class _StaffFormSheetState extends ConsumerState<_StaffFormSheet> {
   late RoleOption _selectedRole;
   String? _selectedWarehouseId;
   bool _showPin = false;
-  bool _isSaving = false;
+  final bool _isSaving = false;
   Color get _surface => Theme.of(context).colorScheme.surface;
   Color get _text => Theme.of(context).colorScheme.onSurface;
   Color get _subtext =>

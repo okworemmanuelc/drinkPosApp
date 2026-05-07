@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:reebaplus_pos/core/database/uuid_v7.dart';
 
 /// Encrypted key-value store for sensitive auth data.
 ///
@@ -15,6 +16,11 @@ class SecureStorageService {
   static const _deviceUserIdKey = 'secure_device_user_id';
   static const _lastEmailKey = 'secure_last_logged_in_email';
   static const _authMethodKey = 'secure_auth_method'; // "google" | "email"
+
+  // Device ID lives in plain SharedPreferences so it survives fullLogout's
+  // _storage.deleteAll(). It's an opaque random UUID, not a credential.
+  static const _deviceIdKey = 'device_id';
+  String? _cachedDeviceId;
 
   // ── Device User ID ──────────────────────────────────────────────────────
   Future<String?> getDeviceUserId() async {
@@ -36,6 +42,22 @@ class SecureStorageService {
 
   Future<void> saveLastLoggedInEmail(String email) async {
     await _storage.write(key: _lastEmailKey, value: email);
+  }
+
+  // ── Device ID ───────────────────────────────────────────────────────────
+  /// Returns this physical device's stable ID, generating one on first call.
+  /// Persists across fullLogout (via SharedPreferences, not the secure store)
+  /// so the same device is recognised on next login.
+  Future<String> getOrCreateDeviceId() async {
+    if (_cachedDeviceId != null) return _cachedDeviceId!;
+    final prefs = await SharedPreferences.getInstance();
+    var id = prefs.getString(_deviceIdKey);
+    if (id == null) {
+      id = UuidV7.generate();
+      await prefs.setString(_deviceIdKey, id);
+    }
+    _cachedDeviceId = id;
+    return id;
   }
 
   // ── Auth Method (google | email) ────────────────────────────────────────

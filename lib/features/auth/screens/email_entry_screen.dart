@@ -48,6 +48,20 @@ class _EmailEntryScreenState extends ConsumerState<EmailEntryScreen> {
     }
     _emailController.addListener(_validateEmail);
     _validateEmail();
+
+    // One-shot snackbar after a remote-kick logout. Read-and-clear so a
+    // later rebuild of this screen doesn't show it again.
+    final auth = ref.read(authProvider);
+    if (auth.kickedByRemoteSignIn) {
+      auth.kickedByRemoteSignIn = false;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        AppNotification.showInfo(
+          context,
+          "You've been signed in on another device — signed out.",
+        );
+      });
+    }
   }
 
   void _validateEmail() {
@@ -235,7 +249,7 @@ class _EmailEntryScreenState extends ConsumerState<EmailEntryScreen> {
             .catchError((e) {
               debugPrint('[EmailEntry] Supabase/OTP error: $e');
             }),
-      ]).timeout(const Duration(seconds: 10));
+      ]).timeout(const Duration(seconds: 30));
     } on TimeoutException {
       debugPrint(
         '[EmailEntry] Task timed out. DB: $dbCheckDone, OTP: $otpSent',
@@ -243,7 +257,8 @@ class _EmailEntryScreenState extends ConsumerState<EmailEntryScreen> {
       if (!dbCheckDone) {
         otpError = 'Database response delayed. Please restart the app.';
       } else {
-        otpError = 'Network timeout. Please check your internet connection.';
+        otpError =
+            'OTP request is taking longer than expected. Please try again.';
       }
     } catch (e) {
       debugPrint('[EmailEntry] Submit error: $e');

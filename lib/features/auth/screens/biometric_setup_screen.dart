@@ -92,7 +92,7 @@ class _BiometricSetupScreenState extends ConsumerState<BiometricSetupScreen> {
       auth.pendingPostLoginRoute = PostLoginRoute.accessGranted;
       auth.pendingPostLoginUser = widget.user;
     }
-    auth.setCurrentUser(widget.user);
+    auth.setCurrentUser(widget.user, freshSignIn: true);
     // Navigator key regeneration in main.dart handles routing automatically.
   }
 

@@ -26,8 +26,7 @@ class ExistingAccountScreen extends ConsumerStatefulWidget {
       _ExistingAccountScreenState();
 }
 
-class _ExistingAccountScreenState
-    extends ConsumerState<ExistingAccountScreen> {
+class _ExistingAccountScreenState extends ConsumerState<ExistingAccountScreen> {
   bool _loading = false;
 
   String _maskEmail(String email) {
@@ -58,10 +57,21 @@ class _ExistingAccountScreenState
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => CreatePinScreen(user: user)),
       );
-    } catch (e) {
+    } catch (e, stack) {
+      debugPrint('[ExistingAccountScreen] syncOnLogin failed: $e\n$stack');
       if (!mounted) return;
       setState(() => _loading = false);
-      AppNotification.showError(context, 'Sync failed. Check your connection.');
+      final msg = e.toString().toLowerCase();
+      final isNetwork =
+          msg.contains('socketexception') ||
+          msg.contains('failed host lookup') ||
+          msg.contains('clientexception');
+      AppNotification.showError(
+        context,
+        isNetwork
+            ? 'Sync failed. Check your connection.'
+            : "Couldn't load your business. Please try again.",
+      );
     }
   }
 
@@ -205,11 +215,7 @@ class _ExistingAccountScreenState
                     color: primary.withValues(alpha: 0.15),
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(
-                    Icons.business_rounded,
-                    color: primary,
-                    size: 26,
-                  ),
+                  child: Icon(Icons.business_rounded, color: primary, size: 26),
                 ),
                 const SizedBox(width: 16),
                 Expanded(

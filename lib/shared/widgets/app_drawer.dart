@@ -75,8 +75,8 @@ class AppDrawer extends ConsumerWidget {
             ),
           ),
           SizedBox(height: context.getRSize(16)),
-          // Sync status indicator. Two streams nested so the badge reflects
-          // both pending (in-progress) and failed counts; tap opens Sync Issues.
+          // Sync status indicator. Three signals nested so the badge reflects
+          // pending, failed, and online state; tap opens Sync Issues.
           StreamBuilder<int>(
             stream: ref.read(databaseProvider).syncDao.watchPendingCount(),
             builder: (context, pendingSnap) {
@@ -84,6 +84,10 @@ class AppDrawer extends ConsumerWidget {
                 stream:
                     ref.read(databaseProvider).syncDao.watchFailedCount(),
                 builder: (context, failedSnap) {
+                  return ValueListenableBuilder<bool>(
+                    valueListenable:
+                        ref.read(supabaseSyncServiceProvider).isOnline,
+                    builder: (context, online, _) {
                   final pending = pendingSnap.data ?? 0;
                   final failed = failedSnap.data ?? 0;
                   if (pending == 0 && failed == 0) {
@@ -93,11 +97,13 @@ class AppDrawer extends ConsumerWidget {
                   final accent = hasFailures
                       ? Theme.of(context).colorScheme.error
                       : Theme.of(context).colorScheme.primary;
-                  final label = hasFailures && pending == 0
-                      ? '$failed failed'
-                      : pending > 0 && hasFailures
-                          ? 'Syncing $pending · $failed failed'
-                          : 'Syncing $pending file${pending == 1 ? '' : 's'}…';
+                  final label = !online && pending > 0
+                      ? 'Offline — $pending queued'
+                      : hasFailures && pending == 0
+                          ? '$failed failed'
+                          : pending > 0 && hasFailures
+                              ? 'Syncing $pending · $failed failed'
+                              : 'Syncing $pending file${pending == 1 ? '' : 's'}…';
                   return InkWell(
                     borderRadius: BorderRadius.circular(10),
                     onTap: () {
@@ -144,6 +150,8 @@ class AppDrawer extends ConsumerWidget {
                         ],
                       ),
                     ),
+                  );
+                    },
                   );
                 },
               );

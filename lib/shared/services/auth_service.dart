@@ -27,10 +27,18 @@ class AuthService extends ValueNotifier<UserData?> {
     // BusinessScopedDao always read the current session's businessId
     // (auto-tracks login/logout through the ValueNotifier).
     _db.businessIdResolver = () => value?.businessId;
+
+    // Wire single-active-device sign-in: SyncService notifies us when the
+    // sessions row matching our currentSessionId has its revoked_at flipped
+    // by another device, so we can fullLogout in response.
+    _sync.currentSessionIdResolver = () => currentSessionId;
+    _sync.onCurrentSessionRevoked = _handleRemoteKick;
   }
 
   /// Notifies listeners whenever the device-level user ID changes.
-  final ValueNotifier<String?> deviceUserIdNotifier = ValueNotifier<String?>(null);
+  final ValueNotifier<String?> deviceUserIdNotifier = ValueNotifier<String?>(
+    null,
+  );
 
   /// Id of the active row in `Sessions` for the currently logged-in user.
   /// Set by [setCurrentUser] and cleared on logout.
@@ -202,7 +210,10 @@ class AuthService extends ValueNotifier<UserData?> {
   Future<void> syncOnLogin(String businessId) async {
     await _sync.syncAll(businessId);
     _sync.startRealtimeSync(businessId);
-    _sync.startAutoPush();
+    // Auto-push is intentionally not started here. syncOnLogin runs before
+    // setCurrentUser, so AppDatabase.currentBusinessId is still null and any
+    // tenant-scoped DAO query inside _initAutoPush would throw. setCurrentUser
+    // starts auto-push once the user/business is fully bound.
   }
 
   /// Reads the current user's cloud profile (by `auth.uid()`) and reflects it
@@ -241,18 +252,24 @@ class AuthService extends ValueNotifier<UserData?> {
     if (businessId == null) return null;
     final existing = await getUserByEmail(email);
     if (existing != null) {
-      await (_db.update(_db.users)..where((u) => u.id.equals(existing.id)))
-          .write(UsersCompanion(
-        name: Value(name),
-        role: Value(role),
-        roleTier: Value(roleTier),
-        businessId: Value(businessId),
-      ));
-      return (_db.select(_db.users)..where((u) => u.id.equals(existing.id)))
-          .getSingle();
+      await (_db.update(
+        _db.users,
+      )..where((u) => u.id.equals(existing.id))).write(
+        UsersCompanion(
+          name: Value(name),
+          role: Value(role),
+          roleTier: Value(roleTier),
+          businessId: Value(businessId),
+        ),
+      );
+      return (_db.select(
+        _db.users,
+      )..where((u) => u.id.equals(existing.id))).getSingle();
     }
 
-    return _db.into(_db.users).insertReturning(
+    return _db
+        .into(_db.users)
+        .insertReturning(
           UsersCompanion.insert(
             name: name,
             email: Value(email),
@@ -271,12 +288,14 @@ class AuthService extends ValueNotifier<UserData?> {
   Future<String?> sendOtp(String email) async {
     debugPrint('[AuthService] Attempting to send OTP to $email...');
     try {
-      await Supabase.instance.client.auth.signInWithOtp(
-        email: email,
-        shouldCreateUser: true,
-      );
+      await Supabase.instance.client.auth
+          .signInWithOtp(email: email, shouldCreateUser: true)
+          .timeout(const Duration(seconds: 25));
       debugPrint('[AuthService] OTP send command success.');
       return null;
+    } on TimeoutException {
+      debugPrint('[AuthService] OTP send: server did not respond in 25s.');
+      return 'The OTP server is slow right now. Please try again in a moment.';
     } on AuthException catch (e) {
       debugPrint('[AuthService] Supabase AuthException: ${e.message}');
       return e.message;
@@ -330,7 +349,7 @@ class AuthService extends ValueNotifier<UserData?> {
   /// main.dart regenerates the navigator key on every value change, which
   /// would tear down the in-progress onboarding stack — so onboarding screens
   /// pass UserData/businessId by widget args instead of reading from `value`.
-  void setCurrentUser(UserData user) {
+  void setCurrentUser(UserData user, {bool freshSignIn = false}) {
     try {
       // Side-effects first — navigationService fully ready before any rebuild
       _nav.applyUserWarehouseLock(user.roleTier, user.warehouseId);
@@ -360,10 +379,20 @@ class AuthService extends ValueNotifier<UserData?> {
       // shouldn't block the post-login UI; failures are logged.
       scheduleMicrotask(() async {
         try {
-          currentSessionId = await _db.sessionsDao.createSession(
+          final deviceId = await _secure.getOrCreateDeviceId();
+          final sessionId = await _db.sessionsDao.createSession(
             userId: user.id,
             ttl: const Duration(days: 30),
+            deviceId: deviceId,
           );
+          currentSessionId = sessionId;
+          if (freshSignIn) {
+            await _kickOtherDevices(
+              user: user,
+              sessionId: sessionId,
+              deviceId: deviceId,
+            );
+          }
         } catch (e) {
           debugPrint('[AuthService] createSession error: $e');
         }
@@ -373,13 +402,98 @@ class AuthService extends ValueNotifier<UserData?> {
     }
   }
 
+  /// Pushes this device's new session to the cloud, revokes every other
+  /// active session for this user, and invalidates other Supabase auth
+  /// refresh tokens. Called only on fresh OTP/Google sign-ins so that
+  /// re-entering the PIN on the same device does not kick other devices.
+  ///
+  /// Each step is wrapped independently — a network blip on one shouldn't
+  /// abort the others. Logs only; the post-login UI must not block on this.
+  Future<void> _kickOtherDevices({
+    required UserData user,
+    required String sessionId,
+    required String deviceId,
+  }) async {
+    final supabase = Supabase.instance.client;
+    final now = DateTime.now().toUtc().toIso8601String();
+    final expiresAt = DateTime.now()
+        .toUtc()
+        .add(const Duration(days: 30))
+        .toIso8601String();
+
+    try {
+      await supabase.from('sessions').insert({
+        'id': sessionId,
+        'business_id': user.businessId,
+        'user_id': user.id,
+        'device_id': deviceId,
+        'expires_at': expiresAt,
+        'last_updated_at': now,
+      });
+    } catch (e) {
+      debugPrint('[AuthService] kick: cloud session insert error: $e');
+    }
+
+    try {
+      await supabase
+          .from('sessions')
+          .update({'revoked_at': now, 'last_updated_at': now})
+          .eq('user_id', user.id)
+          .neq('device_id', deviceId)
+          .filter('revoked_at', 'is', null);
+    } catch (e) {
+      debugPrint('[AuthService] kick: revoke other sessions error: $e');
+    }
+
+    try {
+      await supabase.auth.signOut(scope: SignOutScope.others);
+    } catch (e) {
+      debugPrint('[AuthService] kick: signOut(others) error: $e');
+    }
+  }
+
+  /// Re-entry guard for the remote-kick path so the snackbar flag isn't
+  /// flipped twice when a Realtime event races the resume safety-net check.
+  bool _handlingRemoteKick = false;
+
+  /// One-shot flag: set to true when this device was kicked by a remote
+  /// sign-in. Consumed by [EmailEntryScreen] to show a snackbar, then reset.
+  bool kickedByRemoteSignIn = false;
+
+  /// Called by SyncService when our session row's revoked_at flips, or by
+  /// [verifyLocalSessionStillActive] when the local row is missing/expired.
+  Future<void> _handleRemoteKick() async {
+    if (_handlingRemoteKick) return;
+    _handlingRemoteKick = true;
+    try {
+      kickedByRemoteSignIn = true;
+      await fullLogout();
+    } finally {
+      _handlingRemoteKick = false;
+    }
+  }
+
+  /// Safety net for devices that were offline when the kick happened, or
+  /// for any other reason missed the realtime UPDATE. Triggers fullLogout
+  /// if the local session row is no longer active.
+  Future<void> verifyLocalSessionStillActive() async {
+    final sid = currentSessionId;
+    if (value == null || sid == null) return;
+    try {
+      final active = await _db.sessionsDao.findActiveSession(sid);
+      if (active == null) {
+        await _handleRemoteKick();
+      }
+    } catch (e) {
+      debugPrint('[AuthService] verifyLocalSessionStillActive error: $e');
+    }
+  }
+
   /// Single entry point for all initialization/notification logic for new/unassigned staff.
   Future<void> _handleOnboardingAlerts(UserData user) async {
     try {
       final now = DateTime.now();
       UserData currentUser = user;
-
-
 
       final joinDate = currentUser.createdAt;
       final hoursSinceJoin = now.difference(joinDate).inHours;
@@ -559,7 +673,9 @@ class AuthService extends ValueNotifier<UserData?> {
     await _db.transaction(() async {
       await (_db.delete(_db.users)..where((u) => u.email.equals(email))).go();
 
-      await _db.into(_db.businesses).insertOnConflictUpdate(
+      await _db
+          .into(_db.businesses)
+          .insertOnConflictUpdate(
             BusinessesCompanion.insert(
               id: Value(businessId),
               name: name,
@@ -567,19 +683,24 @@ class AuthService extends ValueNotifier<UserData?> {
               lastUpdatedAt: Value(now),
             ),
           );
-      await _db.into(_db.users).insert(UsersCompanion.insert(
-            id: Value(userId),
-            businessId: businessId,
-            name: name,
-            email: Value(email),
-            pin: setupRequiredPin,
-            role: 'ceo',
-            roleTier: const Value(5),
-          ));
+      await _db
+          .into(_db.users)
+          .insert(
+            UsersCompanion.insert(
+              id: Value(userId),
+              businessId: businessId,
+              name: name,
+              email: Value(email),
+              pin: setupRequiredPin,
+              role: 'ceo',
+              roleTier: const Value(5),
+            ),
+          );
     });
 
-    return (_db.select(_db.users)..where((u) => u.id.equals(userId)))
-        .getSingle();
+    return (_db.select(
+      _db.users,
+    )..where((u) => u.id.equals(userId))).getSingle();
   }
 
   // ── Initialisation ──────────────────────────────────────────────────────
