@@ -28,33 +28,37 @@ class WalletService {
 
     await _db.transaction(() async {
       final walletTxnId = UuidV7.generate();
+      final paymentTxnId = UuidV7.generate();
 
       // 1. Insert WalletTransactions row
-      await _db.into(_db.walletTransactions).insert(
-        WalletTransactionsCompanion.insert(
-          id: Value(walletTxnId),
-          businessId: businessId,
-          walletId: wallet.id,
-          customerId: customerId,
-          type: 'credit',
-          amountKobo: amountKobo,
-          signedAmountKobo: amountKobo,
-          referenceType: method == 'cash' ? 'topup_cash' : 'topup_transfer',
-          performedBy: Value(staffId),
-        ),
+      final walletComp = WalletTransactionsCompanion.insert(
+        id: Value(walletTxnId),
+        businessId: businessId,
+        walletId: wallet.id,
+        customerId: customerId,
+        type: 'credit',
+        amountKobo: amountKobo,
+        signedAmountKobo: amountKobo,
+        referenceType: method == 'cash' ? 'topup_cash' : 'topup_transfer',
+        performedBy: Value(staffId),
+        lastUpdatedAt: Value(DateTime.now()),
       );
+      await _db.into(_db.walletTransactions).insert(walletComp);
+      await _db.syncDao.enqueueUpsert('wallet_transactions', walletComp);
 
       // 2. Insert PaymentTransactions row
-      await _db.into(_db.paymentTransactions).insert(
-        PaymentTransactionsCompanion.insert(
-          businessId: businessId,
-          amountKobo: amountKobo,
-          method: method,
-          type: 'wallet_topup',
-          walletTxnId: Value(walletTxnId),
-          performedBy: Value(staffId),
-        ),
+      final paymentComp = PaymentTransactionsCompanion.insert(
+        id: Value(paymentTxnId),
+        businessId: businessId,
+        amountKobo: amountKobo,
+        method: method,
+        type: 'wallet_topup',
+        walletTxnId: Value(walletTxnId),
+        performedBy: Value(staffId),
+        lastUpdatedAt: Value(DateTime.now()),
       );
+      await _db.into(_db.paymentTransactions).insert(paymentComp);
+      await _db.syncDao.enqueueUpsert('payment_transactions', paymentComp);
     });
   }
 
@@ -80,19 +84,22 @@ class WalletService {
 
     if (originalDebit == null) return;
 
-    await _db.into(_db.walletTransactions).insert(
-      WalletTransactionsCompanion.insert(
-        businessId: businessId,
-        walletId: originalDebit.walletId,
-        customerId: originalDebit.customerId,
-        type: 'credit',
-        amountKobo: originalDebit.amountKobo,
-        signedAmountKobo: originalDebit.amountKobo,
-        referenceType: 'refund',
-        orderId: Value(orderId),
-        performedBy: Value(staffId),
-      ),
+    final refundId = UuidV7.generate();
+    final refundComp = WalletTransactionsCompanion.insert(
+      id: Value(refundId),
+      businessId: businessId,
+      walletId: originalDebit.walletId,
+      customerId: originalDebit.customerId,
+      type: 'credit',
+      amountKobo: originalDebit.amountKobo,
+      signedAmountKobo: originalDebit.amountKobo,
+      referenceType: 'refund',
+      orderId: Value(orderId),
+      performedBy: Value(staffId),
+      lastUpdatedAt: Value(DateTime.now()),
     );
+    await _db.into(_db.walletTransactions).insert(refundComp);
+    await _db.syncDao.enqueueUpsert('wallet_transactions', refundComp);
   }
 
   /// Calculates the current balance for a customer.

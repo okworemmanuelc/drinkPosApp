@@ -23,6 +23,8 @@ class PosController extends ChangeNotifier {
   bool isLoading = true;
   bool _disposed = false;
   StreamSubscription? _productsSub;
+  StreamSubscription<List<CategoryData>>? _categoriesSub;
+  StreamSubscription<List<ManufacturerData>>? _manufacturersSub;
   Timer? _debounce;
 
   PosController({
@@ -47,22 +49,31 @@ class PosController extends ChangeNotifier {
   void dispose() {
     _disposed = true;
     _productsSub?.cancel();
+    _categoriesSub?.cancel();
+    _manufacturersSub?.cancel();
     _debounce?.cancel();
     _cartService.activeCustomer.removeListener(_onCustomerSelected);
     _navigationService.lockedWarehouseId.removeListener(_subscribeToProducts);
     super.dispose();
   }
 
-  Future<void> _loadCategories() async {
-    categories = await _database.select(_database.categories).get();
-    if (_disposed) return;
-    notifyListeners();
+  void _loadCategories() {
+    // Stream-based: a remote add/rename of a category propagates to the
+    // POS chip row without needing a screen rebuild.
+    _categoriesSub = _database.inventoryDao.watchAllCategories().listen((list) {
+      if (_disposed) return;
+      categories = list;
+      notifyListeners();
+    });
   }
 
-  Future<void> _loadManufacturers() async {
-    manufacturers = await _database.catalogDao.getAllManufacturers();
-    if (_disposed) return;
-    notifyListeners();
+  void _loadManufacturers() {
+    _manufacturersSub =
+        _database.inventoryDao.watchAllManufacturers().listen((list) {
+      if (_disposed) return;
+      manufacturers = list;
+      notifyListeners();
+    });
   }
 
   void _subscribeToProducts() {

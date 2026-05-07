@@ -1,15 +1,18 @@
 import 'dart:convert';
 
-import 'package:drift/drift.dart' show Value;
+import 'package:drift/drift.dart' show Value, Variable;
+import 'package:flutter/foundation.dart';
 import 'package:reebaplus_pos/core/database/app_database.dart';
 import 'package:reebaplus_pos/core/database/uuid_v7.dart';
+import 'package:reebaplus_pos/core/services/supabase_sync_service.dart';
 import 'package:reebaplus_pos/shared/models/order.dart' as domain;
 
 class OrderService {
   final AppDatabase _db;
+  final SupabaseSyncService? _syncService;
   late final OrdersDao _ordersDao = _db.ordersDao;
 
-  OrderService(this._db);
+  OrderService(this._db, [this._syncService]);
 
   /// Build an order from a UI cart and persist it atomically.
   ///
@@ -89,7 +92,76 @@ class OrderService {
       paymentMethod: _resolvePaymentMethod(paymentSubType),
     );
 
+    // Surface server-side errors (insufficient_stock from a concurrent
+    // device, FK / unique violations) BEFORE the receipt prints. flushSale
+    // is a no-op when offline, when the queue row is absent (already
+    // drained by background push), or when the sale was enqueued under
+    // the legacy multi-row path. On permanent failure we compensate
+    // locally — cancel the order, refund the inventory cache — so the
+    // device's view stays consistent with the cloud's "this sale never
+    // happened".
+    if (_syncService != null && _syncService.isOnline.value) {
+      try {
+        await _syncService.flushSale(orderId);
+      } on SaleSyncException catch (e) {
+        debugPrint('[OrderService] Sale rejected by server: $e');
+        await _compensateRejectedSale(orderId, items);
+        rethrow;
+      } catch (e) {
+        // Transient error — the queue row stays pending and the
+        // background drain will retry. Don't block the receipt.
+        debugPrint('[OrderService] flushSale transient: $e');
+      }
+    }
+
     return orderNumber;
+  }
+
+  /// Reverses the local writes performed by `OrdersDao.createOrder` when
+  /// the server's `pos_record_sale` RPC permanently rejected the sale
+  /// (e.g. insufficient_stock from a concurrent device). The cloud never
+  /// saw any of this — the RPC rolled back its own transaction — so the
+  /// compensation is purely local: we don't enqueue it. The original
+  /// `domain:pos_record_sale` queue row was already marked failed by
+  /// SyncService.
+  Future<void> _compensateRejectedSale(
+    String orderId,
+    List<OrderItemsCompanion> items,
+  ) async {
+    await _db.transaction(() async {
+      // 1. Mark order cancelled.
+      await (_db.update(_db.orders)
+            ..where((t) => t.id.equals(orderId)))
+          .write(OrdersCompanion(
+        status: const Value('cancelled'),
+        cancellationReason: const Value('rejected_by_server'),
+        cancelledAt: Value(DateTime.now().toUtc()),
+        lastUpdatedAt: Value(DateTime.now()),
+      ));
+
+      // 2. Refund inventory cache. Each item's optimistic deduction is
+      // undone by adding the quantity back. The corresponding
+      // stock_transactions ledger rows are append-only — we leave them
+      // in place; they're orphaned but harmless because the cloud's
+      // ledger never received them either.
+      for (final item in items) {
+        final qty = item.quantity.value;
+        final productId = item.productId.value;
+        final whId = item.warehouseId.value;
+        await _db.customUpdate(
+          'UPDATE inventory SET quantity = quantity + ?, last_updated_at = ? '
+          'WHERE business_id = ? AND product_id = ? AND warehouse_id = ?',
+          variables: [
+            Variable<int>(qty),
+            Variable<DateTime>(DateTime.now()),
+            Variable<String>(_ordersDao.requireBusinessId()),
+            Variable<String>(productId),
+            Variable<String>(whId),
+          ],
+          updates: {_db.inventory},
+        );
+      }
+    });
   }
 
   String _resolvePaymentType({

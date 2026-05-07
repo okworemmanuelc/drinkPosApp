@@ -39,4 +39,36 @@ Transform tasks into verifiable goals:
 - “Fix the bug” → “Reproduce it in a test, then fix”
 - “Refactor X” → “Ensure tests pass before and after”
 
-## 5. Cautious with Dependencies
+## 5. Sync invariants
+
+Every write to a synced table (anything in `_syncedTenantTables` in
+[lib/core/database/app_database.dart](lib/core/database/app_database.dart))
+must reach the cloud. The contract is:
+
+- All writes go through a DAO method that calls `enqueueUpsert` /
+  `enqueueDelete` on `SyncDao` (or enqueues a `domain:<rpc>` envelope
+  for atomic multi-table actions). Writes via `db.into(...)`,
+  `db.update(...)`, `db.delete(...)` *outside* a DAO are leaks — the
+  cloud never sees them.
+- Two legitimate exceptions, both narrow:
+  1. `_restoreTableData` in `supabase_sync_service.dart` (incoming pull
+     and realtime).
+  2. `_applyDomainResponse` in `supabase_sync_service.dart` (server's
+     authoritative response after a domain RPC succeeds — the server
+     already has the truth; pushing it back would be a no-op round
+     trip).
+- Soft-delete (`is_deleted=true`) goes through `enqueueUpsert`. Only
+  use `enqueueDelete` for hard tombstones the cloud needs to forget;
+  it also clears any pending upsert for the same row.
+- Domain envelopes (`domain:pos_record_sale`, `domain:pos_inventory_delta`,
+  `domain:pos_create_product`) skip enqueue-time coalescing — each is an
+  independent atomic transaction. Their payloads sit at `$.p_<arg>` and
+  are dispatched via `_pushDomainItems`, not the per-table batched upsert
+  path.
+- Stream providers for synced tables live in
+  [lib/core/providers/stream_providers.dart](lib/core/providers/stream_providers.dart).
+  When a screen reads a synced table, prefer the existing provider over a
+  one-shot `db.select(...).get()` so realtime events propagate without a
+  manual refresh.
+
+## 6. Cautious with Dependencies

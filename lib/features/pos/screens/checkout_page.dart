@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -66,6 +67,8 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
   bool _isProcessing = false;
   Map<String, String> _manufacturerNames = {};
   String? _branchName;
+  StreamSubscription<List<ManufacturerData>>? _manufacturersSub;
+  StreamSubscription<WarehouseData?>? _activeWarehouseSub;
   late final Customer? _initialCustomer;
 
   // Computed on confirm — passed to receipt
@@ -113,23 +116,24 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
     final warehouseId =
         nav.lockedWarehouseId.value ?? auth.currentUser?.warehouseId;
 
-    final results = await Future.wait([
-      db.inventoryDao.getAllManufacturers(),
-      if (warehouseId != null)
-        (db.select(
-          db.warehouses,
-        )..where((t) => t.id.equals(warehouseId))).getSingleOrNull(),
-    ]);
-
-    final list = results[0] as List<ManufacturerData>;
-    final activeWarehouse = results.length > 1
-        ? results[1] as WarehouseData?
-        : null;
-
-    if (mounted) {
+    // Stream-driven so a remote rename of the active warehouse or a new
+    // manufacturer arriving via realtime updates the receipt header / map
+    // without a manual refresh.
+    _manufacturersSub = db.inventoryDao.watchAllManufacturers().listen((list) {
+      if (!mounted) return;
       setState(() {
         _manufacturerNames = {for (final m in list) m.id: m.name};
-        _branchName = activeWarehouse?.name;
+      });
+    });
+
+    if (warehouseId != null) {
+      _activeWarehouseSub = (db.select(db.warehouses)
+            ..where((t) => t.id.equals(warehouseId))
+            ..limit(1))
+          .watchSingleOrNull()
+          .listen((w) {
+        if (!mounted) return;
+        setState(() => _branchName = w?.name);
       });
     }
   }
@@ -138,6 +142,8 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
   void dispose() {
     _cart.activeCustomer.removeListener(_onCustomerChanged);
     _cashReceivedCtrl.dispose();
+    _manufacturersSub?.cancel();
+    _activeWarehouseSub?.cancel();
     super.dispose();
   }
 

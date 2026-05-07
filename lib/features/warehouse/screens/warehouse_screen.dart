@@ -15,6 +15,7 @@ import 'package:reebaplus_pos/shared/widgets/app_input.dart';
 import 'package:reebaplus_pos/core/theme/design_tokens.dart';
 import 'package:reebaplus_pos/core/utils/responsive.dart';
 import 'package:reebaplus_pos/core/database/app_database.dart';
+import 'package:reebaplus_pos/core/database/uuid_v7.dart';
 import 'package:reebaplus_pos/core/utils/notifications.dart';
 import 'package:reebaplus_pos/features/warehouse/screens/warehouse_details_screen.dart';
 
@@ -196,15 +197,16 @@ class _WarehouseScreenState extends ConsumerState<WarehouseScreen> {
                                 final whBusinessId =
                                     ref.read(authProvider).currentUser?.businessId;
                                 if (whBusinessId == null) return;
-                                await db
-                                    .into(db.warehouses)
-                                    .insert(
-                                      WarehousesCompanion.insert(
-                                        name: nameCtrl.text.trim(),
-                                        businessId: whBusinessId,
-                                        location: Value(combinedLocation),
-                                      ),
-                                    );
+                                final whComp = WarehousesCompanion.insert(
+                                  id: Value(UuidV7.generate()),
+                                  name: nameCtrl.text.trim(),
+                                  businessId: whBusinessId,
+                                  location: Value(combinedLocation),
+                                  lastUpdatedAt: Value(DateTime.now()),
+                                );
+                                await db.into(db.warehouses).insert(whComp);
+                                await db.syncDao
+                                    .enqueueUpsert('warehouses', whComp);
                                 if (ctx.mounted) Navigator.pop(ctx);
                               } catch (e) {
                                 setSheet(() => saving = false);
@@ -366,14 +368,18 @@ class _WarehouseScreenState extends ConsumerState<WarehouseScreen> {
                               final combinedLocation =
                                   '${addressCtrl.text.trim()}, ${cityStateCtrl.text.trim()}, ${countryCtrl.text.trim()}';
 
+                              final whComp = WarehousesCompanion(
+                                id: Value(warehouse.id),
+                                name: Value(nameCtrl.text.trim()),
+                                location: Value(combinedLocation),
+                                lastUpdatedAt: Value(DateTime.now()),
+                              );
                               await (db.update(
                                 db.warehouses,
-                              )..where((t) => t.id.equals(warehouse.id))).write(
-                                WarehousesCompanion(
-                                  name: Value(nameCtrl.text.trim()),
-                                  location: Value(combinedLocation),
-                                ),
-                              );
+                              )..where((t) => t.id.equals(warehouse.id)))
+                                  .write(whComp);
+                              await db.syncDao
+                                  .enqueueUpsert('warehouses', whComp);
                               if (ctx.mounted) Navigator.pop(ctx);
                             },
                     ),
@@ -471,14 +477,21 @@ class _WarehouseScreenState extends ConsumerState<WarehouseScreen> {
             size: AppButtonSize.small,
             onPressed: () async {
               Navigator.pop(ctx);
-              // Delete inventory first (FK), then warehouse
+              // Soft-delete the warehouse: hard-delete would orphan
+              // inventory and ledger FKs. The cloud-side cascade in 0001
+              // is ON DELETE CASCADE for inventory, but realtime DELETE
+              // events confuse local listeners. Soft-delete + enqueue is
+              // the consistent path with the rest of the codebase.
               final db = ref.read(databaseProvider);
-              await (db.delete(
-                db.inventory,
-              )..where((t) => t.warehouseId.equals(warehouse.id))).go();
-              await (db.delete(
-                db.warehouses,
-              )..where((t) => t.id.equals(warehouse.id))).go();
+              final whComp = WarehousesCompanion(
+                id: Value(warehouse.id),
+                isDeleted: const Value(true),
+                lastUpdatedAt: Value(DateTime.now()),
+              );
+              await (db.update(db.warehouses)
+                    ..where((t) => t.id.equals(warehouse.id)))
+                  .write(whComp);
+              await db.syncDao.enqueueUpsert('warehouses', whComp);
             },
           ),
         ],

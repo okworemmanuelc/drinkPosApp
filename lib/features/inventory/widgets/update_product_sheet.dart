@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'package:drift/drift.dart' as drift;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -358,7 +357,7 @@ class _UpdateProductSheetState extends ConsumerState<UpdateProductSheet> {
       final buyingKobo = (buyingPrice * 100).round();
       final lowStock = int.tryParse(_lowStockCtrl.text) ?? 5;
 
-      // 1. Update core product fields
+      // 1. Update product (core + cosmetic fields in one enqueue).
       await db.catalogDao.updateProductDetails(
         widget.product.id,
         name: name,
@@ -369,23 +368,13 @@ class _UpdateProductSheetState extends ConsumerState<UpdateProductSheet> {
         unit: _unit,
         trackEmpties: _trackEmpties,
         imagePath: _imagePath,
-      );
-
-      // 2. Update remaining fields (subtitle, color, size, supplier, lowStockThreshold)
-      await (db.update(
-        db.products,
-      )..where((t) => t.id.equals(widget.product.id))).write(
-        ProductsCompanion(
-          subtitle: drift.Value(
-            _subtitleCtrl.text.trim().isEmpty
-                ? null
-                : _subtitleCtrl.text.trim(),
-          ),
-          colorHex: drift.Value(_colorHex),
-          supplierId: drift.Value(_selectedSupplier?.id),
-          size: drift.Value(_size),
-          lowStockThreshold: drift.Value(lowStock),
-        ),
+        lowStockThreshold: lowStock,
+        subtitle: _subtitleCtrl.text.trim().isEmpty
+            ? null
+            : _subtitleCtrl.text.trim(),
+        colorHex: _colorHex,
+        supplierId: _selectedSupplier?.id,
+        size: _size,
       );
 
       // 3. Add stock if quantity entered

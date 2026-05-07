@@ -61,12 +61,14 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen>
   bool _isFirstLoad = true;
   late Future<void> _minLoading;
   StreamSubscription<List<ProductDataWithStock>>? _productsSub;
+  StreamSubscription<List<WarehouseData>>? _warehousesSub;
   StreamSubscription<List<ManufacturerData>>? _manufacturersSub;
   StreamSubscription<List<CategoryData>>? _categoriesSub;
   StreamSubscription<List<CrateGroupData>>? _crateGroupsSub;
   StreamSubscription<Map<String, int>>? _bottlesSub;
   StreamSubscription<Map<String, int>>? _emptyCratesSub;
   StreamSubscription<int>? _emptyCratesSumSub;
+  bool _initialWarehouseSelectionDone = false;
   Color get _bg => Theme.of(context).scaffoldBackgroundColor;
   Color get _surface => Theme.of(context).colorScheme.surface;
 
@@ -101,26 +103,32 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen>
       final db = ref.read(databaseProvider);
       final auth = ref.read(authProvider);
 
-      // Determine initial warehouse selection, then start product stream.
-      db.select(db.warehouses).get().then((list) {
+      // Stream warehouses so a remote add/rename/soft-delete on another
+      // device updates the dropdown without a manual refresh. The first
+      // emission also seeds the initial warehouse selection and kicks
+      // off the products subscription.
+      _warehousesSub = db.select(db.warehouses).watch().listen((list) {
         if (!mounted) return;
         setState(() {
           _warehouses = list;
-          final locked = _nav.warehouseLocked.value;
-          final lockedId = _nav.lockedWarehouseId.value;
-          final userTier = auth.currentUser?.roleTier ?? 5;
-          if (locked && lockedId != null && userTier < 4) {
-            _selectedWarehouseId = lockedId.toString();
-          } else {
-            final mainStore = list
-                .where((w) => w.name.toLowerCase().contains('main store'))
-                .firstOrNull;
-            if (mainStore != null) {
-              _selectedWarehouseId = mainStore.id.toString();
+          if (!_initialWarehouseSelectionDone) {
+            _initialWarehouseSelectionDone = true;
+            final locked = _nav.warehouseLocked.value;
+            final lockedId = _nav.lockedWarehouseId.value;
+            final userTier = auth.currentUser?.roleTier ?? 5;
+            if (locked && lockedId != null && userTier < 4) {
+              _selectedWarehouseId = lockedId.toString();
+            } else {
+              final mainStore = list
+                  .where((w) => w.name.toLowerCase().contains('main store'))
+                  .firstOrNull;
+              if (mainStore != null) {
+                _selectedWarehouseId = mainStore.id.toString();
+              }
             }
           }
         });
-        _subscribeToProducts();
+        if (_productsSub == null) _subscribeToProducts();
       });
 
       _manufacturersSub = db.inventoryDao.watchAllManufacturers().listen((
@@ -153,6 +161,7 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen>
   @override
   void dispose() {
     _productsSub?.cancel();
+    _warehousesSub?.cancel();
     _manufacturersSub?.cancel();
     _categoriesSub?.cancel();
     _crateGroupsSub?.cancel();

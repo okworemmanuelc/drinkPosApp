@@ -22,35 +22,44 @@ class CrateReturnApprovalService {
     }
 
     await db.transaction(() async {
-      // 1. Update pending_crate_returns row
-      await db.pendingCrateReturnsDao.updateStatus(returnId, 'approved');
-      await (db.update(db.pendingCrateReturns)..where((t) => t.id.equals(returnId)))
-          .write(
-        PendingCrateReturnsCompanion(
-          approvedBy: Value(approvedBy),
-          approvedAt: Value(DateTime.now()),
-        ),
+      // 1. Update pending_crate_returns row (status + approval metadata in
+      //    one combined Companion so a single enqueue carries the whole
+      //    transition to the cloud).
+      final now = DateTime.now();
+      final pcrComp = PendingCrateReturnsCompanion(
+        id: Value(returnId),
+        status: const Value('approved'),
+        approvedBy: Value(approvedBy),
+        approvedAt: Value(now),
+        lastUpdatedAt: Value(now),
       );
+      await (db.update(db.pendingCrateReturns)
+            ..where((t) => t.id.equals(returnId)))
+          .write(pcrComp);
+      await db.syncDao.enqueueUpsert('pending_crate_returns', pcrComp);
 
-      // 2. Append crate_ledger row
+      // 2. Append crate_ledger row (append-only).
       // quantityDelta must be negative (customer returning crates reduces their balance)
       final delta = -pending.quantity;
 
-      await db.into(db.crateLedger).insert(
-            CrateLedgerCompanion.insert(
-              id: Value(UuidV7.generate()),
-              businessId: pending.businessId,
-              customerId: Value(pending.customerId),
-              manufacturerId: const Value.absent(), // CHECK constraint requires exactly one
-              crateGroupId: pending.crateGroupId,
-              quantityDelta: delta,
-              movementType: 'returned',
-              referenceReturnId: Value(returnId),
-              performedBy: Value(approvedBy),
-            ),
-          );
+      final ledgerComp = CrateLedgerCompanion.insert(
+        id: Value(UuidV7.generate()),
+        businessId: pending.businessId,
+        customerId: Value(pending.customerId),
+        manufacturerId:
+            const Value.absent(), // CHECK constraint requires exactly one
+        crateGroupId: pending.crateGroupId,
+        quantityDelta: delta,
+        movementType: 'returned',
+        referenceReturnId: Value(returnId),
+        performedBy: Value(approvedBy),
+        lastUpdatedAt: Value(now),
+      );
+      await db.into(db.crateLedger).insert(ledgerComp);
+      await db.syncDao.enqueueUpsert('crate_ledger', ledgerComp);
 
-      // 3. Update customer_crate_balances cache via upsert
+      // 3. Update customer_crate_balances cache via upsert + enqueue the
+      //    resulting row so the cloud cache converges.
       await db.customStatement(
         'INSERT INTO customer_crate_balances (id, business_id, customer_id, crate_group_id, balance) '
         'VALUES (?, ?, ?, ?, ?) '
@@ -64,6 +73,13 @@ class CrateReturnApprovalService {
           delta
         ],
       );
+      final balRow = await (db.select(db.customerCrateBalances)
+            ..where((t) =>
+                t.businessId.equals(pending.businessId) &
+                t.customerId.equals(pending.customerId) &
+                t.crateGroupId.equals(pending.crateGroupId)))
+          .getSingle();
+      await db.syncDao.enqueueUpsert('customer_crate_balances', balRow);
     });
   }
 
@@ -79,15 +95,19 @@ class CrateReturnApprovalService {
     }
 
     await db.transaction(() async {
-      await db.pendingCrateReturnsDao.updateStatus(returnId, 'rejected');
-      await (db.update(db.pendingCrateReturns)..where((t) => t.id.equals(returnId)))
-          .write(
-        PendingCrateReturnsCompanion(
-          approvedBy: Value(approvedBy),
-          approvedAt: Value(DateTime.now()),
-          rejectionReason: Value(rejectionReason),
-        ),
+      final now = DateTime.now();
+      final pcrComp = PendingCrateReturnsCompanion(
+        id: Value(returnId),
+        status: const Value('rejected'),
+        approvedBy: Value(approvedBy),
+        approvedAt: Value(now),
+        rejectionReason: Value(rejectionReason),
+        lastUpdatedAt: Value(now),
       );
+      await (db.update(db.pendingCrateReturns)
+            ..where((t) => t.id.equals(returnId)))
+          .write(pcrComp);
+      await db.syncDao.enqueueUpsert('pending_crate_returns', pcrComp);
     });
   }
 }

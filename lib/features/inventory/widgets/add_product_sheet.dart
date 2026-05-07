@@ -101,9 +101,9 @@ class _AddProductSheetState extends ConsumerState<AddProductSheet> {
       final businessId = ref.read(authProvider).currentUser?.businessId;
       if (businessId != null) {
         for (final name in defaultCats) {
-          await db.into(db.categories).insert(
-                CategoriesCompanion.insert(name: name, businessId: businessId),
-              );
+          await db.catalogDao.insertCategory(
+            CategoriesCompanion.insert(name: name, businessId: businessId),
+          );
         }
       }
       cats = await db.select(db.categories).get();
@@ -396,21 +396,13 @@ class _AddProductSheetState extends ConsumerState<AddProductSheet> {
           categoryId: _selectedCategory?.id,
           unit: _unit,
           trackEmpties: _trackEmpties,
-        );
-        await (db.update(
-          db.products,
-        )..where((t) => t.id.equals(productId))).write(
-          ProductsCompanion(
-            subtitle: drift.Value(
-              _subtitleCtrl.text.trim().isEmpty
-                  ? null
-                  : _subtitleCtrl.text.trim(),
-            ),
-            colorHex: drift.Value(_colorHex),
-            supplierId: drift.Value(_selectedSupplier?.id),
-            size: drift.Value(_size),
-            lowStockThreshold: drift.Value(lowStock),
-          ),
+          lowStockThreshold: lowStock,
+          subtitle: _subtitleCtrl.text.trim().isEmpty
+              ? null
+              : _subtitleCtrl.text.trim(),
+          colorHex: _colorHex,
+          supplierId: _selectedSupplier?.id,
+          size: _size,
         );
 
         // 2. Add stock
@@ -550,7 +542,7 @@ class _AddProductSheetState extends ConsumerState<AddProductSheet> {
       final buyingKobo = (buyingPrice * 100).round();
       final lowStock = int.tryParse(_lowStockCtrl.text) ?? 5;
       final initialStock = int.tryParse(_initialStockCtrl.text) ?? 0;
-      final productId = await db.catalogDao.insertProduct(
+      final productId = await db.catalogDao.insertProductWithInitialStock(
         ProductsCompanion.insert(
           name: name,
           businessId: productBusinessId,
@@ -571,17 +563,10 @@ class _AddProductSheetState extends ConsumerState<AddProductSheet> {
           supplierId: drift.Value(_selectedSupplier?.id),
           categoryId: drift.Value(_selectedCategory?.id),
         ),
+        initialStock: initialStock > 0 ? initialStock : null,
+        warehouseId: _selectedWarehouse?.id,
+        performedBy: auth.currentUser?.id,
       );
-
-      if (initialStock > 0 && _selectedWarehouse != null) {
-        await db.inventoryDao.adjustStock(
-          productId,
-          _selectedWarehouse!.id,
-          initialStock,
-          'Initial stock by ${auth.currentUser?.name ?? 'Unknown'}',
-          auth.currentUser?.id,
-        );
-      }
 
       await ref
           .read(activityLogProvider)

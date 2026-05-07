@@ -55,8 +55,12 @@ class _PosHomeScreenState extends ConsumerState<PosHomeScreen> {
     final user = ref.read(authProvider).currentUser;
     if (user != null && user.roleTier >= 5) {
       if (ref.read(navigationProvider).lockedWarehouseId.value == null) {
+        // Stream-based first read: yields as soon as the warehouses table
+        // has at least one row, including after a fresh-login pull. The
+        // earlier one-shot `.get()` returned [] on a cold start and left
+        // the warehouse unlocked.
         final db = ref.read(databaseProvider);
-        final houses = await db.select(db.warehouses).get();
+        final houses = await db.select(db.warehouses).watch().first;
         if (houses.isNotEmpty && mounted) {
           ref.read(navigationProvider).setLockedWarehouse(houses.first.id);
         }

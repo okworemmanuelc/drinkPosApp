@@ -7,6 +7,22 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:reebaplus_pos/core/database/app_database.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+/// Thrown by [SupabaseSyncService.flushSale] when a `domain:pos_record_sale`
+/// envelope fails permanently at the server (insufficient_stock, FK / unique
+/// violation, tenant mismatch). The local optimistic sale has already
+/// committed; the caller is responsible for compensating (cancelling the
+/// order, refunding stock, voiding ledgers) and surfacing to the UI.
+class SaleSyncException implements Exception {
+  final String orderId;
+  final String errorMessage;
+  const SaleSyncException({
+    required this.orderId,
+    required this.errorMessage,
+  });
+  @override
+  String toString() => 'SaleSyncException(orderId=$orderId): $errorMessage';
+}
+
 /// Result of decoding the current Supabase session's access token.
 /// `businessId` is non-null only when the JWT actually carries a
 /// `business_id` claim (top-level or under `app_metadata` /
@@ -260,6 +276,25 @@ class SupabaseSyncService {
     }
     if (pendingItems.isEmpty) return;
 
+    // Partition off domain envelopes: each `domain:<rpc>` row is an atomic
+    // multi-table call routed through Postgres functions (see migration
+    // 0006_domain_rpcs.sql). They are not batched against each other — each
+    // one is an independent transaction — so they bypass the per-table
+    // grouping path entirely.
+    final domainItems = <SyncQueueData>[];
+    final tableItems = <SyncQueueData>[];
+    for (final item in pendingItems) {
+      if (item.actionType.startsWith('domain:')) {
+        domainItems.add(item);
+      } else {
+        tableItems.add(item);
+      }
+    }
+
+    if (domainItems.isNotEmpty) {
+      await _pushDomainItems(domainItems, sessionBusinessId);
+    }
+
     // Group items by their action signature (table + action + optional
     // conflict target). One Supabase round-trip per group, batched as an
     // array. PostgREST's array-upsert preserves partial-row semantics: only
@@ -267,7 +302,7 @@ class SupabaseSyncService {
     // Companions (e.g. markCompleted writing only {status, completed_at})
     // don't NULL-out untouched columns.
     final groups = <_PushGroup, List<SyncQueueData>>{};
-    for (final item in pendingItems) {
+    for (final item in tableItems) {
       final parts = item.actionType.split(':');
       if (parts.length < 2) continue;
       final group = _PushGroup(
@@ -370,6 +405,169 @@ class SupabaseSyncService {
     // next tick rather than recursing (avoids stack growth on huge backlogs).
     if (rawItems.length == 200) {
       Future.microtask(pushPending);
+    }
+  }
+
+  /// Pushes one outbox row per call to a Postgres RPC defined in
+  /// 0006_domain_rpcs.sql. Used for atomic multi-table actions
+  /// (`domain:pos_record_sale`, `domain:pos_inventory_delta`,
+  /// `domain:pos_create_product`) where the server applies the entire
+  /// business action in a single transaction. On success, applies the
+  /// server's authoritative response to the local cache without
+  /// re-enqueueing — this and `_restoreTableData` (for pull/realtime) are
+  /// the only legitimate paths that write to a synced table without
+  /// going through `enqueueUpsert`.
+  Future<void> _pushDomainItems(
+    List<SyncQueueData> items,
+    String sessionBusinessId,
+  ) async {
+    for (final item in items) {
+      await _db.syncDao.markInProgressBatch([item.id]);
+
+      Map<String, dynamic> payload;
+      try {
+        payload = jsonDecode(item.payload) as Map<String, dynamic>;
+      } catch (e) {
+        await _db.syncDao
+            .markFailed(item.id, 'decode_error: $e', permanent: true);
+        continue;
+      }
+
+      // Tenant guard. The RPC also checks server-side, but failing locally
+      // saves a round-trip and avoids a misleading 'tenant_mismatch' RPC
+      // error in the Sync Issues UI.
+      final payloadBiz = payload['p_business_id'];
+      if (item.businessId != sessionBusinessId ||
+          payloadBiz is! String ||
+          payloadBiz != sessionBusinessId) {
+        await _db.syncDao
+            .markFailed(item.id, 'missing_business_id', permanent: true);
+        continue;
+      }
+
+      final rpcName = item.actionType.substring('domain:'.length);
+      try {
+        final response = await _supabase.rpc(rpcName, params: payload);
+        await _applyDomainResponse(rpcName, response);
+        await _db.syncDao.markDone(item.id);
+      } on PostgrestException catch (e) {
+        // P0001 = app-level RAISE EXCEPTION (insufficient_stock,
+        // tenant_mismatch, etc.). 23xxx = integrity violations
+        // (unique, FK, check). Both are permanent — retrying without a
+        // schema/data change cannot succeed.
+        final code = e.code ?? '';
+        final isPermanent = code == 'P0001' ||
+            code.startsWith('23') ||
+            code == 'insufficient_privilege' ||
+            code == 'invalid_parameter_value';
+        debugPrint(
+          '[SyncService] Domain RPC $rpcName failed '
+          '(code=$code, permanent=$isPermanent): ${e.message}',
+        );
+        await _db.syncDao
+            .markFailed(item.id, 'pg_$code: ${e.message}', permanent: isPermanent);
+      } catch (e) {
+        debugPrint('[SyncService] Domain RPC $rpcName transient error: $e');
+        await _db.syncDao.markFailed(item.id, e.toString());
+      }
+    }
+  }
+
+  /// Reconciles the local cache with the server's authoritative response
+  /// from a domain RPC. Bypasses `enqueueUpsert` because the server already
+  /// has the truth — pushing it back would be a no-op round trip.
+  Future<void> _applyDomainResponse(
+    String rpcName,
+    dynamic response,
+  ) async {
+    if (response is! Map) return;
+    final map = Map<String, dynamic>.from(response);
+
+    // Inventory cache: pos_record_sale and pos_inventory_delta both return
+    // an `inventory_after` array of {product_id, warehouse_id, quantity,
+    // last_updated_at}. The Drift `bump_inventory_last_updated_at` trigger
+    // only fires when OLD.last_updated_at IS NEW.last_updated_at; we
+    // explicitly write the server's value, so the trigger is a no-op and
+    // the local row matches the cloud exactly.
+    final invAfter = map['inventory_after'];
+    if (invAfter is List) {
+      for (final raw in invAfter) {
+        if (raw is! Map) continue;
+        final productId = raw['product_id'] as String?;
+        final warehouseId = raw['warehouse_id'] as String?;
+        final quantity = raw['quantity'];
+        final luaStr = raw['last_updated_at'] as String?;
+        if (productId == null || warehouseId == null || quantity is! int) {
+          continue;
+        }
+        final lua = luaStr != null ? DateTime.tryParse(luaStr) : null;
+        await (_db.update(_db.inventory)
+              ..where((t) =>
+                  t.productId.equals(productId) &
+                  t.warehouseId.equals(warehouseId)))
+            .write(InventoryCompanion(
+          quantity: Value(quantity),
+          lastUpdatedAt: Value(lua ?? DateTime.now()),
+        ));
+      }
+    }
+
+    // pos_record_sale: bump the local order's last_updated_at to the
+    // server's value so the next pull's incremental cursor doesn't re-fetch
+    // it on every sync.
+    final orderId = map['order_id'] as String?;
+    final orderLua = map['order_last_updated_at'] as String?;
+    if (orderId != null && orderLua != null) {
+      final parsed = DateTime.tryParse(orderLua);
+      if (parsed != null) {
+        await (_db.update(_db.orders)..where((t) => t.id.equals(orderId)))
+            .write(OrdersCompanion(lastUpdatedAt: Value(parsed)));
+      }
+    }
+
+    // pos_create_product: same for products.
+    final productId = map['product_id'] as String?;
+    final productLua = map['product_last_updated_at'] as String?;
+    if (productId != null && productLua != null) {
+      final parsed = DateTime.tryParse(productLua);
+      if (parsed != null) {
+        await (_db.update(_db.products)..where((t) => t.id.equals(productId)))
+            .write(ProductsCompanion(lastUpdatedAt: Value(parsed)));
+      }
+    }
+  }
+
+  /// Synchronously pushes the pending `domain:pos_record_sale` envelope for
+  /// the given order. Used by the checkout flow when `isOnline = true` to
+  /// surface server-side errors (insufficient_stock, FK/unique violations)
+  /// to the user *before* the receipt prints.
+  ///
+  /// Throws [SaleSyncException] on permanent failure (P0001 / 23xxx).
+  /// Returns silently when:
+  ///   - the queue row is absent (already pushed by background drain), OR
+  ///   - the device is offline (the row stays pending and will drain later), OR
+  ///   - the RPC fails with a transient error (queued for backoff retry).
+  Future<void> flushSale(String orderId) async {
+    if (_supabase.auth.currentUser == null) return;
+    if (!isOnline.value) return;
+    final sessionBusinessId = _db.currentBusinessId;
+    if (sessionBusinessId == null) return;
+
+    final item = await _db.syncDao.findPendingDomainItem(
+      'domain:pos_record_sale',
+      payloadIdPath: r'$.p_order.id',
+      idValue: orderId,
+    );
+    if (item == null) return;
+
+    await _pushDomainItems([item], sessionBusinessId);
+
+    final updated = await _db.syncDao.getQueueItem(item.id);
+    if (updated?.status == 'failed') {
+      throw SaleSyncException(
+        orderId: orderId,
+        errorMessage: updated?.errorMessage ?? 'unknown error',
+      );
     }
   }
 
@@ -665,7 +863,18 @@ class SupabaseSyncService {
   Future<void> _initAutoPush() async {
     try {
       await _db.syncDao.resetStuckInProgress();
-      await _backfillAllUnsyncedTables();
+      // One-shot recovery: re-enqueue rows that were inserted before
+      // their owning DAO method was wired to call `enqueueUpsert` (i.e.
+      // pre-redesign leaks). Drift's NOT-NULL DEFAULT on `last_updated_at`
+      // means new writes are always tagged, so there's nothing to find on
+      // the second-and-beyond app launches. The flag prevents this scan
+      // from running per-launch.
+      final prefs = await SharedPreferences.getInstance();
+      const oneShotKey = 'global_unsynced_backfill_v2_2026Q2';
+      if (prefs.getBool(oneShotKey) != true) {
+        await _backfillAllUnsyncedTables();
+        await prefs.setBool(oneShotKey, true);
+      }
 
       if (_supabase.auth.currentUser != null) {
         await _db.syncDao.clearFailureBackoff();
@@ -850,9 +1059,43 @@ class SupabaseSyncService {
     }
   }
 
+  /// One-shot recovery for categories created before the
+  /// CatalogDao.insertCategory wiring landed. Earlier builds wrote default
+  /// categories straight into Drift without ever enqueueing them, so cloud
+  /// `categories` stayed empty and every product/inventory/stock_* push
+  /// FK-failed against it. Re-enqueue every local category once; the server's
+  /// ON CONFLICT (id) DO UPDATE makes this idempotent. Gated by a one-shot
+  /// SharedPreferences flag so subsequent launches don't re-flood the queue.
+  Future<void> _backfillUnsyncedCategories() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      const flagKey = 'categories_backfill_v1';
+      if (prefs.getBool(flagKey) == true) return;
+
+      final cats = await _db.select(_db.categories).get();
+      if (cats.isEmpty) {
+        await prefs.setBool(flagKey, true);
+        return;
+      }
+
+      var enqueued = 0;
+      for (final c in cats) {
+        await _db.syncDao.enqueueUpsert('categories', c);
+        enqueued++;
+      }
+      await prefs.setBool(flagKey, true);
+      if (enqueued > 0) {
+        debugPrint('[SyncService] Categories backfill: enqueued=$enqueued');
+      }
+    } catch (e) {
+      debugPrint('[SyncService] Categories backfill failed: $e');
+    }
+  }
+
   Future<void> _backfillAllUnsyncedTables() async {
     try {
       await _backfillUnsyncedWarehouses();
+      await _backfillUnsyncedCategories();
       await _backfillTable(_db.products, 'products', (row) => row.id);
       await _backfillTable(_db.categories, 'categories', (row) => row.id);
       await _backfillTable(_db.customers, 'customers', (row) => row.id);

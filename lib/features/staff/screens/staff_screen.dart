@@ -875,17 +875,19 @@ class _StaffFormSheetState extends ConsumerState<_StaffFormSheet> {
     } else {
       // Update existing staff member
       final db = ref.read(databaseProvider);
+      final userComp = UsersCompanion(
+        id: Value(widget.user!.id),
+        name: Value(name),
+        email: Value(email),
+        role: Value(role),
+        roleTier: Value(tier),
+        warehouseId: Value(_selectedWarehouseId),
+        lastUpdatedAt: Value(DateTime.now()),
+      );
       await (db.update(
         db.users,
-      )..where((u) => u.id.equals(widget.user!.id))).write(
-        UsersCompanion(
-          name: Value(name),
-          email: Value(email),
-          role: Value(role),
-          roleTier: Value(tier),
-          warehouseId: Value(_selectedWarehouseId),
-        ),
-      );
+      )..where((u) => u.id.equals(widget.user!.id))).write(userComp);
+      await db.syncDao.enqueueUpsert('users', userComp);
       // PIN goes through the canonical hash-and-write path so it is never
       // persisted in cleartext.
       await ref.read(authProvider).setUserPin(widget.user!.id, pin);

@@ -102,7 +102,10 @@ final activityLogProvider =
 
 // ── Order ───────────────────────────────────────────────────────────────────
 final orderServiceProvider = Provider<OrderService>((ref) {
-  return OrderService(ref.read(databaseProvider));
+  return OrderService(
+    ref.read(databaseProvider),
+    ref.read(supabaseSyncServiceProvider),
+  );
 });
 
 // ── Customer ────────────────────────────────────────────────────────────────

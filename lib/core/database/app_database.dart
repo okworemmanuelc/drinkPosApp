@@ -1042,7 +1042,7 @@ class AppDatabase extends _$AppDatabase {
   String? get currentBusinessId => businessIdResolver();
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -1066,6 +1066,37 @@ class AppDatabase extends _$AppDatabase {
         await m.addColumn(businesses, businesses.onboardingComplete);
         await customStatement(
           'UPDATE businesses SET onboarding_complete = 1',
+        );
+      }
+      if (from < 4) {
+        // v4: enqueue-time coalescing. Adds a partial unique index on
+        // sync_queue keyed on (action_type, payload->id) WHERE status =
+        // 'pending'. Before adding it, collapse any duplicate pending rows
+        // that may already exist — keep the latest by created_at and mark
+        // the rest as completed so the index can be created without
+        // violating uniqueness. Domain actions (action_type LIKE 'domain:%')
+        // are exempt since each is an independent atomic envelope.
+        await customStatement(
+          "UPDATE sync_queue SET status = 'completed', is_synced = 1 "
+          "WHERE id IN ("
+          "  SELECT id FROM ("
+          "    SELECT id, ROW_NUMBER() OVER ("
+          "      PARTITION BY action_type, json_extract(payload, '\$.id') "
+          "      ORDER BY created_at DESC"
+          "    ) AS rn "
+          "    FROM sync_queue "
+          "    WHERE status = 'pending' "
+          "      AND action_type NOT LIKE 'domain:%' "
+          "      AND json_extract(payload, '\$.id') IS NOT NULL"
+          "  ) WHERE rn > 1"
+          ")",
+        );
+        await customStatement(
+          "CREATE UNIQUE INDEX IF NOT EXISTS idx_sync_queue_dedup_pending "
+          "ON sync_queue (action_type, json_extract(payload, '\$.id')) "
+          "WHERE status = 'pending' "
+          "  AND action_type NOT LIKE 'domain:%' "
+          "  AND json_extract(payload, '\$.id') IS NOT NULL",
         );
       }
     },
@@ -1322,6 +1353,18 @@ List<String> get _postCreateStatements {
   // -- Partial unique on invites.code WHERE status='pending' --
   stmts.add(
     "CREATE UNIQUE INDEX uq_invites_pending_code ON invites (code) WHERE status = 'pending'",
+  );
+
+  // Enqueue-time coalescing: at most one pending sync_queue row per
+  // (action_type, payload.id). The trailing AND clause excludes domain
+  // actions (each domain envelope is an independent atomic call) and
+  // payloads without a top-level id (delete tombstones).
+  stmts.add(
+    "CREATE UNIQUE INDEX idx_sync_queue_dedup_pending "
+    "ON sync_queue (action_type, json_extract(payload, '\$.id')) "
+    "WHERE status = 'pending' "
+    "  AND action_type NOT LIKE 'domain:%' "
+    "  AND json_extract(payload, '\$.id') IS NOT NULL",
   );
 
   // -- bump_<table>_last_updated_at triggers --

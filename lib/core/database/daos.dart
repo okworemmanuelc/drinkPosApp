@@ -10,6 +10,14 @@ import 'package:reebaplus_pos/core/database/sync_helpers.dart';
 
 part 'daos.g.dart';
 
+/// Sentinel for "argument was not provided" on optional setter parameters,
+/// distinct from "argument was provided as null". Used by methods that
+/// accept partial-update payloads (e.g. `CatalogDao.updateProductDetails`)
+/// to map missing args to `Value.absent()` and explicit-null args to
+/// `Value(null)` — the latter clears the column, the former leaves it
+/// untouched.
+const Object _unset = Object();
+
 @DriftAccessor(
   tables: [Suppliers, Products, Categories, Warehouses, Manufacturers],
 )
@@ -50,6 +58,129 @@ class CatalogDao extends DatabaseAccessor<AppDatabase>
     );
     await into(products).insert(row);
     await db.syncDao.enqueueUpsert('products', row);
+    return id;
+  }
+
+  /// Combined product + optional initial-stock create. Replaces the
+  /// `insertProduct(...)` + `adjustStock(...)` two-step pattern with one
+  /// transactional local write + one domain envelope when the
+  /// `feature.domain_rpcs.product_create` flag is on. Without the flag,
+  /// behaviour is identical to the legacy two-step path (3-4 outbox
+  /// rows). With the flag, it's one row.
+  Future<String> insertProductWithInitialStock(
+    ProductsCompanion companion, {
+    int? initialStock,
+    String? warehouseId,
+    String? performedBy,
+  }) async {
+    final id = UuidV7.generate();
+    final productRow = companion.copyWith(
+      id: Value(id),
+      lastUpdatedAt: Value(DateTime.now()),
+    );
+
+    final flagValue =
+        await db.systemConfigDao.get('feature.domain_rpcs.product_create');
+    final useDomainRpc = flagValue == 'true' || flagValue == '"true"';
+    final hasInitialStock =
+        initialStock != null && initialStock > 0 && warehouseId != null;
+
+    await transaction(() async {
+      await into(products).insert(productRow);
+      if (!useDomainRpc) {
+        await db.syncDao.enqueueUpsert('products', productRow);
+      }
+
+      if (hasInitialStock) {
+        // 1. stock_adjustments parent row (anchor for the ledger insert).
+        final adjId = UuidV7.generate();
+        final adjComp = StockAdjustmentsCompanion.insert(
+          id: Value(adjId),
+          businessId: requireBusinessId(),
+          productId: id,
+          warehouseId: warehouseId,
+          quantityDiff: initialStock,
+          reason: 'initial_stock',
+          performedBy: Value(performedBy),
+          lastUpdatedAt: Value(DateTime.now()),
+        );
+        await db.into(db.stockAdjustments).insert(adjComp);
+        if (!useDomainRpc) {
+          await db.syncDao.enqueueUpsert('stock_adjustments', adjComp);
+        }
+
+        // 2. stock_transactions ledger row.
+        final txId = UuidV7.generate();
+        final txComp = StockTransactionsCompanion.insert(
+          id: Value(txId),
+          businessId: requireBusinessId(),
+          productId: id,
+          locationId: warehouseId,
+          quantityDelta: initialStock,
+          movementType: 'adjustment',
+          adjustmentId: Value(adjId),
+          performedBy: Value(performedBy),
+          lastUpdatedAt: Value(DateTime.now()),
+        );
+        await db.into(db.stockTransactions).insert(txComp);
+        if (!useDomainRpc) {
+          await db.syncDao.enqueueUpsert('stock_transactions', txComp);
+        }
+
+        // 3. Inventory cache upsert.
+        await customInsert(
+          'INSERT INTO inventory (id, business_id, product_id, warehouse_id, quantity) '
+          'VALUES (?, ?, ?, ?, ?) '
+          'ON CONFLICT(business_id, product_id, warehouse_id) DO UPDATE SET '
+          'quantity = quantity + excluded.quantity, '
+          'last_updated_at = CURRENT_TIMESTAMP',
+          variables: [
+            Variable(UuidV7.generate()),
+            Variable(requireBusinessId()),
+            Variable(id),
+            Variable(warehouseId),
+            Variable(initialStock),
+          ],
+          updates: {db.inventory},
+        );
+        if (!useDomainRpc) {
+          final invRow = await (db.select(db.inventory)
+                ..where((t) =>
+                    t.productId.equals(id) &
+                    t.warehouseId.equals(warehouseId) &
+                    t.businessId.equals(requireBusinessId())))
+              .getSingle();
+          await db.syncDao.enqueueUpsert('inventory', invRow);
+        }
+      }
+
+      if (useDomainRpc) {
+        final bundle = <String, dynamic>{
+          'p_business_id': requireBusinessId(),
+          'p_product': serializeInsertable(productRow),
+          'p_initial_stock': hasInitialStock
+              ? <String, dynamic>{
+                  'warehouse_id': warehouseId,
+                  'quantity': initialStock,
+                  'performed_by': performedBy,
+                }
+              : null,
+        };
+        await db.syncDao
+            .enqueue('domain:pos_create_product', jsonEncode(bundle));
+      }
+    });
+    return id;
+  }
+
+  Future<String> insertCategory(CategoriesCompanion companion) async {
+    final id = UuidV7.generate();
+    final row = companion.copyWith(
+      id: Value(id),
+      lastUpdatedAt: Value(DateTime.now()),
+    );
+    await into(categories).insert(row);
+    await db.syncDao.enqueueUpsert('categories', row);
     return id;
   }
 
@@ -114,6 +245,14 @@ class CatalogDao extends DatabaseAccessor<AppDatabase>
     bool? trackEmpties,
     int? lowStockThreshold,
     String? imagePath,
+    // Optional cosmetic / metadata fields. Wrapped with present-check
+    // sentinels so the caller can leave any of them out and the column
+    // stays untouched (Value.absent vs Value(null) — the latter would
+    // null-out the column).
+    Object? subtitle = _unset,
+    Object? colorHex = _unset,
+    Object? supplierId = _unset,
+    Object? size = _unset,
   }) async {
     final now = DateTime.now();
     final comp = ProductsCompanion(
@@ -136,6 +275,18 @@ class CatalogDao extends DatabaseAccessor<AppDatabase>
           ? const Value.absent()
           : Value(lowStockThreshold),
       imagePath: Value(imagePath),
+      subtitle: identical(subtitle, _unset)
+          ? const Value.absent()
+          : Value(subtitle as String?),
+      colorHex: identical(colorHex, _unset)
+          ? const Value.absent()
+          : Value(colorHex as String?),
+      supplierId: identical(supplierId, _unset)
+          ? const Value.absent()
+          : Value(supplierId as String?),
+      size: identical(size, _unset)
+          ? const Value.absent()
+          : Value(size as String?),
       lastUpdatedAt: Value(now),
     );
     await (update(
@@ -372,6 +523,14 @@ class InventoryDao extends DatabaseAccessor<AppDatabase>
   ) async {
     if (delta == 0) return;
     await transaction(() async {
+      // Feature flag: when on, the whole adjustment enqueues as a single
+      // `domain:pos_inventory_delta` envelope (one outbox row vs three).
+      // The server applies the same writes atomically with row-locked
+      // inventory deltas.
+      final flagValue =
+          await db.systemConfigDao.get('feature.domain_rpcs.inventory');
+      final useDomainRpc = flagValue == 'true' || flagValue == '"true"';
+
       // 1. Append stock_adjustments
       final adjustmentId = UuidV7.generate();
       final adjComp = StockAdjustmentsCompanion.insert(
@@ -385,7 +544,9 @@ class InventoryDao extends DatabaseAccessor<AppDatabase>
         lastUpdatedAt: Value(DateTime.now()),
       );
       await into(stockAdjustments).insert(adjComp);
-      await db.syncDao.enqueueUpsert('stock_adjustments', adjComp);
+      if (!useDomainRpc) {
+        await db.syncDao.enqueueUpsert('stock_adjustments', adjComp);
+      }
 
       // 2. Append stock_transactions ledger row
       final txId = UuidV7.generate();
@@ -401,7 +562,9 @@ class InventoryDao extends DatabaseAccessor<AppDatabase>
         lastUpdatedAt: Value(DateTime.now()),
       );
       await into(stockTransactions).insert(txComp);
-      await db.syncDao.enqueueUpsert('stock_transactions', txComp);
+      if (!useDomainRpc) {
+        await db.syncDao.enqueueUpsert('stock_transactions', txComp);
+      }
 
       // 3. UPSERT inventory cache
       if (delta >= 0) {
@@ -444,15 +607,38 @@ class InventoryDao extends DatabaseAccessor<AppDatabase>
         }
       }
 
-      final invRow =
-          await (select(inventory)..where(
-                (t) =>
-                    t.productId.equals(productId) &
-                    t.warehouseId.equals(warehouseId) &
-                    whereBusiness(t),
-              ))
-              .getSingle();
-      await db.syncDao.enqueueUpsert('inventory', invRow);
+      if (useDomainRpc) {
+        // Single domain envelope: server applies the delta atomically and
+        // returns the new quantity, which SyncService writes back to the
+        // local cache. No need to enqueue the inventory row separately.
+        final bundle = <String, dynamic>{
+          'p_business_id': requireBusinessId(),
+          'p_movements': [
+            {
+              'id': txId,
+              'product_id': productId,
+              'warehouse_id': warehouseId,
+              'quantity_delta': delta,
+              'movement_type': 'adjustment',
+              'ref_type': 'adjustment',
+              'ref_id': adjustmentId,
+              'performed_by': staffId,
+            },
+          ],
+        };
+        await db.syncDao
+            .enqueue('domain:pos_inventory_delta', jsonEncode(bundle));
+      } else {
+        final invRow =
+            await (select(inventory)..where(
+                  (t) =>
+                      t.productId.equals(productId) &
+                      t.warehouseId.equals(warehouseId) &
+                      whereBusiness(t),
+                ))
+                .getSingle();
+        await db.syncDao.enqueueUpsert('inventory', invRow);
+      }
     });
   }
 
@@ -772,15 +958,27 @@ class OrdersDao extends DatabaseAccessor<AppDatabase>
     return db.transaction(() async {
       final orderId = order.id.present ? order.id.value : UuidV7.generate();
 
+      // Feature flag: when on, this whole sale enqueues as a single
+      // domain envelope (`domain:pos_record_sale`) instead of 9-12
+      // separate per-table outbox rows. The server applies the entire
+      // sale atomically — see supabase/migrations/0006_domain_rpcs.sql.
+      // Off → legacy per-row enqueues (rollback path).
+      final flagValue =
+          await db.systemConfigDao.get('feature.domain_rpcs.sales');
+      final useDomainRpc = flagValue == 'true' || flagValue == '"true"';
+
       // 1. Insert Order
       final orderWithTime = order.copyWith(
         id: Value(orderId),
         lastUpdatedAt: Value(DateTime.now()),
       );
       await into(orders).insert(orderWithTime);
-      await db.syncDao.enqueueUpsert('orders', orderWithTime);
+      if (!useDomainRpc) {
+        await db.syncDao.enqueueUpsert('orders', orderWithTime);
+      }
 
       // 2. Insert OrderItems
+      final itemRecords = <OrderItemsCompanion>[];
       for (final item in items) {
         final itemId = item.id.present ? item.id.value : UuidV7.generate();
         final itemWithTime = item.copyWith(
@@ -789,7 +987,10 @@ class OrdersDao extends DatabaseAccessor<AppDatabase>
           lastUpdatedAt: Value(DateTime.now()),
         );
         await into(orderItems).insert(itemWithTime);
-        await db.syncDao.enqueueUpsert('order_items', itemWithTime);
+        itemRecords.add(itemWithTime);
+        if (!useDomainRpc) {
+          await db.syncDao.enqueueUpsert('order_items', itemWithTime);
+        }
       }
 
       // 3. Deduct Inventory — atomic guard (Issue #8)
@@ -820,6 +1021,7 @@ class OrdersDao extends DatabaseAccessor<AppDatabase>
       }
 
       // 4. Insert StockTransactions ledger rows
+      final stockTxRecords = <StockTransactionsCompanion>[];
       for (final item in items) {
         final txId = UuidV7.generate();
         final txComp = StockTransactionsCompanion.insert(
@@ -834,12 +1036,16 @@ class OrdersDao extends DatabaseAccessor<AppDatabase>
           lastUpdatedAt: Value(DateTime.now()),
         );
         await into(stockTransactions).insert(txComp);
-        await db.syncDao.enqueueUpsert('stock_transactions', txComp);
+        stockTxRecords.add(txComp);
+        if (!useDomainRpc) {
+          await db.syncDao.enqueueUpsert('stock_transactions', txComp);
+        }
       }
 
       // 5. Insert PaymentTransactions only when cash actually changed hands.
       // Wallet/credit sales are recorded by the wallet ledger, not as a
       // 0-kobo payment row.
+      PaymentTransactionsCompanion? paymentRecord;
       if (amountPaidKobo > 0) {
         final payId = UuidV7.generate();
         final payComp = PaymentTransactionsCompanion.insert(
@@ -853,11 +1059,15 @@ class OrdersDao extends DatabaseAccessor<AppDatabase>
           lastUpdatedAt: Value(DateTime.now()),
         );
         await into(paymentTransactions).insert(payComp);
-        await db.syncDao.enqueueUpsert('payment_transactions', payComp);
+        paymentRecord = payComp;
+        if (!useDomainRpc) {
+          await db.syncDao.enqueueUpsert('payment_transactions', payComp);
+        }
       }
 
       // 6. Insert WalletTransactions debit when the customer carries part or
       // all of the bill on their wallet (partial cash, full wallet, credit).
+      WalletTransactionsCompanion? walletTxRecord;
       if (walletDebitKobo > 0) {
         if (customerId == null) {
           throw ArgumentError(
@@ -892,22 +1102,51 @@ class OrdersDao extends DatabaseAccessor<AppDatabase>
           lastUpdatedAt: Value(DateTime.now()),
         );
         await into(walletTransactions).insert(walletTxComp);
-        await db.syncDao.enqueueUpsert('wallet_transactions', walletTxComp);
+        walletTxRecord = walletTxComp;
+        if (!useDomainRpc) {
+          await db.syncDao.enqueueUpsert('wallet_transactions', walletTxComp);
+        }
       }
 
-      // Update and enqueue updated inventory cache
-      for (final item in items) {
-        final productId = item.productId.value;
-        final whId = item.warehouseId.value;
-        final invRow =
-            await (select(inventory)..where(
-                  (t) =>
-                      t.productId.equals(productId) &
-                      t.warehouseId.equals(whId) &
-                      whereBusiness(t),
-                ))
-                .getSingle();
-        await db.syncDao.enqueueUpsert('inventory', invRow);
+      if (useDomainRpc) {
+        // One outbox row for the entire sale. The server transaction
+        // re-applies the same writes atomically; on insufficient_stock it
+        // raises P0001 and the whole RPC rolls back, leaving the cloud
+        // unchanged. The local optimistic state is reconciled when
+        // SyncService applies the RPC response (`inventory_after`).
+        final bundle = <String, dynamic>{
+          'p_business_id': requireBusinessId(),
+          'p_order': serializeInsertable(orderWithTime),
+          'p_items': itemRecords.map(serializeInsertable).toList(),
+          'p_stock_movements':
+              stockTxRecords.map(serializeInsertable).toList(),
+          'p_payment': paymentRecord != null
+              ? serializeInsertable(paymentRecord)
+              : null,
+          'p_wallet_tx': walletTxRecord != null
+              ? serializeInsertable(walletTxRecord)
+              : null,
+        };
+        await db.syncDao
+            .enqueue('domain:pos_record_sale', jsonEncode(bundle));
+      } else {
+        // Legacy: also enqueue the updated inventory cache so the cloud
+        // converges. Under the domain RPC path, the server is the
+        // authoritative writer and emits inventory_after — no enqueue
+        // needed.
+        for (final item in items) {
+          final productId = item.productId.value;
+          final whId = item.warehouseId.value;
+          final invRow =
+              await (select(inventory)..where(
+                    (t) =>
+                        t.productId.equals(productId) &
+                        t.warehouseId.equals(whId) &
+                        whereBusiness(t),
+                  ))
+                  .getSingle();
+          await db.syncDao.enqueueUpsert('inventory', invRow);
+        }
       }
 
       return orderId;
@@ -1824,6 +2063,64 @@ class SyncDao extends DatabaseAccessor<AppDatabase>
     );
   }
 
+  /// Looks up an existing pending sync_queue row for `(actionType, rowId)`
+  /// using the partial unique index `idx_sync_queue_dedup_pending`. Returns
+  /// the row id of the match, or null. Domain envelopes (action_type
+  /// 'domain:%') are exempt from coalescing — each is an independent
+  /// atomic call — so callers must skip this lookup for them.
+  Future<String?> _findPendingDuplicateId(
+    String actionType,
+    String rowId,
+  ) async {
+    final result = await customSelect(
+      "SELECT id FROM sync_queue "
+      "WHERE action_type = ?1 AND status = 'pending' "
+      "  AND json_extract(payload, '\$.id') = ?2 "
+      "LIMIT 1",
+      variables: [
+        Variable.withString(actionType),
+        Variable.withString(rowId),
+      ],
+      readsFrom: {syncQueue},
+    ).getSingleOrNull();
+    return result?.read<String>('id');
+  }
+
+  /// Finds a pending domain envelope by extracting an arbitrary JSON path
+  /// from the payload. Used by the checkout flow to locate the freshly
+  /// enqueued `domain:pos_record_sale` row matching a specific orderId
+  /// (the order id lives at `$.p_order.id`, not at the top-level `id`,
+  /// so the dedup lookup above doesn't match).
+  Future<SyncQueueData?> findPendingDomainItem(
+    String actionType, {
+    required String payloadIdPath,
+    required String idValue,
+  }) async {
+    final bid = db.businessIdResolver.call();
+    if (bid == null) return null;
+    final result = await customSelect(
+      "SELECT id FROM sync_queue "
+      "WHERE action_type = ?1 AND status = 'pending' "
+      "  AND business_id = ?2 "
+      "  AND json_extract(payload, ?3) = ?4 "
+      "LIMIT 1",
+      variables: [
+        Variable.withString(actionType),
+        Variable.withString(bid),
+        Variable.withString(payloadIdPath),
+        Variable.withString(idValue),
+      ],
+      readsFrom: {syncQueue},
+    ).getSingleOrNull();
+    if (result == null) return null;
+    return getQueueItem(result.read<String>('id'));
+  }
+
+  Future<SyncQueueData?> getQueueItem(String id) {
+    return (select(syncQueue)..where((t) => t.id.equals(id)))
+        .getSingleOrNull();
+  }
+
   Future<void> enqueueUpsert(String tableName, Insertable row) async {
     final payloadMap = serializeInsertable(row);
     if (payloadMap['business_id'] == null) {
@@ -1832,7 +2129,44 @@ class SyncDao extends DatabaseAccessor<AppDatabase>
         payloadMap['business_id'] = bid;
       }
     }
-    await enqueue('$tableName:upsert', jsonEncode(payloadMap));
+    final actionType = '$tableName:upsert';
+    final payloadJson = jsonEncode(payloadMap);
+    final rowId = payloadMap['id'];
+
+    // Without an id we can't coalesce safely — fall back to plain insert.
+    if (rowId is! String) {
+      await enqueue(actionType, payloadJson);
+      return;
+    }
+
+    // Coalesce: a burst of writes to the same row only needs the *latest*
+    // payload. Earlier pending entries are stale and must not produce
+    // separate outbox rows. The partial unique index guarantees at most
+    // one pending row per (action_type, payload.id); the transaction here
+    // makes the SELECT-then-INSERT atomic against concurrent enqueues from
+    // the same isolate (Drift serializes writes on a single connection).
+    await transaction(() async {
+      final existingId = await _findPendingDuplicateId(actionType, rowId);
+      if (existingId != null) {
+        await (update(syncQueue)..where((t) => t.id.equals(existingId)))
+            .write(SyncQueueCompanion(
+          payload: Value(payloadJson),
+          createdAt: Value(DateTime.now()),
+          attempts: const Value(0),
+          nextAttemptAt: const Value(null),
+          errorMessage: const Value(null),
+        ));
+      } else {
+        await into(syncQueue).insert(
+          SyncQueueCompanion.insert(
+            id: Value(UuidV7.generate()),
+            businessId: requireBusinessId(),
+            actionType: actionType,
+            payload: payloadJson,
+          ),
+        );
+      }
+    });
   }
 
   Future<void> enqueueDelete(String tableName, String rowId) async {
@@ -1845,7 +2179,48 @@ class SyncDao extends DatabaseAccessor<AppDatabase>
     if (bid != null) {
       payloadMap['business_id'] = bid;
     }
-    await enqueue('$tableName:delete', jsonEncode(payloadMap));
+    final upsertActionType = '$tableName:upsert';
+    final deleteActionType = '$tableName:delete';
+    final payloadJson = jsonEncode(payloadMap);
+
+    // A delete supersedes any pending upsert for the same row — pushing the
+    // upsert first would race against the delete and leave the cloud row
+    // in an inconsistent state. Mark any pending upsert as completed (so it
+    // doesn't push), then coalesce against an existing pending delete.
+    await transaction(() async {
+      final pendingUpsertId =
+          await _findPendingDuplicateId(upsertActionType, rowId);
+      if (pendingUpsertId != null) {
+        await (update(syncQueue)..where((t) => t.id.equals(pendingUpsertId)))
+            .write(const SyncQueueCompanion(
+          isSynced: Value(true),
+          status: Value('completed'),
+          nextAttemptAt: Value(null),
+        ));
+      }
+
+      final existingDeleteId =
+          await _findPendingDuplicateId(deleteActionType, rowId);
+      if (existingDeleteId != null) {
+        await (update(syncQueue)..where((t) => t.id.equals(existingDeleteId)))
+            .write(SyncQueueCompanion(
+          payload: Value(payloadJson),
+          createdAt: Value(DateTime.now()),
+          attempts: const Value(0),
+          nextAttemptAt: const Value(null),
+          errorMessage: const Value(null),
+        ));
+      } else {
+        await into(syncQueue).insert(
+          SyncQueueCompanion.insert(
+            id: Value(UuidV7.generate()),
+            businessId: requireBusinessId(),
+            actionType: deleteActionType,
+            payload: payloadJson,
+          ),
+        );
+      }
+    });
   }
 }
 
