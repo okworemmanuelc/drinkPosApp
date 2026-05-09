@@ -1097,7 +1097,6 @@ class SupabaseSyncService {
       await _backfillUnsyncedWarehouses();
       await _backfillUnsyncedCategories();
       await _backfillTable(_db.products, 'products', (row) => row.id);
-      await _backfillTable(_db.categories, 'categories', (row) => row.id);
       await _backfillTable(_db.customers, 'customers', (row) => row.id);
       await _backfillTable(_db.suppliers, 'suppliers', (row) => row.id);
       await _backfillTable(_db.orders, 'orders', (row) => row.id);
