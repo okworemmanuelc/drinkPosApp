@@ -51,6 +51,8 @@ app.*.map.json
 .env
 .env.local
 .env.production
+.env.test
+.envrc
 Thumbs.db
 
 # Local properties (machine-specific)
