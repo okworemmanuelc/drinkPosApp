@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:drift/drift.dart';
 import 'package:reebaplus_pos/core/database/app_database.dart';
 import 'package:reebaplus_pos/core/database/uuid_v7.dart';
@@ -21,11 +23,17 @@ class CrateReturnApprovalService {
       throw Exception('Return is already ${pending.status}');
     }
 
+    final flagValue = await db.systemConfigDao
+        .get('feature.domain_rpcs_v2.approve_crate_return');
+    final useDomainRpc = flagValue == 'true' || flagValue == '"true"';
+
     await db.transaction(() async {
-      // 1. Update pending_crate_returns row (status + approval metadata in
-      //    one combined Companion so a single enqueue carries the whole
-      //    transition to the cloud).
       final now = DateTime.now();
+      final ledgerId = UuidV7.generate();
+      // Returning crates reduces what the customer owes. pending.quantity
+      // is positive; negate for the ledger + balance increment.
+      final delta = -pending.quantity;
+
       final pcrComp = PendingCrateReturnsCompanion(
         id: Value(returnId),
         status: const Value('approved'),
@@ -36,18 +44,12 @@ class CrateReturnApprovalService {
       await (db.update(db.pendingCrateReturns)
             ..where((t) => t.id.equals(returnId)))
           .write(pcrComp);
-      await db.syncDao.enqueueUpsert('pending_crate_returns', pcrComp);
-
-      // 2. Append crate_ledger row (append-only).
-      // quantityDelta must be negative (customer returning crates reduces their balance)
-      final delta = -pending.quantity;
 
       final ledgerComp = CrateLedgerCompanion.insert(
-        id: Value(UuidV7.generate()),
+        id: Value(ledgerId),
         businessId: pending.businessId,
         customerId: Value(pending.customerId),
-        manufacturerId:
-            const Value.absent(), // CHECK constraint requires exactly one
+        manufacturerId: const Value.absent(),
         crateGroupId: pending.crateGroupId,
         quantityDelta: delta,
         movementType: 'returned',
@@ -56,10 +58,7 @@ class CrateReturnApprovalService {
         lastUpdatedAt: Value(now),
       );
       await db.into(db.crateLedger).insert(ledgerComp);
-      await db.syncDao.enqueueUpsert('crate_ledger', ledgerComp);
 
-      // 3. Update customer_crate_balances cache via upsert + enqueue the
-      //    resulting row so the cloud cache converges.
       await db.customStatement(
         'INSERT INTO customer_crate_balances (id, business_id, customer_id, crate_group_id, balance) '
         'VALUES (?, ?, ?, ?, ?) '
@@ -73,19 +72,33 @@ class CrateReturnApprovalService {
           delta
         ],
       );
-      final balRow = await (db.select(db.customerCrateBalances)
-            ..where((t) =>
-                t.businessId.equals(pending.businessId) &
-                t.customerId.equals(pending.customerId) &
-                t.crateGroupId.equals(pending.crateGroupId)))
-          .getSingle();
-      await db.syncDao.enqueueUpsert('customer_crate_balances', balRow);
+
+      if (useDomainRpc) {
+        final payload = <String, dynamic>{
+          'p_business_id': pending.businessId,
+          'p_actor_id': approvedBy,
+          'p_pending_return_id': returnId,
+          'p_ledger_id': ledgerId,
+        };
+        await db.syncDao
+            .enqueue('domain:pos_approve_crate_return', jsonEncode(payload));
+      } else {
+        await db.syncDao.enqueueUpsert('pending_crate_returns', pcrComp);
+        await db.syncDao.enqueueUpsert('crate_ledger', ledgerComp);
+        final balRow = await (db.select(db.customerCrateBalances)
+              ..where((t) =>
+                  t.businessId.equals(pending.businessId) &
+                  t.customerId.equals(pending.customerId) &
+                  t.crateGroupId.equals(pending.crateGroupId)))
+            .getSingle();
+        await db.syncDao.enqueueUpsert('customer_crate_balances', balRow);
+      }
     });
   }
 
   Future<void> reject(
     String returnId,
-    String approvedBy,
+    String rejectedBy,
     String rejectionReason,
   ) async {
     final pending = await db.pendingCrateReturnsDao.getById(returnId);
@@ -96,11 +109,12 @@ class CrateReturnApprovalService {
 
     await db.transaction(() async {
       final now = DateTime.now();
+      // Schema has approved_by/approved_at only; populating them on rejection
+      // would falsely mark the row as approved. rejectedBy is kept on the API
+      // surface for a future schema expansion without a caller-side rename.
       final pcrComp = PendingCrateReturnsCompanion(
         id: Value(returnId),
         status: const Value('rejected'),
-        approvedBy: Value(approvedBy),
-        approvedAt: Value(now),
         rejectionReason: Value(rejectionReason),
         lastUpdatedAt: Value(now),
       );

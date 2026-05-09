@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:drift/drift.dart';
 import 'package:reebaplus_pos/core/database/app_database.dart';
 import 'package:reebaplus_pos/core/database/uuid_v7.dart';
@@ -11,7 +13,7 @@ class WalletService {
   CustomerWalletsDao get _customerWalletsDao => _db.customerWalletsDao;
 
   /// Top up a customer's wallet.
-  /// 
+  ///
   /// Creates a WalletTransaction (credit) and a corresponding PaymentTransaction (wallet_topup).
   Future<void> topup({
     required String customerId,
@@ -21,16 +23,21 @@ class WalletService {
   }) async {
     final businessId = _walletTxDao.requireBusinessId();
     final wallet = await _customerWalletsDao.getByCustomerId(customerId);
-    
+
     if (wallet == null) {
       throw StateError('Customer $customerId has no wallet');
     }
+
+    final flagValue =
+        await _db.systemConfigDao.get('feature.domain_rpcs_v2.wallet_topup');
+    final useDomainRpc = flagValue == 'true' || flagValue == '"true"';
+
+    final referenceType = method == 'cash' ? 'topup_cash' : 'topup_transfer';
 
     await _db.transaction(() async {
       final walletTxnId = UuidV7.generate();
       final paymentTxnId = UuidV7.generate();
 
-      // 1. Insert WalletTransactions row
       final walletComp = WalletTransactionsCompanion.insert(
         id: Value(walletTxnId),
         businessId: businessId,
@@ -39,14 +46,12 @@ class WalletService {
         type: 'credit',
         amountKobo: amountKobo,
         signedAmountKobo: amountKobo,
-        referenceType: method == 'cash' ? 'topup_cash' : 'topup_transfer',
+        referenceType: referenceType,
         performedBy: Value(staffId),
         lastUpdatedAt: Value(DateTime.now()),
       );
       await _db.into(_db.walletTransactions).insert(walletComp);
-      await _db.syncDao.enqueueUpsert('wallet_transactions', walletComp);
 
-      // 2. Insert PaymentTransactions row
       final paymentComp = PaymentTransactionsCompanion.insert(
         id: Value(paymentTxnId),
         businessId: businessId,
@@ -58,7 +63,24 @@ class WalletService {
         lastUpdatedAt: Value(DateTime.now()),
       );
       await _db.into(_db.paymentTransactions).insert(paymentComp);
-      await _db.syncDao.enqueueUpsert('payment_transactions', paymentComp);
+
+      if (useDomainRpc) {
+        final payload = <String, dynamic>{
+          'p_business_id': businessId,
+          'p_actor_id': staffId,
+          'p_wallet_txn_id': walletTxnId,
+          'p_payment_id': paymentTxnId,
+          'p_customer_id': customerId,
+          'p_amount_kobo': amountKobo,
+          'p_method': method,
+          'p_reference_type': referenceType,
+        };
+        await _db.syncDao
+            .enqueue('domain:pos_wallet_topup', jsonEncode(payload));
+      } else {
+        await _db.syncDao.enqueueUpsert('wallet_transactions', walletComp);
+        await _db.syncDao.enqueueUpsert('payment_transactions', paymentComp);
+      }
     });
   }
 

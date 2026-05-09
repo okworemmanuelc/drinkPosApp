@@ -128,9 +128,17 @@ class _LocationDetailsScreenState extends ConsumerState<LocationDetailsScreen> {
       'is_deleted': false,
     });
 
-    // Keep current user assigned to this warehouse.
+    // Keep current user assigned to this warehouse. Carry the id on the
+    // companion so enqueueUpsert can coalesce; without the cloud write a
+    // second device's mirror keeps `warehouse_id = null` until something
+    // else touches the row.
+    final userAssignment = UsersCompanion(
+      id: drift.Value(widget.user.id),
+      warehouseId: drift.Value(warehouseId),
+    );
     await (db.update(db.users)..where((u) => u.id.equals(widget.user.id)))
-        .write(UsersCompanion(warehouseId: drift.Value(warehouseId)));
+        .write(userAssignment);
+    await db.syncDao.enqueueUpsert('users', userAssignment);
 
     final updatedUser = await db.warehousesDao.getUserById(widget.user.id);
 

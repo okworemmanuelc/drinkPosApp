@@ -21,8 +21,10 @@ class AuthService extends ValueNotifier<UserData?> {
   final NavigationService _nav;
   final SecureStorageService _secure;
   final SupabaseSyncService _sync;
+  final SupabaseClient _supabase;
 
-  AuthService(this._db, this._nav, this._secure, this._sync) : super(null) {
+  AuthService(this._db, this._nav, this._secure, this._sync, this._supabase)
+      : super(null) {
     // Hand the database a thin closure over `value` so DAOs that mix in
     // BusinessScopedDao always read the current session's businessId
     // (auto-tracks login/logout through the ValueNotifier).
@@ -176,10 +178,10 @@ class AuthService extends ValueNotifier<UserData?> {
   /// metadata. Returns null when no profile / business exists, when no user
   /// is signed in, or on network error.
   Future<SupabaseAccountInfo?> fetchSupabaseAccount() async {
-    final authUser = Supabase.instance.client.auth.currentUser;
+    final authUser = _supabase.auth.currentUser;
     if (authUser == null) return null;
     try {
-      final profile = await Supabase.instance.client
+      final profile = await _supabase
           .from('profiles')
           .select('business_id, role, role_tier')
           .eq('id', authUser.id)
@@ -187,7 +189,7 @@ class AuthService extends ValueNotifier<UserData?> {
       final businessId = profile?['business_id'] as String?;
       if (profile == null || businessId == null) return null;
 
-      final business = await Supabase.instance.client
+      final business = await _supabase
           .from('businesses')
           .select('name')
           .eq('id', businessId)
@@ -227,12 +229,12 @@ class AuthService extends ValueNotifier<UserData?> {
   /// If no local row exists yet, one is inserted with [setupRequiredPin] as a
   /// placeholder so the caller can route to PIN setup.
   Future<UserData?> upsertLocalUserFromProfile() async {
-    final authUser = Supabase.instance.client.auth.currentUser;
+    final authUser = _supabase.auth.currentUser;
     if (authUser == null || authUser.email == null) return null;
 
     Map<String, dynamic>? profile;
     try {
-      profile = await Supabase.instance.client
+      profile = await _supabase
           .from('profiles')
           .select('name, role, role_tier, business_id')
           .eq('id', authUser.id)
@@ -267,18 +269,21 @@ class AuthService extends ValueNotifier<UserData?> {
       )..where((u) => u.id.equals(existing.id))).getSingle();
     }
 
-    return _db
-        .into(_db.users)
-        .insertReturning(
-          UsersCompanion.insert(
-            name: name,
-            email: Value(email),
-            pin: setupRequiredPin,
-            role: role,
-            roleTier: Value(roleTier),
-            businessId: businessId,
-          ),
-        );
+    final newId = UuidV7.generate();
+    final now = DateTime.now();
+    final newComp = UsersCompanion.insert(
+      id: Value(newId),
+      name: name,
+      email: Value(email),
+      pin: setupRequiredPin,
+      role: role,
+      roleTier: Value(roleTier),
+      businessId: businessId,
+      lastUpdatedAt: Value(now),
+    );
+    final inserted = await _db.into(_db.users).insertReturning(newComp);
+    await _db.syncDao.enqueueUpsert('users', newComp);
+    return inserted;
   }
 
   // ── Supabase OTP ───────────────────────────────────────────────────────────
@@ -288,7 +293,7 @@ class AuthService extends ValueNotifier<UserData?> {
   Future<String?> sendOtp(String email) async {
     debugPrint('[AuthService] Attempting to send OTP to $email...');
     try {
-      await Supabase.instance.client.auth
+      await _supabase.auth
           .signInWithOtp(email: email, shouldCreateUser: true)
           .timeout(const Duration(seconds: 25));
       debugPrint('[AuthService] OTP send command success.');
@@ -314,7 +319,7 @@ class AuthService extends ValueNotifier<UserData?> {
   /// Returns null on success, or an error string on failure.
   Future<String?> verifyOtp(String email, String otp) async {
     try {
-      await Supabase.instance.client.auth.verifyOTP(
+      await _supabase.auth.verifyOTP(
         email: email,
         token: otp,
         type: OtpType.email,
@@ -414,7 +419,7 @@ class AuthService extends ValueNotifier<UserData?> {
     required String sessionId,
     required String deviceId,
   }) async {
-    final supabase = Supabase.instance.client;
+    final supabase = _supabase;
     final now = DateTime.now().toUtc().toIso8601String();
     final expiresAt = DateTime.now()
         .toUtc()
@@ -509,8 +514,16 @@ class AuthService extends ValueNotifier<UserData?> {
           linkedRecordId: currentUser.id.toString(),
         );
 
+        // Bump must reach the cloud so a second device doesn't re-fire
+        // the same warning. Companion carries the id so enqueueUpsert
+        // can coalesce on (action_type, payload.id).
+        final notifBump = UsersCompanion(
+          id: Value(currentUser.id),
+          lastNotificationSentAt: Value(now),
+        );
         await (_db.update(_db.users)..where((u) => u.id.equals(currentUser.id)))
-            .write(UsersCompanion(lastNotificationSentAt: Value(now)));
+            .write(notifBump);
+        await _db.syncDao.enqueueUpsert('users', notifBump);
       }
 
       // 3. Escalation notification (if 48h passed)
@@ -523,9 +536,14 @@ class AuthService extends ValueNotifier<UserData?> {
             linkedRecordId: currentUser.id.toString(),
           );
 
+          final escalationBump = UsersCompanion(
+            id: Value(currentUser.id),
+            lastNotificationSentAt: Value(now),
+          );
           await (_db.update(_db.users)
                 ..where((u) => u.id.equals(currentUser.id)))
-              .write(UsersCompanion(lastNotificationSentAt: Value(now)));
+              .write(escalationBump);
+          await _db.syncDao.enqueueUpsert('users', escalationBump);
         }
       }
 
@@ -584,7 +602,7 @@ class AuthService extends ValueNotifier<UserData?> {
 
     // 2. Terminate all sessions globally via Supabase (fire-and-forget —
     //    network failures should not prevent local logout).
-    Supabase.instance.client.auth
+    _supabase.auth
         .signOut(scope: SignOutScope.global)
         .catchError(
           (e) => debugPrint('[AuthService] Supabase signOut error: $e'),
@@ -625,7 +643,7 @@ class AuthService extends ValueNotifier<UserData?> {
   ///
   /// Throws on network failure rather than seeding partial local state.
   Future<UserData> createNewOwner(String email, String name) async {
-    final supabase = Supabase.instance.client;
+    final supabase = _supabase;
     final authUserId = supabase.auth.currentUser?.id;
     if (authUserId == null) {
       throw StateError(
@@ -683,19 +701,18 @@ class AuthService extends ValueNotifier<UserData?> {
               lastUpdatedAt: Value(now),
             ),
           );
-      await _db
-          .into(_db.users)
-          .insert(
-            UsersCompanion.insert(
-              id: Value(userId),
-              businessId: businessId,
-              name: name,
-              email: Value(email),
-              pin: setupRequiredPin,
-              role: 'ceo',
-              roleTier: const Value(5),
-            ),
-          );
+      final userComp = UsersCompanion.insert(
+        id: Value(userId),
+        businessId: businessId,
+        name: name,
+        email: Value(email),
+        pin: setupRequiredPin,
+        role: 'ceo',
+        roleTier: const Value(5),
+        lastUpdatedAt: Value(now),
+      );
+      await _db.into(_db.users).insert(userComp);
+      await _db.syncDao.enqueueUpsert('users', userComp);
     });
 
     return (_db.select(
@@ -713,7 +730,7 @@ class AuthService extends ValueNotifier<UserData?> {
   /// Returns the user's email on success, or null if cancelled / failed.
   Future<String?> signInWithGoogle() async {
     try {
-      final supabase = Supabase.instance.client;
+      final supabase = _supabase;
 
       // Start the OAuth flow — opens the browser.
       final success = await supabase.auth.signInWithOAuth(

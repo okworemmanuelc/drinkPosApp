@@ -404,20 +404,11 @@ class Inventory extends Table {
   ];
 }
 
-@DataClassName('CrateData')
-class Crates extends Table {
-  TextColumn get id => text().clientDefault(() => UuidV7.generate())();
-  TextColumn get businessId => text().references(Businesses, #id)();
-  TextColumn get productId => text().references(Products, #id)();
-  IntColumn get totalCrates => integer()();
-  IntColumn get emptyReturned => integer().withDefault(const Constant(0))();
-  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
-  DateTimeColumn get lastUpdatedAt =>
-      dateTime().withDefault(currentDateAndTime)();
-
-  @override
-  Set<Column> get primaryKey => {id};
-}
+// `Crates` table dropped in schemaVersion 5 (phase D §4.5). It was never
+// written by the live code path — `_syncedTenantTables` listed it but
+// no DAO touched it; the cloud counterpart will be dropped by the
+// `0016_drop_crates_and_lock_caches.sql` migration. Existing rows on
+// upgraded devices are dropped by the `from < 5` migration step.
 
 @DataClassName('StockTransferData')
 class StockTransfers extends Table {
@@ -978,7 +969,6 @@ class MigrationEvents extends Table {
     ManufacturerCrateBalances,
     CrateLedger,
     Inventory,
-    Crates,
     StockTransfers,
     StockAdjustments,
     StockTransactions,
@@ -1042,7 +1032,7 @@ class AppDatabase extends _$AppDatabase {
   String? get currentBusinessId => businessIdResolver();
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -1097,6 +1087,37 @@ class AppDatabase extends _$AppDatabase {
           "WHERE status = 'pending' "
           "  AND action_type NOT LIKE 'domain:%' "
           "  AND json_extract(payload, '\$.id') IS NOT NULL",
+        );
+      }
+      if (from < 5) {
+        // v5 (phase D §6.3 + §4.5):
+        //   * Drop the unused `crates` table. It was never written by
+        //     any live code path; the cloud counterpart drops in
+        //     `0016_drop_crates.sql`.
+        //   * Wipe the cache tables so the cloud's authoritative state
+        //     re-populates on the next pull. Stops local LWW-derived
+        //     drift between the cache and the underlying ledger now
+        //     that domain RPCs are the sole writers.
+        //   * Purge pending cache writebacks from `sync_queue`. With
+        //     phase D §6.3, caches are no longer in `_syncedTenantTables`
+        //     — but pre-upgrade `inventory:upsert` /
+        //     `customer_crate_balances:upsert` /
+        //     `manufacturer_crate_balances:upsert` rows would still
+        //     drain after the upgrade and push stale derived values that
+        //     race against the next domain-RPC `inventory_after`. Drop
+        //     them. The cloud cache rehydrates naturally on the next
+        //     domain-RPC response (every v2 RPC that touches a cache
+        //     returns the canonical row).
+        await customStatement('DROP TABLE IF EXISTS crates');
+        await customStatement('DELETE FROM inventory');
+        await customStatement('DELETE FROM customer_crate_balances');
+        await customStatement('DELETE FROM manufacturer_crate_balances');
+        await customStatement(
+          "DELETE FROM sync_queue WHERE action_type IN ("
+          "'inventory:upsert',"
+          "'customer_crate_balances:upsert',"
+          "'manufacturer_crate_balances:upsert'"
+          ")",
         );
       }
     },
@@ -1175,6 +1196,20 @@ LazyDatabase _openConnection() {
 // Indexes + triggers — applied in onCreate after createAll().
 // ---------------------------------------------------------------------------
 
+// Phase D §6.3: caches (`inventory`, `customer_crate_balances`,
+// `manufacturer_crate_balances`) are no longer pushed — domain RPCs are
+// the sole writers cloud-side, and `_applyDomainResponse` /
+// `_restoreTableData` write the cloud-authoritative values back locally.
+// They're still real Drift tables (UI reads from them); they're just
+// not in this set, so:
+//   * no per-row `<table>:upsert` outbox rows are pushed,
+//   * no `(business_id, last_updated_at)` index is created on
+//     onCreate (caches don't drive incremental cursor pulls — they
+//     arrive via snapshot or domain response),
+//   * no `bump_<table>_last_updated_at` trigger is created (the only
+//     local writers — _applyDomainResponse / _restoreTableData — set
+//     last_updated_at explicitly to the cloud's value).
+// `crates` is dropped entirely in v5; not in the set going forward.
 const List<String> _syncedTenantTables = [
   'users',
   'sessions',
@@ -1189,11 +1224,7 @@ const List<String> _syncedTenantTables = [
   'customers',
   'customer_wallets',
   'wallet_transactions',
-  'customer_crate_balances',
-  'manufacturer_crate_balances',
   'crate_ledger',
-  'inventory',
-  'crates',
   'stock_transfers',
   'stock_adjustments',
   'stock_transactions',

@@ -13288,485 +13288,6 @@ class InventoryCompanion extends UpdateCompanion<InventoryData> {
   }
 }
 
-class $CratesTable extends Crates with TableInfo<$CratesTable, CrateData> {
-  @override
-  final GeneratedDatabase attachedDatabase;
-  final String? _alias;
-  $CratesTable(this.attachedDatabase, [this._alias]);
-  static const VerificationMeta _idMeta = const VerificationMeta('id');
-  @override
-  late final GeneratedColumn<String> id = GeneratedColumn<String>(
-    'id',
-    aliasedName,
-    false,
-    type: DriftSqlType.string,
-    requiredDuringInsert: false,
-    clientDefault: () => UuidV7.generate(),
-  );
-  static const VerificationMeta _businessIdMeta = const VerificationMeta(
-    'businessId',
-  );
-  @override
-  late final GeneratedColumn<String> businessId = GeneratedColumn<String>(
-    'business_id',
-    aliasedName,
-    false,
-    type: DriftSqlType.string,
-    requiredDuringInsert: true,
-    defaultConstraints: GeneratedColumn.constraintIsAlways(
-      'REFERENCES businesses (id)',
-    ),
-  );
-  static const VerificationMeta _productIdMeta = const VerificationMeta(
-    'productId',
-  );
-  @override
-  late final GeneratedColumn<String> productId = GeneratedColumn<String>(
-    'product_id',
-    aliasedName,
-    false,
-    type: DriftSqlType.string,
-    requiredDuringInsert: true,
-    defaultConstraints: GeneratedColumn.constraintIsAlways(
-      'REFERENCES products (id)',
-    ),
-  );
-  static const VerificationMeta _totalCratesMeta = const VerificationMeta(
-    'totalCrates',
-  );
-  @override
-  late final GeneratedColumn<int> totalCrates = GeneratedColumn<int>(
-    'total_crates',
-    aliasedName,
-    false,
-    type: DriftSqlType.int,
-    requiredDuringInsert: true,
-  );
-  static const VerificationMeta _emptyReturnedMeta = const VerificationMeta(
-    'emptyReturned',
-  );
-  @override
-  late final GeneratedColumn<int> emptyReturned = GeneratedColumn<int>(
-    'empty_returned',
-    aliasedName,
-    false,
-    type: DriftSqlType.int,
-    requiredDuringInsert: false,
-    defaultValue: const Constant(0),
-  );
-  static const VerificationMeta _createdAtMeta = const VerificationMeta(
-    'createdAt',
-  );
-  @override
-  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
-    'created_at',
-    aliasedName,
-    false,
-    type: DriftSqlType.dateTime,
-    requiredDuringInsert: false,
-    defaultValue: currentDateAndTime,
-  );
-  static const VerificationMeta _lastUpdatedAtMeta = const VerificationMeta(
-    'lastUpdatedAt',
-  );
-  @override
-  late final GeneratedColumn<DateTime> lastUpdatedAt =
-      GeneratedColumn<DateTime>(
-        'last_updated_at',
-        aliasedName,
-        false,
-        type: DriftSqlType.dateTime,
-        requiredDuringInsert: false,
-        defaultValue: currentDateAndTime,
-      );
-  @override
-  List<GeneratedColumn> get $columns => [
-    id,
-    businessId,
-    productId,
-    totalCrates,
-    emptyReturned,
-    createdAt,
-    lastUpdatedAt,
-  ];
-  @override
-  String get aliasedName => _alias ?? actualTableName;
-  @override
-  String get actualTableName => $name;
-  static const String $name = 'crates';
-  @override
-  VerificationContext validateIntegrity(
-    Insertable<CrateData> instance, {
-    bool isInserting = false,
-  }) {
-    final context = VerificationContext();
-    final data = instance.toColumns(true);
-    if (data.containsKey('id')) {
-      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
-    }
-    if (data.containsKey('business_id')) {
-      context.handle(
-        _businessIdMeta,
-        businessId.isAcceptableOrUnknown(data['business_id']!, _businessIdMeta),
-      );
-    } else if (isInserting) {
-      context.missing(_businessIdMeta);
-    }
-    if (data.containsKey('product_id')) {
-      context.handle(
-        _productIdMeta,
-        productId.isAcceptableOrUnknown(data['product_id']!, _productIdMeta),
-      );
-    } else if (isInserting) {
-      context.missing(_productIdMeta);
-    }
-    if (data.containsKey('total_crates')) {
-      context.handle(
-        _totalCratesMeta,
-        totalCrates.isAcceptableOrUnknown(
-          data['total_crates']!,
-          _totalCratesMeta,
-        ),
-      );
-    } else if (isInserting) {
-      context.missing(_totalCratesMeta);
-    }
-    if (data.containsKey('empty_returned')) {
-      context.handle(
-        _emptyReturnedMeta,
-        emptyReturned.isAcceptableOrUnknown(
-          data['empty_returned']!,
-          _emptyReturnedMeta,
-        ),
-      );
-    }
-    if (data.containsKey('created_at')) {
-      context.handle(
-        _createdAtMeta,
-        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
-      );
-    }
-    if (data.containsKey('last_updated_at')) {
-      context.handle(
-        _lastUpdatedAtMeta,
-        lastUpdatedAt.isAcceptableOrUnknown(
-          data['last_updated_at']!,
-          _lastUpdatedAtMeta,
-        ),
-      );
-    }
-    return context;
-  }
-
-  @override
-  Set<GeneratedColumn> get $primaryKey => {id};
-  @override
-  CrateData map(Map<String, dynamic> data, {String? tablePrefix}) {
-    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
-    return CrateData(
-      id: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}id'],
-      )!,
-      businessId: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}business_id'],
-      )!,
-      productId: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}product_id'],
-      )!,
-      totalCrates: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
-        data['${effectivePrefix}total_crates'],
-      )!,
-      emptyReturned: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
-        data['${effectivePrefix}empty_returned'],
-      )!,
-      createdAt: attachedDatabase.typeMapping.read(
-        DriftSqlType.dateTime,
-        data['${effectivePrefix}created_at'],
-      )!,
-      lastUpdatedAt: attachedDatabase.typeMapping.read(
-        DriftSqlType.dateTime,
-        data['${effectivePrefix}last_updated_at'],
-      )!,
-    );
-  }
-
-  @override
-  $CratesTable createAlias(String alias) {
-    return $CratesTable(attachedDatabase, alias);
-  }
-}
-
-class CrateData extends DataClass implements Insertable<CrateData> {
-  final String id;
-  final String businessId;
-  final String productId;
-  final int totalCrates;
-  final int emptyReturned;
-  final DateTime createdAt;
-  final DateTime lastUpdatedAt;
-  const CrateData({
-    required this.id,
-    required this.businessId,
-    required this.productId,
-    required this.totalCrates,
-    required this.emptyReturned,
-    required this.createdAt,
-    required this.lastUpdatedAt,
-  });
-  @override
-  Map<String, Expression> toColumns(bool nullToAbsent) {
-    final map = <String, Expression>{};
-    map['id'] = Variable<String>(id);
-    map['business_id'] = Variable<String>(businessId);
-    map['product_id'] = Variable<String>(productId);
-    map['total_crates'] = Variable<int>(totalCrates);
-    map['empty_returned'] = Variable<int>(emptyReturned);
-    map['created_at'] = Variable<DateTime>(createdAt);
-    map['last_updated_at'] = Variable<DateTime>(lastUpdatedAt);
-    return map;
-  }
-
-  CratesCompanion toCompanion(bool nullToAbsent) {
-    return CratesCompanion(
-      id: Value(id),
-      businessId: Value(businessId),
-      productId: Value(productId),
-      totalCrates: Value(totalCrates),
-      emptyReturned: Value(emptyReturned),
-      createdAt: Value(createdAt),
-      lastUpdatedAt: Value(lastUpdatedAt),
-    );
-  }
-
-  factory CrateData.fromJson(
-    Map<String, dynamic> json, {
-    ValueSerializer? serializer,
-  }) {
-    serializer ??= driftRuntimeOptions.defaultSerializer;
-    return CrateData(
-      id: serializer.fromJson<String>(json['id']),
-      businessId: serializer.fromJson<String>(json['businessId']),
-      productId: serializer.fromJson<String>(json['productId']),
-      totalCrates: serializer.fromJson<int>(json['totalCrates']),
-      emptyReturned: serializer.fromJson<int>(json['emptyReturned']),
-      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
-      lastUpdatedAt: serializer.fromJson<DateTime>(json['lastUpdatedAt']),
-    );
-  }
-  @override
-  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
-    serializer ??= driftRuntimeOptions.defaultSerializer;
-    return <String, dynamic>{
-      'id': serializer.toJson<String>(id),
-      'businessId': serializer.toJson<String>(businessId),
-      'productId': serializer.toJson<String>(productId),
-      'totalCrates': serializer.toJson<int>(totalCrates),
-      'emptyReturned': serializer.toJson<int>(emptyReturned),
-      'createdAt': serializer.toJson<DateTime>(createdAt),
-      'lastUpdatedAt': serializer.toJson<DateTime>(lastUpdatedAt),
-    };
-  }
-
-  CrateData copyWith({
-    String? id,
-    String? businessId,
-    String? productId,
-    int? totalCrates,
-    int? emptyReturned,
-    DateTime? createdAt,
-    DateTime? lastUpdatedAt,
-  }) => CrateData(
-    id: id ?? this.id,
-    businessId: businessId ?? this.businessId,
-    productId: productId ?? this.productId,
-    totalCrates: totalCrates ?? this.totalCrates,
-    emptyReturned: emptyReturned ?? this.emptyReturned,
-    createdAt: createdAt ?? this.createdAt,
-    lastUpdatedAt: lastUpdatedAt ?? this.lastUpdatedAt,
-  );
-  CrateData copyWithCompanion(CratesCompanion data) {
-    return CrateData(
-      id: data.id.present ? data.id.value : this.id,
-      businessId: data.businessId.present
-          ? data.businessId.value
-          : this.businessId,
-      productId: data.productId.present ? data.productId.value : this.productId,
-      totalCrates: data.totalCrates.present
-          ? data.totalCrates.value
-          : this.totalCrates,
-      emptyReturned: data.emptyReturned.present
-          ? data.emptyReturned.value
-          : this.emptyReturned,
-      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
-      lastUpdatedAt: data.lastUpdatedAt.present
-          ? data.lastUpdatedAt.value
-          : this.lastUpdatedAt,
-    );
-  }
-
-  @override
-  String toString() {
-    return (StringBuffer('CrateData(')
-          ..write('id: $id, ')
-          ..write('businessId: $businessId, ')
-          ..write('productId: $productId, ')
-          ..write('totalCrates: $totalCrates, ')
-          ..write('emptyReturned: $emptyReturned, ')
-          ..write('createdAt: $createdAt, ')
-          ..write('lastUpdatedAt: $lastUpdatedAt')
-          ..write(')'))
-        .toString();
-  }
-
-  @override
-  int get hashCode => Object.hash(
-    id,
-    businessId,
-    productId,
-    totalCrates,
-    emptyReturned,
-    createdAt,
-    lastUpdatedAt,
-  );
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      (other is CrateData &&
-          other.id == this.id &&
-          other.businessId == this.businessId &&
-          other.productId == this.productId &&
-          other.totalCrates == this.totalCrates &&
-          other.emptyReturned == this.emptyReturned &&
-          other.createdAt == this.createdAt &&
-          other.lastUpdatedAt == this.lastUpdatedAt);
-}
-
-class CratesCompanion extends UpdateCompanion<CrateData> {
-  final Value<String> id;
-  final Value<String> businessId;
-  final Value<String> productId;
-  final Value<int> totalCrates;
-  final Value<int> emptyReturned;
-  final Value<DateTime> createdAt;
-  final Value<DateTime> lastUpdatedAt;
-  final Value<int> rowid;
-  const CratesCompanion({
-    this.id = const Value.absent(),
-    this.businessId = const Value.absent(),
-    this.productId = const Value.absent(),
-    this.totalCrates = const Value.absent(),
-    this.emptyReturned = const Value.absent(),
-    this.createdAt = const Value.absent(),
-    this.lastUpdatedAt = const Value.absent(),
-    this.rowid = const Value.absent(),
-  });
-  CratesCompanion.insert({
-    this.id = const Value.absent(),
-    required String businessId,
-    required String productId,
-    required int totalCrates,
-    this.emptyReturned = const Value.absent(),
-    this.createdAt = const Value.absent(),
-    this.lastUpdatedAt = const Value.absent(),
-    this.rowid = const Value.absent(),
-  }) : businessId = Value(businessId),
-       productId = Value(productId),
-       totalCrates = Value(totalCrates);
-  static Insertable<CrateData> custom({
-    Expression<String>? id,
-    Expression<String>? businessId,
-    Expression<String>? productId,
-    Expression<int>? totalCrates,
-    Expression<int>? emptyReturned,
-    Expression<DateTime>? createdAt,
-    Expression<DateTime>? lastUpdatedAt,
-    Expression<int>? rowid,
-  }) {
-    return RawValuesInsertable({
-      if (id != null) 'id': id,
-      if (businessId != null) 'business_id': businessId,
-      if (productId != null) 'product_id': productId,
-      if (totalCrates != null) 'total_crates': totalCrates,
-      if (emptyReturned != null) 'empty_returned': emptyReturned,
-      if (createdAt != null) 'created_at': createdAt,
-      if (lastUpdatedAt != null) 'last_updated_at': lastUpdatedAt,
-      if (rowid != null) 'rowid': rowid,
-    });
-  }
-
-  CratesCompanion copyWith({
-    Value<String>? id,
-    Value<String>? businessId,
-    Value<String>? productId,
-    Value<int>? totalCrates,
-    Value<int>? emptyReturned,
-    Value<DateTime>? createdAt,
-    Value<DateTime>? lastUpdatedAt,
-    Value<int>? rowid,
-  }) {
-    return CratesCompanion(
-      id: id ?? this.id,
-      businessId: businessId ?? this.businessId,
-      productId: productId ?? this.productId,
-      totalCrates: totalCrates ?? this.totalCrates,
-      emptyReturned: emptyReturned ?? this.emptyReturned,
-      createdAt: createdAt ?? this.createdAt,
-      lastUpdatedAt: lastUpdatedAt ?? this.lastUpdatedAt,
-      rowid: rowid ?? this.rowid,
-    );
-  }
-
-  @override
-  Map<String, Expression> toColumns(bool nullToAbsent) {
-    final map = <String, Expression>{};
-    if (id.present) {
-      map['id'] = Variable<String>(id.value);
-    }
-    if (businessId.present) {
-      map['business_id'] = Variable<String>(businessId.value);
-    }
-    if (productId.present) {
-      map['product_id'] = Variable<String>(productId.value);
-    }
-    if (totalCrates.present) {
-      map['total_crates'] = Variable<int>(totalCrates.value);
-    }
-    if (emptyReturned.present) {
-      map['empty_returned'] = Variable<int>(emptyReturned.value);
-    }
-    if (createdAt.present) {
-      map['created_at'] = Variable<DateTime>(createdAt.value);
-    }
-    if (lastUpdatedAt.present) {
-      map['last_updated_at'] = Variable<DateTime>(lastUpdatedAt.value);
-    }
-    if (rowid.present) {
-      map['rowid'] = Variable<int>(rowid.value);
-    }
-    return map;
-  }
-
-  @override
-  String toString() {
-    return (StringBuffer('CratesCompanion(')
-          ..write('id: $id, ')
-          ..write('businessId: $businessId, ')
-          ..write('productId: $productId, ')
-          ..write('totalCrates: $totalCrates, ')
-          ..write('emptyReturned: $emptyReturned, ')
-          ..write('createdAt: $createdAt, ')
-          ..write('lastUpdatedAt: $lastUpdatedAt, ')
-          ..write('rowid: $rowid')
-          ..write(')'))
-        .toString();
-  }
-}
-
 class $StockTransfersTable extends StockTransfers
     with TableInfo<$StockTransfersTable, StockTransferData> {
   @override
@@ -26743,7 +26264,6 @@ abstract class _$AppDatabase extends GeneratedDatabase {
       $PendingCrateReturnsTable(this);
   late final $CrateLedgerTable crateLedger = $CrateLedgerTable(this);
   late final $InventoryTable inventory = $InventoryTable(this);
-  late final $CratesTable crates = $CratesTable(this);
   late final $StockTransfersTable stockTransfers = $StockTransfersTable(this);
   late final $StockAdjustmentsTable stockAdjustments = $StockAdjustmentsTable(
     this,
@@ -26841,7 +26361,6 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     pendingCrateReturns,
     crateLedger,
     inventory,
-    crates,
     stockTransfers,
     stockAdjustments,
     purchases,
@@ -27254,25 +26773,6 @@ final class $$BusinessesTableReferences
     ).filter((f) => f.businessId.id.sqlEquals($_itemColumn<String>('id')!));
 
     final cache = $_typedResult.readTableOrNull(_inventoryRefsTable($_db));
-    return ProcessedTableManager(
-      manager.$state.copyWith(prefetchedData: cache),
-    );
-  }
-
-  static MultiTypedResultKey<$CratesTable, List<CrateData>> _cratesRefsTable(
-    _$AppDatabase db,
-  ) => MultiTypedResultKey.fromTable(
-    db.crates,
-    aliasName: $_aliasNameGenerator(db.businesses.id, db.crates.businessId),
-  );
-
-  $$CratesTableProcessedTableManager get cratesRefs {
-    final manager = $$CratesTableTableManager(
-      $_db,
-      $_db.crates,
-    ).filter((f) => f.businessId.id.sqlEquals($_itemColumn<String>('id')!));
-
-    final cache = $_typedResult.readTableOrNull(_cratesRefsTable($_db));
     return ProcessedTableManager(
       manager.$state.copyWith(prefetchedData: cache),
     );
@@ -28129,31 +27629,6 @@ class $$BusinessesTableFilterComposer
           }) => $$InventoryTableFilterComposer(
             $db: $db,
             $table: $db.inventory,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return f(composer);
-  }
-
-  Expression<bool> cratesRefs(
-    Expression<bool> Function($$CratesTableFilterComposer f) f,
-  ) {
-    final $$CratesTableFilterComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.id,
-      referencedTable: $db.crates,
-      getReferencedColumn: (t) => t.businessId,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$CratesTableFilterComposer(
-            $db: $db,
-            $table: $db.crates,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -29147,31 +28622,6 @@ class $$BusinessesTableAnnotationComposer
     return f(composer);
   }
 
-  Expression<T> cratesRefs<T extends Object>(
-    Expression<T> Function($$CratesTableAnnotationComposer a) f,
-  ) {
-    final $$CratesTableAnnotationComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.id,
-      referencedTable: $db.crates,
-      getReferencedColumn: (t) => t.businessId,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$CratesTableAnnotationComposer(
-            $db: $db,
-            $table: $db.crates,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return f(composer);
-  }
-
   Expression<T> stockTransfersRefs<T extends Object>(
     Expression<T> Function($$StockTransfersTableAnnotationComposer a) f,
   ) {
@@ -29657,7 +29107,6 @@ class $$BusinessesTableTableManager
             bool pendingCrateReturnsRefs,
             bool crateLedgerRefs,
             bool inventoryRefs,
-            bool cratesRefs,
             bool stockTransfersRefs,
             bool stockAdjustmentsRefs,
             bool purchasesRefs,
@@ -29768,7 +29217,6 @@ class $$BusinessesTableTableManager
                 pendingCrateReturnsRefs = false,
                 crateLedgerRefs = false,
                 inventoryRefs = false,
-                cratesRefs = false,
                 stockTransfersRefs = false,
                 stockAdjustmentsRefs = false,
                 purchasesRefs = false,
@@ -29809,7 +29257,6 @@ class $$BusinessesTableTableManager
                     if (pendingCrateReturnsRefs) db.pendingCrateReturns,
                     if (crateLedgerRefs) db.crateLedger,
                     if (inventoryRefs) db.inventory,
-                    if (cratesRefs) db.crates,
                     if (stockTransfersRefs) db.stockTransfers,
                     if (stockAdjustmentsRefs) db.stockAdjustments,
                     if (purchasesRefs) db.purchases,
@@ -30183,27 +29630,6 @@ class $$BusinessesTableTableManager
                                 table,
                                 p0,
                               ).inventoryRefs,
-                          referencedItemsForCurrentItem:
-                              (item, referencedItems) => referencedItems.where(
-                                (e) => e.businessId == item.id,
-                              ),
-                          typedResults: items,
-                        ),
-                      if (cratesRefs)
-                        await $_getPrefetchedData<
-                          BusinessData,
-                          $BusinessesTable,
-                          CrateData
-                        >(
-                          currentTable: table,
-                          referencedTable: $$BusinessesTableReferences
-                              ._cratesRefsTable(db),
-                          managerFromTypedResult: (p0) =>
-                              $$BusinessesTableReferences(
-                                db,
-                                table,
-                                p0,
-                              ).cratesRefs,
                           referencedItemsForCurrentItem:
                               (item, referencedItems) => referencedItems.where(
                                 (e) => e.businessId == item.id,
@@ -30626,7 +30052,6 @@ typedef $$BusinessesTableProcessedTableManager =
         bool pendingCrateReturnsRefs,
         bool crateLedgerRefs,
         bool inventoryRefs,
-        bool cratesRefs,
         bool stockTransfersRefs,
         bool stockAdjustmentsRefs,
         bool purchasesRefs,
@@ -36199,25 +35624,6 @@ final class $$ProductsTableReferences
     );
   }
 
-  static MultiTypedResultKey<$CratesTable, List<CrateData>> _cratesRefsTable(
-    _$AppDatabase db,
-  ) => MultiTypedResultKey.fromTable(
-    db.crates,
-    aliasName: $_aliasNameGenerator(db.products.id, db.crates.productId),
-  );
-
-  $$CratesTableProcessedTableManager get cratesRefs {
-    final manager = $$CratesTableTableManager(
-      $_db,
-      $_db.crates,
-    ).filter((f) => f.productId.id.sqlEquals($_itemColumn<String>('id')!));
-
-    final cache = $_typedResult.readTableOrNull(_cratesRefsTable($_db));
-    return ProcessedTableManager(
-      manager.$state.copyWith(prefetchedData: cache),
-    );
-  }
-
   static MultiTypedResultKey<$StockTransfersTable, List<StockTransferData>>
   _stockTransfersRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
     db.stockTransfers,
@@ -36639,31 +36045,6 @@ class $$ProductsTableFilterComposer
           }) => $$InventoryTableFilterComposer(
             $db: $db,
             $table: $db.inventory,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return f(composer);
-  }
-
-  Expression<bool> cratesRefs(
-    Expression<bool> Function($$CratesTableFilterComposer f) f,
-  ) {
-    final $$CratesTableFilterComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.id,
-      referencedTable: $db.crates,
-      getReferencedColumn: (t) => t.productId,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$CratesTableFilterComposer(
-            $db: $db,
-            $table: $db.crates,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -37361,31 +36742,6 @@ class $$ProductsTableAnnotationComposer
     return f(composer);
   }
 
-  Expression<T> cratesRefs<T extends Object>(
-    Expression<T> Function($$CratesTableAnnotationComposer a) f,
-  ) {
-    final $$CratesTableAnnotationComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.id,
-      referencedTable: $db.crates,
-      getReferencedColumn: (t) => t.productId,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$CratesTableAnnotationComposer(
-            $db: $db,
-            $table: $db.crates,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return f(composer);
-  }
-
   Expression<T> stockTransfersRefs<T extends Object>(
     Expression<T> Function($$StockTransfersTableAnnotationComposer a) f,
   ) {
@@ -37559,7 +36915,6 @@ class $$ProductsTableTableManager
             bool manufacturerId,
             bool priceListsRefs,
             bool inventoryRefs,
-            bool cratesRefs,
             bool stockTransfersRefs,
             bool stockAdjustmentsRefs,
             bool stockTransactionsRefs,
@@ -37732,7 +37087,6 @@ class $$ProductsTableTableManager
                 manufacturerId = false,
                 priceListsRefs = false,
                 inventoryRefs = false,
-                cratesRefs = false,
                 stockTransfersRefs = false,
                 stockAdjustmentsRefs = false,
                 stockTransactionsRefs = false,
@@ -37745,7 +37099,6 @@ class $$ProductsTableTableManager
                   explicitlyWatchedTables: [
                     if (priceListsRefs) db.priceLists,
                     if (inventoryRefs) db.inventory,
-                    if (cratesRefs) db.crates,
                     if (stockTransfersRefs) db.stockTransfers,
                     if (stockAdjustmentsRefs) db.stockAdjustments,
                     if (stockTransactionsRefs) db.stockTransactions,
@@ -37875,27 +37228,6 @@ class $$ProductsTableTableManager
                                 table,
                                 p0,
                               ).inventoryRefs,
-                          referencedItemsForCurrentItem:
-                              (item, referencedItems) => referencedItems.where(
-                                (e) => e.productId == item.id,
-                              ),
-                          typedResults: items,
-                        ),
-                      if (cratesRefs)
-                        await $_getPrefetchedData<
-                          ProductData,
-                          $ProductsTable,
-                          CrateData
-                        >(
-                          currentTable: table,
-                          referencedTable: $$ProductsTableReferences
-                              ._cratesRefsTable(db),
-                          managerFromTypedResult: (p0) =>
-                              $$ProductsTableReferences(
-                                db,
-                                table,
-                                p0,
-                              ).cratesRefs,
                           referencedItemsForCurrentItem:
                               (item, referencedItems) => referencedItems.where(
                                 (e) => e.productId == item.id,
@@ -38056,7 +37388,6 @@ typedef $$ProductsTableProcessedTableManager =
         bool manufacturerId,
         bool priceListsRefs,
         bool inventoryRefs,
-        bool cratesRefs,
         bool stockTransfersRefs,
         bool stockAdjustmentsRefs,
         bool stockTransactionsRefs,
@@ -47423,453 +46754,6 @@ typedef $$InventoryTableProcessedTableManager =
         bool productId,
         bool warehouseId,
       })
-    >;
-typedef $$CratesTableCreateCompanionBuilder =
-    CratesCompanion Function({
-      Value<String> id,
-      required String businessId,
-      required String productId,
-      required int totalCrates,
-      Value<int> emptyReturned,
-      Value<DateTime> createdAt,
-      Value<DateTime> lastUpdatedAt,
-      Value<int> rowid,
-    });
-typedef $$CratesTableUpdateCompanionBuilder =
-    CratesCompanion Function({
-      Value<String> id,
-      Value<String> businessId,
-      Value<String> productId,
-      Value<int> totalCrates,
-      Value<int> emptyReturned,
-      Value<DateTime> createdAt,
-      Value<DateTime> lastUpdatedAt,
-      Value<int> rowid,
-    });
-
-final class $$CratesTableReferences
-    extends BaseReferences<_$AppDatabase, $CratesTable, CrateData> {
-  $$CratesTableReferences(super.$_db, super.$_table, super.$_typedResult);
-
-  static $BusinessesTable _businessIdTable(_$AppDatabase db) =>
-      db.businesses.createAlias(
-        $_aliasNameGenerator(db.crates.businessId, db.businesses.id),
-      );
-
-  $$BusinessesTableProcessedTableManager get businessId {
-    final $_column = $_itemColumn<String>('business_id')!;
-
-    final manager = $$BusinessesTableTableManager(
-      $_db,
-      $_db.businesses,
-    ).filter((f) => f.id.sqlEquals($_column));
-    final item = $_typedResult.readTableOrNull(_businessIdTable($_db));
-    if (item == null) return manager;
-    return ProcessedTableManager(
-      manager.$state.copyWith(prefetchedData: [item]),
-    );
-  }
-
-  static $ProductsTable _productIdTable(_$AppDatabase db) => db.products
-      .createAlias($_aliasNameGenerator(db.crates.productId, db.products.id));
-
-  $$ProductsTableProcessedTableManager get productId {
-    final $_column = $_itemColumn<String>('product_id')!;
-
-    final manager = $$ProductsTableTableManager(
-      $_db,
-      $_db.products,
-    ).filter((f) => f.id.sqlEquals($_column));
-    final item = $_typedResult.readTableOrNull(_productIdTable($_db));
-    if (item == null) return manager;
-    return ProcessedTableManager(
-      manager.$state.copyWith(prefetchedData: [item]),
-    );
-  }
-}
-
-class $$CratesTableFilterComposer
-    extends Composer<_$AppDatabase, $CratesTable> {
-  $$CratesTableFilterComposer({
-    required super.$db,
-    required super.$table,
-    super.joinBuilder,
-    super.$addJoinBuilderToRootComposer,
-    super.$removeJoinBuilderFromRootComposer,
-  });
-  ColumnFilters<String> get id => $composableBuilder(
-    column: $table.id,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<int> get totalCrates => $composableBuilder(
-    column: $table.totalCrates,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<int> get emptyReturned => $composableBuilder(
-    column: $table.emptyReturned,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<DateTime> get createdAt => $composableBuilder(
-    column: $table.createdAt,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<DateTime> get lastUpdatedAt => $composableBuilder(
-    column: $table.lastUpdatedAt,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  $$BusinessesTableFilterComposer get businessId {
-    final $$BusinessesTableFilterComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.businessId,
-      referencedTable: $db.businesses,
-      getReferencedColumn: (t) => t.id,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$BusinessesTableFilterComposer(
-            $db: $db,
-            $table: $db.businesses,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return composer;
-  }
-
-  $$ProductsTableFilterComposer get productId {
-    final $$ProductsTableFilterComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.productId,
-      referencedTable: $db.products,
-      getReferencedColumn: (t) => t.id,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$ProductsTableFilterComposer(
-            $db: $db,
-            $table: $db.products,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return composer;
-  }
-}
-
-class $$CratesTableOrderingComposer
-    extends Composer<_$AppDatabase, $CratesTable> {
-  $$CratesTableOrderingComposer({
-    required super.$db,
-    required super.$table,
-    super.joinBuilder,
-    super.$addJoinBuilderToRootComposer,
-    super.$removeJoinBuilderFromRootComposer,
-  });
-  ColumnOrderings<String> get id => $composableBuilder(
-    column: $table.id,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<int> get totalCrates => $composableBuilder(
-    column: $table.totalCrates,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<int> get emptyReturned => $composableBuilder(
-    column: $table.emptyReturned,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
-    column: $table.createdAt,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<DateTime> get lastUpdatedAt => $composableBuilder(
-    column: $table.lastUpdatedAt,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  $$BusinessesTableOrderingComposer get businessId {
-    final $$BusinessesTableOrderingComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.businessId,
-      referencedTable: $db.businesses,
-      getReferencedColumn: (t) => t.id,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$BusinessesTableOrderingComposer(
-            $db: $db,
-            $table: $db.businesses,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return composer;
-  }
-
-  $$ProductsTableOrderingComposer get productId {
-    final $$ProductsTableOrderingComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.productId,
-      referencedTable: $db.products,
-      getReferencedColumn: (t) => t.id,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$ProductsTableOrderingComposer(
-            $db: $db,
-            $table: $db.products,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return composer;
-  }
-}
-
-class $$CratesTableAnnotationComposer
-    extends Composer<_$AppDatabase, $CratesTable> {
-  $$CratesTableAnnotationComposer({
-    required super.$db,
-    required super.$table,
-    super.joinBuilder,
-    super.$addJoinBuilderToRootComposer,
-    super.$removeJoinBuilderFromRootComposer,
-  });
-  GeneratedColumn<String> get id =>
-      $composableBuilder(column: $table.id, builder: (column) => column);
-
-  GeneratedColumn<int> get totalCrates => $composableBuilder(
-    column: $table.totalCrates,
-    builder: (column) => column,
-  );
-
-  GeneratedColumn<int> get emptyReturned => $composableBuilder(
-    column: $table.emptyReturned,
-    builder: (column) => column,
-  );
-
-  GeneratedColumn<DateTime> get createdAt =>
-      $composableBuilder(column: $table.createdAt, builder: (column) => column);
-
-  GeneratedColumn<DateTime> get lastUpdatedAt => $composableBuilder(
-    column: $table.lastUpdatedAt,
-    builder: (column) => column,
-  );
-
-  $$BusinessesTableAnnotationComposer get businessId {
-    final $$BusinessesTableAnnotationComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.businessId,
-      referencedTable: $db.businesses,
-      getReferencedColumn: (t) => t.id,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$BusinessesTableAnnotationComposer(
-            $db: $db,
-            $table: $db.businesses,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return composer;
-  }
-
-  $$ProductsTableAnnotationComposer get productId {
-    final $$ProductsTableAnnotationComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.productId,
-      referencedTable: $db.products,
-      getReferencedColumn: (t) => t.id,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$ProductsTableAnnotationComposer(
-            $db: $db,
-            $table: $db.products,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return composer;
-  }
-}
-
-class $$CratesTableTableManager
-    extends
-        RootTableManager<
-          _$AppDatabase,
-          $CratesTable,
-          CrateData,
-          $$CratesTableFilterComposer,
-          $$CratesTableOrderingComposer,
-          $$CratesTableAnnotationComposer,
-          $$CratesTableCreateCompanionBuilder,
-          $$CratesTableUpdateCompanionBuilder,
-          (CrateData, $$CratesTableReferences),
-          CrateData,
-          PrefetchHooks Function({bool businessId, bool productId})
-        > {
-  $$CratesTableTableManager(_$AppDatabase db, $CratesTable table)
-    : super(
-        TableManagerState(
-          db: db,
-          table: table,
-          createFilteringComposer: () =>
-              $$CratesTableFilterComposer($db: db, $table: table),
-          createOrderingComposer: () =>
-              $$CratesTableOrderingComposer($db: db, $table: table),
-          createComputedFieldComposer: () =>
-              $$CratesTableAnnotationComposer($db: db, $table: table),
-          updateCompanionCallback:
-              ({
-                Value<String> id = const Value.absent(),
-                Value<String> businessId = const Value.absent(),
-                Value<String> productId = const Value.absent(),
-                Value<int> totalCrates = const Value.absent(),
-                Value<int> emptyReturned = const Value.absent(),
-                Value<DateTime> createdAt = const Value.absent(),
-                Value<DateTime> lastUpdatedAt = const Value.absent(),
-                Value<int> rowid = const Value.absent(),
-              }) => CratesCompanion(
-                id: id,
-                businessId: businessId,
-                productId: productId,
-                totalCrates: totalCrates,
-                emptyReturned: emptyReturned,
-                createdAt: createdAt,
-                lastUpdatedAt: lastUpdatedAt,
-                rowid: rowid,
-              ),
-          createCompanionCallback:
-              ({
-                Value<String> id = const Value.absent(),
-                required String businessId,
-                required String productId,
-                required int totalCrates,
-                Value<int> emptyReturned = const Value.absent(),
-                Value<DateTime> createdAt = const Value.absent(),
-                Value<DateTime> lastUpdatedAt = const Value.absent(),
-                Value<int> rowid = const Value.absent(),
-              }) => CratesCompanion.insert(
-                id: id,
-                businessId: businessId,
-                productId: productId,
-                totalCrates: totalCrates,
-                emptyReturned: emptyReturned,
-                createdAt: createdAt,
-                lastUpdatedAt: lastUpdatedAt,
-                rowid: rowid,
-              ),
-          withReferenceMapper: (p0) => p0
-              .map(
-                (e) =>
-                    (e.readTable(table), $$CratesTableReferences(db, table, e)),
-              )
-              .toList(),
-          prefetchHooksCallback: ({businessId = false, productId = false}) {
-            return PrefetchHooks(
-              db: db,
-              explicitlyWatchedTables: [],
-              addJoins:
-                  <
-                    T extends TableManagerState<
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic
-                    >
-                  >(state) {
-                    if (businessId) {
-                      state =
-                          state.withJoin(
-                                currentTable: table,
-                                currentColumn: table.businessId,
-                                referencedTable: $$CratesTableReferences
-                                    ._businessIdTable(db),
-                                referencedColumn: $$CratesTableReferences
-                                    ._businessIdTable(db)
-                                    .id,
-                              )
-                              as T;
-                    }
-                    if (productId) {
-                      state =
-                          state.withJoin(
-                                currentTable: table,
-                                currentColumn: table.productId,
-                                referencedTable: $$CratesTableReferences
-                                    ._productIdTable(db),
-                                referencedColumn: $$CratesTableReferences
-                                    ._productIdTable(db)
-                                    .id,
-                              )
-                              as T;
-                    }
-
-                    return state;
-                  },
-              getPrefetchedDataCallback: (items) async {
-                return [];
-              },
-            );
-          },
-        ),
-      );
-}
-
-typedef $$CratesTableProcessedTableManager =
-    ProcessedTableManager<
-      _$AppDatabase,
-      $CratesTable,
-      CrateData,
-      $$CratesTableFilterComposer,
-      $$CratesTableOrderingComposer,
-      $$CratesTableAnnotationComposer,
-      $$CratesTableCreateCompanionBuilder,
-      $$CratesTableUpdateCompanionBuilder,
-      (CrateData, $$CratesTableReferences),
-      CrateData,
-      PrefetchHooks Function({bool businessId, bool productId})
     >;
 typedef $$StockTransfersTableCreateCompanionBuilder =
     StockTransfersCompanion Function({
@@ -61901,8 +60785,6 @@ class $AppDatabaseManager {
       $$CrateLedgerTableTableManager(_db, _db.crateLedger);
   $$InventoryTableTableManager get inventory =>
       $$InventoryTableTableManager(_db, _db.inventory);
-  $$CratesTableTableManager get crates =>
-      $$CratesTableTableManager(_db, _db.crates);
   $$StockTransfersTableTableManager get stockTransfers =>
       $$StockTransfersTableTableManager(_db, _db.stockTransfers);
   $$StockAdjustmentsTableTableManager get stockAdjustments =>

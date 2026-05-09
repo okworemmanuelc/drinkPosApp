@@ -44,7 +44,7 @@ class JwtClaimSnapshot {
 
 class SupabaseSyncService {
   final AppDatabase _db;
-  final SupabaseClient _supabase = Supabase.instance.client;
+  final SupabaseClient _supabase;
   RealtimeChannel? _realtimeChannel;
   RealtimeChannel? _businessesChannel;
   StreamSubscription<int>? _autoPushSub;
@@ -61,7 +61,7 @@ class SupabaseSyncService {
   /// event arrives.
   final ValueNotifier<bool> isOnline = ValueNotifier<bool>(true);
 
-  SupabaseSyncService(this._db);
+  SupabaseSyncService(this._db, this._supabase);
 
   /// Wired by AuthService to expose this device's active session id so
   /// the Realtime callback can recognise when its own row was revoked.
@@ -151,6 +151,11 @@ class SupabaseSyncService {
   static const Map<String, int> _tablePushPriority = {
     'businesses': 0,
     'profiles': 1,
+    // users must precede every child that FK-references it: stock_adjustments
+    // .performed_by, stock_transactions.performed_by, sessions.user_id, and
+    // the children created server-side by domain RPCs (pos_create_product,
+    // pos_inventory_delta, pos_record_sale).
+    'users': 1,
     'warehouses': 2,
     'manufacturers': 3,
     'crate_groups': 3,
@@ -173,6 +178,67 @@ class SupabaseSyncService {
     return _tablePushPriority[table] ?? 100;
   }
 
+  /// Per-table whitelist of cloud-pushable columns. Any payload key NOT
+  /// in the table's whitelist is dropped before push. Fail-closed: a new
+  /// local-only column added to Drift won't leak to the cloud unless
+  /// it's explicitly added here.
+  ///
+  /// Only tables that diverge from cloud (auth/secret material, local-
+  /// only columns) are enumerated. Other synced tables fall through with
+  /// no scrubbing — their Drift column set IS the cloud column set, and
+  /// enumerating them adds maintenance burden with no leak surface.
+  /// Convert incrementally as new divergence appears.
+  static const _pushableColumns = <String, Set<String>>{
+    'profiles': {
+      'id',
+      'business_id',
+      'role',
+      'name',
+      'is_active',
+      'created_at',
+      'last_updated_at',
+    },
+    'users': {
+      'id',
+      'business_id',
+      'auth_user_id',
+      'name',
+      'phone',
+      'email',
+      'role',
+      'warehouse_id',
+      'status',
+      'joined_at',
+      'last_notification_sent_at',
+      'is_deleted',
+      'created_at',
+      'last_updated_at',
+    },
+    'sessions': {
+      'id',
+      'business_id',
+      'user_id',
+      'expires_at',
+      'revoked_at',
+      'created_at',
+      'last_updated_at',
+      // NOTE: token, ip_address, user_agent intentionally absent —
+      // local secret material, never pushed.
+    },
+    'businesses': {
+      'id',
+      'name',
+      'owner_id',
+      'location',
+      'currency',
+      'low_stock_threshold',
+      'onboarding_complete',
+      'created_at',
+      'last_updated_at',
+      // NOTE: timezone is local-only (cloud schema doesn't have it).
+    },
+  };
+
   /// Translates a locally-built payload into the column names the cloud schema
   /// actually exposes. Local Drift uses `lastUpdatedAt`; cloud uses `updated_at`
   /// (or no equivalent). Products store the manufacturer display string in
@@ -181,16 +247,23 @@ class SupabaseSyncService {
     String table,
     Map<String, dynamic> payload,
   ) {
+    return scrubForTesting(table, payload);
+  }
+
+  /// Same as `_normalizePayloadForCloud`, exposed as a static so unit
+  /// tests can exercise the whitelist without standing up a real
+  /// Supabase client. The actual scrubbing logic lives here so the
+  /// instance method and tests can never drift apart.
+  @visibleForTesting
+  static Map<String, dynamic> scrubForTesting(
+    String table,
+    Map<String, dynamic> payload,
+  ) {
     final out = Map<String, dynamic>.from(payload);
-
-    // Scrub local-only auth fields from profiles/users
-    if (table == 'profiles' || table == 'users') {
-      out.remove('pin');
-      out.remove('password_hash');
-      out.remove('pin_salt');
-      out.remove('pin_iterations');
+    final whitelist = _pushableColumns[table];
+    if (whitelist != null) {
+      out.removeWhere((k, _) => !whitelist.contains(k));
     }
-
     return out;
   }
 
@@ -280,7 +353,11 @@ class SupabaseSyncService {
     // multi-table call routed through Postgres functions (see migration
     // 0006_domain_rpcs.sql). They are not batched against each other — each
     // one is an independent transaction — so they bypass the per-table
-    // grouping path entirely.
+    // grouping path entirely. Drained AFTER the table-batch loop so that any
+    // freshly enqueued parent rows (most importantly `users`, referenced by
+    // stock_adjustments.performed_by) are already in the cloud before the
+    // RPC's child inserts run; otherwise the server returns 23503 and
+    // `_pushDomainItems` marks the envelope permanently failed.
     final domainItems = <SyncQueueData>[];
     final tableItems = <SyncQueueData>[];
     for (final item in pendingItems) {
@@ -289,10 +366,6 @@ class SupabaseSyncService {
       } else {
         tableItems.add(item);
       }
-    }
-
-    if (domainItems.isNotEmpty) {
-      await _pushDomainItems(domainItems, sessionBusinessId);
     }
 
     // Group items by their action signature (table + action + optional
@@ -401,6 +474,13 @@ class SupabaseSyncService {
       }
     }
 
+    // Now that parent-table rows are in the cloud, drain domain envelopes.
+    // Their server-side RPCs FK-reference rows we just pushed (e.g.
+    // pos_create_product → stock_adjustments.performed_by → users.id).
+    if (domainItems.isNotEmpty) {
+      await _pushDomainItems(domainItems, sessionBusinessId);
+    }
+
     // If the raw select hit the page limit, more is waiting — drain in the
     // next tick rather than recursing (avoids stack growth on huge backlogs).
     if (rawItems.length == 200) {
@@ -451,21 +531,30 @@ class SupabaseSyncService {
         await _applyDomainResponse(rpcName, response);
         await _db.syncDao.markDone(item.id);
       } on PostgrestException catch (e) {
-        // P0001 = app-level RAISE EXCEPTION (insufficient_stock,
-        // tenant_mismatch, etc.). 23xxx = integrity violations
-        // (unique, FK, check). Both are permanent — retrying without a
-        // schema/data change cannot succeed.
+        // §6.8 failure classification:
+        //   - 23503 (foreign_key_violation) → FK-deferred: parent likely
+        //     arrives on the next pull; longer backoff, capped retries.
+        //   - P0001 / other 23xxx / insufficient_privilege /
+        //     invalid_parameter_value → permanent → orphan auto-move.
+        //   - everything else → transient → standard exp backoff.
         final code = e.code ?? '';
-        final isPermanent = code == 'P0001' ||
-            code.startsWith('23') ||
-            code == 'insufficient_privilege' ||
-            code == 'invalid_parameter_value';
+        final isFkViolation = code == '23503';
+        final isPermanent = !isFkViolation &&
+            (code == 'P0001' ||
+                code.startsWith('23') ||
+                code == 'insufficient_privilege' ||
+                code == 'invalid_parameter_value');
         debugPrint(
           '[SyncService] Domain RPC $rpcName failed '
-          '(code=$code, permanent=$isPermanent): ${e.message}',
+          '(code=$code, permanent=$isPermanent, fk_deferred=$isFkViolation): '
+          '${e.message}',
         );
-        await _db.syncDao
-            .markFailed(item.id, 'pg_$code: ${e.message}', permanent: isPermanent);
+        await _db.syncDao.markFailed(
+          item.id,
+          'pg_$code: ${e.message}',
+          permanent: isPermanent,
+          fkDeferred: isFkViolation,
+        );
       } catch (e) {
         debugPrint('[SyncService] Domain RPC $rpcName transient error: $e');
         await _db.syncDao.markFailed(item.id, e.toString());
@@ -483,58 +572,303 @@ class SupabaseSyncService {
     if (response is! Map) return;
     final map = Map<String, dynamic>.from(response);
 
-    // Inventory cache: pos_record_sale and pos_inventory_delta both return
-    // an `inventory_after` array of {product_id, warehouse_id, quantity,
-    // last_updated_at}. The Drift `bump_inventory_last_updated_at` trigger
-    // only fires when OLD.last_updated_at IS NEW.last_updated_at; we
-    // explicitly write the server's value, so the trigger is a no-op and
-    // the local row matches the cloud exactly.
-    final invAfter = map['inventory_after'];
-    if (invAfter is List) {
-      for (final raw in invAfter) {
-        if (raw is! Map) continue;
-        final productId = raw['product_id'] as String?;
-        final warehouseId = raw['warehouse_id'] as String?;
-        final quantity = raw['quantity'];
-        final luaStr = raw['last_updated_at'] as String?;
-        if (productId == null || warehouseId == null || quantity is! int) {
-          continue;
+    await _db.transaction(() async {
+      // Inventory cache: pos_record_sale and pos_inventory_delta both return
+      // an `inventory_after` array of {product_id, warehouse_id, quantity,
+      // last_updated_at}. The Drift `bump_inventory_last_updated_at` trigger
+      // only fires when OLD.last_updated_at IS NEW.last_updated_at; we
+      // explicitly write the server's value, so the trigger is a no-op and
+      // the local row matches the cloud exactly.
+      final invAfter = map['inventory_after'];
+      if (invAfter is List) {
+        for (final raw in invAfter) {
+          if (raw is! Map) continue;
+          final productId = raw['product_id'] as String?;
+          final warehouseId = raw['warehouse_id'] as String?;
+          final quantity = raw['quantity'];
+          final luaStr = raw['last_updated_at'] as String?;
+          if (productId == null || warehouseId == null || quantity is! int) {
+            continue;
+          }
+          final lua = luaStr != null ? DateTime.tryParse(luaStr) : null;
+          await (_db.update(_db.inventory)
+                ..where((t) =>
+                    t.productId.equals(productId) &
+                    t.warehouseId.equals(warehouseId)))
+              .write(InventoryCompanion(
+            quantity: Value(quantity),
+            lastUpdatedAt: Value(lua ?? DateTime.now()),
+          ));
         }
-        final lua = luaStr != null ? DateTime.tryParse(luaStr) : null;
-        await (_db.update(_db.inventory)
-              ..where((t) =>
-                  t.productId.equals(productId) &
-                  t.warehouseId.equals(warehouseId)))
-            .write(InventoryCompanion(
-          quantity: Value(quantity),
-          lastUpdatedAt: Value(lua ?? DateTime.now()),
-        ));
       }
-    }
 
-    // pos_record_sale: bump the local order's last_updated_at to the
-    // server's value so the next pull's incremental cursor doesn't re-fetch
-    // it on every sync.
-    final orderId = map['order_id'] as String?;
-    final orderLua = map['order_last_updated_at'] as String?;
-    if (orderId != null && orderLua != null) {
-      final parsed = DateTime.tryParse(orderLua);
-      if (parsed != null) {
-        await (_db.update(_db.orders)..where((t) => t.id.equals(orderId)))
-            .write(OrdersCompanion(lastUpdatedAt: Value(parsed)));
+      // pos_record_sale: bump the local order's last_updated_at to the
+      // server's value so the next pull's incremental cursor doesn't re-fetch
+      // it on every sync.
+      final orderId = map['order_id'] as String?;
+      final orderLua = map['order_last_updated_at'] as String?;
+      if (orderId != null && orderLua != null) {
+        final parsed = DateTime.tryParse(orderLua);
+        if (parsed != null) {
+          await (_db.update(_db.orders)..where((t) => t.id.equals(orderId)))
+              .write(OrdersCompanion(lastUpdatedAt: Value(parsed)));
+        }
       }
-    }
 
-    // pos_create_product: same for products.
-    final productId = map['product_id'] as String?;
-    final productLua = map['product_last_updated_at'] as String?;
-    if (productId != null && productLua != null) {
-      final parsed = DateTime.tryParse(productLua);
-      if (parsed != null) {
-        await (_db.update(_db.products)..where((t) => t.id.equals(productId)))
-            .write(ProductsCompanion(lastUpdatedAt: Value(parsed)));
+      // pos_create_product: same for products.
+      final productId = map['product_id'] as String?;
+      final productLua = map['product_last_updated_at'] as String?;
+      if (productId != null && productLua != null) {
+        final parsed = DateTime.tryParse(productLua);
+        if (parsed != null) {
+          await (_db.update(_db.products)..where((t) => t.id.equals(productId)))
+              .write(ProductsCompanion(lastUpdatedAt: Value(parsed)));
+        }
       }
-    }
+
+      // pos_cancel_order (v2): server is the sole writer of compensating
+      // ledger rows (their ids are gen_random_uuid() server-side), so the
+      // client did NOT mirror them locally on cancel. The response carries
+      // the full canonical rows; route each array through _restoreTableData
+      // so local catches up immediately. The `order` Map handler covers
+      // the cancel header (v2 shape: full row, vs v1 sale's flat
+      // `order_id`/`order_last_updated_at`).
+      final orderRow = map['order'];
+      if (orderRow is Map) {
+        await _restoreTableData('orders', [Map<String, dynamic>.from(orderRow)]);
+      }
+      // pos_create_product_v2: server returns the canonical product row.
+      // Route through _restoreTableData so the cloud's `last_updated_at`
+      // (and any server-canonicalised fields) overwrite the local
+      // pre-insert. Same pattern as `order` above.
+      final productRow = map['product'];
+      if (productRow is Map) {
+        await _restoreTableData(
+            'products', [Map<String, dynamic>.from(productRow)]);
+      }
+      // pos_record_sale_v2: server returns the canonical order_items array.
+      // The thin-local DAO doesn't pre-insert items; this is the sole
+      // local writer for them.
+      final orderItems = map['order_items'];
+      if (orderItems is List && orderItems.isNotEmpty) {
+        await _restoreTableData(
+            'order_items', List<dynamic>.from(orderItems));
+      }
+
+      final stockTxns = map['stock_transactions'];
+      if (stockTxns is List && stockTxns.isNotEmpty) {
+        await _restoreTableData(
+            'stock_transactions', List<dynamic>.from(stockTxns));
+      }
+      // pos_inventory_delta_v2 also returns server-minted stock_adjustments
+      // for movement_type='adjustment' rows; route through the standard
+      // restore path so local matches cloud's gen_random_uuid() ids.
+      final stockAdjustments = map['stock_adjustments'];
+      if (stockAdjustments is List && stockAdjustments.isNotEmpty) {
+        await _restoreTableData(
+            'stock_adjustments', List<dynamic>.from(stockAdjustments));
+      }
+      final voidedPayments = map['voided_payments'];
+      if (voidedPayments is List && voidedPayments.isNotEmpty) {
+        await _restoreTableData(
+            'payment_transactions', List<dynamic>.from(voidedPayments));
+      }
+      final refundPayments = map['refund_payments'];
+      if (refundPayments is List && refundPayments.isNotEmpty) {
+        await _restoreTableData(
+            'payment_transactions', List<dynamic>.from(refundPayments));
+      }
+      final walletCompens = map['wallet_compensations'];
+      if (walletCompens is List && walletCompens.isNotEmpty) {
+        await _restoreTableData(
+            'wallet_transactions', List<dynamic>.from(walletCompens));
+      }
+
+      // pos_create_customer (v2): server returns the canonical customer +
+      // customer_wallet rows. Mirror their last_updated_at locally so the
+      // next pull's incremental cursor doesn't re-fetch them.
+      final customer = map['customer'];
+      if (customer is Map) {
+        final cid = customer['id'] as String?;
+        final lua = customer['last_updated_at'] as String?;
+        if (cid != null && lua != null) {
+          final parsed = DateTime.tryParse(lua);
+          if (parsed != null) {
+            await (_db.update(_db.customers)
+                  ..where((t) => t.id.equals(cid)))
+                .write(CustomersCompanion(lastUpdatedAt: Value(parsed)));
+          }
+        }
+      }
+      final wallet = map['customer_wallet'];
+      if (wallet is Map) {
+        final wid = wallet['id'] as String?;
+        final lua = wallet['last_updated_at'] as String?;
+        if (wid != null && lua != null) {
+          final parsed = DateTime.tryParse(lua);
+          if (parsed != null) {
+            await (_db.update(_db.customerWallets)
+                  ..where((t) => t.id.equals(wid)))
+                .write(CustomerWalletsCompanion(lastUpdatedAt: Value(parsed)));
+          }
+        }
+      }
+
+      // pos_wallet_topup / pos_record_sale_v2: server returns the
+      // canonical wallet_transactions and payment_transactions rows.
+      // Route through _restoreTableData so the row lands locally even
+      // when the client didn't pre-insert it (sale v2 is thin-local —
+      // server mints the ids); for batches that DID pre-insert (topup),
+      // the upsert overwrites with the cloud's authoritative row, which
+      // is the right behaviour anyway.
+      final walletTxn = map['wallet_transaction'];
+      if (walletTxn is Map) {
+        await _restoreTableData(
+            'wallet_transactions', [Map<String, dynamic>.from(walletTxn)]);
+      }
+      final paymentTxn = map['payment_transaction'];
+      if (paymentTxn is Map) {
+        await _restoreTableData(
+            'payment_transactions', [Map<String, dynamic>.from(paymentTxn)]);
+      }
+
+      // pos_record_expense (v2): server returns canonical expense and
+      // activity_log rows (the payment_transaction key is handled by the
+      // wallet_topup branch above — same shape).
+      final expense = map['expense'];
+      if (expense is Map) {
+        final id = expense['id'] as String?;
+        final lua = expense['last_updated_at'] as String?;
+        if (id != null && lua != null) {
+          final parsed = DateTime.tryParse(lua);
+          if (parsed != null) {
+            await (_db.update(_db.expenses)..where((t) => t.id.equals(id)))
+                .write(ExpensesCompanion(lastUpdatedAt: Value(parsed)));
+          }
+        }
+      }
+      final activityLog = map['activity_log'];
+      if (activityLog is Map) {
+        final id = activityLog['id'] as String?;
+        final lua = activityLog['last_updated_at'] as String?;
+        if (id != null && lua != null) {
+          final parsed = DateTime.tryParse(lua);
+          if (parsed != null) {
+            await (_db.update(_db.activityLogs)..where((t) => t.id.equals(id)))
+                .write(ActivityLogsCompanion(lastUpdatedAt: Value(parsed)));
+          }
+        }
+      }
+
+      // pos_void_wallet_txn (v2): server returns the now-voided original
+      // and the new compensating wallet_transactions row. Mirror their
+      // last_updated_at locally so the next pull's cursor doesn't re-fetch.
+      final voidedTxn = map['voided_transaction'];
+      if (voidedTxn is Map) {
+        final id = voidedTxn['id'] as String?;
+        final lua = voidedTxn['last_updated_at'] as String?;
+        if (id != null && lua != null) {
+          final parsed = DateTime.tryParse(lua);
+          if (parsed != null) {
+            await (_db.update(_db.walletTransactions)
+                  ..where((t) => t.id.equals(id)))
+                .write(WalletTransactionsCompanion(
+              lastUpdatedAt: Value(parsed),
+            ));
+          }
+        }
+      }
+      final compensatingTxn = map['compensating_transaction'];
+      if (compensatingTxn is Map) {
+        final id = compensatingTxn['id'] as String?;
+        final lua = compensatingTxn['last_updated_at'] as String?;
+        if (id != null && lua != null) {
+          final parsed = DateTime.tryParse(lua);
+          if (parsed != null) {
+            await (_db.update(_db.walletTransactions)
+                  ..where((t) => t.id.equals(id)))
+                .write(WalletTransactionsCompanion(
+              lastUpdatedAt: Value(parsed),
+            ));
+          }
+        }
+      }
+
+      // pos_approve_crate_return (v2): server returns the now-approved
+      // pending_crate_returns row. (crate_ledger_row + balance_row handlers
+      // below are shared with pos_record_crate_return.)
+      final pendingReturn = map['pending_return'];
+      if (pendingReturn is Map) {
+        final id = pendingReturn['id'] as String?;
+        final lua = pendingReturn['last_updated_at'] as String?;
+        if (id != null && lua != null) {
+          final parsed = DateTime.tryParse(lua);
+          if (parsed != null) {
+            await (_db.update(_db.pendingCrateReturns)
+                  ..where((t) => t.id.equals(id)))
+                .write(PendingCrateReturnsCompanion(
+              lastUpdatedAt: Value(parsed),
+            ));
+          }
+        }
+      }
+
+      // pos_record_crate_return (v2): server returns the canonical
+      // crate_ledger row plus the cache balance row (customer or
+      // manufacturer side, distinguished by which owner_id is set). The
+      // cache row is looked up by composite — local uses its own UuidV7
+      // for the cache id while the server uses gen_random_uuid(), so the
+      // two ids never match.
+      final crateLedgerRow = map['crate_ledger_row'];
+      if (crateLedgerRow is Map) {
+        final id = crateLedgerRow['id'] as String?;
+        final lua = crateLedgerRow['last_updated_at'] as String?;
+        if (id != null && lua != null) {
+          final parsed = DateTime.tryParse(lua);
+          if (parsed != null) {
+            await (_db.update(_db.crateLedger)
+                  ..where((t) => t.id.equals(id)))
+                .write(CrateLedgerCompanion(lastUpdatedAt: Value(parsed)));
+          }
+        }
+      }
+      final balanceRow = map['balance_row'];
+      if (balanceRow is Map) {
+        final balance = balanceRow['balance'];
+        final lua = balanceRow['last_updated_at'] as String?;
+        final parsed = lua != null ? DateTime.tryParse(lua) : null;
+        final crateGroupId = balanceRow['crate_group_id'] as String?;
+        final businessIdStr = balanceRow['business_id'] as String?;
+        if (balance is int &&
+            parsed != null &&
+            crateGroupId != null &&
+            businessIdStr != null) {
+          final customerId = balanceRow['customer_id'] as String?;
+          final manufacturerId = balanceRow['manufacturer_id'] as String?;
+          if (customerId != null) {
+            await (_db.update(_db.customerCrateBalances)
+                  ..where((t) =>
+                      t.businessId.equals(businessIdStr) &
+                      t.customerId.equals(customerId) &
+                      t.crateGroupId.equals(crateGroupId)))
+                .write(CustomerCrateBalancesCompanion(
+              balance: Value(balance),
+              lastUpdatedAt: Value(parsed),
+            ));
+          } else if (manufacturerId != null) {
+            await (_db.update(_db.manufacturerCrateBalances)
+                  ..where((t) =>
+                      t.businessId.equals(businessIdStr) &
+                      t.manufacturerId.equals(manufacturerId) &
+                      t.crateGroupId.equals(crateGroupId)))
+                .write(ManufacturerCrateBalancesCompanion(
+              balance: Value(balance),
+              lastUpdatedAt: Value(parsed),
+            ));
+          }
+        }
+      }
+    });
   }
 
   /// Synchronously pushes the pending `domain:pos_record_sale` envelope for
@@ -553,7 +887,18 @@ class SupabaseSyncService {
     final sessionBusinessId = _db.currentBusinessId;
     if (sessionBusinessId == null) return;
 
-    final item = await _db.syncDao.findPendingDomainItem(
+    // The v2 dispatch (`feature.domain_rpcs_v2.record_sale`) emits
+    // `domain:pos_record_sale_v2` with a flat `p_order_id`. The v1
+    // dispatch emitted `domain:pos_record_sale` with nested
+    // `$.p_order.id`. Both shapes coexist during the per-business
+    // rollout — try v2 first, fall back to v1 so flushSale stays
+    // correct on either path.
+    SyncQueueData? item = await _db.syncDao.findPendingDomainItem(
+      'domain:pos_record_sale_v2',
+      payloadIdPath: r'$.p_order_id',
+      idValue: orderId,
+    );
+    item ??= await _db.syncDao.findPendingDomainItem(
       'domain:pos_record_sale',
       payloadIdPath: r'$.p_order.id',
       idValue: orderId,
@@ -562,12 +907,26 @@ class SupabaseSyncService {
 
     await _pushDomainItems([item], sessionBusinessId);
 
+    // §6.8 auto-archive moves permanent failures (P0001 / 23xxx) into
+    // `sync_queue_orphans` and deletes them from `sync_queue`. Check
+    // both surfaces so a terminal failure on the foreground sale path
+    // surfaces to the user instead of silently printing a receipt for
+    // a sale the cloud rejected.
     final updated = await _db.syncDao.getQueueItem(item.id);
     if (updated?.status == 'failed') {
       throw SaleSyncException(
         orderId: orderId,
         errorMessage: updated?.errorMessage ?? 'unknown error',
       );
+    }
+    if (updated == null) {
+      final orphan = await _db.syncDao.findOrphanByOriginalId(item.id);
+      if (orphan != null) {
+        throw SaleSyncException(
+          orderId: orderId,
+          errorMessage: orphan.reason,
+        );
+      }
     }
   }
 
@@ -875,6 +1234,9 @@ class SupabaseSyncService {
         await _backfillAllUnsyncedTables();
         await prefs.setBool(oneShotKey, true);
       }
+      // Users backfill ships after the global gate above, so devices that
+      // already passed it still pick up the per-business one-shot below.
+      await _backfillUnsyncedUsers();
 
       if (_supabase.auth.currentUser != null) {
         await _db.syncDao.clearFailureBackoff();
@@ -1092,9 +1454,49 @@ class SupabaseSyncService {
     }
   }
 
+  /// One-shot recovery for users created before auth_service.createNewOwner /
+  /// upsertLocalUserFromProfile started enqueueing. Earlier builds inserted
+  /// the local users row via `db.into(_db.users)` without a sync enqueue, so
+  /// cloud `public.users` never received it. Subsequent sales reference
+  /// `staff_id = users.id`, which the cloud rejects with
+  /// `pg_23503 orders_staff_id_fkey`. Re-enqueue every local user once for
+  /// the current business; the cloud's `ON CONFLICT (id) DO NOTHING` makes
+  /// this safe to repeat. Gated by a SharedPreferences flag.
+  Future<void> _backfillUnsyncedUsers() async {
+    try {
+      final businessId = _db.currentBusinessId;
+      if (businessId == null) return;
+
+      final prefs = await SharedPreferences.getInstance();
+      final flagKey = 'users_backfill_v1::$businessId';
+      if (prefs.getBool(flagKey) == true) return;
+
+      final rows = await (_db.select(_db.users)
+            ..where((t) => t.businessId.equals(businessId)))
+          .get();
+      if (rows.isEmpty) {
+        await prefs.setBool(flagKey, true);
+        return;
+      }
+
+      var enqueued = 0;
+      for (final u in rows) {
+        await _db.syncDao.enqueueUpsert('users', u);
+        enqueued++;
+      }
+      await prefs.setBool(flagKey, true);
+      if (enqueued > 0) {
+        debugPrint('[SyncService] Users backfill: enqueued=$enqueued');
+      }
+    } catch (e) {
+      debugPrint('[SyncService] Users backfill failed: $e');
+    }
+  }
+
   Future<void> _backfillAllUnsyncedTables() async {
     try {
       await _backfillUnsyncedWarehouses();
+      await _backfillUnsyncedUsers();
       await _backfillUnsyncedCategories();
       await _backfillTable(_db.products, 'products', (row) => row.id);
       await _backfillTable(_db.customers, 'customers', (row) => row.id);
@@ -1181,10 +1583,73 @@ class SupabaseSyncService {
   /// Maps Supabase table names to Drift insertion logic.
   /// Uses DataClass.fromJson() which is always generated by Drift,
   /// then inserts the DataClass directly since it implements Insertable.
+  /// Returns the subset of [rows] that should overwrite the local mirror
+  /// per the §6.7 last-write-wins guard:
+  ///   * incoming row absent locally → keep
+  ///   * local `last_updated_at` is NULL (legacy) → keep
+  ///   * incoming `last_updated_at` >= local → keep
+  ///   * incoming `last_updated_at` <  local → drop
+  ///
+  /// Tables without an `id`/`last_updated_at` column (only `system_config`
+  /// in practice — keyed by `key`, no LUA) pass through unfiltered.
+  Future<List<Map<String, dynamic>>> _filterByLwwGuard(
+    String table,
+    List<Map<String, dynamic>> rows,
+  ) async {
+    if (rows.isEmpty) return rows;
+    if (table == 'system_config') return rows;
+
+    final ids =
+        rows.map((r) => r['id']).whereType<String>().toSet().toList();
+    if (ids.isEmpty) return rows;
+
+    // Drift stores DateTime as integer Unix seconds; reading the raw
+    // column type and comparing in epoch space avoids DateTime parse cost.
+    final placeholders = List.filled(ids.length, '?').join(',');
+    final localResults = await _db.customSelect(
+      'SELECT id, last_updated_at FROM $table WHERE id IN ($placeholders)',
+      variables: ids.map(Variable.withString).toList(),
+    ).get();
+
+    final localEpoch = <String, int?>{};
+    for (final row in localResults) {
+      final id = row.read<String>('id');
+      // Read as int? — Drift's default datetime mapping is integer epoch.
+      // Older rows may have NULL last_updated_at (treated as -∞).
+      localEpoch[id] = row.data['last_updated_at'] as int?;
+    }
+
+    return rows.where((r) {
+      final id = r['id'];
+      if (id is! String) return true; // unkeyable; pass through
+      if (!localEpoch.containsKey(id)) return true; // not present locally
+      final local = localEpoch[id];
+      if (local == null) return true; // legacy NULL; incoming wins
+
+      final incomingRaw = r['lastUpdatedAt'];
+      int? incoming;
+      if (incomingRaw is int) {
+        incoming = incomingRaw;
+      } else if (incomingRaw is String) {
+        final dt = DateTime.tryParse(incomingRaw);
+        if (dt != null) incoming = dt.millisecondsSinceEpoch ~/ 1000;
+      }
+      if (incoming == null) return true; // can't compare; let it through
+      return incoming >= local;
+    }).toList();
+  }
+
   Future<void> _restoreTableData(String table, List<dynamic> data) async {
-    final rows = data
+    final allRows = data
         .map((e) => _snakeToCamel(e as Map<String, dynamic>))
         .toList();
+    // §6.7 LWW guard: drop incoming rows whose `last_updated_at` is older
+    // than the existing local row. Out-of-order realtime delivery would
+    // otherwise clobber a fresher local row with a stale snapshot. NULL
+    // local LUA (legacy backfill) loses to anything; incoming rows the
+    // local DB doesn't yet have always pass.
+    final rows = await _filterByLwwGuard(table, allRows);
+    if (rows.isEmpty) return;
 
     await _db.transaction(() async {
       switch (table) {

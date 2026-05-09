@@ -377,6 +377,8 @@ class ExpensesDaoManager {
 mixin _$SyncDaoMixin on DatabaseAccessor<AppDatabase> {
   $BusinessesTable get businesses => attachedDatabase.businesses;
   $SyncQueueTable get syncQueue => attachedDatabase.syncQueue;
+  $SyncQueueOrphansTable get syncQueueOrphans =>
+      attachedDatabase.syncQueueOrphans;
   SyncDaoManager get managers => SyncDaoManager(this);
 }
 
@@ -387,6 +389,11 @@ class SyncDaoManager {
       $$BusinessesTableTableManager(_db.attachedDatabase, _db.businesses);
   $$SyncQueueTableTableManager get syncQueue =>
       $$SyncQueueTableTableManager(_db.attachedDatabase, _db.syncQueue);
+  $$SyncQueueOrphansTableTableManager get syncQueueOrphans =>
+      $$SyncQueueOrphansTableTableManager(
+        _db.attachedDatabase,
+        _db.syncQueueOrphans,
+      );
 }
 
 mixin _$ActivityLogDaoMixin on DatabaseAccessor<AppDatabase> {
