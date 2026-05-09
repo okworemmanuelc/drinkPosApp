@@ -1,0 +1,27 @@
+-- =============================================================================
+-- 0016_drop_crates.sql — drop the unused `public.crates` table.
+--
+-- Background (plan §4.5): the cloud `crates` table was created in
+-- 0001_initial.sql but no live code path ever wrote to it. Local Drift
+-- removed it in schemaVersion 5 (`if (from < 5)` migration in
+-- app_database.dart). This migration drops the cloud counterpart so
+-- the schema stays in lockstep.
+--
+-- CASCADE drops the table together with its index
+-- (`idx_crates_business_lua`), its tenant_* RLS policies (created by
+-- the loop in 0002_rls.sql), and any grants from 0003_grants.sql. The
+-- `business_id` FK from crates → businesses is dependent so it goes
+-- too; the `product_id` FK from crates → products is on the dropped
+-- side, no cascade needed.
+--
+-- Cache RLS lockdown (plan §6.7) is intentionally NOT in this
+-- migration — `inventory`, `customer_crate_balances`, and
+-- `manufacturer_crate_balances` still have v1 (flag-OFF) writers in
+-- the client, and the v2 feature flags default to 'false' for new
+-- businesses (see 0011_domain_rpcs_v2.sql:1368-1377). Locking the
+-- caches before every business has flipped to v2 would orphan their
+-- cache pushes. A future `0017_lock_cache_rls.sql` can land once
+-- per-business v2 flag rollout is complete.
+-- =============================================================================
+
+DROP TABLE IF EXISTS public.crates CASCADE;
