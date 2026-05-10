@@ -1,8 +1,11 @@
 @Tags(['integration'])
 library;
 
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:reebaplus_pos/core/database/uuid_v7.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../helpers/supabase_test_clients.dart';
 import '../../helpers/supabase_test_env.dart';
@@ -42,6 +45,9 @@ void main() {
   // Reusable warehouse + product (admin-inserted in setUpAll).
   late String warehouseId;
   late String productId;
+  // Product with NO inventory row at [warehouseId]. Used to exercise the
+  // `inventory_row_missing` path that 0017 split out from `insufficient_stock`.
+  late String stocklessProductId;
 
   Future<String> seedCustomer() async {
     final customerId = UuidV7.generate();
@@ -82,6 +88,17 @@ void main() {
       'product_id': productId,
       'warehouse_id': warehouseId,
       'quantity': 1000,
+    });
+
+    // Second product, intentionally never given an inventory row at
+    // [warehouseId]. This isolates the `inventory_row_missing` raise from
+    // the `insufficient_stock` raise — see 0017 for the split rationale.
+    stocklessProductId = UuidV7.generate();
+    await clients.adminClient.from('products').insert({
+      'id': stocklessProductId,
+      'business_id': clients.env.businessId,
+      'name': 'Sale Test Stockless Beer',
+      'selling_price_kobo': 100000,
     });
   });
 
@@ -402,6 +419,180 @@ void main() {
       expect(walletTxn['reference_type'], 'order_payment');
       expect(walletTxn['order_id'], orderId);
       expect(walletTxn['customer_id'], customerId);
+    }, skip: _skipReason);
+
+    test(
+        'error: inventory_row_missing raises (with HINT) when no inventory '
+        'row exists for product+warehouse — 0017 split guard',
+        () async {
+      final orderId = UuidV7.generate();
+      Object? caught;
+      try {
+        await clients.userClient.rpc('pos_record_sale_v2', params: {
+          'p_business_id': clients.env.businessId,
+          'p_actor_id': clients.env.userId,
+          'p_order_id': orderId,
+          'p_order_number':
+              'ORD-MISS-${orderId.substring(orderId.length - 12)}',
+          'p_warehouse_id': warehouseId,
+          'p_payment_type': 'cash',
+          'p_items': [
+            {
+              'product_id': stocklessProductId,
+              'quantity': 1,
+              'unit_price_kobo': 50000,
+            },
+          ],
+        });
+      } catch (e) {
+        caught = e;
+      }
+      expect(caught, isA<PostgrestException>(),
+          reason: 'RPC must surface a Postgrest error');
+      final ex = caught as PostgrestException;
+      expect(ex.message, contains('inventory_row_missing'),
+          reason:
+              'must be the missing-row error, not insufficient_stock — see 0017');
+      expect(ex.hint, isNotNull,
+          reason: '0017 attaches a JSON HINT for diagnostics');
+      final hint = jsonDecode(ex.hint!) as Map<String, dynamic>;
+      expect(hint['product_id'], stocklessProductId);
+      expect(hint['warehouse_id'], warehouseId);
+
+      // Atomicity: nothing landed.
+      expect(await fixture.countById('orders', orderId), 0,
+          reason: 'pre-write raise must not leave an order header');
+    }, skip: _skipReason);
+
+    test(
+        'error: insufficient_stock still raises (with available_qty) when '
+        'row exists but qty too low — confirms 0017 did not collapse cases',
+        () async {
+      // Read current quantity so we request strictly more.
+      final preInv = await clients.adminClient
+          .from('inventory')
+          .select('quantity')
+          .eq('business_id', clients.env.businessId)
+          .eq('product_id', productId)
+          .eq('warehouse_id', warehouseId)
+          .single();
+      final available = preInv['quantity'] as int;
+
+      final orderId = UuidV7.generate();
+      Object? caught;
+      try {
+        await clients.userClient.rpc('pos_record_sale_v2', params: {
+          'p_business_id': clients.env.businessId,
+          'p_actor_id': clients.env.userId,
+          'p_order_id': orderId,
+          'p_order_number':
+              'ORD-LOW-${orderId.substring(orderId.length - 12)}',
+          'p_warehouse_id': warehouseId,
+          'p_payment_type': 'cash',
+          'p_items': [
+            {
+              'product_id': productId,
+              'quantity': available + 1,
+              'unit_price_kobo': 100000,
+            },
+          ],
+        });
+      } catch (e) {
+        caught = e;
+      }
+      expect(caught, isA<PostgrestException>());
+      final ex = caught as PostgrestException;
+      expect(ex.message, contains('insufficient_stock'),
+          reason:
+              'must be the low-qty error, not inventory_row_missing — see 0017');
+      expect(ex.hint, isNotNull);
+      final hint = jsonDecode(ex.hint!) as Map<String, dynamic>;
+      expect(hint['product_id'], productId);
+      expect(hint['warehouse_id'], warehouseId);
+      expect(hint['available_qty'], available,
+          reason: '0017 added available_qty to the HINT');
+
+      expect(await fixture.countById('orders', orderId), 0);
+    }, skip: _skipReason);
+
+    test(
+        'atomicity (inventory_row_missing): two-item sale where item 2 has '
+        'no inventory row rolls back item 1 + the order header',
+        () async {
+      // Snapshot inventory before the call so we can prove item 1 reverted.
+      final preInv = await clients.adminClient
+          .from('inventory')
+          .select('quantity')
+          .eq('business_id', clients.env.businessId)
+          .eq('product_id', productId)
+          .eq('warehouse_id', warehouseId)
+          .single();
+      final preQty = preInv['quantity'] as int;
+
+      final orderId = UuidV7.generate();
+      Object? caught;
+      try {
+        await clients.userClient.rpc('pos_record_sale_v2', params: {
+          'p_business_id': clients.env.businessId,
+          'p_actor_id': clients.env.userId,
+          'p_order_id': orderId,
+          'p_order_number':
+              'ORD-MFM-${orderId.substring(orderId.length - 12)}',
+          'p_warehouse_id': warehouseId,
+          'p_payment_type': 'cash',
+          'p_items': [
+            // Item 1: succeeds — order_items + inventory UPDATE + stock_tx
+            // are all written within the txn.
+            {
+              'product_id': productId,
+              'quantity': 1,
+              'unit_price_kobo': 100000,
+            },
+            // Item 2: fails — no inventory row exists for this product at
+            // [warehouseId], triggering the 0017 raise.
+            {
+              'product_id': stocklessProductId,
+              'quantity': 1,
+              'unit_price_kobo': 100000,
+            },
+          ],
+          'p_amount_paid_kobo': 100000,
+          'p_payment_method': 'cash',
+        });
+      } catch (e) {
+        caught = e;
+      }
+      expect(caught, isA<PostgrestException>());
+      expect((caught as PostgrestException).message,
+          contains('inventory_row_missing'));
+
+      // Atomicity proof — same shape as the insufficient_stock variant.
+      expect(await fixture.countById('orders', orderId), 0,
+          reason: 'order header must roll back on mid-flight raise');
+
+      final cloudItems = await clients.adminClient
+          .from('order_items')
+          .select('id')
+          .eq('order_id', orderId);
+      expect(cloudItems, isEmpty,
+          reason: 'item 1 must roll back when item 2 fails');
+
+      final cloudStx = await clients.adminClient
+          .from('stock_transactions')
+          .select('id')
+          .eq('order_id', orderId);
+      expect(cloudStx, isEmpty,
+          reason: 'item 1 stock_tx must roll back too');
+
+      final postInv = await clients.adminClient
+          .from('inventory')
+          .select('quantity')
+          .eq('business_id', clients.env.businessId)
+          .eq('product_id', productId)
+          .eq('warehouse_id', warehouseId)
+          .single();
+      expect(postInv['quantity'], preQty,
+          reason: 'item 1 inventory deduction must roll back');
     }, skip: _skipReason);
   });
 }
