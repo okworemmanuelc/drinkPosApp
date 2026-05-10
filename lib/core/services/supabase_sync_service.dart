@@ -954,8 +954,8 @@ class SupabaseSyncService {
 
       await prefs.setString(key, DateTime.now().toUtc().toIso8601String());
       debugPrint('[SyncService] Two-way sync completed successfully.');
-    } catch (e) {
-      debugPrint('[SyncService] Sync failed: $e');
+    } catch (e, st) {
+      debugPrint('[SyncService] Sync failed: $e\n$st');
       rethrow;
     }
   }
@@ -1237,6 +1237,23 @@ class SupabaseSyncService {
       // Users backfill ships after the global gate above, so devices that
       // already passed it still pick up the per-business one-shot below.
       await _backfillUnsyncedUsers();
+
+      // One-shot remediation for the millis-timestamp serialization bug
+      // (sync_helpers.dart pre-fix produced int payloads that Postgres
+      // rejected with 22008). Drops any pending queue rows that have
+      // already been attempted; untried items survive so concurrent fresh
+      // writes aren't dropped. Future writes use the corrected serializer.
+      const purgeFlag = 'pending_queue_purge_after_timestamp_fix_v1';
+      if (prefs.getBool(purgeFlag) != true) {
+        final purged = await _db.syncDao.purgeAttemptedPending();
+        if (purged > 0) {
+          debugPrint(
+            '[SyncService] Purged $purged stale queue items with bad '
+            'integer-millis timestamps (one-shot remediation).',
+          );
+        }
+        await prefs.setBool(purgeFlag, true);
+      }
 
       if (_supabase.auth.currentUser != null) {
         await _db.syncDao.clearFailureBackoff();
@@ -1565,8 +1582,13 @@ class SupabaseSyncService {
   /// Cloud `jsonb` columns arrive as Map/List, but Drift stores them as TEXT.
   /// Stringify so DataClass.fromJson<String?> can cast without throwing.
   static dynamic _stringifyJsonb(dynamic v) {
-    if (v is Map || v is List) return jsonEncode(v);
-    return v;
+    // Cloud `jsonb` columns can hold any JSON shape, including primitives.
+    // Drift mirrors these as `text` (String?), so anything non-string must
+    // be JSON-encoded. Booleans in particular bite system_config flag rows
+    // (e.g. `feature.domain_rpcs_v2.* = true` as a jsonb boolean lands as
+    // Dart `bool` and crashes the `String?` cast in fromJson).
+    if (v == null || v is String) return v;
+    return jsonEncode(v);
   }
 
   /// Converts snake_case Supabase JSON keys to camelCase for Drift's fromJson.
@@ -1640,6 +1662,15 @@ class SupabaseSyncService {
   }
 
   Future<void> _restoreTableData(String table, List<dynamic> data) async {
+    // `profiles` has no local mirror — the current user's row is upserted by
+    // AuthService.upsertLocalUserFromProfile during auth. Bail before the LWW
+    // guard tries to read from a table that doesn't exist locally.
+    if (table == 'profiles') {
+      debugPrint(
+        '[SyncService] Skipping bulk profiles restore (${data.length} rows) — handled by auth flow.',
+      );
+      return;
+    }
     final allRows = data
         .map((e) => _snakeToCamel(e as Map<String, dynamic>))
         .toList();
@@ -1671,14 +1702,6 @@ class SupabaseSyncService {
                 .into(_db.warehouses)
                 .insertOnConflictUpdate(WarehouseData.fromJson(r));
           }
-          break;
-        case 'profiles':
-          // No-op: cloud `profiles` has no email column, so multi-user backfill
-          // here is unreliable. The current user's local row is upserted via
-          // AuthService.upsertLocalUserFromProfile() during the auth flow.
-          debugPrint(
-            '[SyncService] Skipping bulk profiles restore (${rows.length} rows) — handled by auth flow.',
-          );
           break;
         case 'products':
           for (var r in rows) {

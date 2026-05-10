@@ -2457,6 +2457,21 @@ class SyncDao extends DatabaseAccessor<AppDatabase>
       }
     });
   }
+
+  /// Deletes pending queue items that have already been attempted at least
+  /// once (i.e. items the engine has tried to push and failed on). Untried
+  /// items (`attempts == 0`) are preserved so a fresh enqueue racing with
+  /// the purge isn't lost. Returns the number of rows deleted.
+  ///
+  /// Used as a one-shot remediation when a serialization bug bakes a bad
+  /// payload into the queue — fixing the bug doesn't repair existing rows
+  /// because the payload is frozen at enqueue time.
+  Future<int> purgeAttemptedPending() async {
+    return (delete(syncQueue)
+          ..where((t) =>
+              t.status.equals('pending') & t.attempts.isBiggerThanValue(0)))
+        .go();
+  }
 }
 
 @DriftAccessor(tables: [ActivityLogs])
