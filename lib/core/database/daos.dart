@@ -2833,6 +2833,101 @@ class WarehousesDao extends DatabaseAccessor<AppDatabase>
   }
 }
 
+// Per-business membership DAO (staff-onboarding §1.2). Owns the read paths
+// AuthService and the manager dashboard need today, plus the PIN-write seam
+// AuthService.setUserPin uses to dual-write the hashed PIN onto the
+// membership row in addition to the legacy users.pin* columns. Without
+// the dual-write, PIN data would be silently lost when Phase 5 drops the
+// users.pin_* columns.
+//
+// The accept_invite RPC response is applied via _applyDomainResponse in
+// supabase_sync_service, NOT this DAO — that path is one of the two
+// legitimate enqueue exceptions per CLAUDE.md §5.
+@DriftAccessor(tables: [BusinessMembers])
+class BusinessMembersDao extends DatabaseAccessor<AppDatabase>
+    with _$BusinessMembersDaoMixin, BusinessScopedDao<AppDatabase> {
+  BusinessMembersDao(super.db);
+
+  // ── reads ────────────────────────────────────────────────────────────────
+
+  Stream<List<BusinessMemberData>> watchAllForBusiness() {
+    return (select(businessMembers)
+          ..where((t) => whereBusiness(t) & t.isDeleted.not())
+          ..orderBy([(t) => OrderingTerm(expression: t.joinedAt)]))
+        .watch();
+  }
+
+  Future<BusinessMemberData?> getById(String id) {
+    return (select(
+      businessMembers,
+    )..where((t) => t.id.equals(id) & whereBusiness(t))).getSingleOrNull();
+  }
+
+  // Lookup by user_id within the current tenant. Returns null if the user is
+  // not a member of the active business. Not soft-delete-filtered — callers
+  // (e.g. AuthService) sometimes need to see removed memberships to render
+  // an empty-state.
+  Future<BusinessMemberData?> getByUserId(String userId) {
+    return (select(businessMembers)
+          ..where((t) => t.userId.equals(userId) & whereBusiness(t))
+          ..limit(1))
+        .getSingleOrNull();
+  }
+
+  // Lookup across all businesses for a user — needed by the future business
+  // picker (Phase 5) and by AuthService bootstrap when the active tenant is
+  // not yet known. Bypasses whereBusiness deliberately.
+  Future<List<BusinessMemberData>> getAllForUser(String userId) {
+    return (select(businessMembers)
+          ..where((t) => t.userId.equals(userId) & t.isDeleted.not()))
+        .get();
+  }
+
+  // ── writes ───────────────────────────────────────────────────────────────
+
+  // Sets PIN on the membership and pushes the change. Called by
+  // AuthService.setUserPin alongside the legacy users.pin* write so the
+  // hash is on both rows during the Phase 1→Phase 5 transition.
+  Future<void> setPin(
+    String membershipId, {
+    required String pinHash,
+    required String pinSalt,
+    required int pinIterations,
+  }) async {
+    final now = DateTime.now();
+    final comp = BusinessMembersCompanion(
+      id: Value(membershipId),
+      pinHash: Value(pinHash),
+      pinSalt: Value(pinSalt),
+      pinIterations: Value(pinIterations),
+      lastUpdatedAt: Value(now),
+    );
+    await (update(businessMembers)..where(
+          (t) => t.id.equals(membershipId) & whereBusiness(t),
+        ))
+        .write(comp);
+    await db.syncDao.enqueueUpsert('business_members', comp);
+  }
+
+  // Clears PIN on the membership — used by authorize_pin_reset (Phase 5).
+  // After this, the next sign-in finds pinHash=NULL and prompts setup.
+  Future<void> clearPin(String membershipId) async {
+    final now = DateTime.now();
+    final comp = BusinessMembersCompanion(
+      id: Value(membershipId),
+      pinHash: const Value(null),
+      pinSalt: const Value(null),
+      pinIterations: const Value(null),
+      lastUpdatedAt: Value(now),
+    );
+    await (update(businessMembers)..where(
+          (t) => t.id.equals(membershipId) & whereBusiness(t),
+        ))
+        .write(comp);
+    await db.syncDao.enqueueUpsert('business_members', comp);
+  }
+}
+
 @DriftAccessor(tables: [Notifications])
 class NotificationsDao extends DatabaseAccessor<AppDatabase>
     with _$NotificationsDaoMixin, BusinessScopedDao<AppDatabase> {

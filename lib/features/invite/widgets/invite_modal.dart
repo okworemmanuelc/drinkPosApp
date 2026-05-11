@@ -47,6 +47,7 @@ class _InviteModalState extends ConsumerState<InviteModal> {
   _Phase _phase = _Phase.email;
 
   final _emailCtrl = TextEditingController();
+  final _phoneCtrl = TextEditingController();
   bool _busy = false;
   String? _inlineError; // displayed under the email field
   String? _pendingInviteId; // when inline "Resend?" should be shown
@@ -55,10 +56,13 @@ class _InviteModalState extends ConsumerState<InviteModal> {
   String? _selectedWarehouseId;
 
   // Filled after successful send-invite / resend-invite.
-  String? _resultCode;
+  String? _resultCode; // 8-char legacy code
+  String? _resultHumanCode; // 6-char in-person code (Phase 2)
   String? _resultUrl;
   DateTime? _resultExpiresAt;
   String? _resultEmail; // echo of the email used
+  bool? _resultEmailSent; // whether Resend dispatched OK
+  bool? _resultSmsSent; // whether Termii dispatched OK (null if no phone)
   String _businessName = 'your business';
 
   @override
@@ -87,6 +91,7 @@ class _InviteModalState extends ConsumerState<InviteModal> {
   @override
   void dispose() {
     _emailCtrl.dispose();
+    _phoneCtrl.dispose();
     super.dispose();
   }
 
@@ -148,8 +153,14 @@ class _InviteModalState extends ConsumerState<InviteModal> {
 
   Future<void> _onSendFromDetails() async {
     final email = _emailCtrl.text.trim().toLowerCase();
+    final phone = _phoneCtrl.text.trim();
     if (_selectedWarehouseId == null) {
       setState(() => _inlineError = 'Pick a warehouse first.');
+      return;
+    }
+    if (phone.isEmpty) {
+      setState(() => _inlineError =
+          "Enter a phone number — we'll send an SMS with the join code.");
       return;
     }
     setState(() {
@@ -161,6 +172,7 @@ class _InviteModalState extends ConsumerState<InviteModal> {
       email: email,
       role: _selectedRole.value,
       warehouseId: _selectedWarehouseId,
+      phone: phone,
     );
     if (!mounted) return;
     _consumeIssueResult(result, email);
@@ -184,16 +196,19 @@ class _InviteModalState extends ConsumerState<InviteModal> {
       _busy = false;
       _phase = _Phase.success;
       _resultCode = data['code']?.toString();
+      _resultHumanCode = data['human_code']?.toString();
       _resultUrl = data['url']?.toString();
       _resultExpiresAt =
           DateTime.tryParse(data['expires_at']?.toString() ?? '');
       _resultEmail = email;
+      _resultEmailSent = data['email_sent'] as bool?;
+      _resultSmsSent = data['sms_sent'] as bool?;
     });
   }
 
   Future<void> _shareUrl() async {
     final url = _resultUrl;
-    final code = _resultCode;
+    final humanCode = _resultHumanCode ?? _resultCode;
     if (url == null) return;
     final message = """You've been invited to join $_businessName on Reebaplus POS.
 
@@ -201,9 +216,9 @@ Tap to accept:
 $url
 
 Or open the app and enter this code:
-$code
+$humanCode
 
-This link expires in 48 hours.""";
+This invitation expires in 7 days.""";
     await Share.share(message, subject: 'Reebaplus POS invite');
   }
 
@@ -349,6 +364,23 @@ This link expires in 48 hours.""";
             .toList(),
         onChanged: (id) => setState(() => _selectedWarehouseId = id),
       ),
+      const SizedBox(height: 12),
+      Container(
+        padding: const EdgeInsets.all(12),
+        decoration: AppDecorations.glassCard(context),
+        child: TextField(
+          controller: _phoneCtrl,
+          keyboardType: TextInputType.phone,
+          textInputAction: TextInputAction.done,
+          onSubmitted: (_) => _busy ? null : _onSendFromDetails(),
+          style: TextStyle(color: textColor),
+          decoration: AppDecorations.authInputDecoration(
+            context,
+            label: 'Phone (for SMS code)',
+            prefixIcon: Icons.phone_outlined,
+          ),
+        ),
+      ),
       if (_inlineError != null) ...[
         const SizedBox(height: 12),
         _inlineErrorBanner(),
@@ -365,46 +397,74 @@ This link expires in 48 hours.""";
   List<Widget> _successStep() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final textColor = isDark ? Colors.white : Colors.black;
-    final code = _resultCode ?? '';
+    final humanCode = _resultHumanCode ?? '';
+    final legacyCode = _resultCode ?? '';
     final email = _resultEmail ?? '';
     final hours =
         _resultExpiresAt?.difference(DateTime.now()).inHours.clamp(0, 9999);
+    final emailSent = _resultEmailSent ?? false;
+    final smsSent = _resultSmsSent;
     return [
-      _header('Invitation ready',
-          'Share this link with $email — they can join immediately.'),
+      _header('Invitation sent',
+          'Code shared with $email. Read it to them in person if needed.'),
       const SizedBox(height: 20),
+      // Primary: the 6-char human_code in large monospace, optimised for
+      // reading aloud over a phone or in person.
       Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
         decoration: AppDecorations.glassCard(context, radius: 16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                Icon(Icons.tag_rounded,
+                Icon(Icons.record_voice_over_rounded,
                     size: 18, color: textColor.withValues(alpha: 0.6)),
                 const SizedBox(width: 8),
                 Text(
-                  'Manual code',
+                  'Code to share in person',
                   style: TextStyle(
                       fontSize: 12,
                       color: textColor.withValues(alpha: 0.6)),
                 ),
               ],
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 8),
             SelectableText(
-              code,
+              humanCode,
               style: TextStyle(
-                fontSize: 22,
+                fontSize: 36,
                 fontWeight: FontWeight.bold,
-                letterSpacing: 2,
+                letterSpacing: 6,
                 color: textColor,
                 fontFamily: 'monospace',
               ),
             ),
             const SizedBox(height: 12),
-            if (hours != null)
+            // Dispatch indicators — visible cue that the email/SMS actually
+            // left the building. False means the provider returned 5xx or
+            // wasn't configured — the inviter can resend or share manually.
+            Row(
+              children: [
+                _dispatchChip(
+                  icon: Icons.email_outlined,
+                  label: emailSent ? 'Email sent' : 'Email queued',
+                  ok: emailSent,
+                  textColor: textColor,
+                ),
+                if (smsSent != null) ...[
+                  const SizedBox(width: 8),
+                  _dispatchChip(
+                    icon: Icons.sms_outlined,
+                    label: smsSent ? 'SMS sent' : 'SMS failed',
+                    ok: smsSent,
+                    textColor: textColor,
+                  ),
+                ],
+              ],
+            ),
+            if (hours != null) ...[
+              const SizedBox(height: 12),
               Text(
                 'Expires in ${hours == 0 ? "<1" : hours} hour${hours == 1 ? "" : "s"}',
                 style: TextStyle(
@@ -412,9 +472,25 @@ This link expires in 48 hours.""";
                   color: textColor.withValues(alpha: 0.6),
                 ),
               ),
+            ],
           ],
         ),
       ),
+      const SizedBox(height: 12),
+      // Secondary: legacy 8-char code, kept for backward compat with anyone
+      // still on a pre-Phase-2 client. Smaller and de-emphasised.
+      if (legacyCode.isNotEmpty)
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: Text(
+            'Legacy code: $legacyCode',
+            style: TextStyle(
+              fontSize: 12,
+              color: textColor.withValues(alpha: 0.5),
+              fontFamily: 'monospace',
+            ),
+          ),
+        ),
       const SizedBox(height: 16),
       AppButton(text: 'Share invitation', onPressed: _shareUrl),
       const SizedBox(height: 8),
@@ -429,6 +505,34 @@ This link expires in 48 hours.""";
         child: const Text('Done'),
       ),
     ];
+  }
+
+  Widget _dispatchChip({
+    required IconData icon,
+    required String label,
+    required bool ok,
+    required Color textColor,
+  }) {
+    final color = ok ? Colors.green : Colors.orange;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.4)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 13, color: color),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: TextStyle(fontSize: 11, color: color),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _header(String title, String subtitle) {

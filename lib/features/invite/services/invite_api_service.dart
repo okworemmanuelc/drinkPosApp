@@ -180,15 +180,20 @@ class InviteApiService {
   }
 
   // ── Step-2 modal: create the invite, returns deep-link URL for share ───
+  // Phase 2: optionally accepts a phone number; when present, the Edge
+  // Function dispatches an SMS in addition to the email. Response shape
+  // includes `human_code` (6-char), `email_sent`, `sms_sent`.
   Future<InviteApiResult<Map<String, dynamic>>> sendInvite({
     required String email,
     required String role,
     String? warehouseId,
+    String? phone,
   }) {
     return _invoke('send-invite', {
       'email': email,
       'role': role,
       'warehouse_id': warehouseId,
+      'phone': phone,
     });
   }
 
@@ -206,7 +211,16 @@ class InviteApiService {
     return _invoke('accept-invite', {'code': code});
   }
 
-  // ── Atomic finalisation (creates profile + user, marks invite accepted) ─
+  // 6-char human_code preview (Phase 2). Distinct from the 8-char `code`.
+  Future<InviteApiResult<Map<String, dynamic>>> previewByHumanCode(
+    String humanCode,
+  ) {
+    return _invoke('accept-invite', {'human_code': humanCode});
+  }
+
+  // ── Atomic finalisation (creates user + business_members, marks invite
+  //    accepted). Returns canonical {user, membership, invite} which the
+  //    InviteLandingScreen routes through SyncService._applyDomainResponse.
   Future<InviteApiResult<Map<String, dynamic>>> redeemByToken({
     required String token,
     required String userName,
@@ -223,6 +237,16 @@ class InviteApiService {
   }) {
     return _invoke('redeem-invite', {
       'code': code,
+      'user_name': userName,
+    });
+  }
+
+  Future<InviteApiResult<Map<String, dynamic>>> redeemByHumanCode({
+    required String humanCode,
+    required String userName,
+  }) {
+    return _invoke('redeem-invite', {
+      'human_code': humanCode,
       'user_name': userName,
     });
   }

@@ -3262,6 +3262,1597 @@ class UsersCompanion extends UpdateCompanion<UserData> {
   }
 }
 
+class $BusinessMembersTable extends BusinessMembers
+    with TableInfo<$BusinessMembersTable, BusinessMemberData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $BusinessMembersTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    clientDefault: () => UuidV7.generate(),
+  );
+  static const VerificationMeta _businessIdMeta = const VerificationMeta(
+    'businessId',
+  );
+  @override
+  late final GeneratedColumn<String> businessId = GeneratedColumn<String>(
+    'business_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES businesses (id)',
+    ),
+  );
+  static const VerificationMeta _userIdMeta = const VerificationMeta('userId');
+  @override
+  late final GeneratedColumn<String> userId = GeneratedColumn<String>(
+    'user_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES users (id)',
+    ),
+  );
+  static const VerificationMeta _roleMeta = const VerificationMeta('role');
+  @override
+  late final GeneratedColumn<String> role = GeneratedColumn<String>(
+    'role',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _roleTierMeta = const VerificationMeta(
+    'roleTier',
+  );
+  @override
+  late final GeneratedColumn<int> roleTier = GeneratedColumn<int>(
+    'role_tier',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(1),
+  );
+  static const VerificationMeta _warehouseIdMeta = const VerificationMeta(
+    'warehouseId',
+  );
+  @override
+  late final GeneratedColumn<String> warehouseId = GeneratedColumn<String>(
+    'warehouse_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES warehouses (id)',
+    ),
+  );
+  static const VerificationMeta _pinHashMeta = const VerificationMeta(
+    'pinHash',
+  );
+  @override
+  late final GeneratedColumn<String> pinHash = GeneratedColumn<String>(
+    'pin_hash',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _pinSaltMeta = const VerificationMeta(
+    'pinSalt',
+  );
+  @override
+  late final GeneratedColumn<String> pinSalt = GeneratedColumn<String>(
+    'pin_salt',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _pinIterationsMeta = const VerificationMeta(
+    'pinIterations',
+  );
+  @override
+  late final GeneratedColumn<int> pinIterations = GeneratedColumn<int>(
+    'pin_iterations',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _biometricEnabledMeta = const VerificationMeta(
+    'biometricEnabled',
+  );
+  @override
+  late final GeneratedColumn<bool> biometricEnabled = GeneratedColumn<bool>(
+    'biometric_enabled',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("biometric_enabled" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _statusMeta = const VerificationMeta('status');
+  @override
+  late final GeneratedColumn<String> status = GeneratedColumn<String>(
+    'status',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('active'),
+  );
+  static const VerificationMeta _verificationStatusMeta =
+      const VerificationMeta('verificationStatus');
+  @override
+  late final GeneratedColumn<String> verificationStatus =
+      GeneratedColumn<String>(
+        'verification_status',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+        defaultValue: const Constant('not_started'),
+      );
+  static const VerificationMeta _verificationDueAtMeta = const VerificationMeta(
+    'verificationDueAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> verificationDueAt =
+      GeneratedColumn<DateTime>(
+        'verification_due_at',
+        aliasedName,
+        true,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _verificationExtensionsUsedMeta =
+      const VerificationMeta('verificationExtensionsUsed');
+  @override
+  late final GeneratedColumn<int> verificationExtensionsUsed =
+      GeneratedColumn<int>(
+        'verification_extensions_used',
+        aliasedName,
+        false,
+        type: DriftSqlType.int,
+        requiredDuringInsert: false,
+        defaultValue: const Constant(0),
+      );
+  static const VerificationMeta _joinedAtMeta = const VerificationMeta(
+    'joinedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> joinedAt = GeneratedColumn<DateTime>(
+    'joined_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  static const VerificationMeta _createdByMeta = const VerificationMeta(
+    'createdBy',
+  );
+  @override
+  late final GeneratedColumn<String> createdBy = GeneratedColumn<String>(
+    'created_by',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES users (id)',
+    ),
+  );
+  static const VerificationMeta _removedAtMeta = const VerificationMeta(
+    'removedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> removedAt = GeneratedColumn<DateTime>(
+    'removed_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _removedByMeta = const VerificationMeta(
+    'removedBy',
+  );
+  @override
+  late final GeneratedColumn<String> removedBy = GeneratedColumn<String>(
+    'removed_by',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES users (id)',
+    ),
+  );
+  static const VerificationMeta _staffPhoneMeta = const VerificationMeta(
+    'staffPhone',
+  );
+  @override
+  late final GeneratedColumn<String> staffPhone = GeneratedColumn<String>(
+    'staff_phone',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _nextOfKinNameMeta = const VerificationMeta(
+    'nextOfKinName',
+  );
+  @override
+  late final GeneratedColumn<String> nextOfKinName = GeneratedColumn<String>(
+    'next_of_kin_name',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _nextOfKinPhoneMeta = const VerificationMeta(
+    'nextOfKinPhone',
+  );
+  @override
+  late final GeneratedColumn<String> nextOfKinPhone = GeneratedColumn<String>(
+    'next_of_kin_phone',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _nextOfKinRelationMeta = const VerificationMeta(
+    'nextOfKinRelation',
+  );
+  @override
+  late final GeneratedColumn<String> nextOfKinRelation =
+      GeneratedColumn<String>(
+        'next_of_kin_relation',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _guarantorNameMeta = const VerificationMeta(
+    'guarantorName',
+  );
+  @override
+  late final GeneratedColumn<String> guarantorName = GeneratedColumn<String>(
+    'guarantor_name',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _guarantorPhoneMeta = const VerificationMeta(
+    'guarantorPhone',
+  );
+  @override
+  late final GeneratedColumn<String> guarantorPhone = GeneratedColumn<String>(
+    'guarantor_phone',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _guarantorRelationMeta = const VerificationMeta(
+    'guarantorRelation',
+  );
+  @override
+  late final GeneratedColumn<String> guarantorRelation =
+      GeneratedColumn<String>(
+        'guarantor_relation',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _isDeletedMeta = const VerificationMeta(
+    'isDeleted',
+  );
+  @override
+  late final GeneratedColumn<bool> isDeleted = GeneratedColumn<bool>(
+    'is_deleted',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_deleted" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  static const VerificationMeta _lastUpdatedAtMeta = const VerificationMeta(
+    'lastUpdatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> lastUpdatedAt =
+      GeneratedColumn<DateTime>(
+        'last_updated_at',
+        aliasedName,
+        false,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: false,
+        defaultValue: currentDateAndTime,
+      );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    businessId,
+    userId,
+    role,
+    roleTier,
+    warehouseId,
+    pinHash,
+    pinSalt,
+    pinIterations,
+    biometricEnabled,
+    status,
+    verificationStatus,
+    verificationDueAt,
+    verificationExtensionsUsed,
+    joinedAt,
+    createdBy,
+    removedAt,
+    removedBy,
+    staffPhone,
+    nextOfKinName,
+    nextOfKinPhone,
+    nextOfKinRelation,
+    guarantorName,
+    guarantorPhone,
+    guarantorRelation,
+    isDeleted,
+    createdAt,
+    lastUpdatedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'business_members';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<BusinessMemberData> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('business_id')) {
+      context.handle(
+        _businessIdMeta,
+        businessId.isAcceptableOrUnknown(data['business_id']!, _businessIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_businessIdMeta);
+    }
+    if (data.containsKey('user_id')) {
+      context.handle(
+        _userIdMeta,
+        userId.isAcceptableOrUnknown(data['user_id']!, _userIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_userIdMeta);
+    }
+    if (data.containsKey('role')) {
+      context.handle(
+        _roleMeta,
+        role.isAcceptableOrUnknown(data['role']!, _roleMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_roleMeta);
+    }
+    if (data.containsKey('role_tier')) {
+      context.handle(
+        _roleTierMeta,
+        roleTier.isAcceptableOrUnknown(data['role_tier']!, _roleTierMeta),
+      );
+    }
+    if (data.containsKey('warehouse_id')) {
+      context.handle(
+        _warehouseIdMeta,
+        warehouseId.isAcceptableOrUnknown(
+          data['warehouse_id']!,
+          _warehouseIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('pin_hash')) {
+      context.handle(
+        _pinHashMeta,
+        pinHash.isAcceptableOrUnknown(data['pin_hash']!, _pinHashMeta),
+      );
+    }
+    if (data.containsKey('pin_salt')) {
+      context.handle(
+        _pinSaltMeta,
+        pinSalt.isAcceptableOrUnknown(data['pin_salt']!, _pinSaltMeta),
+      );
+    }
+    if (data.containsKey('pin_iterations')) {
+      context.handle(
+        _pinIterationsMeta,
+        pinIterations.isAcceptableOrUnknown(
+          data['pin_iterations']!,
+          _pinIterationsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('biometric_enabled')) {
+      context.handle(
+        _biometricEnabledMeta,
+        biometricEnabled.isAcceptableOrUnknown(
+          data['biometric_enabled']!,
+          _biometricEnabledMeta,
+        ),
+      );
+    }
+    if (data.containsKey('status')) {
+      context.handle(
+        _statusMeta,
+        status.isAcceptableOrUnknown(data['status']!, _statusMeta),
+      );
+    }
+    if (data.containsKey('verification_status')) {
+      context.handle(
+        _verificationStatusMeta,
+        verificationStatus.isAcceptableOrUnknown(
+          data['verification_status']!,
+          _verificationStatusMeta,
+        ),
+      );
+    }
+    if (data.containsKey('verification_due_at')) {
+      context.handle(
+        _verificationDueAtMeta,
+        verificationDueAt.isAcceptableOrUnknown(
+          data['verification_due_at']!,
+          _verificationDueAtMeta,
+        ),
+      );
+    }
+    if (data.containsKey('verification_extensions_used')) {
+      context.handle(
+        _verificationExtensionsUsedMeta,
+        verificationExtensionsUsed.isAcceptableOrUnknown(
+          data['verification_extensions_used']!,
+          _verificationExtensionsUsedMeta,
+        ),
+      );
+    }
+    if (data.containsKey('joined_at')) {
+      context.handle(
+        _joinedAtMeta,
+        joinedAt.isAcceptableOrUnknown(data['joined_at']!, _joinedAtMeta),
+      );
+    }
+    if (data.containsKey('created_by')) {
+      context.handle(
+        _createdByMeta,
+        createdBy.isAcceptableOrUnknown(data['created_by']!, _createdByMeta),
+      );
+    }
+    if (data.containsKey('removed_at')) {
+      context.handle(
+        _removedAtMeta,
+        removedAt.isAcceptableOrUnknown(data['removed_at']!, _removedAtMeta),
+      );
+    }
+    if (data.containsKey('removed_by')) {
+      context.handle(
+        _removedByMeta,
+        removedBy.isAcceptableOrUnknown(data['removed_by']!, _removedByMeta),
+      );
+    }
+    if (data.containsKey('staff_phone')) {
+      context.handle(
+        _staffPhoneMeta,
+        staffPhone.isAcceptableOrUnknown(data['staff_phone']!, _staffPhoneMeta),
+      );
+    }
+    if (data.containsKey('next_of_kin_name')) {
+      context.handle(
+        _nextOfKinNameMeta,
+        nextOfKinName.isAcceptableOrUnknown(
+          data['next_of_kin_name']!,
+          _nextOfKinNameMeta,
+        ),
+      );
+    }
+    if (data.containsKey('next_of_kin_phone')) {
+      context.handle(
+        _nextOfKinPhoneMeta,
+        nextOfKinPhone.isAcceptableOrUnknown(
+          data['next_of_kin_phone']!,
+          _nextOfKinPhoneMeta,
+        ),
+      );
+    }
+    if (data.containsKey('next_of_kin_relation')) {
+      context.handle(
+        _nextOfKinRelationMeta,
+        nextOfKinRelation.isAcceptableOrUnknown(
+          data['next_of_kin_relation']!,
+          _nextOfKinRelationMeta,
+        ),
+      );
+    }
+    if (data.containsKey('guarantor_name')) {
+      context.handle(
+        _guarantorNameMeta,
+        guarantorName.isAcceptableOrUnknown(
+          data['guarantor_name']!,
+          _guarantorNameMeta,
+        ),
+      );
+    }
+    if (data.containsKey('guarantor_phone')) {
+      context.handle(
+        _guarantorPhoneMeta,
+        guarantorPhone.isAcceptableOrUnknown(
+          data['guarantor_phone']!,
+          _guarantorPhoneMeta,
+        ),
+      );
+    }
+    if (data.containsKey('guarantor_relation')) {
+      context.handle(
+        _guarantorRelationMeta,
+        guarantorRelation.isAcceptableOrUnknown(
+          data['guarantor_relation']!,
+          _guarantorRelationMeta,
+        ),
+      );
+    }
+    if (data.containsKey('is_deleted')) {
+      context.handle(
+        _isDeletedMeta,
+        isDeleted.isAcceptableOrUnknown(data['is_deleted']!, _isDeletedMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    if (data.containsKey('last_updated_at')) {
+      context.handle(
+        _lastUpdatedAtMeta,
+        lastUpdatedAt.isAcceptableOrUnknown(
+          data['last_updated_at']!,
+          _lastUpdatedAtMeta,
+        ),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  BusinessMemberData map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return BusinessMemberData(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      businessId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}business_id'],
+      )!,
+      userId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}user_id'],
+      )!,
+      role: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}role'],
+      )!,
+      roleTier: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}role_tier'],
+      )!,
+      warehouseId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}warehouse_id'],
+      ),
+      pinHash: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}pin_hash'],
+      ),
+      pinSalt: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}pin_salt'],
+      ),
+      pinIterations: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}pin_iterations'],
+      ),
+      biometricEnabled: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}biometric_enabled'],
+      )!,
+      status: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}status'],
+      )!,
+      verificationStatus: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}verification_status'],
+      )!,
+      verificationDueAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}verification_due_at'],
+      ),
+      verificationExtensionsUsed: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}verification_extensions_used'],
+      )!,
+      joinedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}joined_at'],
+      )!,
+      createdBy: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}created_by'],
+      ),
+      removedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}removed_at'],
+      ),
+      removedBy: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}removed_by'],
+      ),
+      staffPhone: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}staff_phone'],
+      ),
+      nextOfKinName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}next_of_kin_name'],
+      ),
+      nextOfKinPhone: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}next_of_kin_phone'],
+      ),
+      nextOfKinRelation: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}next_of_kin_relation'],
+      ),
+      guarantorName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}guarantor_name'],
+      ),
+      guarantorPhone: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}guarantor_phone'],
+      ),
+      guarantorRelation: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}guarantor_relation'],
+      ),
+      isDeleted: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_deleted'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      lastUpdatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}last_updated_at'],
+      )!,
+    );
+  }
+
+  @override
+  $BusinessMembersTable createAlias(String alias) {
+    return $BusinessMembersTable(attachedDatabase, alias);
+  }
+}
+
+class BusinessMemberData extends DataClass
+    implements Insertable<BusinessMemberData> {
+  final String id;
+  final String businessId;
+  final String userId;
+  final String role;
+  final int roleTier;
+  final String? warehouseId;
+  final String? pinHash;
+  final String? pinSalt;
+  final int? pinIterations;
+  final bool biometricEnabled;
+  final String status;
+  final String verificationStatus;
+  final DateTime? verificationDueAt;
+  final int verificationExtensionsUsed;
+  final DateTime joinedAt;
+  final String? createdBy;
+  final DateTime? removedAt;
+  final String? removedBy;
+  final String? staffPhone;
+  final String? nextOfKinName;
+  final String? nextOfKinPhone;
+  final String? nextOfKinRelation;
+  final String? guarantorName;
+  final String? guarantorPhone;
+  final String? guarantorRelation;
+  final bool isDeleted;
+  final DateTime createdAt;
+  final DateTime lastUpdatedAt;
+  const BusinessMemberData({
+    required this.id,
+    required this.businessId,
+    required this.userId,
+    required this.role,
+    required this.roleTier,
+    this.warehouseId,
+    this.pinHash,
+    this.pinSalt,
+    this.pinIterations,
+    required this.biometricEnabled,
+    required this.status,
+    required this.verificationStatus,
+    this.verificationDueAt,
+    required this.verificationExtensionsUsed,
+    required this.joinedAt,
+    this.createdBy,
+    this.removedAt,
+    this.removedBy,
+    this.staffPhone,
+    this.nextOfKinName,
+    this.nextOfKinPhone,
+    this.nextOfKinRelation,
+    this.guarantorName,
+    this.guarantorPhone,
+    this.guarantorRelation,
+    required this.isDeleted,
+    required this.createdAt,
+    required this.lastUpdatedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['business_id'] = Variable<String>(businessId);
+    map['user_id'] = Variable<String>(userId);
+    map['role'] = Variable<String>(role);
+    map['role_tier'] = Variable<int>(roleTier);
+    if (!nullToAbsent || warehouseId != null) {
+      map['warehouse_id'] = Variable<String>(warehouseId);
+    }
+    if (!nullToAbsent || pinHash != null) {
+      map['pin_hash'] = Variable<String>(pinHash);
+    }
+    if (!nullToAbsent || pinSalt != null) {
+      map['pin_salt'] = Variable<String>(pinSalt);
+    }
+    if (!nullToAbsent || pinIterations != null) {
+      map['pin_iterations'] = Variable<int>(pinIterations);
+    }
+    map['biometric_enabled'] = Variable<bool>(biometricEnabled);
+    map['status'] = Variable<String>(status);
+    map['verification_status'] = Variable<String>(verificationStatus);
+    if (!nullToAbsent || verificationDueAt != null) {
+      map['verification_due_at'] = Variable<DateTime>(verificationDueAt);
+    }
+    map['verification_extensions_used'] = Variable<int>(
+      verificationExtensionsUsed,
+    );
+    map['joined_at'] = Variable<DateTime>(joinedAt);
+    if (!nullToAbsent || createdBy != null) {
+      map['created_by'] = Variable<String>(createdBy);
+    }
+    if (!nullToAbsent || removedAt != null) {
+      map['removed_at'] = Variable<DateTime>(removedAt);
+    }
+    if (!nullToAbsent || removedBy != null) {
+      map['removed_by'] = Variable<String>(removedBy);
+    }
+    if (!nullToAbsent || staffPhone != null) {
+      map['staff_phone'] = Variable<String>(staffPhone);
+    }
+    if (!nullToAbsent || nextOfKinName != null) {
+      map['next_of_kin_name'] = Variable<String>(nextOfKinName);
+    }
+    if (!nullToAbsent || nextOfKinPhone != null) {
+      map['next_of_kin_phone'] = Variable<String>(nextOfKinPhone);
+    }
+    if (!nullToAbsent || nextOfKinRelation != null) {
+      map['next_of_kin_relation'] = Variable<String>(nextOfKinRelation);
+    }
+    if (!nullToAbsent || guarantorName != null) {
+      map['guarantor_name'] = Variable<String>(guarantorName);
+    }
+    if (!nullToAbsent || guarantorPhone != null) {
+      map['guarantor_phone'] = Variable<String>(guarantorPhone);
+    }
+    if (!nullToAbsent || guarantorRelation != null) {
+      map['guarantor_relation'] = Variable<String>(guarantorRelation);
+    }
+    map['is_deleted'] = Variable<bool>(isDeleted);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['last_updated_at'] = Variable<DateTime>(lastUpdatedAt);
+    return map;
+  }
+
+  BusinessMembersCompanion toCompanion(bool nullToAbsent) {
+    return BusinessMembersCompanion(
+      id: Value(id),
+      businessId: Value(businessId),
+      userId: Value(userId),
+      role: Value(role),
+      roleTier: Value(roleTier),
+      warehouseId: warehouseId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(warehouseId),
+      pinHash: pinHash == null && nullToAbsent
+          ? const Value.absent()
+          : Value(pinHash),
+      pinSalt: pinSalt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(pinSalt),
+      pinIterations: pinIterations == null && nullToAbsent
+          ? const Value.absent()
+          : Value(pinIterations),
+      biometricEnabled: Value(biometricEnabled),
+      status: Value(status),
+      verificationStatus: Value(verificationStatus),
+      verificationDueAt: verificationDueAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(verificationDueAt),
+      verificationExtensionsUsed: Value(verificationExtensionsUsed),
+      joinedAt: Value(joinedAt),
+      createdBy: createdBy == null && nullToAbsent
+          ? const Value.absent()
+          : Value(createdBy),
+      removedAt: removedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(removedAt),
+      removedBy: removedBy == null && nullToAbsent
+          ? const Value.absent()
+          : Value(removedBy),
+      staffPhone: staffPhone == null && nullToAbsent
+          ? const Value.absent()
+          : Value(staffPhone),
+      nextOfKinName: nextOfKinName == null && nullToAbsent
+          ? const Value.absent()
+          : Value(nextOfKinName),
+      nextOfKinPhone: nextOfKinPhone == null && nullToAbsent
+          ? const Value.absent()
+          : Value(nextOfKinPhone),
+      nextOfKinRelation: nextOfKinRelation == null && nullToAbsent
+          ? const Value.absent()
+          : Value(nextOfKinRelation),
+      guarantorName: guarantorName == null && nullToAbsent
+          ? const Value.absent()
+          : Value(guarantorName),
+      guarantorPhone: guarantorPhone == null && nullToAbsent
+          ? const Value.absent()
+          : Value(guarantorPhone),
+      guarantorRelation: guarantorRelation == null && nullToAbsent
+          ? const Value.absent()
+          : Value(guarantorRelation),
+      isDeleted: Value(isDeleted),
+      createdAt: Value(createdAt),
+      lastUpdatedAt: Value(lastUpdatedAt),
+    );
+  }
+
+  factory BusinessMemberData.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return BusinessMemberData(
+      id: serializer.fromJson<String>(json['id']),
+      businessId: serializer.fromJson<String>(json['businessId']),
+      userId: serializer.fromJson<String>(json['userId']),
+      role: serializer.fromJson<String>(json['role']),
+      roleTier: serializer.fromJson<int>(json['roleTier']),
+      warehouseId: serializer.fromJson<String?>(json['warehouseId']),
+      pinHash: serializer.fromJson<String?>(json['pinHash']),
+      pinSalt: serializer.fromJson<String?>(json['pinSalt']),
+      pinIterations: serializer.fromJson<int?>(json['pinIterations']),
+      biometricEnabled: serializer.fromJson<bool>(json['biometricEnabled']),
+      status: serializer.fromJson<String>(json['status']),
+      verificationStatus: serializer.fromJson<String>(
+        json['verificationStatus'],
+      ),
+      verificationDueAt: serializer.fromJson<DateTime?>(
+        json['verificationDueAt'],
+      ),
+      verificationExtensionsUsed: serializer.fromJson<int>(
+        json['verificationExtensionsUsed'],
+      ),
+      joinedAt: serializer.fromJson<DateTime>(json['joinedAt']),
+      createdBy: serializer.fromJson<String?>(json['createdBy']),
+      removedAt: serializer.fromJson<DateTime?>(json['removedAt']),
+      removedBy: serializer.fromJson<String?>(json['removedBy']),
+      staffPhone: serializer.fromJson<String?>(json['staffPhone']),
+      nextOfKinName: serializer.fromJson<String?>(json['nextOfKinName']),
+      nextOfKinPhone: serializer.fromJson<String?>(json['nextOfKinPhone']),
+      nextOfKinRelation: serializer.fromJson<String?>(
+        json['nextOfKinRelation'],
+      ),
+      guarantorName: serializer.fromJson<String?>(json['guarantorName']),
+      guarantorPhone: serializer.fromJson<String?>(json['guarantorPhone']),
+      guarantorRelation: serializer.fromJson<String?>(
+        json['guarantorRelation'],
+      ),
+      isDeleted: serializer.fromJson<bool>(json['isDeleted']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      lastUpdatedAt: serializer.fromJson<DateTime>(json['lastUpdatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'businessId': serializer.toJson<String>(businessId),
+      'userId': serializer.toJson<String>(userId),
+      'role': serializer.toJson<String>(role),
+      'roleTier': serializer.toJson<int>(roleTier),
+      'warehouseId': serializer.toJson<String?>(warehouseId),
+      'pinHash': serializer.toJson<String?>(pinHash),
+      'pinSalt': serializer.toJson<String?>(pinSalt),
+      'pinIterations': serializer.toJson<int?>(pinIterations),
+      'biometricEnabled': serializer.toJson<bool>(biometricEnabled),
+      'status': serializer.toJson<String>(status),
+      'verificationStatus': serializer.toJson<String>(verificationStatus),
+      'verificationDueAt': serializer.toJson<DateTime?>(verificationDueAt),
+      'verificationExtensionsUsed': serializer.toJson<int>(
+        verificationExtensionsUsed,
+      ),
+      'joinedAt': serializer.toJson<DateTime>(joinedAt),
+      'createdBy': serializer.toJson<String?>(createdBy),
+      'removedAt': serializer.toJson<DateTime?>(removedAt),
+      'removedBy': serializer.toJson<String?>(removedBy),
+      'staffPhone': serializer.toJson<String?>(staffPhone),
+      'nextOfKinName': serializer.toJson<String?>(nextOfKinName),
+      'nextOfKinPhone': serializer.toJson<String?>(nextOfKinPhone),
+      'nextOfKinRelation': serializer.toJson<String?>(nextOfKinRelation),
+      'guarantorName': serializer.toJson<String?>(guarantorName),
+      'guarantorPhone': serializer.toJson<String?>(guarantorPhone),
+      'guarantorRelation': serializer.toJson<String?>(guarantorRelation),
+      'isDeleted': serializer.toJson<bool>(isDeleted),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'lastUpdatedAt': serializer.toJson<DateTime>(lastUpdatedAt),
+    };
+  }
+
+  BusinessMemberData copyWith({
+    String? id,
+    String? businessId,
+    String? userId,
+    String? role,
+    int? roleTier,
+    Value<String?> warehouseId = const Value.absent(),
+    Value<String?> pinHash = const Value.absent(),
+    Value<String?> pinSalt = const Value.absent(),
+    Value<int?> pinIterations = const Value.absent(),
+    bool? biometricEnabled,
+    String? status,
+    String? verificationStatus,
+    Value<DateTime?> verificationDueAt = const Value.absent(),
+    int? verificationExtensionsUsed,
+    DateTime? joinedAt,
+    Value<String?> createdBy = const Value.absent(),
+    Value<DateTime?> removedAt = const Value.absent(),
+    Value<String?> removedBy = const Value.absent(),
+    Value<String?> staffPhone = const Value.absent(),
+    Value<String?> nextOfKinName = const Value.absent(),
+    Value<String?> nextOfKinPhone = const Value.absent(),
+    Value<String?> nextOfKinRelation = const Value.absent(),
+    Value<String?> guarantorName = const Value.absent(),
+    Value<String?> guarantorPhone = const Value.absent(),
+    Value<String?> guarantorRelation = const Value.absent(),
+    bool? isDeleted,
+    DateTime? createdAt,
+    DateTime? lastUpdatedAt,
+  }) => BusinessMemberData(
+    id: id ?? this.id,
+    businessId: businessId ?? this.businessId,
+    userId: userId ?? this.userId,
+    role: role ?? this.role,
+    roleTier: roleTier ?? this.roleTier,
+    warehouseId: warehouseId.present ? warehouseId.value : this.warehouseId,
+    pinHash: pinHash.present ? pinHash.value : this.pinHash,
+    pinSalt: pinSalt.present ? pinSalt.value : this.pinSalt,
+    pinIterations: pinIterations.present
+        ? pinIterations.value
+        : this.pinIterations,
+    biometricEnabled: biometricEnabled ?? this.biometricEnabled,
+    status: status ?? this.status,
+    verificationStatus: verificationStatus ?? this.verificationStatus,
+    verificationDueAt: verificationDueAt.present
+        ? verificationDueAt.value
+        : this.verificationDueAt,
+    verificationExtensionsUsed:
+        verificationExtensionsUsed ?? this.verificationExtensionsUsed,
+    joinedAt: joinedAt ?? this.joinedAt,
+    createdBy: createdBy.present ? createdBy.value : this.createdBy,
+    removedAt: removedAt.present ? removedAt.value : this.removedAt,
+    removedBy: removedBy.present ? removedBy.value : this.removedBy,
+    staffPhone: staffPhone.present ? staffPhone.value : this.staffPhone,
+    nextOfKinName: nextOfKinName.present
+        ? nextOfKinName.value
+        : this.nextOfKinName,
+    nextOfKinPhone: nextOfKinPhone.present
+        ? nextOfKinPhone.value
+        : this.nextOfKinPhone,
+    nextOfKinRelation: nextOfKinRelation.present
+        ? nextOfKinRelation.value
+        : this.nextOfKinRelation,
+    guarantorName: guarantorName.present
+        ? guarantorName.value
+        : this.guarantorName,
+    guarantorPhone: guarantorPhone.present
+        ? guarantorPhone.value
+        : this.guarantorPhone,
+    guarantorRelation: guarantorRelation.present
+        ? guarantorRelation.value
+        : this.guarantorRelation,
+    isDeleted: isDeleted ?? this.isDeleted,
+    createdAt: createdAt ?? this.createdAt,
+    lastUpdatedAt: lastUpdatedAt ?? this.lastUpdatedAt,
+  );
+  BusinessMemberData copyWithCompanion(BusinessMembersCompanion data) {
+    return BusinessMemberData(
+      id: data.id.present ? data.id.value : this.id,
+      businessId: data.businessId.present
+          ? data.businessId.value
+          : this.businessId,
+      userId: data.userId.present ? data.userId.value : this.userId,
+      role: data.role.present ? data.role.value : this.role,
+      roleTier: data.roleTier.present ? data.roleTier.value : this.roleTier,
+      warehouseId: data.warehouseId.present
+          ? data.warehouseId.value
+          : this.warehouseId,
+      pinHash: data.pinHash.present ? data.pinHash.value : this.pinHash,
+      pinSalt: data.pinSalt.present ? data.pinSalt.value : this.pinSalt,
+      pinIterations: data.pinIterations.present
+          ? data.pinIterations.value
+          : this.pinIterations,
+      biometricEnabled: data.biometricEnabled.present
+          ? data.biometricEnabled.value
+          : this.biometricEnabled,
+      status: data.status.present ? data.status.value : this.status,
+      verificationStatus: data.verificationStatus.present
+          ? data.verificationStatus.value
+          : this.verificationStatus,
+      verificationDueAt: data.verificationDueAt.present
+          ? data.verificationDueAt.value
+          : this.verificationDueAt,
+      verificationExtensionsUsed: data.verificationExtensionsUsed.present
+          ? data.verificationExtensionsUsed.value
+          : this.verificationExtensionsUsed,
+      joinedAt: data.joinedAt.present ? data.joinedAt.value : this.joinedAt,
+      createdBy: data.createdBy.present ? data.createdBy.value : this.createdBy,
+      removedAt: data.removedAt.present ? data.removedAt.value : this.removedAt,
+      removedBy: data.removedBy.present ? data.removedBy.value : this.removedBy,
+      staffPhone: data.staffPhone.present
+          ? data.staffPhone.value
+          : this.staffPhone,
+      nextOfKinName: data.nextOfKinName.present
+          ? data.nextOfKinName.value
+          : this.nextOfKinName,
+      nextOfKinPhone: data.nextOfKinPhone.present
+          ? data.nextOfKinPhone.value
+          : this.nextOfKinPhone,
+      nextOfKinRelation: data.nextOfKinRelation.present
+          ? data.nextOfKinRelation.value
+          : this.nextOfKinRelation,
+      guarantorName: data.guarantorName.present
+          ? data.guarantorName.value
+          : this.guarantorName,
+      guarantorPhone: data.guarantorPhone.present
+          ? data.guarantorPhone.value
+          : this.guarantorPhone,
+      guarantorRelation: data.guarantorRelation.present
+          ? data.guarantorRelation.value
+          : this.guarantorRelation,
+      isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      lastUpdatedAt: data.lastUpdatedAt.present
+          ? data.lastUpdatedAt.value
+          : this.lastUpdatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('BusinessMemberData(')
+          ..write('id: $id, ')
+          ..write('businessId: $businessId, ')
+          ..write('userId: $userId, ')
+          ..write('role: $role, ')
+          ..write('roleTier: $roleTier, ')
+          ..write('warehouseId: $warehouseId, ')
+          ..write('pinHash: $pinHash, ')
+          ..write('pinSalt: $pinSalt, ')
+          ..write('pinIterations: $pinIterations, ')
+          ..write('biometricEnabled: $biometricEnabled, ')
+          ..write('status: $status, ')
+          ..write('verificationStatus: $verificationStatus, ')
+          ..write('verificationDueAt: $verificationDueAt, ')
+          ..write('verificationExtensionsUsed: $verificationExtensionsUsed, ')
+          ..write('joinedAt: $joinedAt, ')
+          ..write('createdBy: $createdBy, ')
+          ..write('removedAt: $removedAt, ')
+          ..write('removedBy: $removedBy, ')
+          ..write('staffPhone: $staffPhone, ')
+          ..write('nextOfKinName: $nextOfKinName, ')
+          ..write('nextOfKinPhone: $nextOfKinPhone, ')
+          ..write('nextOfKinRelation: $nextOfKinRelation, ')
+          ..write('guarantorName: $guarantorName, ')
+          ..write('guarantorPhone: $guarantorPhone, ')
+          ..write('guarantorRelation: $guarantorRelation, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('lastUpdatedAt: $lastUpdatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hashAll([
+    id,
+    businessId,
+    userId,
+    role,
+    roleTier,
+    warehouseId,
+    pinHash,
+    pinSalt,
+    pinIterations,
+    biometricEnabled,
+    status,
+    verificationStatus,
+    verificationDueAt,
+    verificationExtensionsUsed,
+    joinedAt,
+    createdBy,
+    removedAt,
+    removedBy,
+    staffPhone,
+    nextOfKinName,
+    nextOfKinPhone,
+    nextOfKinRelation,
+    guarantorName,
+    guarantorPhone,
+    guarantorRelation,
+    isDeleted,
+    createdAt,
+    lastUpdatedAt,
+  ]);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is BusinessMemberData &&
+          other.id == this.id &&
+          other.businessId == this.businessId &&
+          other.userId == this.userId &&
+          other.role == this.role &&
+          other.roleTier == this.roleTier &&
+          other.warehouseId == this.warehouseId &&
+          other.pinHash == this.pinHash &&
+          other.pinSalt == this.pinSalt &&
+          other.pinIterations == this.pinIterations &&
+          other.biometricEnabled == this.biometricEnabled &&
+          other.status == this.status &&
+          other.verificationStatus == this.verificationStatus &&
+          other.verificationDueAt == this.verificationDueAt &&
+          other.verificationExtensionsUsed == this.verificationExtensionsUsed &&
+          other.joinedAt == this.joinedAt &&
+          other.createdBy == this.createdBy &&
+          other.removedAt == this.removedAt &&
+          other.removedBy == this.removedBy &&
+          other.staffPhone == this.staffPhone &&
+          other.nextOfKinName == this.nextOfKinName &&
+          other.nextOfKinPhone == this.nextOfKinPhone &&
+          other.nextOfKinRelation == this.nextOfKinRelation &&
+          other.guarantorName == this.guarantorName &&
+          other.guarantorPhone == this.guarantorPhone &&
+          other.guarantorRelation == this.guarantorRelation &&
+          other.isDeleted == this.isDeleted &&
+          other.createdAt == this.createdAt &&
+          other.lastUpdatedAt == this.lastUpdatedAt);
+}
+
+class BusinessMembersCompanion extends UpdateCompanion<BusinessMemberData> {
+  final Value<String> id;
+  final Value<String> businessId;
+  final Value<String> userId;
+  final Value<String> role;
+  final Value<int> roleTier;
+  final Value<String?> warehouseId;
+  final Value<String?> pinHash;
+  final Value<String?> pinSalt;
+  final Value<int?> pinIterations;
+  final Value<bool> biometricEnabled;
+  final Value<String> status;
+  final Value<String> verificationStatus;
+  final Value<DateTime?> verificationDueAt;
+  final Value<int> verificationExtensionsUsed;
+  final Value<DateTime> joinedAt;
+  final Value<String?> createdBy;
+  final Value<DateTime?> removedAt;
+  final Value<String?> removedBy;
+  final Value<String?> staffPhone;
+  final Value<String?> nextOfKinName;
+  final Value<String?> nextOfKinPhone;
+  final Value<String?> nextOfKinRelation;
+  final Value<String?> guarantorName;
+  final Value<String?> guarantorPhone;
+  final Value<String?> guarantorRelation;
+  final Value<bool> isDeleted;
+  final Value<DateTime> createdAt;
+  final Value<DateTime> lastUpdatedAt;
+  final Value<int> rowid;
+  const BusinessMembersCompanion({
+    this.id = const Value.absent(),
+    this.businessId = const Value.absent(),
+    this.userId = const Value.absent(),
+    this.role = const Value.absent(),
+    this.roleTier = const Value.absent(),
+    this.warehouseId = const Value.absent(),
+    this.pinHash = const Value.absent(),
+    this.pinSalt = const Value.absent(),
+    this.pinIterations = const Value.absent(),
+    this.biometricEnabled = const Value.absent(),
+    this.status = const Value.absent(),
+    this.verificationStatus = const Value.absent(),
+    this.verificationDueAt = const Value.absent(),
+    this.verificationExtensionsUsed = const Value.absent(),
+    this.joinedAt = const Value.absent(),
+    this.createdBy = const Value.absent(),
+    this.removedAt = const Value.absent(),
+    this.removedBy = const Value.absent(),
+    this.staffPhone = const Value.absent(),
+    this.nextOfKinName = const Value.absent(),
+    this.nextOfKinPhone = const Value.absent(),
+    this.nextOfKinRelation = const Value.absent(),
+    this.guarantorName = const Value.absent(),
+    this.guarantorPhone = const Value.absent(),
+    this.guarantorRelation = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.lastUpdatedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  BusinessMembersCompanion.insert({
+    this.id = const Value.absent(),
+    required String businessId,
+    required String userId,
+    required String role,
+    this.roleTier = const Value.absent(),
+    this.warehouseId = const Value.absent(),
+    this.pinHash = const Value.absent(),
+    this.pinSalt = const Value.absent(),
+    this.pinIterations = const Value.absent(),
+    this.biometricEnabled = const Value.absent(),
+    this.status = const Value.absent(),
+    this.verificationStatus = const Value.absent(),
+    this.verificationDueAt = const Value.absent(),
+    this.verificationExtensionsUsed = const Value.absent(),
+    this.joinedAt = const Value.absent(),
+    this.createdBy = const Value.absent(),
+    this.removedAt = const Value.absent(),
+    this.removedBy = const Value.absent(),
+    this.staffPhone = const Value.absent(),
+    this.nextOfKinName = const Value.absent(),
+    this.nextOfKinPhone = const Value.absent(),
+    this.nextOfKinRelation = const Value.absent(),
+    this.guarantorName = const Value.absent(),
+    this.guarantorPhone = const Value.absent(),
+    this.guarantorRelation = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.lastUpdatedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : businessId = Value(businessId),
+       userId = Value(userId),
+       role = Value(role);
+  static Insertable<BusinessMemberData> custom({
+    Expression<String>? id,
+    Expression<String>? businessId,
+    Expression<String>? userId,
+    Expression<String>? role,
+    Expression<int>? roleTier,
+    Expression<String>? warehouseId,
+    Expression<String>? pinHash,
+    Expression<String>? pinSalt,
+    Expression<int>? pinIterations,
+    Expression<bool>? biometricEnabled,
+    Expression<String>? status,
+    Expression<String>? verificationStatus,
+    Expression<DateTime>? verificationDueAt,
+    Expression<int>? verificationExtensionsUsed,
+    Expression<DateTime>? joinedAt,
+    Expression<String>? createdBy,
+    Expression<DateTime>? removedAt,
+    Expression<String>? removedBy,
+    Expression<String>? staffPhone,
+    Expression<String>? nextOfKinName,
+    Expression<String>? nextOfKinPhone,
+    Expression<String>? nextOfKinRelation,
+    Expression<String>? guarantorName,
+    Expression<String>? guarantorPhone,
+    Expression<String>? guarantorRelation,
+    Expression<bool>? isDeleted,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? lastUpdatedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (businessId != null) 'business_id': businessId,
+      if (userId != null) 'user_id': userId,
+      if (role != null) 'role': role,
+      if (roleTier != null) 'role_tier': roleTier,
+      if (warehouseId != null) 'warehouse_id': warehouseId,
+      if (pinHash != null) 'pin_hash': pinHash,
+      if (pinSalt != null) 'pin_salt': pinSalt,
+      if (pinIterations != null) 'pin_iterations': pinIterations,
+      if (biometricEnabled != null) 'biometric_enabled': biometricEnabled,
+      if (status != null) 'status': status,
+      if (verificationStatus != null) 'verification_status': verificationStatus,
+      if (verificationDueAt != null) 'verification_due_at': verificationDueAt,
+      if (verificationExtensionsUsed != null)
+        'verification_extensions_used': verificationExtensionsUsed,
+      if (joinedAt != null) 'joined_at': joinedAt,
+      if (createdBy != null) 'created_by': createdBy,
+      if (removedAt != null) 'removed_at': removedAt,
+      if (removedBy != null) 'removed_by': removedBy,
+      if (staffPhone != null) 'staff_phone': staffPhone,
+      if (nextOfKinName != null) 'next_of_kin_name': nextOfKinName,
+      if (nextOfKinPhone != null) 'next_of_kin_phone': nextOfKinPhone,
+      if (nextOfKinRelation != null) 'next_of_kin_relation': nextOfKinRelation,
+      if (guarantorName != null) 'guarantor_name': guarantorName,
+      if (guarantorPhone != null) 'guarantor_phone': guarantorPhone,
+      if (guarantorRelation != null) 'guarantor_relation': guarantorRelation,
+      if (isDeleted != null) 'is_deleted': isDeleted,
+      if (createdAt != null) 'created_at': createdAt,
+      if (lastUpdatedAt != null) 'last_updated_at': lastUpdatedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  BusinessMembersCompanion copyWith({
+    Value<String>? id,
+    Value<String>? businessId,
+    Value<String>? userId,
+    Value<String>? role,
+    Value<int>? roleTier,
+    Value<String?>? warehouseId,
+    Value<String?>? pinHash,
+    Value<String?>? pinSalt,
+    Value<int?>? pinIterations,
+    Value<bool>? biometricEnabled,
+    Value<String>? status,
+    Value<String>? verificationStatus,
+    Value<DateTime?>? verificationDueAt,
+    Value<int>? verificationExtensionsUsed,
+    Value<DateTime>? joinedAt,
+    Value<String?>? createdBy,
+    Value<DateTime?>? removedAt,
+    Value<String?>? removedBy,
+    Value<String?>? staffPhone,
+    Value<String?>? nextOfKinName,
+    Value<String?>? nextOfKinPhone,
+    Value<String?>? nextOfKinRelation,
+    Value<String?>? guarantorName,
+    Value<String?>? guarantorPhone,
+    Value<String?>? guarantorRelation,
+    Value<bool>? isDeleted,
+    Value<DateTime>? createdAt,
+    Value<DateTime>? lastUpdatedAt,
+    Value<int>? rowid,
+  }) {
+    return BusinessMembersCompanion(
+      id: id ?? this.id,
+      businessId: businessId ?? this.businessId,
+      userId: userId ?? this.userId,
+      role: role ?? this.role,
+      roleTier: roleTier ?? this.roleTier,
+      warehouseId: warehouseId ?? this.warehouseId,
+      pinHash: pinHash ?? this.pinHash,
+      pinSalt: pinSalt ?? this.pinSalt,
+      pinIterations: pinIterations ?? this.pinIterations,
+      biometricEnabled: biometricEnabled ?? this.biometricEnabled,
+      status: status ?? this.status,
+      verificationStatus: verificationStatus ?? this.verificationStatus,
+      verificationDueAt: verificationDueAt ?? this.verificationDueAt,
+      verificationExtensionsUsed:
+          verificationExtensionsUsed ?? this.verificationExtensionsUsed,
+      joinedAt: joinedAt ?? this.joinedAt,
+      createdBy: createdBy ?? this.createdBy,
+      removedAt: removedAt ?? this.removedAt,
+      removedBy: removedBy ?? this.removedBy,
+      staffPhone: staffPhone ?? this.staffPhone,
+      nextOfKinName: nextOfKinName ?? this.nextOfKinName,
+      nextOfKinPhone: nextOfKinPhone ?? this.nextOfKinPhone,
+      nextOfKinRelation: nextOfKinRelation ?? this.nextOfKinRelation,
+      guarantorName: guarantorName ?? this.guarantorName,
+      guarantorPhone: guarantorPhone ?? this.guarantorPhone,
+      guarantorRelation: guarantorRelation ?? this.guarantorRelation,
+      isDeleted: isDeleted ?? this.isDeleted,
+      createdAt: createdAt ?? this.createdAt,
+      lastUpdatedAt: lastUpdatedAt ?? this.lastUpdatedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (businessId.present) {
+      map['business_id'] = Variable<String>(businessId.value);
+    }
+    if (userId.present) {
+      map['user_id'] = Variable<String>(userId.value);
+    }
+    if (role.present) {
+      map['role'] = Variable<String>(role.value);
+    }
+    if (roleTier.present) {
+      map['role_tier'] = Variable<int>(roleTier.value);
+    }
+    if (warehouseId.present) {
+      map['warehouse_id'] = Variable<String>(warehouseId.value);
+    }
+    if (pinHash.present) {
+      map['pin_hash'] = Variable<String>(pinHash.value);
+    }
+    if (pinSalt.present) {
+      map['pin_salt'] = Variable<String>(pinSalt.value);
+    }
+    if (pinIterations.present) {
+      map['pin_iterations'] = Variable<int>(pinIterations.value);
+    }
+    if (biometricEnabled.present) {
+      map['biometric_enabled'] = Variable<bool>(biometricEnabled.value);
+    }
+    if (status.present) {
+      map['status'] = Variable<String>(status.value);
+    }
+    if (verificationStatus.present) {
+      map['verification_status'] = Variable<String>(verificationStatus.value);
+    }
+    if (verificationDueAt.present) {
+      map['verification_due_at'] = Variable<DateTime>(verificationDueAt.value);
+    }
+    if (verificationExtensionsUsed.present) {
+      map['verification_extensions_used'] = Variable<int>(
+        verificationExtensionsUsed.value,
+      );
+    }
+    if (joinedAt.present) {
+      map['joined_at'] = Variable<DateTime>(joinedAt.value);
+    }
+    if (createdBy.present) {
+      map['created_by'] = Variable<String>(createdBy.value);
+    }
+    if (removedAt.present) {
+      map['removed_at'] = Variable<DateTime>(removedAt.value);
+    }
+    if (removedBy.present) {
+      map['removed_by'] = Variable<String>(removedBy.value);
+    }
+    if (staffPhone.present) {
+      map['staff_phone'] = Variable<String>(staffPhone.value);
+    }
+    if (nextOfKinName.present) {
+      map['next_of_kin_name'] = Variable<String>(nextOfKinName.value);
+    }
+    if (nextOfKinPhone.present) {
+      map['next_of_kin_phone'] = Variable<String>(nextOfKinPhone.value);
+    }
+    if (nextOfKinRelation.present) {
+      map['next_of_kin_relation'] = Variable<String>(nextOfKinRelation.value);
+    }
+    if (guarantorName.present) {
+      map['guarantor_name'] = Variable<String>(guarantorName.value);
+    }
+    if (guarantorPhone.present) {
+      map['guarantor_phone'] = Variable<String>(guarantorPhone.value);
+    }
+    if (guarantorRelation.present) {
+      map['guarantor_relation'] = Variable<String>(guarantorRelation.value);
+    }
+    if (isDeleted.present) {
+      map['is_deleted'] = Variable<bool>(isDeleted.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (lastUpdatedAt.present) {
+      map['last_updated_at'] = Variable<DateTime>(lastUpdatedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('BusinessMembersCompanion(')
+          ..write('id: $id, ')
+          ..write('businessId: $businessId, ')
+          ..write('userId: $userId, ')
+          ..write('role: $role, ')
+          ..write('roleTier: $roleTier, ')
+          ..write('warehouseId: $warehouseId, ')
+          ..write('pinHash: $pinHash, ')
+          ..write('pinSalt: $pinSalt, ')
+          ..write('pinIterations: $pinIterations, ')
+          ..write('biometricEnabled: $biometricEnabled, ')
+          ..write('status: $status, ')
+          ..write('verificationStatus: $verificationStatus, ')
+          ..write('verificationDueAt: $verificationDueAt, ')
+          ..write('verificationExtensionsUsed: $verificationExtensionsUsed, ')
+          ..write('joinedAt: $joinedAt, ')
+          ..write('createdBy: $createdBy, ')
+          ..write('removedAt: $removedAt, ')
+          ..write('removedBy: $removedBy, ')
+          ..write('staffPhone: $staffPhone, ')
+          ..write('nextOfKinName: $nextOfKinName, ')
+          ..write('nextOfKinPhone: $nextOfKinPhone, ')
+          ..write('nextOfKinRelation: $nextOfKinRelation, ')
+          ..write('guarantorName: $guarantorName, ')
+          ..write('guarantorPhone: $guarantorPhone, ')
+          ..write('guarantorRelation: $guarantorRelation, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('lastUpdatedAt: $lastUpdatedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $CategoriesTable extends Categories
     with TableInfo<$CategoriesTable, CategoryData> {
   @override
@@ -26245,6 +27836,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $ManufacturersTable manufacturers = $ManufacturersTable(this);
   late final $WarehousesTable warehouses = $WarehousesTable(this);
   late final $UsersTable users = $UsersTable(this);
+  late final $BusinessMembersTable businessMembers = $BusinessMembersTable(
+    this,
+  );
   late final $CategoriesTable categories = $CategoriesTable(this);
   late final $SuppliersTable suppliers = $SuppliersTable(this);
   late final $ProductsTable products = $ProductsTable(this);
@@ -26310,6 +27904,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     this as AppDatabase,
   );
   late final WarehousesDao warehousesDao = WarehousesDao(this as AppDatabase);
+  late final BusinessMembersDao businessMembersDao = BusinessMembersDao(
+    this as AppDatabase,
+  );
   late final StockLedgerDao stockLedgerDao = StockLedgerDao(
     this as AppDatabase,
   );
@@ -26348,6 +27945,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     manufacturers,
     warehouses,
     users,
+    businessMembers,
     categories,
     suppliers,
     products,
@@ -26492,6 +28090,29 @@ final class $$BusinessesTableReferences
     ).filter((f) => f.businessId.id.sqlEquals($_itemColumn<String>('id')!));
 
     final cache = $_typedResult.readTableOrNull(_usersRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<$BusinessMembersTable, List<BusinessMemberData>>
+  _businessMembersRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.businessMembers,
+    aliasName: $_aliasNameGenerator(
+      db.businesses.id,
+      db.businessMembers.businessId,
+    ),
+  );
+
+  $$BusinessMembersTableProcessedTableManager get businessMembersRefs {
+    final manager = $$BusinessMembersTableTableManager(
+      $_db,
+      $_db.businessMembers,
+    ).filter((f) => f.businessId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(
+      _businessMembersRefsTable($_db),
+    );
     return ProcessedTableManager(
       manager.$state.copyWith(prefetchedData: cache),
     );
@@ -27301,6 +28922,31 @@ class $$BusinessesTableFilterComposer
           }) => $$UsersTableFilterComposer(
             $db: $db,
             $table: $db.users,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> businessMembersRefs(
+    Expression<bool> Function($$BusinessMembersTableFilterComposer f) f,
+  ) {
+    final $$BusinessMembersTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.businessMembers,
+      getReferencedColumn: (t) => t.businessId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BusinessMembersTableFilterComposer(
+            $db: $db,
+            $table: $db.businessMembers,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -28292,6 +29938,31 @@ class $$BusinessesTableAnnotationComposer
     return f(composer);
   }
 
+  Expression<T> businessMembersRefs<T extends Object>(
+    Expression<T> Function($$BusinessMembersTableAnnotationComposer a) f,
+  ) {
+    final $$BusinessMembersTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.businessMembers,
+      getReferencedColumn: (t) => t.businessId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BusinessMembersTableAnnotationComposer(
+            $db: $db,
+            $table: $db.businessMembers,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
   Expression<T> categoriesRefs<T extends Object>(
     Expression<T> Function($$CategoriesTableAnnotationComposer a) f,
   ) {
@@ -29094,6 +30765,7 @@ class $$BusinessesTableTableManager
             bool manufacturersRefs,
             bool warehousesRefs,
             bool usersRefs,
+            bool businessMembersRefs,
             bool categoriesRefs,
             bool suppliersRefs,
             bool productsRefs,
@@ -29204,6 +30876,7 @@ class $$BusinessesTableTableManager
                 manufacturersRefs = false,
                 warehousesRefs = false,
                 usersRefs = false,
+                businessMembersRefs = false,
                 categoriesRefs = false,
                 suppliersRefs = false,
                 productsRefs = false,
@@ -29243,6 +30916,7 @@ class $$BusinessesTableTableManager
                     if (manufacturersRefs) db.manufacturers,
                     if (warehousesRefs) db.warehouses,
                     if (usersRefs) db.users,
+                    if (businessMembersRefs) db.businessMembers,
                     if (categoriesRefs) db.categories,
                     if (suppliersRefs) db.suppliers,
                     if (productsRefs) db.products,
@@ -29357,6 +31031,27 @@ class $$BusinessesTableTableManager
                                 table,
                                 p0,
                               ).usersRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.businessId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                      if (businessMembersRefs)
+                        await $_getPrefetchedData<
+                          BusinessData,
+                          $BusinessesTable,
+                          BusinessMemberData
+                        >(
+                          currentTable: table,
+                          referencedTable: $$BusinessesTableReferences
+                              ._businessMembersRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$BusinessesTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).businessMembersRefs,
                           referencedItemsForCurrentItem:
                               (item, referencedItems) => referencedItems.where(
                                 (e) => e.businessId == item.id,
@@ -30039,6 +31734,7 @@ typedef $$BusinessesTableProcessedTableManager =
         bool manufacturersRefs,
         bool warehousesRefs,
         bool usersRefs,
+        bool businessMembersRefs,
         bool categoriesRefs,
         bool suppliersRefs,
         bool productsRefs,
@@ -31851,6 +33547,29 @@ final class $$WarehousesTableReferences
     );
   }
 
+  static MultiTypedResultKey<$BusinessMembersTable, List<BusinessMemberData>>
+  _businessMembersRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.businessMembers,
+    aliasName: $_aliasNameGenerator(
+      db.warehouses.id,
+      db.businessMembers.warehouseId,
+    ),
+  );
+
+  $$BusinessMembersTableProcessedTableManager get businessMembersRefs {
+    final manager = $$BusinessMembersTableTableManager(
+      $_db,
+      $_db.businessMembers,
+    ).filter((f) => f.warehouseId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(
+      _businessMembersRefsTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
   static MultiTypedResultKey<$CustomersTable, List<CustomerData>>
   _customersRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
     db.customers,
@@ -32114,6 +33833,31 @@ class $$WarehousesTableFilterComposer
           }) => $$UsersTableFilterComposer(
             $db: $db,
             $table: $db.users,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> businessMembersRefs(
+    Expression<bool> Function($$BusinessMembersTableFilterComposer f) f,
+  ) {
+    final $$BusinessMembersTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.businessMembers,
+      getReferencedColumn: (t) => t.warehouseId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BusinessMembersTableFilterComposer(
+            $db: $db,
+            $table: $db.businessMembers,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -32489,6 +34233,31 @@ class $$WarehousesTableAnnotationComposer
     return f(composer);
   }
 
+  Expression<T> businessMembersRefs<T extends Object>(
+    Expression<T> Function($$BusinessMembersTableAnnotationComposer a) f,
+  ) {
+    final $$BusinessMembersTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.businessMembers,
+      getReferencedColumn: (t) => t.warehouseId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BusinessMembersTableAnnotationComposer(
+            $db: $db,
+            $table: $db.businessMembers,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
   Expression<T> customersRefs<T extends Object>(
     Expression<T> Function($$CustomersTableAnnotationComposer a) f,
   ) {
@@ -32732,6 +34501,7 @@ class $$WarehousesTableTableManager
           PrefetchHooks Function({
             bool businessId,
             bool usersRefs,
+            bool businessMembersRefs,
             bool customersRefs,
             bool ordersRefs,
             bool inventoryRefs,
@@ -32806,6 +34576,7 @@ class $$WarehousesTableTableManager
               ({
                 businessId = false,
                 usersRefs = false,
+                businessMembersRefs = false,
                 customersRefs = false,
                 ordersRefs = false,
                 inventoryRefs = false,
@@ -32820,6 +34591,7 @@ class $$WarehousesTableTableManager
                   db: db,
                   explicitlyWatchedTables: [
                     if (usersRefs) db.users,
+                    if (businessMembersRefs) db.businessMembers,
                     if (customersRefs) db.customers,
                     if (ordersRefs) db.orders,
                     if (inventoryRefs) db.inventory,
@@ -32880,6 +34652,27 @@ class $$WarehousesTableTableManager
                                 table,
                                 p0,
                               ).usersRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.warehouseId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                      if (businessMembersRefs)
+                        await $_getPrefetchedData<
+                          WarehouseData,
+                          $WarehousesTable,
+                          BusinessMemberData
+                        >(
+                          currentTable: table,
+                          referencedTable: $$WarehousesTableReferences
+                              ._businessMembersRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$WarehousesTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).businessMembersRefs,
                           referencedItemsForCurrentItem:
                               (item, referencedItems) => referencedItems.where(
                                 (e) => e.warehouseId == item.id,
@@ -33098,6 +34891,7 @@ typedef $$WarehousesTableProcessedTableManager =
       PrefetchHooks Function({
         bool businessId,
         bool usersRefs,
+        bool businessMembersRefs,
         bool customersRefs,
         bool ordersRefs,
         bool inventoryRefs,
@@ -34265,6 +36059,1177 @@ typedef $$UsersTableProcessedTableManager =
         bool expensesRefs,
         bool sessionsRefs,
         bool invitesRefs,
+      })
+    >;
+typedef $$BusinessMembersTableCreateCompanionBuilder =
+    BusinessMembersCompanion Function({
+      Value<String> id,
+      required String businessId,
+      required String userId,
+      required String role,
+      Value<int> roleTier,
+      Value<String?> warehouseId,
+      Value<String?> pinHash,
+      Value<String?> pinSalt,
+      Value<int?> pinIterations,
+      Value<bool> biometricEnabled,
+      Value<String> status,
+      Value<String> verificationStatus,
+      Value<DateTime?> verificationDueAt,
+      Value<int> verificationExtensionsUsed,
+      Value<DateTime> joinedAt,
+      Value<String?> createdBy,
+      Value<DateTime?> removedAt,
+      Value<String?> removedBy,
+      Value<String?> staffPhone,
+      Value<String?> nextOfKinName,
+      Value<String?> nextOfKinPhone,
+      Value<String?> nextOfKinRelation,
+      Value<String?> guarantorName,
+      Value<String?> guarantorPhone,
+      Value<String?> guarantorRelation,
+      Value<bool> isDeleted,
+      Value<DateTime> createdAt,
+      Value<DateTime> lastUpdatedAt,
+      Value<int> rowid,
+    });
+typedef $$BusinessMembersTableUpdateCompanionBuilder =
+    BusinessMembersCompanion Function({
+      Value<String> id,
+      Value<String> businessId,
+      Value<String> userId,
+      Value<String> role,
+      Value<int> roleTier,
+      Value<String?> warehouseId,
+      Value<String?> pinHash,
+      Value<String?> pinSalt,
+      Value<int?> pinIterations,
+      Value<bool> biometricEnabled,
+      Value<String> status,
+      Value<String> verificationStatus,
+      Value<DateTime?> verificationDueAt,
+      Value<int> verificationExtensionsUsed,
+      Value<DateTime> joinedAt,
+      Value<String?> createdBy,
+      Value<DateTime?> removedAt,
+      Value<String?> removedBy,
+      Value<String?> staffPhone,
+      Value<String?> nextOfKinName,
+      Value<String?> nextOfKinPhone,
+      Value<String?> nextOfKinRelation,
+      Value<String?> guarantorName,
+      Value<String?> guarantorPhone,
+      Value<String?> guarantorRelation,
+      Value<bool> isDeleted,
+      Value<DateTime> createdAt,
+      Value<DateTime> lastUpdatedAt,
+      Value<int> rowid,
+    });
+
+final class $$BusinessMembersTableReferences
+    extends
+        BaseReferences<
+          _$AppDatabase,
+          $BusinessMembersTable,
+          BusinessMemberData
+        > {
+  $$BusinessMembersTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $BusinessesTable _businessIdTable(_$AppDatabase db) =>
+      db.businesses.createAlias(
+        $_aliasNameGenerator(db.businessMembers.businessId, db.businesses.id),
+      );
+
+  $$BusinessesTableProcessedTableManager get businessId {
+    final $_column = $_itemColumn<String>('business_id')!;
+
+    final manager = $$BusinessesTableTableManager(
+      $_db,
+      $_db.businesses,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_businessIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static $UsersTable _userIdTable(_$AppDatabase db) => db.users.createAlias(
+    $_aliasNameGenerator(db.businessMembers.userId, db.users.id),
+  );
+
+  $$UsersTableProcessedTableManager get userId {
+    final $_column = $_itemColumn<String>('user_id')!;
+
+    final manager = $$UsersTableTableManager(
+      $_db,
+      $_db.users,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_userIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static $WarehousesTable _warehouseIdTable(_$AppDatabase db) =>
+      db.warehouses.createAlias(
+        $_aliasNameGenerator(db.businessMembers.warehouseId, db.warehouses.id),
+      );
+
+  $$WarehousesTableProcessedTableManager? get warehouseId {
+    final $_column = $_itemColumn<String>('warehouse_id');
+    if ($_column == null) return null;
+    final manager = $$WarehousesTableTableManager(
+      $_db,
+      $_db.warehouses,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_warehouseIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static $UsersTable _createdByTable(_$AppDatabase db) => db.users.createAlias(
+    $_aliasNameGenerator(db.businessMembers.createdBy, db.users.id),
+  );
+
+  $$UsersTableProcessedTableManager? get createdBy {
+    final $_column = $_itemColumn<String>('created_by');
+    if ($_column == null) return null;
+    final manager = $$UsersTableTableManager(
+      $_db,
+      $_db.users,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_createdByTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static $UsersTable _removedByTable(_$AppDatabase db) => db.users.createAlias(
+    $_aliasNameGenerator(db.businessMembers.removedBy, db.users.id),
+  );
+
+  $$UsersTableProcessedTableManager? get removedBy {
+    final $_column = $_itemColumn<String>('removed_by');
+    if ($_column == null) return null;
+    final manager = $$UsersTableTableManager(
+      $_db,
+      $_db.users,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_removedByTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$BusinessMembersTableFilterComposer
+    extends Composer<_$AppDatabase, $BusinessMembersTable> {
+  $$BusinessMembersTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get role => $composableBuilder(
+    column: $table.role,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get roleTier => $composableBuilder(
+    column: $table.roleTier,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get pinHash => $composableBuilder(
+    column: $table.pinHash,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get pinSalt => $composableBuilder(
+    column: $table.pinSalt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get pinIterations => $composableBuilder(
+    column: $table.pinIterations,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get biometricEnabled => $composableBuilder(
+    column: $table.biometricEnabled,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get verificationStatus => $composableBuilder(
+    column: $table.verificationStatus,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get verificationDueAt => $composableBuilder(
+    column: $table.verificationDueAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get verificationExtensionsUsed => $composableBuilder(
+    column: $table.verificationExtensionsUsed,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get joinedAt => $composableBuilder(
+    column: $table.joinedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get removedAt => $composableBuilder(
+    column: $table.removedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get staffPhone => $composableBuilder(
+    column: $table.staffPhone,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get nextOfKinName => $composableBuilder(
+    column: $table.nextOfKinName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get nextOfKinPhone => $composableBuilder(
+    column: $table.nextOfKinPhone,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get nextOfKinRelation => $composableBuilder(
+    column: $table.nextOfKinRelation,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get guarantorName => $composableBuilder(
+    column: $table.guarantorName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get guarantorPhone => $composableBuilder(
+    column: $table.guarantorPhone,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get guarantorRelation => $composableBuilder(
+    column: $table.guarantorRelation,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get lastUpdatedAt => $composableBuilder(
+    column: $table.lastUpdatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$BusinessesTableFilterComposer get businessId {
+    final $$BusinessesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.businessId,
+      referencedTable: $db.businesses,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BusinessesTableFilterComposer(
+            $db: $db,
+            $table: $db.businesses,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$UsersTableFilterComposer get userId {
+    final $$UsersTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.userId,
+      referencedTable: $db.users,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$UsersTableFilterComposer(
+            $db: $db,
+            $table: $db.users,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$WarehousesTableFilterComposer get warehouseId {
+    final $$WarehousesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.warehouseId,
+      referencedTable: $db.warehouses,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$WarehousesTableFilterComposer(
+            $db: $db,
+            $table: $db.warehouses,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$UsersTableFilterComposer get createdBy {
+    final $$UsersTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.createdBy,
+      referencedTable: $db.users,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$UsersTableFilterComposer(
+            $db: $db,
+            $table: $db.users,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$UsersTableFilterComposer get removedBy {
+    final $$UsersTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.removedBy,
+      referencedTable: $db.users,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$UsersTableFilterComposer(
+            $db: $db,
+            $table: $db.users,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$BusinessMembersTableOrderingComposer
+    extends Composer<_$AppDatabase, $BusinessMembersTable> {
+  $$BusinessMembersTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get role => $composableBuilder(
+    column: $table.role,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get roleTier => $composableBuilder(
+    column: $table.roleTier,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get pinHash => $composableBuilder(
+    column: $table.pinHash,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get pinSalt => $composableBuilder(
+    column: $table.pinSalt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get pinIterations => $composableBuilder(
+    column: $table.pinIterations,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get biometricEnabled => $composableBuilder(
+    column: $table.biometricEnabled,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get verificationStatus => $composableBuilder(
+    column: $table.verificationStatus,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get verificationDueAt => $composableBuilder(
+    column: $table.verificationDueAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get verificationExtensionsUsed => $composableBuilder(
+    column: $table.verificationExtensionsUsed,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get joinedAt => $composableBuilder(
+    column: $table.joinedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get removedAt => $composableBuilder(
+    column: $table.removedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get staffPhone => $composableBuilder(
+    column: $table.staffPhone,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get nextOfKinName => $composableBuilder(
+    column: $table.nextOfKinName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get nextOfKinPhone => $composableBuilder(
+    column: $table.nextOfKinPhone,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get nextOfKinRelation => $composableBuilder(
+    column: $table.nextOfKinRelation,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get guarantorName => $composableBuilder(
+    column: $table.guarantorName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get guarantorPhone => $composableBuilder(
+    column: $table.guarantorPhone,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get guarantorRelation => $composableBuilder(
+    column: $table.guarantorRelation,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get lastUpdatedAt => $composableBuilder(
+    column: $table.lastUpdatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$BusinessesTableOrderingComposer get businessId {
+    final $$BusinessesTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.businessId,
+      referencedTable: $db.businesses,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BusinessesTableOrderingComposer(
+            $db: $db,
+            $table: $db.businesses,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$UsersTableOrderingComposer get userId {
+    final $$UsersTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.userId,
+      referencedTable: $db.users,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$UsersTableOrderingComposer(
+            $db: $db,
+            $table: $db.users,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$WarehousesTableOrderingComposer get warehouseId {
+    final $$WarehousesTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.warehouseId,
+      referencedTable: $db.warehouses,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$WarehousesTableOrderingComposer(
+            $db: $db,
+            $table: $db.warehouses,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$UsersTableOrderingComposer get createdBy {
+    final $$UsersTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.createdBy,
+      referencedTable: $db.users,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$UsersTableOrderingComposer(
+            $db: $db,
+            $table: $db.users,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$UsersTableOrderingComposer get removedBy {
+    final $$UsersTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.removedBy,
+      referencedTable: $db.users,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$UsersTableOrderingComposer(
+            $db: $db,
+            $table: $db.users,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$BusinessMembersTableAnnotationComposer
+    extends Composer<_$AppDatabase, $BusinessMembersTable> {
+  $$BusinessMembersTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get role =>
+      $composableBuilder(column: $table.role, builder: (column) => column);
+
+  GeneratedColumn<int> get roleTier =>
+      $composableBuilder(column: $table.roleTier, builder: (column) => column);
+
+  GeneratedColumn<String> get pinHash =>
+      $composableBuilder(column: $table.pinHash, builder: (column) => column);
+
+  GeneratedColumn<String> get pinSalt =>
+      $composableBuilder(column: $table.pinSalt, builder: (column) => column);
+
+  GeneratedColumn<int> get pinIterations => $composableBuilder(
+    column: $table.pinIterations,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get biometricEnabled => $composableBuilder(
+    column: $table.biometricEnabled,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get status =>
+      $composableBuilder(column: $table.status, builder: (column) => column);
+
+  GeneratedColumn<String> get verificationStatus => $composableBuilder(
+    column: $table.verificationStatus,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get verificationDueAt => $composableBuilder(
+    column: $table.verificationDueAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get verificationExtensionsUsed => $composableBuilder(
+    column: $table.verificationExtensionsUsed,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get joinedAt =>
+      $composableBuilder(column: $table.joinedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get removedAt =>
+      $composableBuilder(column: $table.removedAt, builder: (column) => column);
+
+  GeneratedColumn<String> get staffPhone => $composableBuilder(
+    column: $table.staffPhone,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get nextOfKinName => $composableBuilder(
+    column: $table.nextOfKinName,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get nextOfKinPhone => $composableBuilder(
+    column: $table.nextOfKinPhone,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get nextOfKinRelation => $composableBuilder(
+    column: $table.nextOfKinRelation,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get guarantorName => $composableBuilder(
+    column: $table.guarantorName,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get guarantorPhone => $composableBuilder(
+    column: $table.guarantorPhone,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get guarantorRelation => $composableBuilder(
+    column: $table.guarantorRelation,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get isDeleted =>
+      $composableBuilder(column: $table.isDeleted, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get lastUpdatedAt => $composableBuilder(
+    column: $table.lastUpdatedAt,
+    builder: (column) => column,
+  );
+
+  $$BusinessesTableAnnotationComposer get businessId {
+    final $$BusinessesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.businessId,
+      referencedTable: $db.businesses,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BusinessesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.businesses,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$UsersTableAnnotationComposer get userId {
+    final $$UsersTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.userId,
+      referencedTable: $db.users,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$UsersTableAnnotationComposer(
+            $db: $db,
+            $table: $db.users,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$WarehousesTableAnnotationComposer get warehouseId {
+    final $$WarehousesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.warehouseId,
+      referencedTable: $db.warehouses,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$WarehousesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.warehouses,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$UsersTableAnnotationComposer get createdBy {
+    final $$UsersTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.createdBy,
+      referencedTable: $db.users,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$UsersTableAnnotationComposer(
+            $db: $db,
+            $table: $db.users,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$UsersTableAnnotationComposer get removedBy {
+    final $$UsersTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.removedBy,
+      referencedTable: $db.users,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$UsersTableAnnotationComposer(
+            $db: $db,
+            $table: $db.users,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$BusinessMembersTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $BusinessMembersTable,
+          BusinessMemberData,
+          $$BusinessMembersTableFilterComposer,
+          $$BusinessMembersTableOrderingComposer,
+          $$BusinessMembersTableAnnotationComposer,
+          $$BusinessMembersTableCreateCompanionBuilder,
+          $$BusinessMembersTableUpdateCompanionBuilder,
+          (BusinessMemberData, $$BusinessMembersTableReferences),
+          BusinessMemberData,
+          PrefetchHooks Function({
+            bool businessId,
+            bool userId,
+            bool warehouseId,
+            bool createdBy,
+            bool removedBy,
+          })
+        > {
+  $$BusinessMembersTableTableManager(
+    _$AppDatabase db,
+    $BusinessMembersTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$BusinessMembersTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$BusinessMembersTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$BusinessMembersTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> businessId = const Value.absent(),
+                Value<String> userId = const Value.absent(),
+                Value<String> role = const Value.absent(),
+                Value<int> roleTier = const Value.absent(),
+                Value<String?> warehouseId = const Value.absent(),
+                Value<String?> pinHash = const Value.absent(),
+                Value<String?> pinSalt = const Value.absent(),
+                Value<int?> pinIterations = const Value.absent(),
+                Value<bool> biometricEnabled = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                Value<String> verificationStatus = const Value.absent(),
+                Value<DateTime?> verificationDueAt = const Value.absent(),
+                Value<int> verificationExtensionsUsed = const Value.absent(),
+                Value<DateTime> joinedAt = const Value.absent(),
+                Value<String?> createdBy = const Value.absent(),
+                Value<DateTime?> removedAt = const Value.absent(),
+                Value<String?> removedBy = const Value.absent(),
+                Value<String?> staffPhone = const Value.absent(),
+                Value<String?> nextOfKinName = const Value.absent(),
+                Value<String?> nextOfKinPhone = const Value.absent(),
+                Value<String?> nextOfKinRelation = const Value.absent(),
+                Value<String?> guarantorName = const Value.absent(),
+                Value<String?> guarantorPhone = const Value.absent(),
+                Value<String?> guarantorRelation = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> lastUpdatedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => BusinessMembersCompanion(
+                id: id,
+                businessId: businessId,
+                userId: userId,
+                role: role,
+                roleTier: roleTier,
+                warehouseId: warehouseId,
+                pinHash: pinHash,
+                pinSalt: pinSalt,
+                pinIterations: pinIterations,
+                biometricEnabled: biometricEnabled,
+                status: status,
+                verificationStatus: verificationStatus,
+                verificationDueAt: verificationDueAt,
+                verificationExtensionsUsed: verificationExtensionsUsed,
+                joinedAt: joinedAt,
+                createdBy: createdBy,
+                removedAt: removedAt,
+                removedBy: removedBy,
+                staffPhone: staffPhone,
+                nextOfKinName: nextOfKinName,
+                nextOfKinPhone: nextOfKinPhone,
+                nextOfKinRelation: nextOfKinRelation,
+                guarantorName: guarantorName,
+                guarantorPhone: guarantorPhone,
+                guarantorRelation: guarantorRelation,
+                isDeleted: isDeleted,
+                createdAt: createdAt,
+                lastUpdatedAt: lastUpdatedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                required String businessId,
+                required String userId,
+                required String role,
+                Value<int> roleTier = const Value.absent(),
+                Value<String?> warehouseId = const Value.absent(),
+                Value<String?> pinHash = const Value.absent(),
+                Value<String?> pinSalt = const Value.absent(),
+                Value<int?> pinIterations = const Value.absent(),
+                Value<bool> biometricEnabled = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                Value<String> verificationStatus = const Value.absent(),
+                Value<DateTime?> verificationDueAt = const Value.absent(),
+                Value<int> verificationExtensionsUsed = const Value.absent(),
+                Value<DateTime> joinedAt = const Value.absent(),
+                Value<String?> createdBy = const Value.absent(),
+                Value<DateTime?> removedAt = const Value.absent(),
+                Value<String?> removedBy = const Value.absent(),
+                Value<String?> staffPhone = const Value.absent(),
+                Value<String?> nextOfKinName = const Value.absent(),
+                Value<String?> nextOfKinPhone = const Value.absent(),
+                Value<String?> nextOfKinRelation = const Value.absent(),
+                Value<String?> guarantorName = const Value.absent(),
+                Value<String?> guarantorPhone = const Value.absent(),
+                Value<String?> guarantorRelation = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> lastUpdatedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => BusinessMembersCompanion.insert(
+                id: id,
+                businessId: businessId,
+                userId: userId,
+                role: role,
+                roleTier: roleTier,
+                warehouseId: warehouseId,
+                pinHash: pinHash,
+                pinSalt: pinSalt,
+                pinIterations: pinIterations,
+                biometricEnabled: biometricEnabled,
+                status: status,
+                verificationStatus: verificationStatus,
+                verificationDueAt: verificationDueAt,
+                verificationExtensionsUsed: verificationExtensionsUsed,
+                joinedAt: joinedAt,
+                createdBy: createdBy,
+                removedAt: removedAt,
+                removedBy: removedBy,
+                staffPhone: staffPhone,
+                nextOfKinName: nextOfKinName,
+                nextOfKinPhone: nextOfKinPhone,
+                nextOfKinRelation: nextOfKinRelation,
+                guarantorName: guarantorName,
+                guarantorPhone: guarantorPhone,
+                guarantorRelation: guarantorRelation,
+                isDeleted: isDeleted,
+                createdAt: createdAt,
+                lastUpdatedAt: lastUpdatedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$BusinessMembersTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback:
+              ({
+                businessId = false,
+                userId = false,
+                warehouseId = false,
+                createdBy = false,
+                removedBy = false,
+              }) {
+                return PrefetchHooks(
+                  db: db,
+                  explicitlyWatchedTables: [],
+                  addJoins:
+                      <
+                        T extends TableManagerState<
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic
+                        >
+                      >(state) {
+                        if (businessId) {
+                          state =
+                              state.withJoin(
+                                    currentTable: table,
+                                    currentColumn: table.businessId,
+                                    referencedTable:
+                                        $$BusinessMembersTableReferences
+                                            ._businessIdTable(db),
+                                    referencedColumn:
+                                        $$BusinessMembersTableReferences
+                                            ._businessIdTable(db)
+                                            .id,
+                                  )
+                                  as T;
+                        }
+                        if (userId) {
+                          state =
+                              state.withJoin(
+                                    currentTable: table,
+                                    currentColumn: table.userId,
+                                    referencedTable:
+                                        $$BusinessMembersTableReferences
+                                            ._userIdTable(db),
+                                    referencedColumn:
+                                        $$BusinessMembersTableReferences
+                                            ._userIdTable(db)
+                                            .id,
+                                  )
+                                  as T;
+                        }
+                        if (warehouseId) {
+                          state =
+                              state.withJoin(
+                                    currentTable: table,
+                                    currentColumn: table.warehouseId,
+                                    referencedTable:
+                                        $$BusinessMembersTableReferences
+                                            ._warehouseIdTable(db),
+                                    referencedColumn:
+                                        $$BusinessMembersTableReferences
+                                            ._warehouseIdTable(db)
+                                            .id,
+                                  )
+                                  as T;
+                        }
+                        if (createdBy) {
+                          state =
+                              state.withJoin(
+                                    currentTable: table,
+                                    currentColumn: table.createdBy,
+                                    referencedTable:
+                                        $$BusinessMembersTableReferences
+                                            ._createdByTable(db),
+                                    referencedColumn:
+                                        $$BusinessMembersTableReferences
+                                            ._createdByTable(db)
+                                            .id,
+                                  )
+                                  as T;
+                        }
+                        if (removedBy) {
+                          state =
+                              state.withJoin(
+                                    currentTable: table,
+                                    currentColumn: table.removedBy,
+                                    referencedTable:
+                                        $$BusinessMembersTableReferences
+                                            ._removedByTable(db),
+                                    referencedColumn:
+                                        $$BusinessMembersTableReferences
+                                            ._removedByTable(db)
+                                            .id,
+                                  )
+                                  as T;
+                        }
+
+                        return state;
+                      },
+                  getPrefetchedDataCallback: (items) async {
+                    return [];
+                  },
+                );
+              },
+        ),
+      );
+}
+
+typedef $$BusinessMembersTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $BusinessMembersTable,
+      BusinessMemberData,
+      $$BusinessMembersTableFilterComposer,
+      $$BusinessMembersTableOrderingComposer,
+      $$BusinessMembersTableAnnotationComposer,
+      $$BusinessMembersTableCreateCompanionBuilder,
+      $$BusinessMembersTableUpdateCompanionBuilder,
+      (BusinessMemberData, $$BusinessMembersTableReferences),
+      BusinessMemberData,
+      PrefetchHooks Function({
+        bool businessId,
+        bool userId,
+        bool warehouseId,
+        bool createdBy,
+        bool removedBy,
       })
     >;
 typedef $$CategoriesTableCreateCompanionBuilder =
@@ -60756,6 +63721,8 @@ class $AppDatabaseManager {
       $$WarehousesTableTableManager(_db, _db.warehouses);
   $$UsersTableTableManager get users =>
       $$UsersTableTableManager(_db, _db.users);
+  $$BusinessMembersTableTableManager get businessMembers =>
+      $$BusinessMembersTableTableManager(_db, _db.businessMembers);
   $$CategoriesTableTableManager get categories =>
       $$CategoriesTableTableManager(_db, _db.categories);
   $$SuppliersTableTableManager get suppliers =>

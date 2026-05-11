@@ -587,6 +587,14 @@ class SupabaseSyncService {
   /// Reconciles the local cache with the server's authoritative response
   /// from a domain RPC. Bypasses `enqueueUpsert` because the server already
   /// has the truth — pushing it back would be a no-op round trip.
+  /// Public entry into the same canonical-row application logic the queue
+  /// dispatch uses. Lets in-band Edge Function flows (notably redeem-invite,
+  /// which returns {user, membership, invite}) seed local Drift without
+  /// waiting for a snapshot pull. The rpcName is passed through unchanged
+  /// so future routing logic can branch per RPC if needed.
+  Future<void> applyServerResponse(String rpcName, dynamic response) =>
+      _applyDomainResponse(rpcName, response);
+
   Future<void> _applyDomainResponse(
     String rpcName,
     dynamic response,
@@ -704,6 +712,25 @@ class SupabaseSyncService {
       if (walletCompens is List && walletCompens.isNotEmpty) {
         await _restoreTableData(
             'wallet_transactions', List<dynamic>.from(walletCompens));
+      }
+
+      // accept_invite (staff onboarding §1): server returns {user, membership,
+      // invite} — three canonical rows the client seeds locally so the freshly
+      // onboarded staff member sees correct state without waiting for a pull.
+      final userRow = map['user'];
+      if (userRow is Map) {
+        await _restoreTableData(
+            'users', [Map<String, dynamic>.from(userRow)]);
+      }
+      final membershipRow = map['membership'];
+      if (membershipRow is Map) {
+        await _restoreTableData(
+            'business_members', [Map<String, dynamic>.from(membershipRow)]);
+      }
+      final inviteRow = map['invite'];
+      if (inviteRow is Map) {
+        await _restoreTableData(
+            'invites', [Map<String, dynamic>.from(inviteRow)]);
       }
 
       // pos_create_customer (v2): server returns the canonical customer +
@@ -1930,6 +1957,62 @@ class SupabaseSyncService {
                     ),
                   );
             }
+          }
+          break;
+        case 'business_members':
+          // PIN columns (pin_hash, pin_salt, pin_iterations) sync normally
+          // per the staff-onboarding plan §2 — no device-local preservation.
+          // The CHECK-constraint guard mirrors the users case above: a cloud
+          // row with an out-of-range role / role_tier / status / verification
+          // would crash the whole pull at insert time. Coerce + log.
+          const allowedRoles = {'admin', 'staff', 'ceo', 'manager'};
+          const allowedRoleTiers = {1, 4, 5};
+          const allowedStatuses = {'active', 'suspended', 'removed'};
+          const allowedVerificationStatuses = {
+            'not_started',
+            'pending_review',
+            'approved',
+            'rejected',
+          };
+          for (var r in rows) {
+            final id = r['id'] as String?;
+            final rawRole = r['role'] as String?;
+            if (rawRole != null && !allowedRoles.contains(rawRole)) {
+              debugPrint(
+                '[SyncService] business_members restore: coerced invalid '
+                'role "$rawRole" to "staff" for id=$id',
+              );
+              r['role'] = 'staff';
+            }
+            final rawTier = (r['roleTier'] as num?)?.toInt();
+            if (rawTier != null && !allowedRoleTiers.contains(rawTier)) {
+              debugPrint(
+                '[SyncService] business_members restore: coerced invalid '
+                'role_tier $rawTier to 1 for id=$id',
+              );
+              r['roleTier'] = 1;
+            }
+            final rawStatus = r['status'] as String?;
+            if (rawStatus != null &&
+                !allowedStatuses.contains(rawStatus)) {
+              debugPrint(
+                '[SyncService] business_members restore: coerced invalid '
+                'status "$rawStatus" to "active" for id=$id',
+              );
+              r['status'] = 'active';
+            }
+            final rawVerif = r['verificationStatus'] as String?;
+            if (rawVerif != null &&
+                !allowedVerificationStatuses.contains(rawVerif)) {
+              debugPrint(
+                '[SyncService] business_members restore: coerced invalid '
+                'verification_status "$rawVerif" to "not_started" for id=$id',
+              );
+              r['verificationStatus'] = 'not_started';
+            }
+            await _db
+                .into(_db.businessMembers)
+                .insertOnConflictUpdate(BusinessMemberData.fromJson(r));
           }
           break;
         case 'products':

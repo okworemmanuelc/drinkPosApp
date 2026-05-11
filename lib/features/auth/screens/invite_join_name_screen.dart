@@ -22,20 +22,27 @@ import 'package:reebaplus_pos/features/invite/services/invite_api_service.dart';
 import 'package:reebaplus_pos/shared/widgets/app_button.dart';
 
 class InviteJoinNameScreen extends ConsumerStatefulWidget {
-  /// Pass exactly one of [token] or [code]. The deep-link path uses
-  /// [token]; the manual-code fallback (InviteCodeScreen) uses [code].
+  /// Pass exactly one of [token], [code], or [humanCode]:
+  ///   • [token]     — deep-link path (URL-safe long random)
+  ///   • [code]      — 8-char legacy code
+  ///   • [humanCode] — 6-char Phase-2 in-person code (no 0/O/1/I)
   final String? token;
   final String? code;
+  final String? humanCode;
   final String email;
 
   const InviteJoinNameScreen({
     super.key,
     this.token,
     this.code,
+    this.humanCode,
     required this.email,
   }) : assert(
-          (token == null) != (code == null),
-          'Exactly one of token/code must be provided',
+          (token == null ? 0 : 1) +
+                  (code == null ? 0 : 1) +
+                  (humanCode == null ? 0 : 1) ==
+              1,
+          'Exactly one of token/code/humanCode must be provided',
         );
 
   @override
@@ -68,9 +75,15 @@ class _InviteJoinNameScreenState
     final api = ref.read(inviteApiServiceProvider);
     final auth = ref.read(authProvider);
 
-    final result = widget.token != null
-        ? await api.redeemByToken(token: widget.token!, userName: name)
-        : await api.redeemByCode(code: widget.code!, userName: name);
+    final InviteApiResult<Map<String, dynamic>> result;
+    if (widget.token != null) {
+      result = await api.redeemByToken(token: widget.token!, userName: name);
+    } else if (widget.humanCode != null) {
+      result = await api.redeemByHumanCode(
+          humanCode: widget.humanCode!, userName: name);
+    } else {
+      result = await api.redeemByCode(code: widget.code!, userName: name);
+    }
 
     if (!mounted) return;
 
@@ -80,7 +93,12 @@ class _InviteJoinNameScreenState
       return;
     }
     final data = (result as InviteApiOk<Map<String, dynamic>>).data;
-    final businessId = data['business_id']?.toString();
+
+    // Phase 1: redeem-invite now returns canonical {user, membership, invite}
+    // (atomic accept_invite RPC). business_id lives on the membership row.
+    final membership = data['membership'] as Map?;
+    final businessId =
+        membership?['business_id']?.toString() ?? data['business_id']?.toString();
     if (businessId == null || businessId.isEmpty) {
       setState(() => _loading = false);
       AppNotification.showError(
@@ -90,9 +108,18 @@ class _InviteJoinNameScreenState
       return;
     }
 
-    // The redeem RPC just inserted/updated public.users with the granular
-    // role and current auth.uid(). Pull cloud → local so the local users
-    // row exists for the PIN screen to attach to.
+    // Seed local Drift directly from the RPC response so the user/membership
+    // exist for the PIN screen even before the snapshot pull completes.
+    try {
+      final sync = ref.read(supabaseSyncServiceProvider);
+      await sync.applyServerResponse('accept_invite', data);
+    } catch (e) {
+      debugPrint('[InviteJoinName] applyServerResponse failed: $e');
+    }
+
+    // Background pull for everything else this user can see (warehouses,
+    // products, etc.). The user/membership are already locally seeded
+    // above, so the PIN screen doesn't depend on this finishing.
     try {
       await auth.syncOnLogin(businessId);
       await auth.upsertLocalUserFromProfile();

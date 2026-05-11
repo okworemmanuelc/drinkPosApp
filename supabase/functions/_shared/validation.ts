@@ -37,37 +37,29 @@ export function isDisposableEmail(email: string): boolean {
 }
 
 // Crockford-ish alphabet without 0/O/1/I/L — easier to type when sharing
-// the manual fallback code over the phone. Same family as the existing
-// AuthService._generateSecureCode used pre-redesign.
-const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+// the code over the phone. Default for generateCode(); callers can pass a
+// different alphabet if they need to (PIN-reset codes, device pairing
+// codes, etc. — see plan rev 3 implementation pickup §2).
+export const DEFAULT_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
-export function generateCode(length = 8): string {
+export function generateCode(
+  length = 8,
+  alphabet: string = DEFAULT_CODE_ALPHABET,
+): string {
   const bytes = new Uint8Array(length);
   crypto.getRandomValues(bytes);
   let out = "";
   for (let i = 0; i < length; i++) {
-    out += CODE_ALPHABET[bytes[i] % CODE_ALPHABET.length];
+    out += alphabet[bytes[i] % alphabet.length];
   }
   return out;
 }
 
-// 32 random bytes → URL-safe base64 (~43 chars). The raw token leaves
-// the function only via the response body and is never logged.
-export function generateToken(): string {
-  const bytes = new Uint8Array(32);
-  crypto.getRandomValues(bytes);
-  let bin = "";
-  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
-  return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-}
-
-export async function sha256Hex(input: string): Promise<string> {
-  const data = new TextEncoder().encode(input);
-  const hash = await crypto.subtle.digest("SHA-256", data);
-  return Array.from(new Uint8Array(hash))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-}
+// generateToken / sha256Hex were used by the rev 2 token-based deep-link
+// path (reebaplus://invite?token=...). Rev 3 drops that path entirely
+// (no email/SMS to deliver tokens), so both helpers are gone. If the
+// share-via-deep-link feature is reintroduced later, restore them from
+// git history and re-add the issue-time token-hash insert.
 
 const VALID_GRANULAR_ROLES = new Set<string>([
   "ceo",

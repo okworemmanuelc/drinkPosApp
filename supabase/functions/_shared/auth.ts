@@ -13,6 +13,7 @@ export interface CallerContext {
   authUserId: string;
   email: string;
   businessId: string;
+  businessName: string; // for outbound notifications (invite emails / SMS)
   roleTier: number;
   callerUserId: string; // public.users.id, for invite.created_by
   callerName: string;
@@ -48,10 +49,20 @@ export async function loadCaller(
     .maybeSingle();
   if (!usrRow) return null;
 
+  // Business name is needed for outbound notifications. Failure here is
+  // non-fatal — fall back to a placeholder so the caller can still issue
+  // invites; the email/SMS body just gets a less personal greeting.
+  const { data: bizRow } = await serviceClient
+    .from("businesses")
+    .select("name")
+    .eq("id", profile.business_id)
+    .maybeSingle();
+
   return {
     authUserId: u.id,
     email: u.email.toLowerCase(),
     businessId: profile.business_id,
+    businessName: bizRow?.name ?? "the team",
     roleTier: profile.role_tier ?? 1,
     callerUserId: usrRow.id,
     callerName: usrRow.name ?? "",

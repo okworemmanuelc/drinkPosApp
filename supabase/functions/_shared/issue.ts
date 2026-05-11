@@ -1,22 +1,28 @@
 // Shared invite-issuance pipeline used by send-invite and resend-invite.
 //
-// Runs the full pre-check ladder, generates code + token, and inserts the
-// invites row via the service client (bypassing the RLS chokepoint that
-// blocks authenticated INSERT).
+// Runs the full pre-check ladder, generates an 8-character human_code, and
+// inserts the invites row via the service client (bypasses RLS).
 //
-// The raw token is built here, included once in the returned `url`, and
-// never logged. Only its SHA-256 hash is persisted (`token_hash`).
+// Rev 3 simplifications vs rev 2:
+//   • No email/SMS dispatch. The admin shares the code via WhatsApp / SMS /
+//     Email / paper from the modal success screen. notify.ts is gone.
+//   • No URL token. The reebaplus://invite?token=... deep-link path is dead
+//     (no producer ships tokens to recipients anymore). The token_hash and
+//     8-char `code` columns on invites stay (column drop is a separate
+//     migration); we write a copy of human_code into `code` to satisfy the
+//     legacy NOT NULL, and leave token_hash NULL.
+//   • TTL is read from settings.onboarding.invite_ttl_days (default 7).
+//   • phone is no longer captured at invite time (staff phone is collected
+//     in the signup wizard via accept_invite RPC instead).
 
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import type { CallerContext } from "./auth.ts";
 import {
   generateCode,
-  generateToken,
   isDisposableEmail,
   isUuid,
   isValidEmail,
   isValidGranularRole,
-  sha256Hex,
 } from "./validation.ts";
 import type { InviteErrorCode } from "./errors.ts";
 
@@ -24,15 +30,13 @@ const DAILY_LIMIT = parseInt(
   Deno.env.get("INVITE_DAILY_LIMIT_PER_BUSINESS") ?? "50",
   10,
 );
-const TTL_HOURS = parseInt(Deno.env.get("INVITE_TTL_HOURS") ?? "48", 10);
-const DEEP_LINK_BASE = Deno.env.get("INVITE_DEEP_LINK_BASE") ??
-  "reebaplus://invite";
+const DEFAULT_TTL_DAYS = 7;
 
 export interface IssueInviteInput {
   email: string;
   role: string;
   warehouseId: string | null;
-  // Skips for the resend path: we just revoked the prior pending invite,
+  // Skips for the resend path: the prior pending invite was just revoked,
   // so an invite_pending check would return our own ghost. already_member
   // was false at the original send and can't have flipped to true without
   // a separate action.
@@ -44,8 +48,7 @@ export type IssueResult =
   | {
     ok: true;
     inviteId: string;
-    code: string;
-    url: string;
+    humanCode: string;
     expiresAt: string;
   }
   | {
@@ -123,8 +126,7 @@ export async function issueInvite(
     if (!wh) return { ok: false, error: "invalid_warehouse" };
   }
 
-  // Atomic rate limit derived from the invites table itself — always
-  // consistent, no separate counter to drift, no read-modify-write race.
+  // Atomic rate limit derived from the invites table itself.
   const startOfDay = new Date();
   startOfDay.setUTCHours(0, 0, 0, 0);
   const { count, error: cntErr } = await service
@@ -135,34 +137,51 @@ export async function issueInvite(
   if (cntErr) return { ok: false, error: "internal" };
   if ((count ?? 0) >= DAILY_LIMIT) return { ok: false, error: "rate_limited" };
 
+  // TTL — settings.onboarding.invite_ttl_days, fallback 7. Same key the
+  // server-side regenerate_invite_code RPC reads (0027), so changing the
+  // setting affects both the first issuance and any later regeneration.
+  let ttlDays = DEFAULT_TTL_DAYS;
+  const { data: ttlRow } = await service
+    .from("settings")
+    .select("value")
+    .eq("business_id", ctx.businessId)
+    .eq("key", "onboarding.invite_ttl_days")
+    .maybeSingle();
+  if (ttlRow?.value) {
+    const parsed = parseInt(ttlRow.value, 10);
+    if (!isNaN(parsed) && parsed > 0 && parsed <= 90) ttlDays = parsed;
+  }
+
   // --- write the row ---------------------------------------------------
-  // Retry up to 3 times on code/token uniqueness collisions (23505).
-  const expiresAt = new Date(Date.now() + TTL_HOURS * 3600 * 1000)
-    .toISOString();
+  // Retry up to 3 times on uniqueness collisions (uq_invites_pending_human_code,
+  // 23505). 32^8 ≈ 1.1T possible codes — collisions are vanishingly rare
+  // but the partial unique index can still fire on a same-business pending
+  // collision.
+  const expiresAt = new Date(Date.now() + ttlDays * 86400 * 1000).toISOString();
   for (let attempt = 0; attempt < 3; attempt++) {
-    const code = generateCode();
-    const token = generateToken();
-    const tokenHash = await sha256Hex(token);
+    const humanCode = generateCode(8);
 
     const { data, error } = await service
       .from("invites")
       .insert({
         business_id: ctx.businessId,
         email,
-        code,
+        // Legacy `code` column is NOT NULL on the schema; populate with the
+        // same value as human_code so legacy consumers keep functioning until
+        // a future migration drops the column. token_hash stays NULL.
+        code: humanCode,
+        human_code: humanCode,
         role: input.role,
         warehouse_id: input.warehouseId,
         created_by: ctx.callerUserId,
-        // invitee_name is legacy NOT NULL on the original schema; the
-        // invitee provides their actual name during onboarding (lands on
-        // users.name via redeem_invite). Pass an empty string to satisfy
-        // the constraint.
-        invitee_name: "",
+        // invitee_name is legacy NOT NULL. Wizard collects the real name
+        // during signup (lands on users.name via accept_invite). 'Unknown'
+        // matches the 0021 backfill normalisation.
+        invitee_name: "Unknown",
         status: "pending",
         expires_at: expiresAt,
-        token_hash: tokenHash,
       })
-      .select("id, code, expires_at")
+      .select("id, human_code, expires_at")
       .single();
 
     if (error) {
@@ -173,8 +192,7 @@ export async function issueInvite(
     return {
       ok: true,
       inviteId: data.id,
-      code: data.code,
-      url: `${DEEP_LINK_BASE}?token=${token}`,
+      humanCode: data.human_code,
       expiresAt: data.expires_at,
     };
   }

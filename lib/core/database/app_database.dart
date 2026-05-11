@@ -139,6 +139,69 @@ class Users extends Table {
   ];
 }
 
+// Per-business join. Owns role / role_tier / warehouse_id / PIN /
+// biometric_enabled / verification state. PIN columns sync to cloud per the
+// staff-onboarding plan §2: hashed PIN is opaque, so cloud-replicating it
+// is acceptable and gives consistent PIN behaviour across a member's devices.
+// One row per (business_id, user_id) — supports multi-business membership
+// once Phase 5 drops the legacy unique constraints on `users`.
+@DataClassName('BusinessMemberData')
+class BusinessMembers extends Table {
+  TextColumn get id => text().clientDefault(() => UuidV7.generate())();
+  TextColumn get businessId => text().references(Businesses, #id)();
+  TextColumn get userId => text().references(Users, #id)();
+  TextColumn get role => text()();
+  IntColumn get roleTier => integer().withDefault(const Constant(1))();
+  TextColumn get warehouseId => text().nullable().references(Warehouses, #id)();
+  TextColumn get pinHash => text().nullable()();
+  TextColumn get pinSalt => text().nullable()();
+  IntColumn get pinIterations => integer().nullable()();
+  BoolColumn get biometricEnabled =>
+      boolean().withDefault(const Constant(false))();
+  TextColumn get status => text().withDefault(const Constant('active'))();
+  TextColumn get verificationStatus =>
+      text().withDefault(const Constant('not_started'))();
+  DateTimeColumn get verificationDueAt => dateTime().nullable()();
+  // Capped 0..2 by review_verification (server) and CHECK (local). Prevents
+  // indefinite grace extension via repeat-garbage rejection cycles.
+  IntColumn get verificationExtensionsUsed =>
+      integer().withDefault(const Constant(0))();
+  DateTimeColumn get joinedAt => dateTime().withDefault(currentDateAndTime)();
+  // Inviter. FK is non-cascading — if the inviter is later removed, this row
+  // is preserved for audit. Mirrors invites.created_by semantics.
+  TextColumn get createdBy => text().nullable().references(Users, #id)();
+  DateTimeColumn get removedAt => dateTime().nullable()();
+  TextColumn get removedBy => text().nullable().references(Users, #id)();
+  // Wizard-collected fields (rev 3, schema v7). All nullable — populated
+  // by the four-screen signup wizard via accept_invite RPC, also editable
+  // later from the staff's own profile. CEO and grandfathered memberships
+  // legitimately have NULL here.
+  TextColumn get staffPhone => text().nullable()();
+  TextColumn get nextOfKinName => text().nullable()();
+  TextColumn get nextOfKinPhone => text().nullable()();
+  TextColumn get nextOfKinRelation => text().nullable()();
+  TextColumn get guarantorName => text().nullable()();
+  TextColumn get guarantorPhone => text().nullable()();
+  TextColumn get guarantorRelation => text().nullable()();
+  BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get lastUpdatedAt =>
+      dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column> get primaryKey => {id};
+
+  @override
+  List<String> get customConstraints => [
+    'UNIQUE (business_id, user_id)',
+    "CHECK (role IN ('admin','staff','ceo','manager'))",
+    'CHECK (role_tier IN (1,4,5))',
+    "CHECK (status IN ('active','suspended','removed'))",
+    "CHECK (verification_status IN ('not_started','pending_review','approved','rejected'))",
+    'CHECK (verification_extensions_used >= 0 AND verification_extensions_used <= 2)',
+  ];
+}
+
 @DataClassName('CategoryData')
 class Categories extends Table {
   TextColumn get id => text().clientDefault(() => UuidV7.generate())();
@@ -968,6 +1031,7 @@ class MigrationEvents extends Table {
     Manufacturers,
     Warehouses,
     Users,
+    BusinessMembers,
     Categories,
     Suppliers,
     Products,
@@ -1014,6 +1078,7 @@ class MigrationEvents extends Table {
     ActivityLogDao,
     NotificationsDao,
     WarehousesDao,
+    BusinessMembersDao,
     StockLedgerDao,
     StockTransferDao,
     PendingCrateReturnsDao,
@@ -1042,7 +1107,7 @@ class AppDatabase extends _$AppDatabase {
   String? get currentBusinessId => businessIdResolver();
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 7;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -1129,6 +1194,90 @@ class AppDatabase extends _$AppDatabase {
           "'manufacturer_crate_balances:upsert'"
           ")",
         );
+      }
+      if (from < 6) {
+        // v6 (staff onboarding §1): introduce business_members as the
+        // per-business join replacing per-business state on `users`. PIN
+        // columns sync to cloud per the staff-onboarding plan §2 — hashed
+        // PIN is opaque, so cloud-replicating it is acceptable and gives
+        // consistent PIN behaviour across a member's devices.
+        //
+        // Backfill is a one-time grandfather clause: every existing non-
+        // deleted user gets a paired membership with verification_status =
+        // 'approved' and verification_due_at = NULL. Verification applies
+        // only to staff onboarded AFTER this migration runs. Same rule as
+        // the cloud-side 0020_business_members.sql backfill.
+        //
+        // SQLite has no UUIDv7 helper, so backfill IDs are v4-formatted
+        // (random 16 bytes laid out as a UUID string). New rows minted by
+        // BusinessMembers.id.clientDefault use proper UUIDv7. The column
+        // accepts any text — only the format differs for legacy backfill
+        // rows, and the IDs are not user-visible.
+        await m.createTable(businessMembers);
+        await customStatement(
+          'INSERT INTO business_members ('
+          'id, business_id, user_id, role, role_tier, warehouse_id, '
+          'pin_hash, pin_salt, pin_iterations, biometric_enabled, '
+          'status, verification_status, verification_due_at, '
+          'verification_extensions_used, joined_at, '
+          'is_deleted, created_at, last_updated_at'
+          ') SELECT '
+          'lower('
+          '  hex(randomblob(4)) || \'-\' || '
+          '  hex(randomblob(2)) || \'-4\' || '
+          '  substr(hex(randomblob(2)), 2) || \'-\' || '
+          "  substr('89ab', 1 + (abs(random()) % 4), 1) || "
+          '  substr(hex(randomblob(2)), 2) || \'-\' || '
+          '  hex(randomblob(6))'
+          '), '
+          'u.business_id, u.id, u.role, u.role_tier, u.warehouse_id, '
+          'u.pin_hash, u.pin_salt, u.pin_iterations, u.biometric_enabled, '
+          "'active', 'approved', NULL, "
+          '0, u.created_at, '
+          "0, u.created_at, CAST(strftime('%s', 'now') AS INTEGER) "
+          'FROM users u '
+          'WHERE u.is_deleted = 0',
+        );
+        // Indexes — mirror _postCreateStatements so a fresh install and an
+        // upgraded install end up with the same physical schema.
+        await customStatement(
+          'CREATE INDEX idx_business_members_business_lua '
+          'ON business_members (business_id, last_updated_at)',
+        );
+        await customStatement(
+          'CREATE INDEX idx_business_members_business_deleted '
+          'ON business_members (business_id, is_deleted)',
+        );
+        await customStatement(
+          'CREATE INDEX idx_business_members_user '
+          'ON business_members (user_id)',
+        );
+        // Bump trigger.
+        await customStatement(
+          'CREATE TRIGGER bump_business_members_last_updated_at '
+          'AFTER UPDATE ON business_members '
+          'FOR EACH ROW '
+          'WHEN OLD.last_updated_at IS NEW.last_updated_at '
+          'BEGIN '
+          'UPDATE business_members '
+          "SET last_updated_at = CAST(strftime('%s', 'now') AS INTEGER) "
+          'WHERE id = OLD.id; '
+          'END',
+        );
+      }
+      if (from < 7) {
+        // v7 (staff onboarding rev 3 §B): add the seven wizard-collected
+        // columns to business_members. All nullable — existing rows
+        // (including grandfathered memberships from the v5→v6 backfill)
+        // legitimately have no values for these. Cloud counterpart lives
+        // in 0024_business_members_signup_fields.sql.
+        await m.addColumn(businessMembers, businessMembers.staffPhone);
+        await m.addColumn(businessMembers, businessMembers.nextOfKinName);
+        await m.addColumn(businessMembers, businessMembers.nextOfKinPhone);
+        await m.addColumn(businessMembers, businessMembers.nextOfKinRelation);
+        await m.addColumn(businessMembers, businessMembers.guarantorName);
+        await m.addColumn(businessMembers, businessMembers.guarantorPhone);
+        await m.addColumn(businessMembers, businessMembers.guarantorRelation);
       }
     },
     beforeOpen: (details) async {
@@ -1222,6 +1371,7 @@ LazyDatabase _openConnection() {
 // `crates` is dropped entirely in v5; not in the set going forward.
 const List<String> _syncedTenantTables = [
   'users',
+  'business_members',
   'sessions',
   'invites',
   'warehouses',
@@ -1256,6 +1406,7 @@ const List<String> _syncedTenantTables = [
 
 const List<String> _softDeletableTables = [
   'users',
+  'business_members',
   'warehouses',
   'manufacturers',
   'crate_groups',
@@ -1372,6 +1523,7 @@ List<String> get _postCreateStatements {
   // -- Hot-path indexes (mirror Supabase) --
   stmts.addAll([
     'CREATE INDEX idx_sessions_user_active ON sessions (user_id, revoked_at, expires_at)',
+    'CREATE INDEX idx_business_members_user ON business_members (user_id)',
     'CREATE INDEX idx_products_category ON products (category_id)',
     'CREATE INDEX idx_products_name ON products (business_id, name)',
     'CREATE INDEX idx_price_lists_product ON price_lists (product_id, effective_from)',

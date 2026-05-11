@@ -2,12 +2,10 @@
 //
 // Authenticated; caller must have role_tier ≥ 4. Runs the full pre-check
 // ladder (defense in depth — check-invite-email is a UX shortcut, not a
-// security gate), generates code + 32-byte URL token, inserts the
-// invites row via service_role, and returns the deep-link URL to the
-// admin's client. The client opens the OS share sheet with that URL.
-//
-// The raw token is in the response body once and never logged. Only its
-// SHA-256 hash is persisted on the row (`token_hash`).
+// security gate), generates an 8-character human_code, inserts the
+// invites row via service_role, and returns the code to the admin's
+// client. The admin shares it via WhatsApp / SMS / Email / paper from
+// the modal success screen.
 
 import { handlePreflight } from "../_shared/cors.ts";
 import { errorResponse, okResponse } from "../_shared/errors.ts";
@@ -52,8 +50,7 @@ Deno.serve(async (req) => {
 
   return okResponse({
     invite_id: result.inviteId,
-    code: result.code,
-    url: result.url,
+    human_code: result.humanCode,
     expires_at: result.expiresAt,
   });
 });

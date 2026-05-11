@@ -1,24 +1,21 @@
-// resend-invite — revoke the existing pending invite and issue a fresh one.
+// resend-invite — regenerate the human_code for an unredeemed pending invite.
 //
-// Authenticated; caller must be in the same business as the original
-// invite and have role_tier ≥ 4.
+// Authenticated; caller must be in the same business as the invite and
+// have role_tier ≥ 4. Calls the SECURITY DEFINER RPC regenerate_invite_code
+// (0027) which atomically:
+//   • Validates the invite is still pending (regen only works pre-redemption)
+//   • Marks the old row status='revoked'
+//   • Inserts a new row with a fresh 8-char human_code and 7-day TTL
+//   • Sets regenerated_from = <old_id>, regenerated_at = now()
+//   • Logs invite.regenerated to activity_logs
 //
-// Uses the same shared issuance pipeline as send-invite, with two checks
-// suppressed: invite_pending (we just revoked the pending row, so its
-// own ghost is gone) and already_member (was false at original send and
-// can't have flipped without an unrelated action).
-//
-// Why a separate endpoint instead of `send-invite` with a flag: the
-// modal calls check-invite-email first; on `invite_pending` it shows
-// a "Resend?" CTA. Tapping that CTA must not re-trigger the same check
-// (which would just return invite_pending again). Routing to a dedicated
-// endpoint keeps the client flow linear.
+// The endpoint name "resend-invite" is preserved for client-side callers
+// that still use this URL; the semantics are now "regenerate code" since
+// there's no email/SMS resend in rev 3.
 
 import { handlePreflight } from "../_shared/cors.ts";
 import { errorResponse, okResponse } from "../_shared/errors.ts";
-import { getCallerClient, getServiceClient } from "../_shared/db.ts";
-import { loadCaller } from "../_shared/auth.ts";
-import { issueInvite } from "../_shared/issue.ts";
+import { getCallerClient } from "../_shared/db.ts";
 import { isUuid } from "../_shared/validation.ts";
 
 interface RequestBody {
@@ -40,49 +37,42 @@ Deno.serve(async (req) => {
 
   if (!isUuid(body.invite_id)) return errorResponse("invalid_payload");
 
-  const service = getServiceClient();
+  // Use the caller client so the RPC's auth.uid() / business_id() resolve
+  // to the inviter. SECURITY DEFINER bypasses RLS internally; identity
+  // still flows through the JWT.
   const caller = getCallerClient(req);
-  const ctx = await loadCaller(caller, service);
-  if (!ctx) return errorResponse("unauthenticated");
-  if (ctx.roleTier < 4) return errorResponse("forbidden");
+  const { data: userResp } = await caller.auth.getUser();
+  if (!userResp?.user) return errorResponse("unauthenticated");
 
-  // Load the existing row. Must belong to the caller's business.
-  const { data: existing, error: loadErr } = await service
-    .from("invites")
-    .select("id, business_id, email, role, warehouse_id, status")
-    .eq("id", body.invite_id)
-    .maybeSingle();
-  if (loadErr) return errorResponse("internal");
-  if (!existing) return errorResponse("invalid_token");
-  if (existing.business_id !== ctx.businessId) {
-    // Don't leak which businesses have which invites — refuse generically.
-    return errorResponse("forbidden");
-  }
-
-  // Flip pending→revoked. Already-revoked or already-accepted rows are
-  // left alone; we still issue a fresh invite for the same email.
-  if (existing.status === "pending") {
-    const { error: revErr } = await service
-      .from("invites")
-      .update({ status: "revoked", last_updated_at: new Date().toISOString() })
-      .eq("id", existing.id);
-    if (revErr) return errorResponse("internal");
-  }
-
-  const result = await issueInvite(service, ctx, {
-    email: existing.email,
-    role: existing.role,
-    warehouseId: existing.warehouse_id,
-    skipPendingCheck: true,
-    skipMemberCheck: true,
+  const { data, error } = await caller.rpc("regenerate_invite_code", {
+    p_invite_id: body.invite_id,
   });
+  if (error) {
+    const msg = (error.message ?? "").toLowerCase();
+    if (msg.includes("forbidden")) return errorResponse("forbidden");
+    if (msg.includes("invite_not_found")) {
+      return errorResponse("invalid_token");
+    }
+    if (msg.includes("invite_not_pending")) {
+      return errorResponse("already_used");
+    }
+    if (msg.includes("unauthenticated")) {
+      return errorResponse("unauthenticated");
+    }
+    console.warn(
+      `[resend-invite] regenerate_invite_code RPC failed: ${error.message}`,
+    );
+    return errorResponse("internal");
+  }
 
-  if (!result.ok) return errorResponse(result.error, result.details);
+  // RPC returns the full new invite row as jsonb. Surface the bits the
+  // client needs for the share screen.
+  const row = data as Record<string, unknown> | null;
+  if (!row) return errorResponse("internal");
 
   return okResponse({
-    invite_id: result.inviteId,
-    code: result.code,
-    url: result.url,
-    expires_at: result.expiresAt,
+    invite_id: row.id,
+    human_code: row.human_code,
+    expires_at: row.expires_at,
   });
 });

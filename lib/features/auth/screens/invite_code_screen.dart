@@ -31,8 +31,14 @@ class _InviteCodeScreenState extends ConsumerState<InviteCodeScreen> {
       if (_errorMessage != null) {
         setState(() => _errorMessage = null);
       }
-      // Auto-submit if the code looks like a full 8-character secure code
-      if (_codeController.text.trim().length == 8 && !_loading) {
+      // Auto-submit on a complete code. Phase 2 supports two formats:
+      //   • 6-char human_code (preferred — what's in the email/SMS)
+      //   • 8-char legacy code
+      // Length 6 OR 8, alphanumeric only (Crockford-ish alphabet).
+      final raw = _codeController.text.trim();
+      final isComplete = (raw.length == 6 || raw.length == 8) &&
+          RegExp(r'^[A-Z0-9]+$').hasMatch(raw.toUpperCase());
+      if (isComplete && !_loading) {
         _submit();
       }
     });
@@ -63,7 +69,7 @@ class _InviteCodeScreenState extends ConsumerState<InviteCodeScreen> {
       code = code.split('code=')[1].split('&')[0];
     }
 
-    code = code.trim();
+    code = code.trim().toUpperCase();
 
     setState(() {
       _loading = true;
@@ -71,7 +77,11 @@ class _InviteCodeScreenState extends ConsumerState<InviteCodeScreen> {
     });
 
     final api = ref.read(inviteApiServiceProvider);
-    final result = await api.previewByCode(code);
+    // Route by length: 6-char → human_code (Phase 2), 8-char → legacy code.
+    final isHumanCode = code.length == 6;
+    final result = isHumanCode
+        ? await api.previewByHumanCode(code)
+        : await api.previewByCode(code);
 
     if (!mounted) return;
 
@@ -91,7 +101,8 @@ class _InviteCodeScreenState extends ConsumerState<InviteCodeScreen> {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => InviteJoinNameScreen(
-          code: code,
+          code: isHumanCode ? null : code,
+          humanCode: isHumanCode ? code : null,
           email: widget.email,
         ),
       ),

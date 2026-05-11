@@ -1,25 +1,46 @@
-// redeem-invite — finalise the invitee's join, by token OR by code.
+// redeem-invite — finalise the invitee's join by 8-char human_code, with the
+// rev 3 four-screen wizard fields collected client-side.
 //
-// Authenticated; the invitee just signed in via OTP. Calls the SECURITY
-// DEFINER RPC redeem_invite / redeem_invite_by_code which atomically:
-//   • verifies token + status + expiry + email match
-//   • inserts public.profiles for auth.uid()  (the gate that unlocks
-//     public.business_id() for subsequent queries)
-//   • upserts public.users with the granular role / collapsed tier
-//   • marks the invite accepted
+// Authenticated; the invitee just signed in via OTP. Resolves the human_code
+// to an invite_id, then calls the SECURITY DEFINER RPC accept_invite (0026)
+// which atomically:
+//   • Validates email match against auth.uid()'s email
+//   • Find-or-creates the public.users row
+//   • Inserts the public.business_members row (with all wizard fields) and
+//     verification_status='not_started', verification_due_at = now() + 14d
+//   • Marks the invite accepted
+//   • Fans out 'member.created' notifications to CEO + warehouse-matched
+//     admins/managers (gated on xmax = 0 for replay-safety)
 //
-// All inside one transaction with SELECT … FOR UPDATE on the invite row,
-// so two devices clicking the same link race to the lock and the loser
-// sees `already_used`.
+// Returns canonical {user, membership, invite} as ok-wrapped JSON. The
+// Flutter client calls SupabaseSyncService.applyServerResponse to seed
+// local Drift without a snapshot pull.
+//
+// Rev 3 simplifications vs rev 2:
+//   • Token and 8-char `code` branches removed — only human_code remains.
+//   • Wizard fields (staff_phone, next_of_kin_*, guarantor_*) are now
+//     part of the request body and forwarded to accept_invite.
 
 import { handlePreflight } from "../_shared/cors.ts";
-import { errorResponse, rpcJsonResponse } from "../_shared/errors.ts";
-import { getCallerClient } from "../_shared/db.ts";
+import { errorResponse, okResponse } from "../_shared/errors.ts";
+import { getCallerClient, getServiceClient } from "../_shared/db.ts";
 
 interface RequestBody {
+  human_code?: string;
   user_name?: string;
-  token?: string;
-  code?: string;
+  staff_phone?: string;
+  next_of_kin_name?: string;
+  next_of_kin_phone?: string;
+  next_of_kin_relation?: string;
+  guarantor_name?: string | null;
+  guarantor_phone?: string | null;
+  guarantor_relation?: string | null;
+}
+
+function trimRequired(v: unknown): string | null {
+  if (typeof v !== "string") return null;
+  const t = v.trim();
+  return t.length > 0 ? t : null;
 }
 
 Deno.serve(async (req) => {
@@ -35,35 +56,77 @@ Deno.serve(async (req) => {
     return errorResponse("invalid_payload");
   }
 
-  const userName = (body.user_name ?? "").trim();
-  if (userName.length === 0) return errorResponse("invalid_payload");
+  const humanCode = trimRequired(body.human_code)?.toUpperCase();
+  const userName = trimRequired(body.user_name);
+  const staffPhone = trimRequired(body.staff_phone);
+  const nokName = trimRequired(body.next_of_kin_name);
+  const nokPhone = trimRequired(body.next_of_kin_phone);
+  const nokRelation = trimRequired(body.next_of_kin_relation);
 
-  const hasToken = typeof body.token === "string" && body.token.length > 0;
-  const hasCode = typeof body.code === "string" && body.code.length > 0;
-  if (hasToken === hasCode) return errorResponse("invalid_payload");
+  // Required wizard fields. Guarantor trio is optional.
+  if (
+    !humanCode ||
+    !userName ||
+    !staffPhone ||
+    !nokName ||
+    !nokPhone ||
+    !nokRelation
+  ) {
+    return errorResponse("invalid_payload");
+  }
 
-  // Use the caller client so the RPC sees auth.uid() / auth.jwt().email.
-  // The RPC is SECURITY DEFINER so RLS is bypassed inside it; we only
-  // need the JWT for identity, not for RLS access.
   const caller = getCallerClient(req);
+  const service = getServiceClient();
 
-  // Cheap unauthenticated check up-front.
   const { data: userResp } = await caller.auth.getUser();
   if (!userResp?.user) return errorResponse("unauthenticated");
 
-  if (hasToken) {
-    const { data, error } = await caller.rpc("redeem_invite", {
-      p_token: body.token,
-      p_user_name: userName,
-    });
-    if (error) return errorResponse("internal");
-    return rpcJsonResponse(data);
+  // Resolve human_code → invite_id (service client, RLS-bypass).
+  const { data: invRow, error: invErr } = await service
+    .from("invites")
+    .select("id, status, expires_at")
+    .eq("human_code", humanCode)
+    .eq("status", "pending")
+    .maybeSingle();
+  if (invErr) return errorResponse("internal");
+  if (!invRow) return errorResponse("invalid_token");
+  if (new Date(invRow.expires_at).getTime() < Date.now()) {
+    return errorResponse("expired");
   }
 
-  const { data, error } = await caller.rpc("redeem_invite_by_code", {
-    p_code: body.code,
+  // Use the caller client so accept_invite sees auth.uid(). SECURITY
+  // DEFINER bypasses RLS internally; identity flows through the JWT.
+  const { data: rpcRes, error: rpcErr } = await caller.rpc("accept_invite", {
+    p_invite_id: invRow.id,
     p_user_name: userName,
+    p_staff_phone: staffPhone,
+    p_next_of_kin_name: nokName,
+    p_next_of_kin_phone: nokPhone,
+    p_next_of_kin_relation: nokRelation,
+    p_guarantor_name: trimRequired(body.guarantor_name),
+    p_guarantor_phone: trimRequired(body.guarantor_phone),
+    p_guarantor_relation: trimRequired(body.guarantor_relation),
   });
-  if (error) return errorResponse("internal");
-  return rpcJsonResponse(data);
+
+  if (rpcErr) {
+    const msg = (rpcErr.message ?? "").toLowerCase();
+    if (msg.includes("email_mismatch")) return errorResponse("email_mismatch");
+    if (msg.includes("invite_expired")) return errorResponse("expired");
+    if (msg.includes("invite_status_invalid")) {
+      return errorResponse("already_used");
+    }
+    if (msg.includes("invite_not_found")) {
+      return errorResponse("invalid_token");
+    }
+    if (msg.includes("unauthenticated")) {
+      return errorResponse("unauthenticated");
+    }
+    console.warn(`[redeem-invite] accept_invite RPC failed: ${rpcErr.message}`);
+    return errorResponse("internal");
+  }
+
+  // RPC returns {user, membership, invite}. Spread into the okResponse
+  // envelope so the client's _interpret sees ok:true and the canonical
+  // rows together.
+  return okResponse(rpcRes as Record<string, unknown>);
 });

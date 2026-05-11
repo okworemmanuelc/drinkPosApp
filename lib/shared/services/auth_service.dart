@@ -93,6 +93,29 @@ class AuthService extends ValueNotifier<UserData?> {
   /// The currently logged-in user, or null if nobody is logged in.
   UserData? get currentUser => value;
 
+  /// Active membership for [currentUser] in the current business. Loaded
+  /// lazily by [_refreshActiveMember] in [setCurrentUser] and cleared on
+  /// logout. New screens (verification badge, member list, etc.) read this
+  /// instead of [currentUser.roleTier] so the dependency on the legacy
+  /// users.role/role_tier columns can be cut cleanly when Phase 5 drops
+  /// them. During Phase 1 the values mirror exactly — both columns are
+  /// backfilled from the same source — so existing call sites that still
+  /// read `currentUser.roleTier` keep working unchanged.
+  BusinessMemberData? _activeMember;
+  BusinessMemberData? get currentMember => _activeMember;
+
+  Future<void> _refreshActiveMember() async {
+    final user = value;
+    if (user == null) {
+      _activeMember = null;
+      return;
+    }
+    _activeMember = await (_db.select(_db.businessMembers)
+          ..where((t) => t.userId.equals(user.id))
+          ..limit(1))
+        .getSingleOrNull();
+  }
+
   /// Returns every user whose stored PBKDF2 hash matches [pin]. Sentinel /
   /// placeholder rows (no hash yet) never match — they must go through
   /// [setUserPin] first.
@@ -114,10 +137,21 @@ class AuthService extends ValueNotifier<UserData?> {
     }).toList();
   }
 
-  /// Hashes [plaintext] with a fresh per-user salt and stores the resulting
-  /// pinHash/pinSalt/pinIterations triple. Overwrites the legacy [Users.pin]
-  /// column with the literal `'__HASHED__'` so the row no longer carries the
-  /// PIN in cleartext. Single canonical PIN write path.
+  /// Hashes [plaintext] with a fresh per-user salt and writes the PIN to
+  /// BOTH the legacy device-local [Users.pin*] columns AND the cloud-synced
+  /// [BusinessMembers.pin*] columns for the user's membership.
+  ///
+  /// Dual-write rationale: per the staff-onboarding plan §2, PIN now syncs
+  /// per-membership so the same PIN works on every device for that
+  /// membership. Phase 5 drops the legacy users.pin* columns; the dual-
+  /// write here ensures every PIN set during the Phase 1→Phase 5 window
+  /// also lands on the membership row, so the column drop in Phase 5 does
+  /// not silently lose any user's PIN.
+  ///
+  /// Bypasses BusinessMembersDao.setPin because that method requires the
+  /// tenant resolver to be wired (whereBusiness filter), and setUserPin is
+  /// sometimes called during onboarding before setCurrentUser runs. Direct
+  /// write + explicit enqueue keeps the CLAUDE.md §5 contract.
   Future<void> setUserPin(String userId, String plaintext) async {
     final salt = PinHasher.generateSaltBase64();
     final hash = PinHasher.hashBase64(
@@ -125,14 +159,41 @@ class AuthService extends ValueNotifier<UserData?> {
       salt,
       PinHasher.defaultIterations,
     );
+    const iterations = PinHasher.defaultIterations;
+
+    // 1. Legacy users.pin* — device-local, never synced.
     await (_db.update(_db.users)..where((u) => u.id.equals(userId))).write(
       UsersCompanion(
         pin: const Value('__HASHED__'),
         pinHash: Value(hash),
         pinSalt: Value(salt),
-        pinIterations: const Value(PinHasher.defaultIterations),
+        pinIterations: const Value(iterations),
       ),
     );
+
+    // 2. business_members.pin_* — canonical going forward, syncs to cloud.
+    //    Lookup is by user_id (globally unique in Phase 1 thanks to the
+    //    auth_user_id UNIQUE on users). Skip silently if no membership row
+    //    exists yet — defensive against a setUserPin call racing the
+    //    membership-creation paths (complete_onboarding RPC, accept_invite
+    //    RPC, or v5→v6 backfill).
+    final member = await (_db.select(_db.businessMembers)
+          ..where((t) => t.userId.equals(userId))
+          ..limit(1))
+        .getSingleOrNull();
+    if (member != null) {
+      final comp = BusinessMembersCompanion(
+        id: Value(member.id),
+        pinHash: Value(hash),
+        pinSalt: Value(salt),
+        pinIterations: const Value(iterations),
+        lastUpdatedAt: Value(DateTime.now()),
+      );
+      await (_db.update(_db.businessMembers)
+            ..where((t) => t.id.equals(member.id)))
+          .write(comp);
+      await _db.syncDao.enqueueUpsert('business_members', comp);
+    }
   }
 
   // ── Device persistence (encrypted) ──────────────────────────────────────
@@ -382,6 +443,11 @@ class AuthService extends ValueNotifier<UserData?> {
       // Set synchronously so VLB listener fires before any route pop cleans up
       value = user;
 
+      // Load the active membership in the background so [currentMember] is
+      // available to new screens. businessIdResolver still reads
+      // value?.businessId so this doesn't gate the post-login render.
+      scheduleMicrotask(_refreshActiveMember);
+
       _sync.startRealtimeSync(user.businessId);
       _sync.startAutoPush();
 
@@ -587,6 +653,7 @@ class AuthService extends ValueNotifier<UserData?> {
       currentSessionId = null;
     }
     value = null;
+    _activeMember = null;
     bypassNextBiometric = true;
     _nav.clearWarehouseLock();
     _nav.resetNavigation();
@@ -627,6 +694,7 @@ class AuthService extends ValueNotifier<UserData?> {
     // 4. Clear local state — triggers the ValueListenableBuilder to rebuild.
     //    At this point _hasDeviceUser is already false → routes to EmailEntryScreen.
     value = null;
+    _activeMember = null;
     _nav.clearWarehouseLock();
     _nav.resetNavigation();
   }
