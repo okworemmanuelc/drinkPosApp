@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:drift/drift.dart' as drift;
 
 import 'package:reebaplus_pos/core/database/app_database.dart';
 import 'package:reebaplus_pos/core/providers/app_providers.dart';
 import 'package:reebaplus_pos/core/utils/responsive.dart';
+import 'package:reebaplus_pos/features/auth/onboarding/onboarding_draft.dart';
 import 'package:reebaplus_pos/features/auth/screens/biometric_setup_screen.dart';
 import 'package:reebaplus_pos/features/auth/widgets/onboarding_step_indicator.dart';
 import 'package:reebaplus_pos/features/auth/widgets/auth_background.dart';
@@ -13,19 +12,32 @@ import 'package:reebaplus_pos/core/theme/app_decorations.dart';
 import 'package:flutter/services.dart';
 import 'package:reebaplus_pos/shared/widgets/smooth_route.dart';
 
-/// Shown to new staff (pin == '') after their email OTP is verified.
-/// Two-phase flow: enter PIN → confirm PIN → save to DB → auto-login.
+/// Two-phase PIN entry. Three callers:
+///   * New-business onboarding wizard — [user] is null, [isNewBusinessSetup]
+///     is true. The draft from [onboardingDraftProvider] is committed atomically
+///     via [AuthService.completeOnboarding] on PIN confirm; the returned
+///     persisted user is then assigned a PIN locally.
+///   * Invite/join flow — [user] is the row created by the redeem RPC,
+///     [isJoinFlow] is true. PIN write only.
+///   * Returning user PIN reset — [user] non-null, both flags false. PIN
+///     write only.
 class CreatePinScreen extends ConsumerStatefulWidget {
-  final UserData user;
+  /// Required in join/reset paths. Null in the new-business path — the user
+  /// row doesn't exist yet; the draft is committed inside [_advance].
+  final UserData? user;
   final bool isNewBusinessSetup;
   final bool isJoinFlow;
 
   const CreatePinScreen({
     super.key,
-    required this.user,
+    this.user,
     this.isNewBusinessSetup = false,
     this.isJoinFlow = false,
-  });
+  }) : assert(
+          user != null || isNewBusinessSetup,
+          'CreatePinScreen needs either a user (join/reset) or '
+          'isNewBusinessSetup=true (wizard, draft-driven)',
+        );
 
   @override
   ConsumerState<CreatePinScreen> createState() => _CreatePinScreenState();
@@ -100,37 +112,37 @@ class _CreatePinScreenState extends ConsumerState<CreatePinScreen> {
       return;
     }
 
-    // PINs match — show success state, then save to DB.
+    // PINs match — show success state, then commit + save PIN.
     setState(() => _saving = true);
 
-    // Allow AnimatedSwitcher to begin its cross-fade before heavy DB work.
+    // Allow AnimatedSwitcher to begin its cross-fade before heavy work.
     await Future.delayed(const Duration(milliseconds: 150));
     if (!mounted) return;
 
     try {
+      final auth = ref.read(authProvider);
       final db = ref.read(databaseProvider);
-      await ref.read(authProvider).setUserPin(widget.user.id, _pin);
 
-      // Onboarding completion. PIN is the last required input; flipping
-      // onboarding_complete here means a crash between this point and
-      // setCurrentUser (in BiometricSetupScreen / PostPinOtpScreen) routes
-      // to login on next launch instead of back into onboarding.
-      // Gated on isNewBusinessSetup — staff-join and returning-user PIN
-      // changes go through this same screen and must NOT touch the flag.
-      if (widget.isNewBusinessSetup) {
-        await Supabase.instance.client
-            .from('businesses')
-            .update({'onboarding_complete': true})
-            .eq('id', widget.user.businessId);
-
-        await (db.update(db.businesses)
-              ..where((b) => b.id.equals(widget.user.businessId)))
-            .write(const BusinessesCompanion(
-              onboardingComplete: drift.Value(true),
-            ));
+      // New-business path: commit the wizard draft atomically NOW. The
+      // complete_onboarding RPC creates businesses + profiles + warehouses
+      // + settings server-side with onboarding_complete=true, then mirrors
+      // them locally in one Drift transaction. Returns the persisted user.
+      //
+      // Join/reset paths: widget.user is already the persisted row.
+      final UserData persistedUser;
+      if (widget.user == null) {
+        final draft = ref.read(onboardingDraftProvider.notifier).require();
+        persistedUser = await auth.completeOnboarding(draft);
+        // Wizard is done — drop the draft so a future onboarding starts
+        // fresh and so abandoned drafts don't leak across sessions.
+        ref.read(onboardingDraftProvider.notifier).clear();
+      } else {
+        persistedUser = widget.user!;
       }
 
-      final updatedUser = await db.warehousesDao.getUserById(widget.user.id);
+      await auth.setUserPin(persistedUser.id, _pin);
+
+      final updatedUser = await db.warehousesDao.getUserById(persistedUser.id);
 
       if (!mounted) return;
 
@@ -271,7 +283,7 @@ class _CreatePinScreenState extends ConsumerState<CreatePinScreen> {
         ),
         SizedBox(height: context.getRSize(6)),
         Text(
-          'Welcome, ${widget.user.name}!',
+          'Welcome, ${widget.user?.name ?? ref.read(onboardingDraftProvider)?.ownerName ?? "there"}!',
           style: TextStyle(
             fontSize: context.getRFontSize(15),
             color: textColor.withValues(alpha: 0.8),

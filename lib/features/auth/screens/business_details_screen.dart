@@ -3,18 +3,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:reebaplus_pos/shared/widgets/app_button.dart';
 import 'package:reebaplus_pos/features/auth/widgets/onboarding_step_indicator.dart';
-import 'package:reebaplus_pos/core/database/app_database.dart';
-import 'package:reebaplus_pos/core/providers/app_providers.dart';
+import 'package:reebaplus_pos/features/auth/onboarding/onboarding_draft.dart';
 import 'package:reebaplus_pos/features/auth/screens/location_details_screen.dart';
-import 'package:drift/drift.dart' hide Column;
 import 'package:reebaplus_pos/features/auth/widgets/auth_background.dart';
 import 'package:reebaplus_pos/core/theme/app_decorations.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:reebaplus_pos/shared/widgets/smooth_route.dart';
 
 class BusinessDetailsScreen extends ConsumerStatefulWidget {
-  final UserData user;
-  const BusinessDetailsScreen({super.key, required this.user});
+  final String email;
+  const BusinessDetailsScreen({super.key, required this.email});
 
   @override
   ConsumerState<BusinessDetailsScreen> createState() =>
@@ -44,39 +41,13 @@ class _BusinessDetailsScreenState extends ConsumerState<BusinessDetailsScreen> {
   @override
   void initState() {
     super.initState();
-    _emailController.text = widget.user.email ?? '';
-    _loadExistingData();
-  }
-
-  /// Pre-fills the form from Supabase (the source of truth during onboarding).
-  /// On a fresh start the row only has the placeholder name from
-  /// createNewOwner, so most fields stay empty. On a resume after
-  /// interruption, every previously-submitted field comes back.
-  Future<void> _loadExistingData() async {
-    try {
-      final row = await Supabase.instance.client
-          .from('businesses')
-          .select()
-          .eq('id', widget.user.businessId)
-          .maybeSingle();
-      if (row == null || !mounted) return;
-      setState(() {
-        // Skip the placeholder name from createNewOwner — that's the
-        // owner's name, not the business name. Real business names are
-        // longer than the placeholder isn't a good heuristic, so we
-        // pre-fill anything except the literal owner name.
-        final loadedName = (row['name'] as String?) ?? '';
-        if (loadedName.isNotEmpty && loadedName != widget.user.name) {
-          _nameController.text = loadedName;
-        }
-        _typeController.text = (row['type'] as String?) ?? '';
-        _phoneController.text = (row['phone'] as String?) ?? '';
-        final loadedEmail = (row['email'] as String?) ?? '';
-        if (loadedEmail.isNotEmpty) _emailController.text = loadedEmail;
-      });
-    } catch (e) {
-      debugPrint('[BusinessDetailsScreen] _loadExistingData failed: $e');
-    }
+    // Restore from draft (back navigation, accidental rebuild). Default the
+    // business email to the user's login email if nothing in the draft yet.
+    final draft = ref.read(onboardingDraftProvider);
+    _nameController.text = draft?.businessName ?? '';
+    _typeController.text = draft?.businessType ?? '';
+    _phoneController.text = draft?.businessPhone ?? '';
+    _emailController.text = draft?.businessEmail ?? widget.email;
   }
 
   @override
@@ -103,47 +74,24 @@ class _BusinessDetailsScreenState extends ConsumerState<BusinessDetailsScreen> {
 
     setState(() => _loading = true);
 
-    try {
-      final name = _nameController.text.trim();
-      final phone = _phoneController.text.trim();
-      final email = _emailController.text.trim();
-      final businessId = widget.user.businessId;
+    final name = _nameController.text.trim();
+    final phone = _phoneController.text.trim();
+    final email = _emailController.text.trim();
 
-      // 1. Update Supabase. The row already exists — createNewOwner inserts
-      //    it (atomically with the profile) via the start_onboarding RPC so
-      //    public.business_id() resolves for every subsequent onboarding
-      //    write. No profile insert here — already done.
-      await Supabase.instance.client.from('businesses').update({
-        'name': name,
-        'type': businessType,
-        'phone': phone,
-        'email': email,
-      }).eq('id', businessId);
+    // Write to draft only — atomic commit happens at PIN confirm.
+    ref.read(onboardingDraftProvider.notifier).update((d) {
+      d.businessName = name;
+      d.businessType = businessType;
+      d.businessPhone = phone;
+      d.businessEmail = email;
+    });
 
-      // 2. Mirror to local Drift.
-      final db = ref.read(databaseProvider);
-      await (db.update(db.businesses)..where((b) => b.id.equals(businessId)))
-          .write(BusinessesCompanion(
-        name: Value(name),
-        type: Value(businessType),
-        phone: Value(phone),
-        email: Value(email),
-      ));
+    if (!mounted) return;
+    setState(() => _loading = false);
 
-      if (!mounted) return;
-      setState(() => _loading = false);
-
-      Navigator.of(context).push(
-        SmoothRoute(page: LocationDetailsScreen(user: widget.user)),
-      );
-    } catch (e) {
-      debugPrint('[BusinessDetailsScreen] Error saving business: $e');
-      if (!mounted) return;
-      setState(() => _loading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error saving business: $e')),
-      );
-    }
+    Navigator.of(context).push(
+      SmoothRoute(page: LocationDetailsScreen(email: widget.email)),
+    );
   }
 
   @override

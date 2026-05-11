@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:reebaplus_pos/features/auth/onboarding/onboarding_draft.dart';
 import 'package:reebaplus_pos/features/auth/screens/new_owner_name_screen.dart';
 import 'package:reebaplus_pos/features/auth/screens/invite_code_screen.dart';
 import 'package:reebaplus_pos/features/auth/widgets/onboarding_step_indicator.dart';
@@ -47,6 +48,9 @@ class BusinessTypeSelectionScreen extends ConsumerWidget {
     if (!context.mounted) return;
     // Ensure the database is completely empty before starting a new business
     await ref.read(databaseProvider).clearAllData();
+    // Seed a fresh draft for the wizard. Overwrites any prior draft so an
+    // abandoned-then-restarted onboarding doesn't inherit stale fields.
+    ref.read(onboardingDraftProvider.notifier).start(email);
     if (!context.mounted) return;
     Navigator.of(context).push(SmoothRoute(page: NewOwnerNameScreen(email: email)));
   }

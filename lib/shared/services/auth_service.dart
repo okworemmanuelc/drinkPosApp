@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:reebaplus_pos/core/database/app_database.dart';
 import 'package:reebaplus_pos/core/database/uuid_v7.dart';
+import 'package:reebaplus_pos/features/auth/onboarding/onboarding_draft.dart';
 import 'package:reebaplus_pos/shared/services/navigation_service.dart';
 import 'package:reebaplus_pos/shared/services/secure_storage_service.dart';
 import 'package:reebaplus_pos/core/services/supabase_sync_service.dart';
@@ -210,12 +211,15 @@ class AuthService extends ValueNotifier<UserData?> {
   }
 
   Future<void> syncOnLogin(String businessId) async {
-    await _sync.syncAll(businessId);
+    // Pull-only. syncOnLogin runs at login boundaries (returning user fresh
+    // device, invite redeem, etc.) BEFORE setCurrentUser, so
+    // AppDatabase.currentBusinessId is still null and the push half of
+    // syncAll would either no-op (early-return guard) or throw if any DAO
+    // call inside it consulted the resolver. Pending writes are drained by
+    // startAutoPush, started inside setCurrentUser once the user/business
+    // is fully bound.
+    await _sync.pullChanges(businessId);
     _sync.startRealtimeSync(businessId);
-    // Auto-push is intentionally not started here. syncOnLogin runs before
-    // setCurrentUser, so AppDatabase.currentBusinessId is still null and any
-    // tenant-scoped DAO query inside _initAutoPush would throw. setCurrentUser
-    // starts auto-push once the user/business is fully bound.
   }
 
   /// Reads the current user's cloud profile (by `auth.uid()`) and reflects it
@@ -718,6 +722,170 @@ class AuthService extends ValueNotifier<UserData?> {
     return (_db.select(
       _db.users,
     )..where((u) => u.id.equals(userId))).getSingle();
+  }
+
+  /// Atomic onboarding commit. Calls the `complete_onboarding` Postgres RPC
+  /// (migration 0018) which inserts businesses + profiles + warehouses +
+  /// settings in one server-side transaction with `onboarding_complete=true`,
+  /// then mirrors the same rows into local Drift in one client-side
+  /// transaction. PIN is NOT part of this — it's device-local and written
+  /// separately by [setUserPin] after this returns.
+  ///
+  /// Local-mirror best-effort: if the Drift transaction fails (rare —
+  /// disk full, schema mismatch), the cloud is authoritative. We hydrate
+  /// from there via [upsertLocalUserFromProfile] + [SupabaseSyncService.pullChanges]
+  /// — the same recovery path returning-user OTP uses.
+  ///
+  /// Throws on RPC failure (network drop, validation rejection, ownership
+  /// mismatch). The caller should keep the draft in memory so the user can
+  /// retry without re-typing.
+  Future<UserData> completeOnboarding(OnboardingDraft draft) async {
+    if (_supabase.auth.currentUser == null) {
+      throw StateError(
+        'completeOnboarding called without an authenticated Supabase session',
+      );
+    }
+
+    // 1. Atomic cloud commit. Idempotent on (businesses.id, warehouses.id,
+    //    profiles.id, settings(business_id, key)) so a retry after a
+    //    transient network failure converges.
+    await _supabase.rpc(
+      'complete_onboarding',
+      params: {
+        'p_business_id': draft.businessId,
+        'p_warehouse_id': draft.warehouseId,
+        'p_owner_name': draft.ownerName,
+        'p_business_name': draft.businessName,
+        'p_business_type': draft.businessType,
+        'p_business_phone': draft.businessPhone,
+        'p_business_email': draft.businessEmail,
+        'p_location': {
+          'name': draft.locationName,
+          'street': draft.streetAddress,
+          'city': draft.cityState,
+          'country': draft.country,
+        },
+        'p_settings': {
+          'currency': draft.currency,
+          'timezone': draft.timezone,
+          'tax_reg_number': draft.taxRegNumber,
+        },
+      },
+    );
+
+    final now = DateTime.now();
+
+    // 2. Best-effort local mirror in one Drift transaction. Direct table
+    //    inserts (not enqueueUpsert) because AuthService.value is still null
+    //    here — the resolver returns null, so any DAO that calls
+    //    requireBusinessId() would throw. Payloads carry businessId
+    //    explicitly so cross-tenant safety is enforced by the values, not
+    //    by the resolver.
+    try {
+      await _db.transaction(() async {
+        await (_db.delete(_db.users)
+              ..where((u) => u.email.equals(draft.email)))
+            .go();
+
+        await _db
+            .into(_db.businesses)
+            .insertOnConflictUpdate(
+              BusinessesCompanion.insert(
+                id: Value(draft.businessId),
+                name: draft.businessName ?? '',
+                type: Value(draft.businessType),
+                phone: Value(draft.businessPhone),
+                email: Value(draft.businessEmail),
+                onboardingComplete: const Value(true),
+                lastUpdatedAt: Value(now),
+              ),
+            );
+
+        await _db
+            .into(_db.warehouses)
+            .insertOnConflictUpdate(
+              WarehousesCompanion.insert(
+                id: Value(draft.warehouseId),
+                businessId: draft.businessId,
+                name: draft.locationName ?? 'Main Warehouse',
+                location: Value(draft.locationCombined),
+                lastUpdatedAt: Value(now),
+              ),
+            );
+
+        await _db.into(_db.users).insert(
+              UsersCompanion.insert(
+                id: Value(draft.userId),
+                businessId: draft.businessId,
+                name: draft.ownerName ?? '',
+                email: Value(draft.email),
+                pin: setupRequiredPin,
+                role: 'ceo',
+                roleTier: const Value(5),
+                warehouseId: Value(draft.warehouseId),
+                lastUpdatedAt: Value(now),
+              ),
+            );
+
+        await _db.batch((batch) {
+          batch.insert(
+            _db.settings,
+            SettingsCompanion.insert(
+              key: 'default_currency',
+              value: draft.currency ?? 'NGN',
+              businessId: draft.businessId,
+              lastUpdatedAt: Value(now),
+            ),
+            mode: InsertMode.insertOrReplace,
+          );
+          batch.insert(
+            _db.settings,
+            SettingsCompanion.insert(
+              key: 'timezone',
+              value: draft.timezone ?? 'Africa/Lagos',
+              businessId: draft.businessId,
+              lastUpdatedAt: Value(now),
+            ),
+            mode: InsertMode.insertOrReplace,
+          );
+          final tax = draft.taxRegNumber?.trim();
+          if (tax != null && tax.isNotEmpty) {
+            batch.insert(
+              _db.settings,
+              SettingsCompanion.insert(
+                key: 'tax_registration_number',
+                value: tax,
+                businessId: draft.businessId,
+                lastUpdatedAt: Value(now),
+              ),
+              mode: InsertMode.insertOrReplace,
+            );
+          }
+        });
+      });
+
+      return (_db.select(_db.users)
+            ..where((u) => u.id.equals(draft.userId)))
+          .getSingle();
+    } catch (e, stack) {
+      // 3. Mirror failed. Cloud has the truth. Hydrate from there —
+      //    upsertLocalUserFromProfile + pullChanges both go through the
+      //    §5-exempt _restoreTableData path, so they're safe to call with
+      //    a null AuthService.value.
+      debugPrint(
+        '[AuthService] completeOnboarding local mirror failed; '
+        'falling back to cloud hydrate: $e\n$stack',
+      );
+      final hydrated = await upsertLocalUserFromProfile();
+      if (hydrated == null) {
+        throw StateError(
+          'completeOnboarding: cloud commit succeeded but local hydrate '
+          'returned no user. Original mirror error: $e',
+        );
+      }
+      await _sync.pullChanges(draft.businessId);
+      return hydrated;
+    }
   }
 
   // ── Initialisation ──────────────────────────────────────────────────────

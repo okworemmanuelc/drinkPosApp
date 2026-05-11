@@ -13,8 +13,6 @@ import 'package:reebaplus_pos/shared/services/secure_storage_service.dart';
 import 'package:reebaplus_pos/features/auth/screens/login_screen.dart';
 import 'package:reebaplus_pos/features/auth/screens/email_entry_screen.dart';
 import 'package:reebaplus_pos/features/auth/screens/warehouse_assignment_screen.dart';
-import 'package:reebaplus_pos/features/auth/screens/business_details_screen.dart';
-import 'package:drift/drift.dart' as drift show OrderingMode, OrderingTerm, Value;
 import 'package:reebaplus_pos/shared/widgets/main_layout.dart';
 import 'package:reebaplus_pos/shared/widgets/auto_lock_wrapper.dart';
 import 'package:reebaplus_pos/shared/widgets/force_update_wrapper.dart';
@@ -94,12 +92,6 @@ class _ReebaplusPosAppState extends ConsumerState<ReebaplusPosApp> {
   /// false = fresh device / first login → show email screen
   bool? _hasDeviceUser;
 
-  /// Set by [_checkDeviceUser] when an interrupted onboarding is detected.
-  /// While non-null, the home builder routes the user back into onboarding
-  /// at BusinessDetailsScreen with all entered data pre-filled. Cleared
-  /// once the user finishes (setCurrentUser fires _onAuthChanged) or via
-  /// _onDeviceUserChanged on a clean re-login.
-  UserData? _onboardingResumeUser;
 
   /// Regenerated on auth-state changes to force MaterialApp's internal
   /// Navigator to rebuild its route stack (clears stale MainLayout).
@@ -163,76 +155,11 @@ class _ReebaplusPosAppState extends ConsumerState<ReebaplusPosApp> {
   Future<void> _checkDeviceUser() async {
     final auth = ref.read(authProvider);
     final userId = await auth.getDeviceUserId();
-    final resumeUser = await _resolveOnboardingResume();
     if (mounted) {
       auth.deviceUserIdNotifier.value = userId;
       setState(() {
         _hasDeviceUser = userId != null;
-        _onboardingResumeUser = resumeUser;
       });
-    }
-  }
-
-  /// Returns the local owner UserData when the app should route back into
-  /// onboarding on this launch, or null otherwise.
-  ///
-  /// Cheap local gate first: if no Drift `businesses` row has
-  /// `onboardingComplete = false`, there's nothing to resume — most users
-  /// short-circuit here and pay zero added Supabase round-trips on cold
-  /// start. Only when the local mirror flags an in-progress row do we
-  /// confirm against Supabase (the source of truth) before committing
-  /// to the resume route.
-  Future<UserData?> _resolveOnboardingResume() async {
-    try {
-      final db = ref.read(databaseProvider);
-      final incompleteLocal = await (db.select(db.businesses)
-            ..where((b) => b.onboardingComplete.equals(false))
-            ..limit(1))
-          .getSingleOrNull();
-      if (incompleteLocal == null) return null;
-
-      // Local says incomplete — confirm against Supabase.
-      try {
-        await supabaseReady;
-      } catch (_) {
-        return null; // Supabase unreachable; route via normal path.
-      }
-      final supabase = Supabase.instance.client;
-      final authUserId = supabase.auth.currentUser?.id;
-      if (authUserId == null) return null;
-
-      final remote = await supabase
-          .from('businesses')
-          .select('id, onboarding_complete')
-          .eq('id', incompleteLocal.id)
-          .maybeSingle();
-
-      if (remote == null) return null; // Server row gone — nothing to resume.
-      if (remote['onboarding_complete'] == true) {
-        // Server already complete; local mirror is stale. Heal locally.
-        await (db.update(db.businesses)
-              ..where((b) => b.id.equals(incompleteLocal.id)))
-            .write(const BusinessesCompanion(
-              onboardingComplete: drift.Value(true),
-            ));
-        return null;
-      }
-
-      // Both local and remote agree onboarding is incomplete. Pick the
-      // local users row keyed off this businessId — that's the owner
-      // UserData we threaded through onboarding originally.
-      final owner = await (db.select(db.users)
-            ..where((u) => u.businessId.equals(incompleteLocal.id))
-            ..orderBy([(u) => drift.OrderingTerm(
-                  expression: u.createdAt,
-                  mode: drift.OrderingMode.asc,
-                )])
-            ..limit(1))
-          .getSingleOrNull();
-      return owner;
-    } catch (e) {
-      debugPrint('[main] _resolveOnboardingResume failed: $e');
-      return null;
     }
   }
 
@@ -281,15 +208,14 @@ class _ReebaplusPosAppState extends ConsumerState<ReebaplusPosApp> {
             if (user == null) {
               // Still reading SharedPreferences — show branded splash.
               if (_hasDeviceUser == null) return const _BrandedSplash();
-              // Resumable onboarding takes priority: if a previous attempt
-              // didn't reach setCurrentUser, route back into onboarding at
-              // BusinessDetailsScreen with all entered data pre-filled.
-              final resumeUser = _onboardingResumeUser;
-              if (resumeUser != null) {
-                return BusinessDetailsScreen(user: resumeUser);
-              }
               // Returning user on this device → skip email, go to PIN screen.
               // New device / fresh install → go to email entry flow.
+              //
+              // Legacy in-progress onboarding (a half-built business from
+              // before the collect-first wizard) is no longer auto-resumed
+              // — the new wizard commits atomically at PIN, so abandonment
+              // can't leave a half-state to resume into. Users in that
+              // transitional bucket re-enter via EmailEntry / LoginScreen.
               return _hasDeviceUser!
                   ? const LoginScreen()
                   : const EmailEntryScreen();

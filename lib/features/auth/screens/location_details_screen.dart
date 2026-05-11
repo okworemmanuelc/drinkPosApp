@@ -3,19 +3,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:reebaplus_pos/shared/widgets/app_button.dart';
 import 'package:reebaplus_pos/features/auth/widgets/onboarding_step_indicator.dart';
-import 'package:reebaplus_pos/core/database/app_database.dart';
-import 'package:reebaplus_pos/core/database/uuid_v7.dart';
-import 'package:reebaplus_pos/core/providers/app_providers.dart';
+import 'package:reebaplus_pos/features/auth/onboarding/onboarding_draft.dart';
 import 'package:reebaplus_pos/features/auth/screens/business_settings_screen.dart';
-import 'package:drift/drift.dart' as drift;
 import 'package:reebaplus_pos/features/auth/widgets/auth_background.dart';
 import 'package:reebaplus_pos/core/theme/app_decorations.dart';
 import 'package:reebaplus_pos/shared/widgets/smooth_route.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 class LocationDetailsScreen extends ConsumerStatefulWidget {
-  final UserData user;
-  const LocationDetailsScreen({super.key, required this.user});
+  final String email;
+  const LocationDetailsScreen({super.key, required this.email});
 
   @override
   ConsumerState<LocationDetailsScreen> createState() =>
@@ -31,39 +27,14 @@ class _LocationDetailsScreenState extends ConsumerState<LocationDetailsScreen> {
 
   bool _loading = false;
 
-  /// Set after the first successful submit so a second press updates
-  /// the existing warehouse instead of creating a duplicate.
-  String? _savedWarehouseId;
-
   @override
   void initState() {
     super.initState();
-    _loadExistingData();
-  }
-
-  /// Pre-fills the form from Supabase. On a resume after interruption,
-  /// the warehouse row from the previous attempt rehydrates the inputs.
-  Future<void> _loadExistingData() async {
-    try {
-      final row = await Supabase.instance.client
-          .from('warehouses')
-          .select()
-          .eq('business_id', widget.user.businessId)
-          .limit(1)
-          .maybeSingle();
-      if (row == null || !mounted) return;
-      final location = (row['location'] as String?) ?? '';
-      final parts = location.split(', ');
-      setState(() {
-        _savedWarehouseId = row['id'] as String?;
-        _nameController.text = (row['name'] as String?) ?? '';
-        if (parts.isNotEmpty) _addressController.text = parts[0];
-        if (parts.length >= 2) _cityStateController.text = parts[1];
-        if (parts.length >= 3) _countryController.text = parts[2];
-      });
-    } catch (e) {
-      debugPrint('[LocationDetailsScreen] _loadExistingData failed: $e');
-    }
+    final draft = ref.read(onboardingDraftProvider);
+    _nameController.text = draft?.locationName ?? '';
+    _addressController.text = draft?.streetAddress ?? '';
+    _cityStateController.text = draft?.cityState ?? '';
+    _countryController.text = draft?.country ?? '';
   }
 
   @override
@@ -80,75 +51,19 @@ class _LocationDetailsScreenState extends ConsumerState<LocationDetailsScreen> {
 
     setState(() => _loading = true);
 
-    final locationCombined =
-        '${_addressController.text.trim()}, ${_cityStateController.text.trim()}, ${_countryController.text.trim()}';
-
-    final db = ref.read(databaseProvider);
-    final String warehouseId;
-    final now = DateTime.now();
-
-    if (_savedWarehouseId != null) {
-      warehouseId = _savedWarehouseId!;
-      await (db.update(
-        db.warehouses,
-      )..where((w) => w.id.equals(warehouseId))).write(
-        WarehousesCompanion(
-          businessId: drift.Value(widget.user.businessId),
-          name: drift.Value(_nameController.text.trim()),
-          location: drift.Value(locationCombined),
-          lastUpdatedAt: drift.Value(now),
-        ),
-      );
-    } else {
-      warehouseId = UuidV7.generate();
-      await db.into(db.warehouses).insert(
-            WarehousesCompanion.insert(
-              id: drift.Value(warehouseId),
-              businessId: widget.user.businessId,
-              name: _nameController.text.trim(),
-              location: drift.Value(locationCombined),
-              lastUpdatedAt: drift.Value(now),
-            ),
-          );
-      _savedWarehouseId = warehouseId;
-    }
-
-    // Push the warehouse to Supabase directly. Onboarding is online-first;
-    // the sync queue would call requireBusinessId() against a null
-    // AuthService.value (intentional — see _onAuthChanged in main.dart).
-    // Profile was inserted in BusinessDetailsScreen, so public.business_id()
-    // resolves and the standard tenant_insert/update RLS policies accept this.
-    // Upsert handles both first submit and re-submit (when the user goes back).
-    await Supabase.instance.client.from('warehouses').upsert({
-      'id': warehouseId,
-      'business_id': widget.user.businessId,
-      'name': _nameController.text.trim(),
-      'location': locationCombined,
-      'last_updated_at': now.toIso8601String(),
-      'is_deleted': false,
+    // Write to draft only — atomic commit happens at PIN confirm.
+    ref.read(onboardingDraftProvider.notifier).update((d) {
+      d.locationName = _nameController.text.trim();
+      d.streetAddress = _addressController.text.trim();
+      d.cityState = _cityStateController.text.trim();
+      d.country = _countryController.text.trim();
     });
-
-    // Keep current user assigned to this warehouse. Carry the id on the
-    // companion so enqueueUpsert can coalesce; without the cloud write a
-    // second device's mirror keeps `warehouse_id = null` until something
-    // else touches the row.
-    final userAssignment = UsersCompanion(
-      id: drift.Value(widget.user.id),
-      warehouseId: drift.Value(warehouseId),
-    );
-    await (db.update(db.users)..where((u) => u.id.equals(widget.user.id)))
-        .write(userAssignment);
-    await db.syncDao.enqueueUpsert('users', userAssignment);
-
-    final updatedUser = await db.warehousesDao.getUserById(widget.user.id);
 
     if (!mounted) return;
     setState(() => _loading = false);
 
     Navigator.of(context).push(
-      SmoothRoute(
-        page: BusinessSettingsScreen(user: updatedUser ?? widget.user),
-      ),
+      SmoothRoute(page: BusinessSettingsScreen(email: widget.email)),
     );
   }
 

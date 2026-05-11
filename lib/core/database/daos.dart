@@ -2058,20 +2058,31 @@ class SyncDao extends DatabaseAccessor<AppDatabase>
     with _$SyncDaoMixin, BusinessScopedDao<AppDatabase> {
   SyncDao(super.db);
 
-  Future<List<SyncQueueData>> getPendingItems({int limit = 50}) {
+  Future<List<SyncQueueData>> getPendingItems({
+    int limit = 50,
+    String? businessId,
+  }) {
     // §6.8: rows scheduled for future retry (markFailed sets
     // nextAttemptAt for both regular transient and FK-deferred classes)
     // must be skipped until their window opens. Without this clause the
     // exponential backoff and FK-deferred logic in markFailed are
     // effectively no-ops — every push pass would retry every failed row
     // immediately, hammering the cloud and eating attempts.
+    //
+    // [businessId] lets callers (push side, sync issues screen) pin the
+    // tenant filter explicitly instead of consulting the resolver. Mirrors
+    // the bootstrap pattern in [enqueueUpsert] and stays safe across the
+    // pre-setCurrentUser window where the resolver returns null.
     final now = DateTime.now();
+    final tenantFilter = businessId != null
+        ? syncQueue.businessId.equals(businessId)
+        : whereBusiness(syncQueue);
     final query = select(syncQueue)
       ..where(
         (t) =>
             t.isSynced.not() &
             t.status.equals('pending') &
-            whereBusiness(t) &
+            tenantFilter &
             (t.nextAttemptAt.isNull() |
                 t.nextAttemptAt.isSmallerOrEqualValue(now)),
       )
@@ -2152,15 +2163,19 @@ class SyncDao extends DatabaseAccessor<AppDatabase>
       // delete the queue row so it stops counting against pending
       // metrics. Operator-visible surface for genuine permanent
       // failures.
+      final reason =
+          deferredOverflow ? 'fk_deferred_cap_reached: $error' : error;
+      debugPrint(
+        '[SyncDao] orphan ${existing.actionType} attempts=$attempts '
+        'reason=$reason',
+      );
       await transaction(() async {
         await into(syncQueueOrphans).insert(
           SyncQueueOrphansCompanion.insert(
             originalId: existing.id,
             actionType: existing.actionType,
             payload: existing.payload,
-            reason: deferredOverflow
-                ? 'fk_deferred_cap_reached: $error'
-                : error,
+            reason: reason,
           ),
         );
         await (delete(syncQueue)..where((t) => t.id.equals(id))).go();
@@ -2173,13 +2188,19 @@ class SyncDao extends DatabaseAccessor<AppDatabase>
     // regular transients keep the original 30-second base.
     final base = fkDeferred ? 600 : 30;
     final delay = Duration(seconds: (1 << (attempts % 10)) * base);
+    final next = now.add(delay);
+
+    debugPrint(
+      '[SyncDao] retry ${existing.actionType} attempts=$attempts '
+      'next=${next.toIso8601String()}',
+    );
 
     await (update(syncQueue)..where((t) => t.id.equals(id))).write(
       SyncQueueCompanion(
         status: const Value('pending'),
         errorMessage: Value(error),
         attempts: Value(attempts),
-        nextAttemptAt: Value(now.add(delay)),
+        nextAttemptAt: Value(next),
       ),
     );
   }
@@ -2337,14 +2358,96 @@ class SyncDao extends DatabaseAccessor<AppDatabase>
         .getSingleOrNull();
   }
 
+  // ── Orphan surfacing & recovery ────────────────────────────────────────────
+  // §6.8 auto-moves permanent failures (P0001, FK-deferred cap) out of
+  // sync_queue into sync_queue_orphans and deletes from the queue. The result
+  // is invisible to the failed-items list and to watchPendingCount, so the
+  // user sees a "Push/RLS gap" in the row-count audit with no corresponding
+  // row to inspect or retry. The methods below give the Sync Issues screen a
+  // way to list, retry, and discard those rows.
+
+  Stream<List<SyncQueueOrphanData>> watchOrphans({int limit = 200}) {
+    return (select(syncQueueOrphans)
+          ..orderBy([(t) => OrderingTerm.desc(t.movedAt)])
+          ..limit(limit))
+        .watch();
+  }
+
+  Stream<int> watchOrphanCount() {
+    return (selectOnly(syncQueueOrphans)
+          ..addColumns([syncQueueOrphans.id.count()]))
+        .watchSingle()
+        .map((row) => row.read(syncQueueOrphans.id.count()) ?? 0);
+  }
+
+  /// Re-enqueues an orphan into sync_queue with cleared backoff and removes
+  /// it from the orphans table. The original action_type and payload are
+  /// preserved verbatim. Caller must ensure the underlying cause has been
+  /// addressed — a blind retry of a phantom-conflict on an append-only
+  /// ledger will just orphan it again.
+  Future<void> retryOrphan(String orphanId) async {
+    await transaction(() async {
+      final orphan = await (select(syncQueueOrphans)
+            ..where((t) => t.id.equals(orphanId)))
+          .getSingleOrNull();
+      if (orphan == null) return;
+
+      // sync_queue_orphans has no business_id column; recover it from the
+      // payload. For table upserts the JSON has `business_id`; for domain
+      // envelopes it sits at `p_business_id`. Fall back to the session
+      // resolver only if neither is present (legacy orphans).
+      String? bid;
+      try {
+        final decoded = jsonDecode(orphan.payload) as Map<String, dynamic>;
+        bid = decoded['business_id'] as String? ??
+            decoded['p_business_id'] as String?;
+      } catch (_) {
+        // undecodable payload — fall through to resolver
+      }
+      bid ??= db.businessIdResolver.call();
+      if (bid == null) {
+        throw StateError(
+          'cannot retry orphan ${orphan.id}: no business_id in payload and '
+          'no current session',
+        );
+      }
+
+      await into(syncQueue).insert(
+        SyncQueueCompanion.insert(
+          id: Value(UuidV7.generate()),
+          businessId: bid,
+          actionType: orphan.actionType,
+          payload: orphan.payload,
+        ),
+      );
+      await (delete(syncQueueOrphans)..where((t) => t.id.equals(orphanId))).go();
+    });
+  }
+
+  Future<void> discardOrphan(String orphanId) async {
+    await (delete(syncQueueOrphans)..where((t) => t.id.equals(orphanId))).go();
+  }
+
   Future<void> enqueueUpsert(String tableName, Insertable row) async {
     final payloadMap = serializeInsertable(row);
-    if (payloadMap['business_id'] == null) {
-      final bid = db.businessIdResolver.call();
-      if (bid != null) {
-        payloadMap['business_id'] = bid;
-      }
+    // Resolve the queue row's businessId. Prefer the payload's value — it
+    // covers the bootstrap case where the very first business/user is being
+    // created during onboarding and the session resolver isn't bound yet
+    // (the row being enqueued already carries its own tenant). Fall back to
+    // the session resolver for normal post-login writes. If neither yields
+    // a value there's no tenant context at all; refuse to enqueue rather
+    // than insert a poison row that push would later reject.
+    final resolvedBid = (payloadMap['business_id'] as String?) ??
+        db.businessIdResolver.call();
+    if (resolvedBid == null) {
+      throw StateError(
+        'enqueueUpsert($tableName): no business_id in payload and no '
+        'authenticated session — refusing to enqueue without tenant context.',
+      );
     }
+    final bid = resolvedBid;
+    payloadMap['business_id'] ??= bid;
+
     final actionType = '$tableName:upsert';
     final payloadJson = jsonEncode(payloadMap);
     final rowId = payloadMap['id'];
@@ -2376,7 +2479,7 @@ class SyncDao extends DatabaseAccessor<AppDatabase>
         await into(syncQueue).insert(
           SyncQueueCompanion.insert(
             id: Value(UuidV7.generate()),
-            businessId: requireBusinessId(),
+            businessId: bid,
             actionType: actionType,
             payload: payloadJson,
           ),
@@ -2410,10 +2513,20 @@ class SyncDao extends DatabaseAccessor<AppDatabase>
       'is_deleted': true,
       'last_updated_at': DateTime.now().toUtc().toIso8601String(),
     };
-    final bid = db.businessIdResolver.call();
-    if (bid != null) {
-      payloadMap['business_id'] = bid;
+    // Mirror enqueueUpsert's resolution: payload first, resolver second,
+    // throw if neither. Delete is always for an existing row, so the
+    // resolver should normally have a session — but the same defensive
+    // ordering keeps the two methods symmetric and supports future
+    // bootstrap-time deletes if any arise.
+    final resolvedBid = db.businessIdResolver.call();
+    if (resolvedBid == null) {
+      throw StateError(
+        'enqueueDelete($tableName): no authenticated session — refusing '
+        'to enqueue without tenant context.',
+      );
     }
+    final bid = resolvedBid;
+    payloadMap['business_id'] = bid;
     final upsertActionType = '$tableName:upsert';
     final deleteActionType = '$tableName:delete';
     final payloadJson = jsonEncode(payloadMap);
@@ -2449,7 +2562,7 @@ class SyncDao extends DatabaseAccessor<AppDatabase>
         await into(syncQueue).insert(
           SyncQueueCompanion.insert(
             id: Value(UuidV7.generate()),
-            businessId: requireBusinessId(),
+            businessId: bid,
             actionType: deleteActionType,
             payload: payloadJson,
           ),

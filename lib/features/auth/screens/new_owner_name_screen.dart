@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:reebaplus_pos/core/providers/app_providers.dart';
 import 'package:reebaplus_pos/core/utils/notifications.dart';
+import 'package:reebaplus_pos/features/auth/onboarding/onboarding_draft.dart';
 import 'package:reebaplus_pos/features/auth/widgets/auth_background.dart';
 import 'package:reebaplus_pos/core/theme/app_decorations.dart';
 import 'package:reebaplus_pos/features/auth/widgets/onboarding_step_indicator.dart';
@@ -10,9 +10,9 @@ import 'package:reebaplus_pos/shared/widgets/app_button.dart';
 import 'package:reebaplus_pos/features/auth/screens/business_details_screen.dart';
 import 'package:reebaplus_pos/shared/widgets/smooth_route.dart';
 
-/// Shown after OTP verification for a brand-new owner.
-/// Collects their name, creates a CEO account in the local DB,
-/// then routes to CreatePinScreen.
+/// Shown after OTP verification for a brand-new owner. First step of the
+/// collect-first / commit-once wizard: writes [OnboardingDraft.ownerName]
+/// only — no DB or Supabase writes happen until PIN confirm.
 class NewOwnerNameScreen extends ConsumerStatefulWidget {
   final String email;
 
@@ -25,6 +25,14 @@ class NewOwnerNameScreen extends ConsumerStatefulWidget {
 class _NewOwnerNameScreenState extends ConsumerState<NewOwnerNameScreen> {
   final _nameController = TextEditingController();
   bool _loading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Restore from draft if the user navigated back from a later step.
+    final draft = ref.read(onboardingDraftProvider);
+    if (draft?.ownerName != null) _nameController.text = draft!.ownerName!;
+  }
 
   @override
   void dispose() {
@@ -41,15 +49,20 @@ class _NewOwnerNameScreenState extends ConsumerState<NewOwnerNameScreen> {
 
     setState(() => _loading = true);
 
-    final newUser = await ref
-        .read(authProvider)
-        .createNewOwner(widget.email, name);
+    // Write to draft only — atomic commit happens at PIN confirm. Defensive
+    // start() in case the user reached this screen without going through
+    // BusinessTypeSelection's seed.
+    final notifier = ref.read(onboardingDraftProvider.notifier);
+    if (ref.read(onboardingDraftProvider) == null) {
+      notifier.start(widget.email);
+    }
+    notifier.update((d) => d.ownerName = name);
 
     if (!mounted) return;
     setState(() => _loading = false);
 
     Navigator.of(context).push(
-      SmoothRoute(page: BusinessDetailsScreen(user: newUser)),
+      SmoothRoute(page: BusinessDetailsScreen(email: widget.email)),
     );
   }
 

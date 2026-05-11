@@ -51,6 +51,8 @@ class SupabaseSyncService {
   StreamSubscription<AuthState>? _authStateSub;
   StreamSubscription<List<ConnectivityResult>>? _connectivitySub;
   Timer? _autoPushDebounce;
+  Timer? _autoPushPeriodic;
+  static const _autoPushPeriodicInterval = Duration(seconds: 30);
   bool _pushing = false;
   bool _loggedJwtClaimsThisSession = false;
 
@@ -228,10 +230,11 @@ class SupabaseSyncService {
     'businesses': {
       'id',
       'name',
+      'type',
+      'phone',
+      'email',
+      'logo_url',
       'owner_id',
-      'location',
-      'currency',
-      'low_stock_threshold',
       'onboarding_complete',
       'created_at',
       'last_updated_at',
@@ -309,7 +312,14 @@ class SupabaseSyncService {
       return;
     }
 
-    final rawItems = await _db.syncDao.getPendingItems(limit: 200);
+    // Pass businessId explicitly so getPendingItems doesn't have to consult
+    // the resolver. Defense-in-depth — keeps the push path safe even if the
+    // resolver becomes null between this guard and the query (it shouldn't,
+    // but the cost of the explicit arg is zero).
+    final rawItems = await _db.syncDao.getPendingItems(
+      limit: 200,
+      businessId: sessionBusinessId,
+    );
     if (rawItems.isEmpty) return;
 
     // Coalesce duplicates: a burst of writes to the same row (e.g. five
@@ -435,6 +445,12 @@ class SupabaseSyncService {
       }
       if (validPayloads.isEmpty) continue;
 
+      debugPrint(
+        '[SyncService] push ${group.action} ${group.table}: '
+        '${validIds.length} ids=${validIds.take(3).join(",")}'
+        '${validIds.length > 3 ? "…" : ""}',
+      );
+
       try {
         if (group.action == 'insert' ||
             group.action == 'update' ||
@@ -462,9 +478,10 @@ class SupabaseSyncService {
         }
         await _db.syncDao.markDoneBatch(validIds);
       } catch (e) {
+        final code = e is PostgrestException ? (e.code ?? '?') : '?';
         debugPrint(
           '[SyncService] Batch push failed for ${group.table}:${group.action} '
-          '(${validIds.length} items): $e',
+          '(${validIds.length} items, http=$code): $e',
         );
         // On batch failure, mark every item failed individually so the
         // existing exponential-backoff per-row state machine still applies.
@@ -530,6 +547,11 @@ class SupabaseSyncService {
         final response = await _supabase.rpc(rpcName, params: payload);
         await _applyDomainResponse(rpcName, response);
         await _db.syncDao.markDone(item.id);
+        final replayed =
+            response is Map && response['replayed'] == true;
+        debugPrint(
+          '[SyncService] domain $rpcName ok (replayed=$replayed)',
+        );
       } on PostgrestException catch (e) {
         // §6.8 failure classification:
         //   - 23503 (foreign_key_violation) → FK-deferred: parent likely
@@ -937,27 +959,39 @@ class SupabaseSyncService {
     );
     try {
       await pushPending();
-
-      final prefs = await SharedPreferences.getInstance();
-      // Per-business key: a wiped DB or a device that has switched businesses
-      // must not inherit the timestamp from a different tenant, otherwise
-      // incremental pulls skip rows that haven't been touched in the cloud
-      // since the unrelated last sync.
-      final key = 'last_sync_timestamp::$businessId';
-      final lastSyncStr = prefs.getString(key);
-      DateTime? since;
-      if (lastSyncStr != null) {
-        since = DateTime.tryParse(lastSyncStr);
-      }
-
-      await pullInitialData(businessId, since: since);
-
-      await prefs.setString(key, DateTime.now().toUtc().toIso8601String());
+      await pullChanges(businessId);
       debugPrint('[SyncService] Two-way sync completed successfully.');
     } catch (e, st) {
       debugPrint('[SyncService] Sync failed: $e\n$st');
       rethrow;
     }
+  }
+
+  /// Pull-only half of [syncAll]: incremental pull anchored on the per-
+  /// business `last_sync_timestamp::<businessId>` cursor in SharedPreferences.
+  ///
+  /// Safe to call before a session is fully bound (i.e. before
+  /// [AuthService.setCurrentUser] has flipped `value`), because every code
+  /// path it touches accepts `businessId` as an explicit argument or routes
+  /// through `_restoreTableData` (the §5-exempt restoration path). That makes
+  /// it the right entry point for [AuthService.syncOnLogin], which runs at
+  /// login boundaries where the resolver still returns null.
+  Future<void> pullChanges(String businessId) async {
+    final prefs = await SharedPreferences.getInstance();
+    // Per-business key: a wiped DB or a device that has switched businesses
+    // must not inherit the timestamp from a different tenant, otherwise
+    // incremental pulls skip rows that haven't been touched in the cloud
+    // since the unrelated last sync.
+    final key = 'last_sync_timestamp::$businessId';
+    final lastSyncStr = prefs.getString(key);
+    DateTime? since;
+    if (lastSyncStr != null) {
+      since = DateTime.tryParse(lastSyncStr);
+    }
+
+    await pullInitialData(businessId, since: since);
+
+    await prefs.setString(key, DateTime.now().toUtc().toIso8601String());
   }
 
   /// Tables fed into `_restoreTableData` after a pull, in FK-safe order.
@@ -1052,6 +1086,26 @@ class SupabaseSyncService {
     }
 
     snapshot ??= await _pullViaPostgRest(businessId, since);
+
+    // Silent-RLS-denial canary: an authenticated pull for a known business
+    // MUST return that business's row. Zero rows here means
+    // public.business_id() returned NULL on the server (caller has no
+    // profiles row, or the profile points to a different business), and
+    // every tenant_select policy filtered the rest of the snapshot out
+    // too. Warn loudly so a wipe-then-relogin race doesn't look like a
+    // legitimate "no data yet" pull. Only fires on full pulls (`since`
+    // null) — incremental pulls returning 0 rows is normal.
+    if (since == null) {
+      final businessesSlice = snapshot['businesses'];
+      if (businessesSlice == null || businessesSlice.isEmpty) {
+        debugPrint(
+          '[SyncService] WARN pull returned 0 businesses rows for '
+          '$businessId — likely RLS denial (missing profiles row for '
+          'auth.uid()=${_supabase.auth.currentUser?.id}). Subsequent '
+          'tenant tables will also be empty.',
+        );
+      }
+    }
 
     for (final table in _pullOrder) {
       final data = snapshot[table];
@@ -1289,6 +1343,23 @@ class SupabaseSyncService {
       _connectivitySub ??= Connectivity().onConnectivityChanged.listen(
         _handleConnectivityTransition,
       );
+
+      // Periodic safety net. The watcher only fires when the queue *count*
+      // changes, which leaves rows in exponential-backoff (status='pending'
+      // with future nextAttemptAt) and 'syncing' zombies invisible until the
+      // user makes another mutation, signs in, or reconnects. The tick re-
+      // evaluates eligibility — getPendingItems naturally filters by
+      // nextAttemptAt, so the cost is one indexed select per tick when
+      // nothing is due.
+      _autoPushPeriodic ??= Timer.periodic(_autoPushPeriodicInterval, (_) async {
+        try {
+          if (_pushing) return;
+          await _db.syncDao.resetStuckInProgress();
+          await _runPushOnce();
+        } catch (e) {
+          debugPrint('[SyncService] periodic drain tick failed: $e');
+        }
+      });
     } finally {
       _autoPushStarting = false;
     }
@@ -1571,6 +1642,8 @@ class SupabaseSyncService {
   void stopAutoPush() {
     _autoPushDebounce?.cancel();
     _autoPushDebounce = null;
+    _autoPushPeriodic?.cancel();
+    _autoPushPeriodic = null;
     _autoPushSub?.cancel();
     _autoPushSub = null;
     _authStateSub?.cancel();
@@ -1680,7 +1753,14 @@ class SupabaseSyncService {
     // local LUA (legacy backfill) loses to anything; incoming rows the
     // local DB doesn't yet have always pass.
     final rows = await _filterByLwwGuard(table, allRows);
+    final filtered = allRows.length - rows.length;
+    if (filtered > 0) {
+      debugPrint(
+        '[SyncService] LWW filtered $filtered/${allRows.length} rows for $table',
+      );
+    }
     if (rows.isEmpty) return;
+    debugPrint('[SyncService] restored $table: ${rows.length} rows');
 
     await _db.transaction(() async {
       switch (table) {
