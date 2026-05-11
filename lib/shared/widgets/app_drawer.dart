@@ -7,6 +7,7 @@ import 'package:reebaplus_pos/core/theme/theme_settings_screen.dart';
 import 'package:reebaplus_pos/core/settings/settings_screen.dart';
 import 'package:reebaplus_pos/core/utils/responsive.dart';
 import 'package:reebaplus_pos/core/providers/app_providers.dart';
+import 'package:reebaplus_pos/features/profile/screens/profile_screen.dart';
 import 'package:reebaplus_pos/features/sync/screens/sync_issues_screen.dart';
 import 'package:reebaplus_pos/shared/widgets/user_tips_modal.dart';
 
@@ -53,24 +54,36 @@ class AppDrawer extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: context.getRSize(56),
-            height: context.getRSize(56),
-            decoration: BoxDecoration(
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
               borderRadius: BorderRadius.circular(14),
-              boxShadow: [
-                BoxShadow(
-                  color: primary.withValues(alpha: 0.4),
-                  blurRadius: 16,
-                  spreadRadius: 2,
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const ProfileScreen()),
+                );
+              },
+              child: Container(
+                width: context.getRSize(56),
+                height: context.getRSize(56),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(14),
+                  boxShadow: [
+                    BoxShadow(
+                      color: primary.withValues(alpha: 0.4),
+                      blurRadius: 16,
+                      spreadRadius: 2,
+                    ),
+                  ],
                 ),
-              ],
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(14),
-              child: SvgPicture.asset(
-                'assets/images/logo.svg',
-                fit: BoxFit.contain,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(14),
+                  child: SvgPicture.asset(
+                    'assets/images/logo.svg',
+                    fit: BoxFit.contain,
+                  ),
+                ),
               ),
             ),
           ),

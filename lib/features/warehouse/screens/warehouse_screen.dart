@@ -18,6 +18,7 @@ import 'package:reebaplus_pos/core/database/app_database.dart';
 import 'package:reebaplus_pos/core/database/uuid_v7.dart';
 import 'package:reebaplus_pos/core/utils/notifications.dart';
 import 'package:reebaplus_pos/features/warehouse/screens/warehouse_details_screen.dart';
+import 'package:reebaplus_pos/features/warehouse/screens/stock_transfer_screen.dart';
 
 class WarehouseScreen extends ConsumerStatefulWidget {
   const WarehouseScreen({super.key});
@@ -515,6 +516,16 @@ class _WarehouseScreenState extends ConsumerState<WarehouseScreen> {
           subtitle: 'Manage Storage Locations',
         ),
         actions: [
+          IconButton(
+            tooltip: 'Stock Transfer',
+            icon: const Icon(Icons.swap_horiz_rounded),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const StockTransferScreen(),
+              ),
+            ),
+          ),
           const NotificationBell(),
           SizedBox(width: rSize(context, 8)),
         ],

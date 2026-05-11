@@ -1,9 +1,0 @@
-Analyzing drink_pos_app...                                      
-
-   info - The constant name 'Distributor' isn't a lowerCamelCase identifier - lib\features\customers\data\models\customer.dart:3:22 - constant_identifier_names
-   info - The constant name 'BulkBreaker' isn't a lowerCamelCase identifier - lib\features\customers\data\models\customer.dart:3:35 - constant_identifier_names
-   info - The constant name 'Retailer' isn't a lowerCamelCase identifier - lib\features\customers\data\models\customer.dart:3:48 - constant_identifier_names
-   info - Unnecessary use of multiple underscores - lib\shared\widgets\app_bar_header.dart:22:26 - unnecessary_underscores
-   info - Unnecessary use of multiple underscores - lib\shared\widgets\menu_button.dart:13:26 - unnecessary_underscores
-
-5 issues found. (ran in 11.7s)
