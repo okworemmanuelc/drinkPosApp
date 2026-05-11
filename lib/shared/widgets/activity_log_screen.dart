@@ -12,7 +12,6 @@ import 'package:reebaplus_pos/features/warehouse/data/models/warehouse.dart';
 import 'package:reebaplus_pos/shared/widgets/app_drawer.dart';
 import 'package:reebaplus_pos/shared/widgets/notification_bell.dart';
 import 'package:reebaplus_pos/shared/widgets/app_dropdown.dart';
-import 'package:reebaplus_pos/shared/widgets/shimmer_loading.dart';
 
 class ActivityLogScreen extends ConsumerStatefulWidget {
   const ActivityLogScreen({super.key});
@@ -31,9 +30,7 @@ class _ActivityLogScreenState extends ConsumerState<ActivityLogScreen> {
   void initState() {
     super.initState();
     _loadUserTiers();
-    Future.delayed(const Duration(seconds: 2), () {
-      if (mounted) setState(() => _loading = false);
-    });
+    _loading = false;
   }
 
   Future<void> _loadUserTiers() async {
@@ -178,13 +175,7 @@ class _ActivityLogScreenState extends ConsumerState<ActivityLogScreen> {
                     final filteredLogs = _filterLogs(logs);
 
                     if (_loading) {
-                      return ListView.separated(
-                        padding: context.rPadding(16),
-                        itemCount: 8,
-                        separatorBuilder: (context, index) =>
-                            SizedBox(height: context.getRSize(12)),
-                        itemBuilder: (_, __) => const ShimmerListTile(),
-                      );
+                      return const Center(child: CircularProgressIndicator());
                     }
 
                     if (filteredLogs.isEmpty) {

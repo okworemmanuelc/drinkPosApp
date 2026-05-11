@@ -21,11 +21,10 @@ import 'package:reebaplus_pos/features/dashboard/screens/sales_detail_screen.dar
 import 'package:reebaplus_pos/features/dashboard/screens/reports_hub_screen.dart';
 import 'package:reebaplus_pos/features/customers/screens/customers_screen.dart';
 import 'package:reebaplus_pos/features/expenses/screens/expenses_screen.dart';
-import 'package:reebaplus_pos/features/inventory/screens/inventory_screen.dart';
 import 'package:reebaplus_pos/features/orders/screens/orders_screen.dart';
 import 'package:reebaplus_pos/shared/widgets/app_button.dart';
-import 'package:reebaplus_pos/shared/widgets/shimmer_loading.dart';
 import 'package:reebaplus_pos/shared/widgets/app_refresh_wrapper.dart';
+import 'package:reebaplus_pos/shared/widgets/slide_route.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
@@ -118,11 +117,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       }
     });
 
-    // Minimum delay for shimmers to ensure they are visible
-    final minLoading = Future.delayed(const Duration(milliseconds: 500));
-
     _ordersSub = ref.read(orderServiceProvider).watchAllOrdersWithItems().listen((orders) async {
-      await minLoading;
       if (mounted) {
         setState(() {
           _allOrdersWithItems = orders;
@@ -136,7 +131,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     _customersSub = db.customersDao.watchAllCustomers().listen((
       customers,
     ) async {
-      await minLoading;
       if (mounted) {
         setState(() {
           _customers = customers.map((d) => Customer.fromDb(d)).toList();
@@ -603,8 +597,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   void _openSalesDetail(List<OrderWithItems> orders, String mode) {
     Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => SalesDetailScreen(
+      slideDownRoute(
+        SalesDetailScreen(
           orders: orders,
           mode: mode,
           period: _selectedPeriod,
@@ -629,10 +623,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     return Column(
       children: [
         _ordersLoading
-            ? const Padding(
-                padding: EdgeInsets.only(bottom: 12),
-                child: ShimmerStatCard(),
-              )
+            ? const SizedBox.shrink()
             : _robustMetricCard(
                 label: 'Total Sales',
                 value: formatCurrency(sales),
@@ -648,7 +639,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         if (userTier >= 5) ...[
           SizedBox(height: context.spacingM),
           _ordersLoading || _expensesLoading
-              ? const ShimmerStatCard()
+              ? const SizedBox.shrink()
               : _robustMetricCard(
                   label: 'Net Profit',
                   value: profit != null ? formatCurrency(profit) : '—',
@@ -670,7 +661,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         ],
         SizedBox(height: context.spacingM),
         _ordersLoading
-            ? const ShimmerStatCard()
+            ? const SizedBox.shrink()
             : _robustMetricCard(
                 label: 'Pending Orders',
                 value: pending.toString(),
@@ -681,15 +672,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 isNeutral: true,
                 onTap: () {
                   Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => const OrdersScreen(initialIndex: 0),
-                    ),
+                    slideLeftRoute(const OrdersScreen(initialIndex: 0)),
                   );
                 },
               ),
         SizedBox(height: context.spacingM),
         _expensesLoading
-            ? const ShimmerStatCard()
+            ? const SizedBox.shrink()
             : _robustMetricCard(
                 label: 'Total Expenses',
                 value: formatCurrency(expenses),
@@ -728,7 +717,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               ),
         SizedBox(height: context.spacingM),
         _inventoryLoading
-            ? const ShimmerStatCard()
+            ? const SizedBox.shrink()
             : _robustMetricCard(
                 label: 'Stock Value',
                 value: formatCurrency(_totalStockValue),
@@ -737,15 +726,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 color: Theme.of(context).colorScheme.primary,
                 trend: 'Live',
                 isNeutral: true,
-                onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const InventoryScreen()),
-                  );
-                },
+                onTap: () => ref.read(navigationProvider).setIndex(2),
               ),
         SizedBox(height: context.spacingM),
         _customersLoading
-            ? const ShimmerStatCard()
+            ? const SizedBox.shrink()
             : _robustMetricCard(
                 label: 'Customer Wallet',
                 value: 'Cr: ${formatCurrency(credit)}',
@@ -756,7 +741,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 isPositive: debt == 0,
                 onTap: () {
                   Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const CustomersScreen()),
+                    slideLeftRoute(const CustomersScreen()),
                   );
                 },
               ),
@@ -768,10 +753,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   Widget _buildStaffSalesSection(List<MapEntry<String, double>> staffSalesList) {
     if (_ordersLoading) {
-      return Padding(
-        padding: EdgeInsets.only(top: context.spacingL),
-        child: const ShimmerStatCard(),
-      );
+      return const SizedBox.shrink();
     }
 
     final nameMap = {for (final u in _staffList) u.id: u};

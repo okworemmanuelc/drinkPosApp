@@ -21,7 +21,6 @@ import 'package:reebaplus_pos/features/pos/widgets/category_filter_bar.dart';
 import 'package:reebaplus_pos/features/pos/widgets/quick_sale_modal.dart';
 import 'package:reebaplus_pos/shared/widgets/pin_dialog.dart';
 import 'package:reebaplus_pos/core/utils/notifications.dart';
-import 'package:reebaplus_pos/shared/widgets/shimmer_loading.dart';
 import 'package:reebaplus_pos/shared/widgets/app_refresh_wrapper.dart';
 
 class PosHomeScreen extends ConsumerStatefulWidget {
@@ -82,7 +81,9 @@ class _PosHomeScreenState extends ConsumerState<PosHomeScreen> {
       return SharedScaffold(
         activeRoute: 'pos',
         backgroundColor: bgCol,
-        body: const SafeArea(child: ShimmerGrid(count: 6)),
+        body: const SafeArea(
+          child: Center(child: CircularProgressIndicator()),
+        ),
       );
     }
 
@@ -124,7 +125,7 @@ class _PosHomeScreenState extends ConsumerState<PosHomeScreen> {
                         subtextCol,
                       ),
                     _controller!.isLoading
-                        ? const ShimmerCategoryBar()
+                        ? const SizedBox.shrink()
                         : CategoryFilterBar(
                             categories: [
                               'All',
@@ -156,7 +157,7 @@ class _PosHomeScreenState extends ConsumerState<PosHomeScreen> {
                     Expanded(
                       // ...
                       child: _controller!.isLoading
-                          ? const ShimmerGrid(count: 6)
+                          ? const Center(child: CircularProgressIndicator())
                           : AppRefreshWrapper(
                               child: ProductGrid(
                                 products: _controller!.filteredProducts,
@@ -240,7 +241,7 @@ class _PosHomeScreenState extends ConsumerState<PosHomeScreen> {
           Expanded(
             flex: 4,
             child: _controller!.isLoading
-                ? const ShimmerDropdown()
+                ? const SizedBox.shrink()
                 : AppDropdown<CustomerGroup>(
                     value: _controller!.selectedGroup,
                     items: const [
@@ -262,7 +263,7 @@ class _PosHomeScreenState extends ConsumerState<PosHomeScreen> {
           Expanded(
             flex: 5,
             child: _controller!.isLoading
-                ? const ShimmerDropdown()
+                ? const SizedBox.shrink()
                 : AppDropdown<String>(
                     value: _controller!.selectedManufacturerId,
                     items: [

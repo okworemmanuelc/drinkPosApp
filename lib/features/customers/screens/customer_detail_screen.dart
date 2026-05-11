@@ -26,7 +26,6 @@ import 'package:reebaplus_pos/shared/widgets/app_button.dart';
 import 'package:reebaplus_pos/shared/widgets/notification_bell.dart';
 import 'package:reebaplus_pos/shared/widgets/printer_picker.dart';
 import 'package:reebaplus_pos/shared/widgets/receipt_widget.dart';
-import 'package:reebaplus_pos/shared/widgets/shimmer_loading.dart';
 
 class CustomerDetailScreen extends ConsumerStatefulWidget {
   final Customer? customer;
@@ -101,10 +100,7 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
       if (mounted) setState(() => _crateBalances = crates);
     });
 
-    // Artificial delay to show shimmers
-    Future.delayed(const Duration(seconds: 1), () {
-      if (mounted) setState(() => _contentReady = true);
-    });
+    _contentReady = true;
   }
 
   @override
@@ -722,7 +718,9 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
             await Future.delayed(const Duration(milliseconds: 500));
           },
           color: theme.colorScheme.primary,
-          child: _contentReady ? _buildContent(theme) : _buildShimmer(theme),
+          child: _contentReady
+              ? _buildContent(theme)
+              : const Center(child: CircularProgressIndicator()),
         ),
       ),
     );
@@ -1388,21 +1386,6 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
     );
   }
 
-  Widget _buildShimmer(ThemeData theme) {
-    return Column(
-      children: [
-        const ShimmerCustomerProfile(),
-        const ShimmerCategoryBar(),
-        Expanded(
-          child: ListView.builder(
-            itemCount: 5,
-            padding: EdgeInsets.symmetric(vertical: context.getRSize(12)),
-            itemBuilder: (_, __) => const ShimmerListTile(),
-          ),
-        ),
-      ],
-    );
-  }
 }
 
 class _InfoRow extends StatelessWidget {

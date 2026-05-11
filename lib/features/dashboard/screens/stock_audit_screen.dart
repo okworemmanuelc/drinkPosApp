@@ -12,7 +12,6 @@ import 'package:reebaplus_pos/core/utils/business_time.dart';
 import 'package:reebaplus_pos/core/utils/number_format.dart';
 import 'package:reebaplus_pos/core/utils/responsive.dart';
 import 'package:reebaplus_pos/shared/widgets/app_dropdown.dart';
-import 'package:reebaplus_pos/shared/widgets/shimmer_loading.dart';
 
 class StockAuditScreen extends ConsumerStatefulWidget {
   const StockAuditScreen({super.key});
@@ -217,7 +216,7 @@ class _StockAuditScreenState extends ConsumerState<StockAuditScreen> {
           // Content
           Expanded(
             child: _loading
-                ? _buildShimmer(context)
+                ? const Center(child: CircularProgressIndicator())
                 : _transactions.isEmpty
                 ? _buildEmptyState(context, colorScheme)
                 : _buildTransactionList(context, colorScheme),
@@ -767,21 +766,6 @@ class _StockAuditScreenState extends ConsumerState<StockAuditScreen> {
       default:
         return AppColors.info;
     }
-  }
-
-  Widget _buildShimmer(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.all(context.spacingM),
-      child: Column(
-        children: List.generate(
-          10,
-          (_) => Padding(
-            padding: EdgeInsets.only(bottom: context.spacingS),
-            child: const ShimmerSaleRow(),
-          ),
-        ),
-      ),
-    );
   }
 
   Widget _buildEmptyState(BuildContext context, ColorScheme colorScheme) {

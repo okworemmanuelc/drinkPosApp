@@ -20,7 +20,6 @@ import 'package:reebaplus_pos/core/database/app_database.dart';
 import 'package:reebaplus_pos/shared/widgets/app_button.dart';
 import 'package:reebaplus_pos/core/utils/notifications.dart';
 import 'package:reebaplus_pos/shared/widgets/app_input.dart';
-import 'package:reebaplus_pos/shared/widgets/shimmer_loading.dart';
 import 'package:reebaplus_pos/features/inventory/widgets/update_product_sheet.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -115,13 +114,8 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
   }
 
   Future<void> _loadProductData() async {
-    // Keep shimmer visible for at least 700 ms so users actually see it,
-    // even when local SQLite queries finish near-instantly.
-    final minDisplay = Future<void>.delayed(const Duration(milliseconds: 700));
-
     final productId = widget.item.id;
     if (productId.isEmpty) {
-      await minDisplay;
       if (mounted) setState(() => _contentReady = true);
       return;
     }
@@ -196,7 +190,6 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     final delivery = await db.deliveriesDao.getLastDeliveryForProduct(
       productId,
     );
-    await minDisplay; // ensure shimmer stays visible for the minimum duration
     if (mounted) {
       setState(() {
         _lastDelivery = delivery;
@@ -257,7 +250,9 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     if (!_contentReady) {
       return Scaffold(
         backgroundColor: _bg,
-        body: const SafeArea(child: ShimmerProductDetail()),
+        body: const SafeArea(
+          child: Center(child: CircularProgressIndicator()),
+        ),
       );
     }
 

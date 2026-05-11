@@ -9,7 +9,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:reebaplus_pos/core/database/app_database.dart';
 import 'package:reebaplus_pos/core/providers/app_providers.dart';
 import 'package:reebaplus_pos/core/theme/colors.dart';
-import 'package:reebaplus_pos/shared/widgets/shimmer_loading.dart';
 
 import 'package:reebaplus_pos/core/utils/responsive.dart';
 import 'package:reebaplus_pos/shared/widgets/app_drawer.dart';
@@ -103,9 +102,7 @@ class _StaffScreenState extends ConsumerState<StaffScreen> {
         _updateItems();
       }
     });
-    Future.delayed(const Duration(seconds: 2), () {
-      if (mounted) setState(() => _loading = false);
-    });
+    _loading = false;
   }
 
   void _updateItems() {
@@ -193,11 +190,7 @@ class _StaffScreenState extends ConsumerState<StaffScreen> {
         _buildWarehouseFilters(),
         Expanded(
           child: _loading
-              ? ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: 6,
-                  itemBuilder: (_, __) => const ShimmerStaffCard(),
-                )
+              ? const Center(child: CircularProgressIndicator())
               : list.isEmpty
               ? Center(
                   child: Column(

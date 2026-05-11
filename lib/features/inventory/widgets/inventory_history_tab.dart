@@ -9,7 +9,6 @@ import 'package:reebaplus_pos/core/theme/design_tokens.dart';
 import 'package:reebaplus_pos/core/utils/business_time.dart';
 import 'package:reebaplus_pos/core/utils/number_format.dart';
 import 'package:reebaplus_pos/core/utils/responsive.dart';
-import 'package:reebaplus_pos/shared/widgets/shimmer_loading.dart';
 
 class InventoryHistoryTab extends ConsumerStatefulWidget {
   final String? warehouseId;
@@ -114,7 +113,7 @@ class _InventoryHistoryTabState extends ConsumerState<InventoryHistoryTab> {
     final colorScheme = Theme.of(context).colorScheme;
 
     if (_loading) {
-      return _buildShimmer(context);
+      return const Center(child: CircularProgressIndicator());
     }
 
     if (_transactions.isEmpty) {
@@ -468,21 +467,6 @@ class _InventoryHistoryTabState extends ConsumerState<InventoryHistoryTab> {
     }
     if (diff.inDays < 7) return '${diff.inDays}d ago';
     return DateFormat('dd/MM').format(dt);
-  }
-
-  Widget _buildShimmer(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.all(context.spacingM),
-      child: Column(
-        children: List.generate(
-          8,
-          (_) => Padding(
-            padding: EdgeInsets.only(bottom: context.spacingS),
-            child: const ShimmerSaleRow(),
-          ),
-        ),
-      ),
-    );
   }
 
   Widget _buildEmptyState(BuildContext context, ColorScheme colorScheme) {

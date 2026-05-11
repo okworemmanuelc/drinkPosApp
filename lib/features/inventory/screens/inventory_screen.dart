@@ -30,9 +30,9 @@ import 'package:reebaplus_pos/features/inventory/widgets/update_product_sheet.da
 import 'package:reebaplus_pos/features/pos/widgets/category_filter_bar.dart';
 import 'package:reebaplus_pos/core/utils/product_name.dart';
 import 'package:reebaplus_pos/core/utils/currency_input_formatter.dart';
-import 'package:reebaplus_pos/shared/widgets/shimmer_loading.dart';
 import 'package:reebaplus_pos/shared/services/navigation_service.dart';
 import 'package:reebaplus_pos/shared/widgets/app_refresh_wrapper.dart';
+import 'package:reebaplus_pos/shared/widgets/slide_route.dart';
 
 class InventoryScreen extends ConsumerStatefulWidget {
   const InventoryScreen({super.key});
@@ -59,7 +59,6 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen>
   List<CrateGroupData> _dbCrateGroups = [];
 
   bool _isFirstLoad = true;
-  late Future<void> _minLoading;
   StreamSubscription<List<ProductDataWithStock>>? _productsSub;
   StreamSubscription<List<WarehouseData>>? _warehousesSub;
   StreamSubscription<List<ManufacturerData>>? _manufacturersSub;
@@ -84,7 +83,6 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen>
   @override
   void initState() {
     super.initState();
-    _minLoading = Future.delayed(const Duration(seconds: 2));
     _tabController = TabController(length: 4, vsync: this);
     _tabController.addListener(() {
       if (mounted && _tabController.index != _currentTab) {
@@ -196,8 +194,7 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen>
         ? db.inventoryDao.watchProductDatasWithStockByWarehouse(warehouseId)
         : db.inventoryDao.watchAllProductDatasWithStock();
 
-    _productsSub = productStream.listen((data) async {
-      await _minLoading;
+    _productsSub = productStream.listen((data) {
       if (mounted) {
         setState(() {
           _dbProducts = data;
@@ -276,8 +273,8 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen>
           icon: const Icon(Icons.fact_check_outlined),
           onPressed: () => Navigator.push(
             context,
-            MaterialPageRoute(
-              builder: (context) => StockCountScreen(
+            slideDownRoute(
+              StockCountScreen(
                 warehouseId: ref
                     .read(navigationProvider)
                     .lockedWarehouseId
@@ -293,7 +290,7 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen>
   }
 
   Widget _buildSummaryCards(BuildContext context) {
-    if (_isFirstLoad) return const ShimmerInventoryStats();
+    if (_isFirstLoad) return const SizedBox.shrink();
     final products = _dbProducts;
 
     final totalItems = products.length;
@@ -473,19 +470,7 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen>
 
   Widget _buildProductsTab(BuildContext context) {
     if (_isFirstLoad) {
-      return Column(
-        children: [
-          _buildSupplierFilter(context),
-          const ShimmerCategoryBar(),
-          Expanded(
-            child: ListView.builder(
-              padding: EdgeInsets.symmetric(horizontal: context.getRSize(16)),
-              itemCount: 6,
-              itemBuilder: (_, __) => const ShimmerInventoryRow(),
-            ),
-          ),
-        ],
-      );
+      return const Center(child: CircularProgressIndicator());
     }
 
     var list = _dbProducts;
@@ -690,7 +675,7 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen>
         children: [
           Expanded(
             child: _isFirstLoad
-                ? const ShimmerDropdown()
+                ? const SizedBox.shrink()
                 : (ref.read(navigationProvider).warehouseLocked.value
                       ? _buildLockedWarehouseChip()
                       : AppDropdown<String>(
@@ -725,7 +710,7 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen>
           SizedBox(width: context.getRSize(12)),
           Expanded(
             child: _isFirstLoad
-                ? const ShimmerDropdown()
+                ? const SizedBox.shrink()
                 : AppDropdown<String>(
                     value: _selectedManufacturer,
                     labelText: 'Manufacturer',
@@ -859,34 +844,14 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen>
         );
         Navigator.push(
           context,
-          PageRouteBuilder<void>(
-            transitionDuration: const Duration(milliseconds: 350),
-            reverseTransitionDuration: const Duration(milliseconds: 280),
-            pageBuilder: (context, animation, secondaryAnimation) =>
-                ProductDetailScreen(
-                  item: inventoryItem,
-                  onUpdateStock: () => setState(() {}),
-                  selectedWarehouseId: _selectedWarehouseId == 'all'
-                      ? null
-                      : _selectedWarehouseId,
-                ),
-            transitionsBuilder:
-                (context, animation, secondaryAnimation, child) {
-                  final curved = CurvedAnimation(
-                    parent: animation,
-                    curve: Curves.easeInOut,
-                  );
-                  return FadeTransition(
-                    opacity: curved,
-                    child: SlideTransition(
-                      position: Tween<Offset>(
-                        begin: const Offset(0.05, 0),
-                        end: Offset.zero,
-                      ).animate(curved),
-                      child: child,
-                    ),
-                  );
-                },
+          slideDownRoute<void>(
+            ProductDetailScreen(
+              item: inventoryItem,
+              onUpdateStock: () => setState(() {}),
+              selectedWarehouseId: _selectedWarehouseId == 'all'
+                  ? null
+                  : _selectedWarehouseId,
+            ),
           ),
         );
       },

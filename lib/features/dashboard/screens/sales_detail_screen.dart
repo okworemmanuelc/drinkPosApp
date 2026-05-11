@@ -5,7 +5,6 @@ import 'package:reebaplus_pos/core/database/daos.dart';
 import 'package:reebaplus_pos/core/utils/number_format.dart';
 import 'package:reebaplus_pos/core/utils/responsive.dart';
 import 'package:reebaplus_pos/core/theme/design_tokens.dart';
-import 'package:reebaplus_pos/shared/widgets/shimmer_loading.dart';
 
 /// Shows when the user taps "Total Sales" or "Net Profit" on the dashboard.
 /// [mode] = 'sales' → revenue-focused columns.
@@ -32,9 +31,7 @@ class _SalesDetailScreenState extends State<SalesDetailScreen> {
   @override
   void initState() {
     super.initState();
-    Future.delayed(const Duration(seconds: 2), () {
-      if (mounted) setState(() => _loading = false);
-    });
+    _loading = false;
   }
 
   @override
@@ -116,20 +113,7 @@ class _SalesDetailScreenState extends State<SalesDetailScreen> {
         ),
       ),
       body: _loading
-          ? Column(
-              children: [
-                const ShimmerStatCard(),
-                const SizedBox(height: 12),
-                _buildTableHeader(context, showProfit: isProfitMode),
-                Expanded(
-                  child: ListView.builder(
-                    itemCount: 10,
-                    itemBuilder: (_, __) =>
-                        ShimmerSaleRow(showProfit: isProfitMode),
-                  ),
-                ),
-              ],
-            )
+          ? const Center(child: CircularProgressIndicator())
           : rows.isEmpty
           ? _buildEmpty(context)
           : Column(

@@ -30,7 +30,6 @@ import 'package:reebaplus_pos/features/pos/services/receipt_builder.dart';
 import 'package:reebaplus_pos/core/utils/notifications.dart';
 import 'package:reebaplus_pos/features/orders/widgets/crate_return_modal.dart';
 import 'package:reebaplus_pos/shared/widgets/printer_picker.dart';
-import 'package:reebaplus_pos/shared/widgets/shimmer_loading.dart';
 
 class OrdersScreen extends ConsumerStatefulWidget {
   final int initialIndex;
@@ -122,7 +121,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
 
           return ordersAsync.when(
             loading: () =>
-                const SingleChildScrollView(child: ShimmerOrderList(count: 7)),
+                const Center(child: CircularProgressIndicator()),
             error: (e, _) => Center(child: Text('Error: $e')),
             data: (allOrdersWithItems) {
               final now = DateTime.now();

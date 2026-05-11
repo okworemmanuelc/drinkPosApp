@@ -12,6 +12,7 @@ import 'package:reebaplus_pos/features/dashboard/screens/stock_audit_screen.dart
 import 'package:reebaplus_pos/features/dashboard/screens/sales_detail_screen.dart';
 import 'package:reebaplus_pos/features/expenses/screens/expenses_screen.dart';
 import 'package:reebaplus_pos/features/customers/screens/customers_screen.dart';
+import 'package:reebaplus_pos/shared/widgets/slide_route.dart';
 
 class ReportsHubScreen extends ConsumerStatefulWidget {
   const ReportsHubScreen({super.key});
@@ -112,8 +113,8 @@ class _ReportsHubScreenState extends ConsumerState<ReportsHubScreen> {
                       .toList();
                   Navigator.push(
                     context,
-                    MaterialPageRoute(
-                      builder: (_) => SalesDetailScreen(
+                    slideDownRoute(
+                      SalesDetailScreen(
                         orders: filtered,
                         mode: 'sales',
                         period: _selectedPeriod,
@@ -155,8 +156,7 @@ class _ReportsHubScreenState extends ConsumerState<ReportsHubScreen> {
                 }
                 Navigator.push(
                   context,
-                  MaterialPageRoute(
-                      builder: (_) => const StockAuditScreen()),
+                  slideDownRoute(const StockAuditScreen()),
                 );
               },
             ),
@@ -174,8 +174,7 @@ class _ReportsHubScreenState extends ConsumerState<ReportsHubScreen> {
                 }
                 Navigator.push(
                   context,
-                  MaterialPageRoute(
-                      builder: (_) => const CustomersScreen()),
+                  slideLeftRoute(const CustomersScreen()),
                 );
               },
             ),

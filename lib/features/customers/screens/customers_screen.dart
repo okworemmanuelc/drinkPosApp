@@ -14,8 +14,8 @@ import 'package:reebaplus_pos/features/customers/data/models/customer.dart';
 import 'package:reebaplus_pos/features/customers/widgets/add_customer_sheet.dart';
 import 'package:reebaplus_pos/features/customers/screens/customer_detail_screen.dart';
 import 'package:reebaplus_pos/shared/widgets/app_dropdown.dart';
-import 'package:reebaplus_pos/shared/widgets/shimmer_loading.dart';
 import 'package:reebaplus_pos/shared/widgets/app_refresh_wrapper.dart';
+import 'package:reebaplus_pos/shared/widgets/slide_route.dart';
 
 class CustomersScreen extends ConsumerStatefulWidget {
   const CustomersScreen({super.key});
@@ -59,9 +59,6 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
       defaultId = user?.warehouseId;
     }
     // Staff (< 4): no dropdown — always their warehouse (handled in filter)
-
-    final minLoading = Future.delayed(const Duration(seconds: 2));
-    await minLoading;
 
     if (mounted) {
       setState(() {
@@ -112,7 +109,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
                             .valueOrNull ??
                         const <String, int>{};
                     if (_isFirstLoad) {
-                      return const ShimmerList(count: 8);
+                      return const Center(child: CircularProgressIndicator());
                     }
 
                     List<Customer> filtered;
@@ -371,9 +368,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
       onTap: () {
         Navigator.push(
           context,
-          MaterialPageRoute(
-            builder: (context) => CustomerDetailScreen(customer: customer),
-          ),
+          slideDownRoute(CustomerDetailScreen(customer: customer)),
         );
       },
       borderRadius: BorderRadius.circular(context.getRSize(16)),

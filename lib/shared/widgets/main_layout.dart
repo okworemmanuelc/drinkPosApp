@@ -29,7 +29,7 @@ class MainLayout extends ConsumerStatefulWidget {
 }
 
 class _MainLayoutState extends ConsumerState<MainLayout>
-    with WidgetsBindingObserver {
+    with WidgetsBindingObserver, SingleTickerProviderStateMixin {
   static void _voidOnCustomerChanged(dynamic _) {}
 
   // 12 tabs = 12 Navigators
@@ -67,6 +67,10 @@ class _MainLayoutState extends ConsumerState<MainLayout>
   int _pendingOrderCount = 0;
   StreamSubscription<List<Order>>? _pendingOrdersSub;
 
+  late final AnimationController _tabSwitchController;
+  late final Animation<Offset> _tabSlideAnimation;
+  int? _previousTabIndex;
+
   @override
   void initState() {
     super.initState();
@@ -82,6 +86,20 @@ class _MainLayoutState extends ConsumerState<MainLayout>
 
     // Only pre-load the landing tab
     _initializedTabs.add(nav.currentIndex.value);
+    _previousTabIndex = nav.currentIndex.value;
+
+    _tabSwitchController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 260),
+      value: 1.0,
+    );
+    _tabSlideAnimation = Tween<Offset>(
+      begin: const Offset(1, 0),
+      end: Offset.zero,
+    ).chain(CurveTween(curve: Curves.easeOutCubic))
+        .animate(_tabSwitchController);
+
+    nav.currentIndex.addListener(_onTabIndexChanged);
 
     _pendingOrdersSub = ref
         .read(orderServiceProvider)
@@ -94,8 +112,17 @@ class _MainLayoutState extends ConsumerState<MainLayout>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    ref.read(navigationProvider).currentIndex.removeListener(_onTabIndexChanged);
+    _tabSwitchController.dispose();
     _pendingOrdersSub?.cancel();
     super.dispose();
+  }
+
+  void _onTabIndexChanged() {
+    final newIndex = ref.read(navigationProvider).currentIndex.value;
+    if (newIndex == _previousTabIndex) return;
+    _previousTabIndex = newIndex;
+    _tabSwitchController.forward(from: 0);
   }
 
   /// Intercepts the system back button at the highest level, before any
@@ -129,7 +156,7 @@ class _MainLayoutState extends ConsumerState<MainLayout>
                 // Not yet visited — render nothing
                 return const SizedBox.shrink();
               }
-              return Offstage(
+              final tab = Offstage(
                 offstage: i != currentIndex,
                 // TickerMode guarantees animations on offstage tabs don't tick
                 child: TickerMode(
@@ -141,6 +168,8 @@ class _MainLayoutState extends ConsumerState<MainLayout>
                   ),
                 ),
               );
+              if (i != currentIndex) return tab;
+              return SlideTransition(position: _tabSlideAnimation, child: tab);
             }),
           ),
           bottomNavigationBar: ValueListenableBuilder(
