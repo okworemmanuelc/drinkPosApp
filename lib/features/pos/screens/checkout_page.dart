@@ -943,6 +943,7 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
           if (!mounted) return;
 
           if (connected) {
+            await printer.saveLastConnectedMac(device.macAdress);
             final success = await printer.printBytesDirectly(receiptBytes);
             if (!mounted) return;
             if (success) {

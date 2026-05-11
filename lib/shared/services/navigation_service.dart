@@ -16,6 +16,20 @@ class NavigationService {
   // Each tab has its own NavigatorState key
   List<GlobalKey<NavigatorState>> tabNavigatorKeys = [];
 
+  // Per-tab nested-Navigator pop state, kept in sync by NavigatorObservers
+  // attached in MainLayout. `currentTabCanPop` surfaces only the active tab's
+  // value so the bottom nav can listen to a single notifier.
+  final List<bool> _tabCanPop = List.filled(12, false);
+  final ValueNotifier<bool> currentTabCanPop = ValueNotifier<bool>(false);
+
+  void setTabCanPop(int tabIndex, bool canPop) {
+    if (tabIndex < 0 || tabIndex >= _tabCanPop.length) return;
+    _tabCanPop[tabIndex] = canPop;
+    if (tabIndex == currentIndex.value) {
+      currentTabCanPop.value = canPop;
+    }
+  }
+
   // Used by MainLayout to access and potentially close the drawer
   final GlobalKey<ScaffoldState> mainScaffoldKey = GlobalKey<ScaffoldState>();
 
@@ -65,6 +79,9 @@ class NavigationService {
       // Keep history reasonable
       if (_history.length > 10) _history.removeAt(0);
       currentIndex.value = index;
+      if (index >= 0 && index < _tabCanPop.length) {
+        currentTabCanPop.value = _tabCanPop[index];
+      }
     }
   }
 
@@ -178,6 +195,10 @@ class NavigationService {
     currentIndex.value = 0;
     _lastBackPress = null;
     _lastHandleTime = null;
+    for (int i = 0; i < _tabCanPop.length; i++) {
+      _tabCanPop[i] = false;
+    }
+    currentTabCanPop.value = false;
   }
 
   /// Manually update the warehouse lock (e.g. for CEO switching locations in POS)

@@ -156,8 +156,10 @@ class _SyncIssuesScreenState extends ConsumerState<SyncIssuesScreen> {
   Widget build(BuildContext context) {
     final t = Theme.of(context);
     final failedAsync = ref.watch(failedQueueItemsProvider);
+    final orphanAsync = ref.watch(orphanQueueItemsProvider);
     final pendingCount = ref.watch(pendingQueueCountProvider).valueOrNull ?? 0;
     final failedCount = ref.watch(failedQueueCountProvider).valueOrNull ?? 0;
+    final orphanCount = ref.watch(orphanQueueCountProvider).valueOrNull ?? 0;
     final claims = SupabaseSyncService.inspectJwtClaims();
     final businessId = ref.read(authProvider).currentUser?.businessId;
 
@@ -182,7 +184,8 @@ class _SyncIssuesScreenState extends ConsumerState<SyncIssuesScreen> {
               claims: claims,
               profile: _profile,
               pending: pendingCount,
-              failed: failedCount),
+              failed: failedCount,
+              orphaned: orphanCount),
           const SizedBox(height: 28),
           _sectionHeader(t, 'Failed items'),
           const SizedBox(height: 12),
@@ -199,6 +202,44 @@ class _SyncIssuesScreenState extends ConsumerState<SyncIssuesScreen> {
               return Column(
                 children: [
                   for (final item in items) _failedItemTile(t, item),
+                ],
+              );
+            },
+          ),
+          const SizedBox(height: 28),
+          Row(
+            children: [
+              Expanded(child: _sectionHeader(t, 'Orphaned items')),
+              if (orphanCount > 0)
+                TextButton(
+                  onPressed: () => _retryAllOrphans(),
+                  child: const Text('Retry all'),
+                ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Permanent failures auto-archived out of the queue. Surface here so '
+            'a "Push/RLS gap" in the audit below has a visible cause.',
+            style: TextStyle(
+              fontSize: 12,
+              color: t.colorScheme.onSurface.withValues(alpha: 0.6),
+            ),
+          ),
+          const SizedBox(height: 12),
+          orphanAsync.when(
+            loading: () => const Padding(
+              padding: EdgeInsets.all(24),
+              child: Center(child: CircularProgressIndicator()),
+            ),
+            error: (e, _) => _emptyCard(t, 'Failed to load: $e'),
+            data: (items) {
+              if (items.isEmpty) {
+                return _emptyCard(t, 'No orphaned items.');
+              }
+              return Column(
+                children: [
+                  for (final item in items) _orphanItemTile(t, item),
                 ],
               );
             },
@@ -230,6 +271,7 @@ class _SyncIssuesScreenState extends ConsumerState<SyncIssuesScreen> {
     required _ProfileProbe profile,
     required int pending,
     required int failed,
+    required int orphaned,
   }) {
     // RLS in this project uses auth.uid() → profiles, not the JWT claim.
     // The claim status is shown for completeness only — its absence is
@@ -296,6 +338,14 @@ class _SyncIssuesScreenState extends ConsumerState<SyncIssuesScreen> {
             failed.toString(),
             valueColor: failed == 0 ? null : t.colorScheme.error,
           ),
+          const SizedBox(height: 10),
+          _healthRow(
+            t,
+            FontAwesomeIcons.ghost,
+            'Orphaned (auto-archived)',
+            orphaned.toString(),
+            valueColor: orphaned == 0 ? null : t.colorScheme.error,
+          ),
         ],
       ),
     );
@@ -346,6 +396,150 @@ class _SyncIssuesScreenState extends ConsumerState<SyncIssuesScreen> {
           ),
         ),
       );
+
+  Future<void> _retryAllOrphans() async {
+    final dao = ref.read(databaseProvider).syncDao;
+    final orphans = await dao.watchOrphans().first;
+    var ok = 0;
+    var failed = 0;
+    for (final orphan in orphans) {
+      try {
+        await dao.retryOrphan(orphan.id);
+        ok++;
+      } catch (_) {
+        failed++;
+      }
+    }
+    unawaited(ref.read(supabaseSyncServiceProvider).pushPending());
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Re-enqueued $ok orphan(s)'
+          '${failed > 0 ? ', $failed could not be retried' : ''}.',
+        ),
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
+  Widget _orphanItemTile(ThemeData t, SyncQueueOrphanData item) {
+    final reasonText = item.reason;
+    final payloadPreview = item.payload.length > 200
+        ? '${item.payload.substring(0, 200)}…'
+        : item.payload;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(14),
+      decoration: AppDecorations.glassCard(context, radius: 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: t.colorScheme.error.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  'Orphan',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: t.colorScheme.error,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  item.actionType,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: t.colorScheme.onSurface,
+                  ),
+                ),
+              ),
+              Text(
+                'archived: ${item.movedAt.toLocal()}',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: t.colorScheme.onSurface.withValues(alpha: 0.6),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            reasonText,
+            style: TextStyle(
+              fontSize: 12,
+              color: t.colorScheme.error.withValues(alpha: 0.9),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            payloadPreview,
+            style: TextStyle(
+              fontSize: 11,
+              fontFamily: 'monospace',
+              color: t.colorScheme.onSurface.withValues(alpha: 0.55),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              const Spacer(),
+              TextButton(
+                onPressed: () async {
+                  try {
+                    await ref
+                        .read(databaseProvider)
+                        .syncDao
+                        .retryOrphan(item.id);
+                    unawaited(
+                        ref.read(supabaseSyncServiceProvider).pushPending());
+                    if (!mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Re-enqueued.'),
+                        duration: Duration(seconds: 2),
+                      ),
+                    );
+                  } catch (e) {
+                    if (!mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Retry failed: $e'),
+                        backgroundColor: t.colorScheme.error,
+                      ),
+                    );
+                  }
+                },
+                child: const Text('Retry'),
+              ),
+              TextButton(
+                onPressed: () async {
+                  await ref
+                      .read(databaseProvider)
+                      .syncDao
+                      .discardOrphan(item.id);
+                },
+                style:
+                    TextButton.styleFrom(foregroundColor: t.colorScheme.error),
+                child: const Text('Discard'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _failedItemTile(ThemeData t, SyncQueueData item) {
     final kind = _classify(item.errorMessage);

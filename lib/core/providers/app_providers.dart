@@ -8,6 +8,7 @@ library;
 import 'package:drift/drift.dart' show innerJoin;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:reebaplus_pos/core/database/app_database.dart';
 import 'package:reebaplus_pos/core/services/biometric_service.dart';
@@ -43,6 +44,11 @@ final crateReturnApprovalServiceProvider =
 // ── Database (global — initialised before runApp) ──────────────────────────
 final databaseProvider = Provider<AppDatabase>((_) => database);
 
+// ── Supabase client ────────────────────────────────────────────────────────
+final supabaseClientProvider = Provider<SupabaseClient>(
+  (_) => Supabase.instance.client,
+);
+
 // ── Navigation ─────────────────────────────────────────────────────────────
 final navigationProvider = Provider<NavigationService>((ref) {
   return NavigationService();
@@ -67,6 +73,7 @@ final authProvider = ChangeNotifierProvider<AuthService>((ref) {
     ref.read(navigationProvider),
     ref.read(secureStorageProvider),
     ref.read(supabaseSyncServiceProvider),
+    ref.read(supabaseClientProvider),
   );
 });
 final deviceUserIdProvider =
@@ -163,12 +170,15 @@ final reorderAlertServiceProvider = Provider<ReorderAlertService>((ref) {
 });
 
 final supabaseSyncServiceProvider = Provider<SupabaseSyncService>((ref) {
-  return SupabaseSyncService(ref.read(databaseProvider));
+  return SupabaseSyncService(
+    ref.read(databaseProvider),
+    ref.read(supabaseClientProvider),
+  );
 });
 
 // ── Invite API ─────────────────────────────────────────────────────────────
 final inviteApiServiceProvider = Provider<InviteApiService>((ref) {
-  return InviteApiService();
+  return InviteApiService(ref.read(supabaseClientProvider));
 });
 
 // Singleton — start() is idempotent; main.dart hooks into pendingUri to
@@ -191,6 +201,12 @@ final failedQueueCountProvider = StreamProvider.autoDispose<int>((ref) {
 });
 final pendingQueueCountProvider = StreamProvider.autoDispose<int>((ref) {
   return ref.read(databaseProvider).syncDao.watchPendingCount();
+});
+final orphanQueueItemsProvider = StreamProvider.autoDispose((ref) {
+  return ref.read(databaseProvider).syncDao.watchOrphans();
+});
+final orphanQueueCountProvider = StreamProvider.autoDispose<int>((ref) {
+  return ref.read(databaseProvider).syncDao.watchOrphanCount();
 });
 
 final pendingCrateReturnsProvider =

@@ -15,6 +15,7 @@ import 'package:reebaplus_pos/features/deliveries/screens/deliveries_screen.dart
 import 'package:reebaplus_pos/shared/widgets/activity_log_screen.dart';
 import 'package:reebaplus_pos/core/providers/app_providers.dart';
 import 'package:reebaplus_pos/shared/models/order.dart';
+import 'package:reebaplus_pos/shared/services/navigation_service.dart';
 import 'package:reebaplus_pos/shared/widgets/tab_navigator.dart';
 
 // The LazyIndexedStack has been replaced with the direct Offstage + Set approach
@@ -36,6 +37,9 @@ class _MainLayoutState extends ConsumerState<MainLayout>
     12,
     (_) => GlobalKey<NavigatorState>(),
   );
+
+  // One pop-observer per tab; created in initState once `nav` is available.
+  late final List<_TabPopObserver> _observers;
 
   // Track which tabs have ever been visited
   final Set<int> _initializedTabs = {};
@@ -73,6 +77,8 @@ class _MainLayoutState extends ConsumerState<MainLayout>
     // Link shared keys
     final nav = ref.read(navigationProvider);
     nav.tabNavigatorKeys = _navigatorKeys;
+
+    _observers = List.generate(12, (i) => _TabPopObserver(tabIndex: i, nav: nav));
 
     // Only pre-load the landing tab
     _initializedTabs.add(nav.currentIndex.value);
@@ -131,6 +137,7 @@ class _MainLayoutState extends ConsumerState<MainLayout>
                   child: TabNavigator(
                     navigatorKey: _navigatorKeys[i],
                     rootScreen: _tabWidgets[i],
+                    observer: _observers[i],
                   ),
                 ),
               );
@@ -154,7 +161,11 @@ class _MainLayoutState extends ConsumerState<MainLayout>
                                 ? 2
                                 : (currentIndex == 9 ? 3 : 0)));
 
-                return BottomNavigationBar(
+                return ValueListenableBuilder<bool>(
+                  valueListenable: nav.currentTabCanPop,
+                  builder: (context, canPop, _) {
+                    if (!isNavTab || canPop) return const SizedBox.shrink();
+                    return BottomNavigationBar(
                   currentIndex: navIndex,
                   selectedItemColor: isNavTab
                       ? t.colorScheme.primary
@@ -253,6 +264,8 @@ class _MainLayoutState extends ConsumerState<MainLayout>
                     ),
                   ],
                 );
+                  },
+                );
               }
 
               // Manager / CEO nav: Home(0), Stock(2), POS(1), Orders(3), Cart(9)
@@ -267,7 +280,11 @@ class _MainLayoutState extends ConsumerState<MainLayout>
                                     ? 3
                                     : (currentIndex == 9 ? 4 : 0))));
 
-              return BottomNavigationBar(
+              return ValueListenableBuilder<bool>(
+                valueListenable: nav.currentTabCanPop,
+                builder: (context, canPop, _) {
+                  if (!isNavTab || canPop) return const SizedBox.shrink();
+                  return BottomNavigationBar(
                 currentIndex: navIndex,
                 selectedItemColor: isNavTab ? t.colorScheme.primary : iconColor,
                 unselectedItemColor: iconColor,
@@ -372,10 +389,49 @@ class _MainLayoutState extends ConsumerState<MainLayout>
                   ),
                 ],
               );
+                },
+              );
             },
           ),
         );
       },
     );
+  }
+}
+
+class _TabPopObserver extends NavigatorObserver {
+  _TabPopObserver({required this.tabIndex, required this.nav});
+
+  final int tabIndex;
+  final NavigationService nav;
+
+  void _sync() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      nav.setTabCanPop(tabIndex, navigator?.canPop() ?? false);
+    });
+  }
+
+  @override
+  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    super.didPush(route, previousRoute);
+    _sync();
+  }
+
+  @override
+  void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    super.didPop(route, previousRoute);
+    _sync();
+  }
+
+  @override
+  void didRemove(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    super.didRemove(route, previousRoute);
+    _sync();
+  }
+
+  @override
+  void didReplace({Route<dynamic>? newRoute, Route<dynamic>? oldRoute}) {
+    super.didReplace(newRoute: newRoute, oldRoute: oldRoute);
+    _sync();
   }
 }

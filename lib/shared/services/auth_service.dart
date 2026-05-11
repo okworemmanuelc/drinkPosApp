@@ -173,7 +173,12 @@ class AuthService extends ValueNotifier<UserData?> {
   /// Sentinel PIN written to a local user row when it's been seeded from a
   /// cloud profile but the device hasn't set up a PIN yet. The OTP flow
   /// detects this and routes the user into PIN setup.
-  static const String setupRequiredPin = '__SETUP_REQUIRED__';
+  ///
+  /// Canonical definition is [kSetupRequiredPin] in `app_database.dart` —
+  /// kept there so the sync layer can write it during restore without a
+  /// circular import. This static alias preserves the existing public API
+  /// (`AuthService.setupRequiredPin`) used by the OTP/email-entry screens.
+  static const String setupRequiredPin = kSetupRequiredPin;
 
   /// Reads the current auth user's cloud profile and the linked business
   /// metadata. Returns null when no profile / business exists, when no user

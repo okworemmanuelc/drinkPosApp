@@ -203,6 +203,9 @@ void main() {
         caught = e;
       }
       expect(caught, isNotNull);
+      expect(caught.toString(), contains('tenant_mismatch'),
+          reason: '_assert_caller_owns_business must reject the bogus tenant; '
+              'any other exception masks an unrelated regression');
       expect(await fixture.countById('products', productId), 0);
     }, skip: _skipReason);
 
@@ -222,6 +225,9 @@ void main() {
       }
       expect(caught, isNotNull,
           reason: 'product_id_required guard should fire');
+      expect(caught.toString(), contains('product_id_required'),
+          reason: 'failure must be the validation guard, not an unrelated '
+              'schema/network error');
     }, skip: _skipReason);
   });
 }

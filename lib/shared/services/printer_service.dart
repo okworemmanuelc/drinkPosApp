@@ -1,9 +1,12 @@
 import 'dart:io';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:print_bluetooth_thermal/print_bluetooth_thermal.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:reebaplus_pos/core/utils/logger.dart';
 
 class PrinterService {
+  static const _lastMacKey = 'last_printer_mac';
+
   PrinterService();
 
   Future<bool> requestPermissions() async {
@@ -37,24 +40,49 @@ class PrinterService {
     }
   }
 
+  /// Persists the MAC of the printer the user last successfully connected to
+  /// via [PrinterPicker]. Read by [autoConnect] on next launch.
+  Future<void> saveLastConnectedMac(String mac) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_lastMacKey, mac);
+  }
+
   Future<bool> autoConnect() async {
     try {
-      final paired = await getPairedDevices();
-      final targetPrinters = paired.where((d) {
-        final name = d.name.toLowerCase();
-        return name.contains('bluetooth_mobile_printer') ||
-            name.contains('mp583') ||
-            name.contains('thermal') ||
-            name.contains('printer');
-      }).toList();
-
-      if (targetPrinters.isNotEmpty) {
-        final targetPrinter = targetPrinters.first;
-        AppLogger.info('Auto-connecting to ${targetPrinter.name}');
-        return await connect(targetPrinter.macAdress);
+      final prefs = await SharedPreferences.getInstance();
+      final savedMac = prefs.getString(_lastMacKey);
+      if (savedMac != null && savedMac.isNotEmpty) {
+        final paired = await getPairedDevices();
+        final match = paired.where((d) => d.macAdress == savedMac).toList();
+        if (match.isNotEmpty) {
+          AppLogger.info('Auto-connecting to saved printer ${match.first.name}');
+          if (await connect(savedMac)) return true;
+        }
       }
+      return await _autoConnectByName();
     } catch (e) {
       AppLogger.error('Auto-connect failed: $e');
+      return false;
+    }
+  }
+
+  /// Fallback for first-run / no-saved-MAC state. Matches by substring on the
+  /// device name — brittle, but preserved for users who haven't picked a
+  /// printer yet.
+  Future<bool> _autoConnectByName() async {
+    final paired = await getPairedDevices();
+    final targetPrinters = paired.where((d) {
+      final name = d.name.toLowerCase();
+      return name.contains('bluetooth_mobile_printer') ||
+          name.contains('mp583') ||
+          name.contains('thermal') ||
+          name.contains('printer');
+    }).toList();
+
+    if (targetPrinters.isNotEmpty) {
+      final targetPrinter = targetPrinters.first;
+      AppLogger.info('Auto-connecting to ${targetPrinter.name}');
+      return await connect(targetPrinter.macAdress);
     }
     return false;
   }

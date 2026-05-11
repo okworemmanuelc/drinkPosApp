@@ -600,6 +600,9 @@ class _CustomerDetailScreenState extends ConsumerState<CustomerDetailScreen> {
                   .connect(device.macAdress);
               if (!mounted) return;
               if (connected) {
+                await ref
+                    .read(printerServiceProvider)
+                    .saveLastConnectedMac(device.macAdress);
                 await ref.read(printerServiceProvider).printBytes(bytes);
                 if (!ctx.mounted) return;
                 AppNotification.showSuccess(ctx, 'Print successful');

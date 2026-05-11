@@ -6,17 +6,20 @@ import 'package:flutter/material.dart';
 class TabNavigator extends StatelessWidget {
   final GlobalKey<NavigatorState> navigatorKey;
   final Widget rootScreen;
+  final NavigatorObserver? observer;
 
   const TabNavigator({
     super.key,
     required this.navigatorKey,
     required this.rootScreen,
+    this.observer,
   });
 
   @override
   Widget build(BuildContext context) {
     return Navigator(
       key: navigatorKey,
+      observers: observer != null ? [observer!] : const <NavigatorObserver>[],
       onGenerateRoute: (routeSettings) {
         return MaterialPageRoute(builder: (context) => rootScreen);
       },

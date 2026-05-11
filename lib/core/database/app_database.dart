@@ -13,6 +13,16 @@ export 'daos.dart';
 
 part 'app_database.g.dart';
 
+/// Sentinel stored in `users.pin` for rows that exist locally but have no PIN
+/// configured on this device yet — e.g. staff seeded from a cloud sync who
+/// haven't authenticated here, or the current auth user before they complete
+/// PIN setup. Detected by the OTP / email-entry flow to route into
+/// `CreatePinScreen` instead of the PIN-entry path.
+///
+/// Lives here (rather than on AuthService) so the sync layer can also write
+/// it during restore without a circular `auth_service ↔ sync_service` import.
+const String kSetupRequiredPin = '__SETUP_REQUIRED__';
+
 // ---------------------------------------------------------------------------
 // Tenant + lookup tables
 // ---------------------------------------------------------------------------

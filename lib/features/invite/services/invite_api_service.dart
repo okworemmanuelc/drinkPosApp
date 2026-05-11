@@ -4,7 +4,12 @@
 /// keep the two enums in sync.
 library;
 
+import 'dart:async';
+import 'dart:io';
+
 import 'package:supabase_flutter/supabase_flutter.dart';
+
+import 'package:reebaplus_pos/core/utils/logger.dart';
 
 /// Wire-level error codes returned by the Edge Functions.
 enum InviteErrorCode {
@@ -109,6 +114,10 @@ class InviteApiErr<T> extends InviteApiResult<T> {
 }
 
 class InviteApiService {
+  final SupabaseClient _supabase;
+
+  InviteApiService(this._supabase);
+
   /// Generic invoker that maps both successful and error responses onto
   /// `InviteApiResult`. Handles both transport models supabase_flutter has
   /// shipped: throwing FunctionException on non-2xx (older), or returning
@@ -118,17 +127,28 @@ class InviteApiService {
     Map<String, dynamic> body,
   ) async {
     try {
-      final res = await Supabase.instance.client.functions.invoke(
-        fn,
-        body: body,
-      );
+      final res = await _supabase.functions.invoke(fn, body: body);
       return _interpret(res.status, res.data);
     } on FunctionException catch (e) {
       return _interpret(e.status, e.details);
-    } catch (_) {
+    } on SocketException catch (e, st) {
+      AppLogger.error('Invite Edge Function $fn: socket error', e, st);
       return InviteApiErr(
         InviteErrorCode.networkError,
         InviteErrorCode.networkError.defaultMessage,
+      );
+    } on TimeoutException catch (e, st) {
+      AppLogger.error('Invite Edge Function $fn: timeout', e, st);
+      return InviteApiErr(
+        InviteErrorCode.networkError,
+        InviteErrorCode.networkError.defaultMessage,
+      );
+    } catch (e, st) {
+      AppLogger.error('Invite Edge Function $fn: unexpected error', e, st);
+      return InviteApiErr(
+        InviteErrorCode.internal,
+        InviteErrorCode.internal.defaultMessage,
+        {'exception': e.toString()},
       );
     }
   }
@@ -211,7 +231,7 @@ class InviteApiService {
   /// caller in the same business. No Edge Function needed.
   Future<bool> revoke(String inviteId) async {
     try {
-      await Supabase.instance.client.from('invites').update({
+      await _supabase.from('invites').update({
         'status': 'revoked',
         'last_updated_at': DateTime.now().toUtc().toIso8601String(),
       }).eq('id', inviteId);

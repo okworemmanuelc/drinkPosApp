@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:reebaplus_pos/core/services/supabase_sync_service.dart';
 import 'package:reebaplus_pos/core/providers/app_providers.dart';
 
 class AppRefreshWrapper extends ConsumerWidget {
@@ -22,7 +21,7 @@ class AppRefreshWrapper extends ConsumerWidget {
           final user = authService.currentUser;
 
           if (user != null) {
-            final syncService = SupabaseSyncService(ref.read(databaseProvider));
+            final syncService = ref.read(supabaseSyncServiceProvider);
             await syncService.syncAll(user.businessId);
 
             if (context.mounted) {

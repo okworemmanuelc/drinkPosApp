@@ -1001,18 +1001,19 @@ class SupabaseSyncService {
     'crate_groups',
     'manufacturers',
     'warehouses',
+    'users',
     'profiles',
     'categories',
+    'suppliers',
     'products',
     'inventory',
     'customers',
-    'suppliers',
     'orders',
     'order_items',
     'purchases',
     'purchase_items',
-    'expenses',
     'expense_categories',
+    'expenses',
     'customer_crate_balances',
     'delivery_receipts',
     'drivers',
@@ -1086,6 +1087,41 @@ class SupabaseSyncService {
     }
 
     snapshot ??= await _pullViaPostgRest(businessId, since);
+
+    // `pos_pull_snapshot` predates the `users` restore path (see 0005_sync_rpcs
+    // v_tenant_tables) and omits the `users` table. Without a backfill,
+    // `orders.staff_id` and other FK-to-users tables would explode at restore
+    // time on a fresh device. Supplementary fetch is no-op when the postgrest
+    // fallback already populated `users`, or when an updated RPC eventually
+    // returns it inline.
+    if (snapshot['users'] == null || snapshot['users']!.isEmpty) {
+      try {
+        var q = _supabase.from('users').select().eq('business_id', businessId);
+        if (since != null) {
+          q = q.gt('last_updated_at', since.toIso8601String());
+        }
+        final List<dynamic> users = await q.timeout(
+          const Duration(seconds: 15),
+        );
+        snapshot['users'] = users;
+        // Loud canary: matches the businesses canary below. A full pull that
+        // returns 0 users for a known business almost certainly means the
+        // FK-to-users tables (orders.staff_id, stock_*.performed_by, etc.)
+        // will explode at restore time. Better to see it in the log now than
+        // to chase a generic "couldn't load your business" toast.
+        if (since == null && users.isEmpty) {
+          debugPrint(
+            '[SyncService] WARN supplementary users fetch returned 0 rows '
+            'for $businessId — FK-to-users tables will fail restore. RLS '
+            'denial or empty cloud users? auth.uid()='
+            '${_supabase.auth.currentUser?.id}',
+          );
+        }
+      } catch (e) {
+        debugPrint('[SyncService] Supplementary users fetch failed: $e');
+        snapshot.putIfAbsent('users', () => const <dynamic>[]);
+      }
+    }
 
     // Silent-RLS-denial canary: an authenticated pull for a known business
     // MUST return that business's row. Zero rows here means
@@ -1781,6 +1817,119 @@ class SupabaseSyncService {
             await _db
                 .into(_db.warehouses)
                 .insertOnConflictUpdate(WarehouseData.fromJson(r));
+          }
+          break;
+        case 'users':
+          // Manual upsert: cloud doesn't carry device-local auth material
+          // (pin, pinHash, pinSalt, pinIterations, passwordHash) or per-device
+          // UI/biometric state (biometricEnabled, avatarColor). On existing
+          // rows touch only cloud-owned fields so a fresh pull never clobbers
+          // a PIN already set on this device; on new rows insert with the
+          // setup-required sentinel so the row exists for FK targets like
+          // orders.staff_id, and the OTP flow can later route the user into
+          // PIN setup if they sign in here.
+          //
+          // Cloud-owned fields mirrored here (keep in sync with app_database
+          // `Users` table and `0001_initial.sql public.users`):
+          //   businessId, authUserId, name, email, role, roleTier,
+          //   warehouseId, isDeleted, createdAt, lastNotificationSentAt,
+          //   lastUpdatedAt.
+          // Device-local fields intentionally omitted (never overwrite from
+          // cloud):
+          //   pin, pinHash, pinSalt, pinIterations, passwordHash,
+          //   biometricEnabled, avatarColor.
+          for (var r in rows) {
+            final id = r['id'] as String;
+            final existing =
+                await (_db.select(_db.users)
+                  ..where((u) => u.id.equals(id))).getSingleOrNull();
+
+            DateTime parseTs(Object? v, {DateTime? fallback}) {
+              if (v is String) return DateTime.parse(v);
+              if (v is DateTime) return v;
+              return fallback ?? DateTime.now().toUtc();
+            }
+
+            final lastUpdatedAt = parseTs(r['lastUpdatedAt']);
+            final createdAt = parseTs(
+              r['createdAt'],
+              fallback: lastUpdatedAt,
+            );
+            final lastNotificationSentAt = r['lastNotificationSentAt'] == null
+                ? null
+                : parseTs(r['lastNotificationSentAt']);
+
+            // CHECK-constraint guard: local Users has
+            //   role IN ('admin','staff','ceo','manager') and
+            //   role_tier IN (1,4,5).
+            // A cloud row outside these sets would crash the whole pull at
+            // insert time. Coerce to the safe defaults and log so the data
+            // anomaly is investigable instead of silently locking the user
+            // out of the app.
+            const allowedRoles = {'admin', 'staff', 'ceo', 'manager'};
+            const allowedRoleTiers = {1, 4, 5};
+            final rawRole = r['role'] as String?;
+            String role;
+            if (rawRole != null && allowedRoles.contains(rawRole)) {
+              role = rawRole;
+            } else {
+              role = 'staff';
+              debugPrint(
+                '[SyncService] users restore: coerced invalid role '
+                '"${rawRole ?? "<null>"}" to "staff" for id=$id',
+              );
+            }
+            final rawTier = (r['roleTier'] as num?)?.toInt();
+            int roleTier;
+            if (rawTier != null && allowedRoleTiers.contains(rawTier)) {
+              roleTier = rawTier;
+            } else {
+              roleTier = 1;
+              if (rawTier != null) {
+                debugPrint(
+                  '[SyncService] users restore: coerced invalid role_tier '
+                  '$rawTier to 1 for id=$id',
+                );
+              }
+            }
+
+            if (existing != null) {
+              await (_db.update(_db.users)
+                ..where((u) => u.id.equals(id))).write(
+                UsersCompanion(
+                  businessId: Value(r['businessId'] as String),
+                  authUserId: Value(r['authUserId'] as String?),
+                  name: Value(r['name'] as String? ?? ''),
+                  email: Value(r['email'] as String?),
+                  role: Value(role),
+                  roleTier: Value(roleTier),
+                  warehouseId: Value(r['warehouseId'] as String?),
+                  lastNotificationSentAt: Value(lastNotificationSentAt),
+                  isDeleted: Value(r['isDeleted'] as bool? ?? false),
+                  lastUpdatedAt: Value(lastUpdatedAt),
+                ),
+              );
+            } else {
+              await _db
+                  .into(_db.users)
+                  .insert(
+                    UsersCompanion.insert(
+                      id: Value(id),
+                      businessId: r['businessId'] as String,
+                      authUserId: Value(r['authUserId'] as String?),
+                      name: r['name'] as String? ?? '',
+                      email: Value(r['email'] as String?),
+                      pin: kSetupRequiredPin,
+                      role: role,
+                      roleTier: Value(roleTier),
+                      warehouseId: Value(r['warehouseId'] as String?),
+                      createdAt: Value(createdAt),
+                      lastNotificationSentAt: Value(lastNotificationSentAt),
+                      isDeleted: Value(r['isDeleted'] as bool? ?? false),
+                      lastUpdatedAt: Value(lastUpdatedAt),
+                    ),
+                  );
+            }
           }
           break;
         case 'products':

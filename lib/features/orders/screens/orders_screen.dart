@@ -1191,6 +1191,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
           if (!context.mounted) return;
 
           if (connected) {
+            await printer.saveLastConnectedMac(selectedDevice.macAdress);
             final printOk = await printer.printBytesDirectly(bytes);
             if (!context.mounted) return;
             if (printOk) {
