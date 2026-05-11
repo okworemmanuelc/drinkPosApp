@@ -68,7 +68,7 @@ class _MainLayoutState extends ConsumerState<MainLayout>
   StreamSubscription<List<Order>>? _pendingOrdersSub;
 
   late final AnimationController _tabSwitchController;
-  late final Animation<Offset> _tabSlideAnimation;
+  late final Animation<double> _tabFadeAnimation;
   int? _previousTabIndex;
 
   @override
@@ -90,14 +90,13 @@ class _MainLayoutState extends ConsumerState<MainLayout>
 
     _tabSwitchController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 260),
+      duration: const Duration(milliseconds: 200),
       value: 1.0,
     );
-    _tabSlideAnimation = Tween<Offset>(
-      begin: const Offset(1, 0),
-      end: Offset.zero,
-    ).chain(CurveTween(curve: Curves.easeOutCubic))
-        .animate(_tabSwitchController);
+    _tabFadeAnimation = CurvedAnimation(
+      parent: _tabSwitchController,
+      curve: Curves.easeOut,
+    );
 
     nav.currentIndex.addListener(_onTabIndexChanged);
 
@@ -169,7 +168,7 @@ class _MainLayoutState extends ConsumerState<MainLayout>
                 ),
               );
               if (i != currentIndex) return tab;
-              return SlideTransition(position: _tabSlideAnimation, child: tab);
+              return FadeTransition(opacity: _tabFadeAnimation, child: tab);
             }),
           ),
           bottomNavigationBar: ValueListenableBuilder(
