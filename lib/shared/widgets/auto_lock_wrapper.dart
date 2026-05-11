@@ -39,7 +39,13 @@ class _AutoLockWrapperState extends ConsumerState<AutoLockWrapper>
     final prefs = await SharedPreferences.getInstance();
     final db = ref.read(databaseProvider);
 
-    if (state != AppLifecycleState.resumed) {
+    // iOS fires `inactive` for brief interruptions the user perceives as
+    // still using the app (Notification Center, Control Center, system
+    // alerts, app switcher, mid-call). Only treat genuine background
+    // states as a pause so those don't accrue toward the auto-lock timer.
+    final isBackgrounded = state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden;
+    if (isBackgrounded) {
       if (!prefs.containsKey(_pausedTimeKey)) {
         await prefs.setInt(
           _pausedTimeKey,
@@ -70,7 +76,7 @@ class _AutoLockWrapperState extends ConsumerState<AutoLockWrapper>
         } else {
           final intervalStr =
               await db.settingsDao.get('auto_lock_interval_seconds');
-          final autoLockSeconds = int.tryParse(intervalStr ?? '') ?? 300;
+          final autoLockSeconds = int.tryParse(intervalStr ?? '') ?? 1800;
 
           if (autoLockSeconds > 0 && difference.inSeconds >= autoLockSeconds) {
             if (auth.currentUser != null) {
