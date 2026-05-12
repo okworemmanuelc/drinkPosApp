@@ -41,8 +41,8 @@ class StaffListItem {
   StaffListItem.fromUser(this.user, RoleOption roleInfo)
     : invite = null,
       status = 'active',
-      tier = user!.roleTier,
-      name = user.name,
+      tier = roleInfo.tier,
+      name = user!.name,
       roleLabel = roleInfo.label,
       avatarColor = user.avatarColor,
       warehouseId = user.warehouseId ?? _kAllWarehouses;
